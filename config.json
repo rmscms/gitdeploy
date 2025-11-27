@@ -1,0 +1,19 @@
+{
+  "Host": "ftp.example.com",
+  "Port": 21,
+  "Username": "admin",
+  "Password": "",
+  "RemotePath": "/public_html",
+  "LocalProjectPath": "C:\\laragon\\www\\iras\\new",
+  "UseSSH": false,
+  "AutoInitGit": true,
+  "AutoCommit": true,
+  "AutoPush": false,
+  "ExcludePatterns": [
+    "node_modules/",
+    ".git/",
+    ".env",
+    "*.log",
+    "vendor/"
+  ]
+}
