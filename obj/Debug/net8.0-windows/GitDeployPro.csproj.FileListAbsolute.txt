@@ -49,3 +49,4 @@ C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net8.0-windows\GitDeployP
 C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net8.0-windows\ref\GitDeployPro.dll
 C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net8.0-windows\Windows\InitGitWindow.baml
 C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net8.0-windows\Windows\InitGitWindow.g.cs
+C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net8.0-windows\GitDeployPro.sourcelink.json
