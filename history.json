@@ -1,0 +1,30 @@
+[
+  {
+    "Id": 1,
+    "Title": "Deploy master to beta",
+    "Date": "2025-11-27T19:42:54.9935409+03:30",
+    "FilesCount": 4,
+    "Branch": "master",
+    "Status": "Success",
+    "Files": [
+      ".gitignore",
+      "ftp.zip",
+      "new.zip",
+      "src/Console/Commands/PublishAdminControllerStub.php"
+    ],
+    "CommitHash": "40aeee203b10dae48834361bffbc4a0f7859d7db"
+  },
+  {
+    "Id": 2,
+    "Title": "Deploy master to beta",
+    "Date": "2025-11-27T19:57:50.2500305+03:30",
+    "FilesCount": 2,
+    "Branch": "master",
+    "Status": "Success",
+    "Files": [
+      ".gitignore",
+      "src/Console/Commands/PublishAdminControllerStub.php"
+    ],
+    "CommitHash": "40aeee203b10dae48834361bffbc4a0f7859d7db"
+  }
+]

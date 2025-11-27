@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "dgSpecHash": "KPnnLmxltU0=",
+  "success": true,
+  "projectFilePath": "C:\\laragon\\www\\rms2\\develop-ftp\\GitDeployPro\\GitDeployPro.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\poromix\\.nuget\\packages\\controlzex\\4.4.0\\controlzex.4.4.0.nupkg.sha512",
+    "C:\\Users\\poromix\\.nuget\\packages\\fluentftp\\53.0.2\\fluentftp.53.0.2.nupkg.sha512",
+    "C:\\Users\\poromix\\.nuget\\packages\\handycontrols\\3.5.0\\handycontrols.3.5.0.nupkg.sha512",
+    "C:\\Users\\poromix\\.nuget\\packages\\mahapps.metro\\2.4.11\\mahapps.metro.2.4.11.nupkg.sha512",
+    "C:\\Users\\poromix\\.nuget\\packages\\microsoft.xaml.behaviors.wpf\\1.1.19\\microsoft.xaml.behaviors.wpf.1.1.19.nupkg.sha512",
+    "C:\\Users\\poromix\\.nuget\\packages\\newtonsoft.json\\13.0.4\\newtonsoft.json.13.0.4.nupkg.sha512",
+    "C:\\Users\\poromix\\.nuget\\packages\\system.text.json\\4.7.2\\system.text.json.4.7.2.nupkg.sha512"
+  ],
+  "logs": []
+}

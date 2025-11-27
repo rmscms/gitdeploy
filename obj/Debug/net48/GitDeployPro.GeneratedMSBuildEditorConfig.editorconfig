@@ -1,0 +1,5 @@
+is_global = true
+build_property.RootNamespace = GitDeployPro
+build_property.ProjectDir = C:\laragon\www\rms2\develop-ftp\GitDeployPro\
+build_property.EnableComHosting = 
+build_property.EnableGeneratedComInterfaceComImportInterop = 

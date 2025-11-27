@@ -1,0 +1,11 @@
+C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\netcoreapp3.1\GitDeployPro.csproj.AssemblyReference.cache
+C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\netcoreapp3.1\MainWindow.baml
+C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\netcoreapp3.1\App.baml
+C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\netcoreapp3.1\MainWindow.g.cs
+C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\netcoreapp3.1\App.g.cs
+C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\netcoreapp3.1\GitDeployPro_MarkupCompile.cache
+C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\netcoreapp3.1\GitDeployPro.g.resources
+C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\netcoreapp3.1\GitDeployPro.GeneratedMSBuildEditorConfig.editorconfig
+C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\netcoreapp3.1\GitDeployPro.AssemblyInfoInputs.cache
+C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\netcoreapp3.1\GitDeployPro.AssemblyInfo.cs
+C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\netcoreapp3.1\GitDeployPro.csproj.CoreCompileInputs.cache

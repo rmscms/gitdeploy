@@ -1,0 +1,4 @@
+C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net7.0-windows\GitDeployPro.csproj.AssemblyReference.cache
+C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net7.0-windows\MainWindow.baml
+C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net7.0-windows\MainWindow.g.cs
+C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net7.0-windows\GitDeployPro_MarkupCompile.cache

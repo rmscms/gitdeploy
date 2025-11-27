@@ -1,0 +1,11 @@
+C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net48\GitDeployPro.csproj.AssemblyReference.cache
+C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net48\MainWindow.baml
+C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net48\MainWindow.g.cs
+C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net48\GitDeployPro_MarkupCompile.cache
+C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net48\App.baml
+C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net48\App.g.cs
+C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net48\GitDeployPro.g.resources
+C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net48\GitDeployPro.GeneratedMSBuildEditorConfig.editorconfig
+C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net48\GitDeployPro.AssemblyInfoInputs.cache
+C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net48\GitDeployPro.AssemblyInfo.cs
+C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net48\GitDeployPro.csproj.CoreCompileInputs.cache
