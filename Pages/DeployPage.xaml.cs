@@ -53,7 +53,9 @@ namespace GitDeployPro.Pages
 
                 // Check for uncommitted changes
                 var uncommitted = await _gitService.GetUncommittedChangesAsync();
-                if (uncommitted.Count > 0)
+                var totalCommits = await _gitService.GetTotalCommitsAsync();
+
+                if (uncommitted.Count > 0 || totalCommits == 0)
                 {
                     ShowCommitUI(true, uncommitted.Count);
                 }
