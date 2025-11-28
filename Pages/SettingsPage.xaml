@@ -274,6 +274,21 @@
                                         Padding="10"
                                         FontSize="13"
                                         Margin="0,0,0,15"/>
+                                <Border x:Name="GitPushStatusBadge"
+                                        Background="#2F2A1C"
+                                        CornerRadius="6"
+                                        Padding="10"
+                                        Margin="0,0,0,15"
+                                        Visibility="Collapsed">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="☁️" FontSize="16" Margin="0,0,8,0" Foreground="#FFD54F"/>
+                                        <TextBlock x:Name="GitPushStatusText"
+                                                  Text="Pending push"
+                                                  FontSize="13"
+                                                  Foreground="#FFD54F"
+                                                  FontWeight="SemiBold"/>
+                                    </StackPanel>
+                                </Border>
 
                                 <Grid Margin="0,0,0,10">
                                     <Grid.ColumnDefinitions>

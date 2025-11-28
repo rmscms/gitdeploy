@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("GitDeployPro")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9cdb13ae7c3b9b844f87189045d67e237250ed1b")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+8e767961a338d13e70ed64020f30e0422b8ec475")]
 [assembly: System.Reflection.AssemblyProductAttribute("GitDeployPro")]
 [assembly: System.Reflection.AssemblyTitleAttribute("GitDeployPro")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

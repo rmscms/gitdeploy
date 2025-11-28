@@ -137,6 +137,77 @@ namespace GitDeployPro.Services
             return 0;
         }
 
+        public async Task<BranchStatusInfo> GetBranchStatusAsync()
+        {
+            var status = new BranchStatusInfo();
+            try
+            {
+                var output = await RunGitCommandAsync("status -sb");
+                var lines = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                var headerLine = lines.FirstOrDefault(l => l.StartsWith("##", StringComparison.OrdinalIgnoreCase));
+                if (headerLine == null)
+                {
+                    status.LocalBranch = await GetCurrentBranchAsync();
+                    return status;
+                }
+
+                var trimmed = headerLine.Substring(2).Trim();
+                string bracketPart = string.Empty;
+                int bracketIndex = trimmed.IndexOf('[');
+                if (bracketIndex >= 0)
+                {
+                    bracketPart = trimmed.Substring(bracketIndex).Trim();
+                    trimmed = trimmed.Substring(0, bracketIndex).Trim();
+                    bracketPart = bracketPart.Trim('[', ']');
+                }
+
+                if (trimmed.Contains("..."))
+                {
+                    var branchParts = trimmed.Split(new[] { "..." }, StringSplitOptions.None);
+                    status.LocalBranch = branchParts[0];
+                    if (branchParts.Length > 1)
+                    {
+                        status.RemoteBranch = branchParts[1];
+                    }
+                }
+                else
+                {
+                    status.LocalBranch = trimmed;
+                }
+
+                if (!string.IsNullOrWhiteSpace(bracketPart))
+                {
+                    var segments = bracketPart.Split(',');
+                    foreach (var rawSegment in segments)
+                    {
+                        var segment = rawSegment.Trim();
+                        if (segment.StartsWith("ahead", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var tokens = segment.Split(' ');
+                            if (tokens.Length >= 2 && int.TryParse(tokens[1], out int ahead))
+                            {
+                                status.AheadCount = ahead;
+                            }
+                        }
+                        else if (segment.StartsWith("behind", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var tokens = segment.Split(' ');
+                            if (tokens.Length >= 2 && int.TryParse(tokens[1], out int behind))
+                            {
+                                status.BehindCount = behind;
+                            }
+                        }
+                    }
+                }
+
+                return status;
+            }
+            catch
+            {
+                return status;
+            }
+        }
+
         public async Task<List<FileChange>> GetUncommittedChangesAsync()
         {
             var output = await RunGitCommandAsync("status --porcelain");
@@ -438,5 +509,14 @@ namespace GitDeployPro.Services
         Added,
         Modified,
         Deleted
+    }
+
+    public class BranchStatusInfo
+    {
+        public string LocalBranch { get; set; } = "";
+        public string RemoteBranch { get; set; } = "";
+        public int AheadCount { get; set; }
+        public int BehindCount { get; set; }
+        public bool HasRemote => !string.IsNullOrWhiteSpace(RemoteBranch);
     }
 }

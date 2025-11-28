@@ -21,6 +21,7 @@ namespace GitDeployPro.Pages
         private List<DeployFileViewModel> _fileViewModels = new List<DeployFileViewModel>();
         private bool _isLoaded = false;
         private ProjectConfig _projectConfig;
+        private BranchStatusInfo _branchStatus = new BranchStatusInfo();
         private int _cachedUncommittedCount = -1;
         private int _cachedTotalCommits = -1;
 
@@ -102,6 +103,8 @@ namespace GitDeployPro.Pages
                     SelectFallbackTargetBranch(branches);
                 }
 
+                await RefreshBranchStatusAsync();
+
                 // Determine Button State
                 UpdateActionButtonState(_cachedUncommittedCount, _cachedTotalCommits);
 
@@ -133,6 +136,7 @@ namespace GitDeployPro.Pages
             TargetBranchComboBox.IsEnabled = false;
             if (ActionButton != null) ActionButton.IsEnabled = false;
             if (DeployButton != null) DeployButton.IsEnabled = false;
+            if (DeployPushBadge != null) DeployPushBadge.Visibility = Visibility.Collapsed;
         }
 
         private void SelectFallbackTargetBranch(List<string> branches)
@@ -150,6 +154,19 @@ namespace GitDeployPro.Pages
             {
                 TargetBranchComboBox.SelectedIndex = 0;
             }
+        }
+
+        private async Task RefreshBranchStatusAsync()
+        {
+            if (!_gitService.IsGitRepository())
+            {
+                _branchStatus = new BranchStatusInfo();
+                UpdatePushBadgeUi();
+                return;
+            }
+
+            _branchStatus = await _gitService.GetBranchStatusAsync();
+            UpdatePushBadgeUi();
         }
 
         private void BranchComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -204,9 +221,33 @@ namespace GitDeployPro.Pages
 
             if (sameBranch)
             {
-                SetActionButton("push", "☁️ PUSH TO GITHUB", "#24292E");
-                StatusText.Text = "Branches are same. Ready to push to remote.";
-                StatusText.Foreground = System.Windows.Media.Brushes.LightGray;
+                bool remoteReady = _branchStatus != null && _branchStatus.HasRemote;
+                string pushLabel = "☁️ PUSH TO GITHUB";
+                if (_branchStatus != null && _branchStatus.AheadCount > 0)
+                {
+                    pushLabel = $"☁️ PUSH ({_branchStatus.AheadCount})";
+                }
+
+                SetActionButton("push", pushLabel, "#24292E", remoteReady);
+
+                if (remoteReady)
+                {
+                    if (_branchStatus != null && _branchStatus.AheadCount > 0)
+                    {
+                        StatusText.Text = "You have commits pending push.";
+                        StatusText.Foreground = System.Windows.Media.Brushes.Orange;
+                    }
+                    else
+                    {
+                        StatusText.Text = "Branches are up to date with remote.";
+                        StatusText.Foreground = System.Windows.Media.Brushes.LightGray;
+                    }
+                }
+                else
+                {
+                    StatusText.Text = "Configure a remote in Settings to enable push.";
+                    StatusText.Foreground = System.Windows.Media.Brushes.Orange;
+                }
             }
             else
             {
@@ -233,7 +274,22 @@ namespace GitDeployPro.Pages
             StatusText.Foreground = System.Windows.Media.Brushes.Orange;
         }
 
-        private void SetActionButton(string tag, string content, string colorHex)
+        private void UpdatePushBadgeUi()
+        {
+            if (DeployPushBadge == null || DeployPushBadgeText == null) return;
+
+            if (_branchStatus != null && _branchStatus.HasRemote && _branchStatus.AheadCount > 0)
+            {
+                DeployPushBadge.Visibility = Visibility.Visible;
+                DeployPushBadgeText.Text = $"Push pending: {_branchStatus.AheadCount} commit(s)";
+            }
+            else
+            {
+                DeployPushBadge.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        private void SetActionButton(string tag, string content, string colorHex, bool isEnabled = true)
         {
             if (ActionButton == null) return;
             
@@ -242,7 +298,7 @@ namespace GitDeployPro.Pages
             try {
                 ActionButton.Background = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(colorHex));
             } catch { }
-            ActionButton.IsEnabled = true;
+            ActionButton.IsEnabled = isEnabled;
         }
 
         private async void ActionButton_Click(object sender, RoutedEventArgs e)
@@ -349,10 +405,12 @@ namespace GitDeployPro.Pages
 
         private async Task PushToGithub()
         {
+            if (ActionButton == null) return;
+
+            ActionButton.IsEnabled = false;
+            ActionButton.Content = "⏳ Pushing...";
             try
             {
-                ActionButton.IsEnabled = false;
-                ActionButton.Content = "⏳ Pushing...";
                 AddLog("☁️ Pushing changes to GitHub...");
 
                 await _gitService.PushAsync();
@@ -365,11 +423,10 @@ namespace GitDeployPro.Pages
                 AddLog($"❌ Push failed: {ex.Message}");
                 ModernMessageBox.Show($"Push failed: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
-            finally
-            {
-                ActionButton.IsEnabled = true;
-                UpdateActionButtonState();
-            }
+
+            await RefreshBranchStatusAsync();
+            ActionButton.IsEnabled = true;
+            UpdateActionButtonState();
         }
 
         private async void DeployButton_Click(object sender, RoutedEventArgs e)

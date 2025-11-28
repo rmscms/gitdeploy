@@ -59,6 +59,7 @@ namespace GitDeployPro.Pages
                 if (!_gitService.IsGitRepository())
                 {
                     CurrentBranchText.Text = "Git Repository not found";
+                    UpdatePushStatusBadge(new BranchStatusInfo());
                     return;
                 }
 
@@ -71,6 +72,9 @@ namespace GitDeployPro.Pages
 
                 var changes = await _gitService.GetUncommittedChangesAsync();
                 ChangedFilesCount.Text = changes.Count.ToString();
+
+                var branchStatus = await _gitService.GetBranchStatusAsync();
+                UpdatePushStatusBadge(branchStatus);
 
                 // 3. History Stats
                 var lastDeploy = _historyService.GetLastDeploy();
@@ -103,6 +107,21 @@ namespace GitDeployPro.Pages
         private void OpenSettings_Click(object sender, RoutedEventArgs e)
         {
             NavigationService?.Navigate(new SettingsPage());
+        }
+
+        private void UpdatePushStatusBadge(BranchStatusInfo status)
+        {
+            if (PushStatusBadge == null || PushStatusText == null) return;
+
+            if (status.HasRemote && status.AheadCount > 0)
+            {
+                PushStatusBadge.Visibility = Visibility.Visible;
+                PushStatusText.Text = $"Push pending: {status.AheadCount} commit(s)";
+            }
+            else
+            {
+                PushStatusBadge.Visibility = Visibility.Collapsed;
+            }
         }
     }
 }
