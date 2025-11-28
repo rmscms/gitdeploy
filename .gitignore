@@ -1,0 +1,11 @@
+.gitdeploy.config
+bin\
+bin/
+obj/
+.vs/
+packages/
+node_modules/
+.env
+*.log
+vendor/
+.gitdeploy.history

@@ -1,0 +1,19 @@
+GitDeploy Pro Changelog
+=======================
+
+1.0.2 (2025-11-28)
+------------------
+- Wired Settings ignored-files UI directly to `.gitignore`, auto-creating the file with defaults.
+- Added dedupe logic plus `git rm -r --cached` automation so new ignore entries instantly untrack folders (e.g., `bin/`, `obj/`).
+- Extended automation to detect real directories even when entries omit trailing slash, keeping git clean without manual commands.
+
+1.0.1 (2025-11-28)
+------------------
+- Added automatic Git health badges across Dashboard, Deploy, and Settings to surface pending pushes.
+- Implemented smart action button workflow (Review & Commit → Compare → Push) with branch sync + auto push.
+- Introduced PHPStorm-style project selector with avatar colors and recent projects menu.
+- Built per-project configuration/history storage plus Git auto-init, remote setter, and branch defaults.
+- Added DiffWindow checkboxes, deploy-selected flow, and deploy logs with sync + history recording.
+- Integrated FTP/SFTP settings tabs, connection testing, and encrypted credential storage.
+- Published single-file Win-x64 build with embedded icon and hidden .git helper to keep TortoiseGit overlays accurate.
+
