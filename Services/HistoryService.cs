@@ -9,7 +9,31 @@ namespace GitDeployPro.Services
 {
     public class HistoryService
     {
-        private const string HistoryFile = "history.json";
+        private static string _workingDirectory = Directory.GetCurrentDirectory();
+        private string HistoryFile => Path.Combine(_workingDirectory, ".gitdeploy.history");
+
+        public HistoryService()
+        {
+            // Initialize with last known project path if available
+            try
+            {
+                var configService = new ConfigurationService();
+                var globalConfig = configService.LoadGlobalConfig();
+                if (!string.IsNullOrEmpty(globalConfig.LastProjectPath) && Directory.Exists(globalConfig.LastProjectPath))
+                {
+                    _workingDirectory = globalConfig.LastProjectPath;
+                }
+            }
+            catch { }
+        }
+
+        public static void SetWorkingDirectory(string path)
+        {
+            if (Directory.Exists(path))
+            {
+                _workingDirectory = path;
+            }
+        }
 
         public List<DeploymentRecord> GetHistory()
         {
@@ -40,6 +64,14 @@ namespace GitDeployPro.Services
             {
                 var json = JsonConvert.SerializeObject(list, Formatting.Indented);
                 File.WriteAllText(HistoryFile, json);
+                
+                // Hide the history file
+                try
+                {
+                    var fileInfo = new FileInfo(HistoryFile);
+                    fileInfo.Attributes |= FileAttributes.Hidden;
+                }
+                catch { }
             }
             catch { }
         }
@@ -60,9 +92,8 @@ namespace GitDeployPro.Services
         public string Branch { get; set; } = "";
         public string Status { get; set; } = ""; // Success, Failed
         public List<string> Files { get; set; } = new List<string>();
-        public string CommitHash { get; set; } = ""; // New field for Rollback
+        public string CommitHash { get; set; } = "";
 
-        // Properties for UI Binding
         [JsonIgnore]
         public string Icon => Status == "Success" ? "✅" : "❌";
         

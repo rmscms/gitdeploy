@@ -21,11 +21,13 @@ namespace GitDeployPro.Pages
         private List<DeployFileViewModel> _fileViewModels = new List<DeployFileViewModel>();
         private bool _isLoaded = false;
         private ProjectConfig _projectConfig;
+        private int _cachedUncommittedCount = -1;
+        private int _cachedTotalCommits = -1;
 
         public DeployPage()
         {
             InitializeComponent();
-            _isLoaded = true;
+            _isLoaded = false;
             _gitService = new GitService();
             _historyService = new HistoryService();
             _configService = new ConfigurationService();
@@ -35,49 +37,31 @@ namespace GitDeployPro.Pages
 
         private async void LoadGitData()
         {
+            _isLoaded = false;
             try
             {
                 if (!_gitService.IsGitRepository())
                 {
                     StatusText.Text = "⚠️ Git repository not found (Initialize Git in Settings)";
                     StatusText.Foreground = System.Windows.Media.Brushes.Orange;
-                    
-                    SourceBranchComboBox.Items.Clear();
-                    TargetBranchComboBox.Items.Clear();
-                    SourceBranchComboBox.IsEnabled = false;
-                    TargetBranchComboBox.IsEnabled = false;
-                    CompareButton.IsEnabled = false;
-                    PushToGithubButton.IsEnabled = false;
+                    DisableAllButtons();
                     return;
                 }
 
-                // Check for uncommitted changes
-                var uncommitted = await _gitService.GetUncommittedChangesAsync();
-                var totalCommits = await _gitService.GetTotalCommitsAsync();
-
-                if (uncommitted.Count > 0 || totalCommits == 0)
-                {
-                    ShowCommitUI(true, uncommitted.Count);
-                }
-                else
-                {
-                    ShowCommitUI(false);
-                }
-
                 // Load Project Config
-                string defaultSource = "master";
-                string defaultTarget = "";
-                
                 var globalConfig = _configService.LoadGlobalConfig();
                 if (!string.IsNullOrEmpty(globalConfig.LastProjectPath))
                 {
                     _projectConfig = _configService.LoadProjectConfig(globalConfig.LastProjectPath);
-                    if (!string.IsNullOrEmpty(_projectConfig.DefaultSourceBranch))
-                        defaultSource = _projectConfig.DefaultSourceBranch;
-                    if (!string.IsNullOrEmpty(_projectConfig.DefaultTargetBranch))
-                        defaultTarget = _projectConfig.DefaultTargetBranch;
                 }
 
+                // Check changes & commits
+                var uncommitted = await _gitService.GetUncommittedChangesAsync();
+                var totalCommits = await _gitService.GetTotalCommitsAsync();
+                _cachedUncommittedCount = uncommitted.Count;
+                _cachedTotalCommits = totalCommits;
+
+                // Check Branches
                 var branches = await _gitService.GetBranchesAsync();
                 var current = await _gitService.GetCurrentBranchAsync();
 
@@ -86,11 +70,16 @@ namespace GitDeployPro.Pages
 
                 foreach (var branch in branches)
                 {
-                    bool isSource = branch == defaultSource; 
+                    bool isSource = !string.IsNullOrEmpty(_projectConfig.DefaultSourceBranch) 
+                        ? branch == _projectConfig.DefaultSourceBranch 
+                        : branch == current;
                     
                     SourceBranchComboBox.Items.Add(new ComboBoxItem { Content = branch, IsSelected = isSource });
                     
-                    bool isTarget = branch == defaultTarget;
+                    bool isTarget = !string.IsNullOrEmpty(_projectConfig.DefaultTargetBranch) 
+                        ? branch == _projectConfig.DefaultTargetBranch 
+                        : false; 
+                    
                     TargetBranchComboBox.Items.Add(new ComboBoxItem { Content = branch, IsSelected = isTarget });
                 }
 
@@ -113,14 +102,16 @@ namespace GitDeployPro.Pages
                     SelectFallbackTargetBranch(branches);
                 }
 
+                // Determine Button State
+                UpdateActionButtonState(_cachedUncommittedCount, _cachedTotalCommits);
+
                 SourceBranchComboBox.IsEnabled = true;
                 TargetBranchComboBox.IsEnabled = true;
-                CompareButton.IsEnabled = true;
-                PushToGithubButton.IsEnabled = true;
+                DeployButton.IsEnabled = false; // Initially disabled
 
                 if (StatusText.Text != $"⚠️ You have {uncommitted.Count} uncommitted changes!")
                 {
-                    StatusText.Text = "Ready to compare changes...";
+                    StatusText.Text = "Ready...";
                     StatusText.Foreground = System.Windows.Media.Brushes.LightGray;
                 }
             }
@@ -128,34 +119,27 @@ namespace GitDeployPro.Pages
             {
                 AddLog($"❌ Error loading Git data: {ex.Message}");
             }
+            finally
+            {
+                _isLoaded = true;
+            }
         }
 
-        private void ShowCommitUI(bool show, int count = 0)
+        private void DisableAllButtons()
         {
-            if (show)
-            {
-                StatusText.Text = $"⚠️ You have {count} uncommitted changes!";
-                StatusText.Foreground = System.Windows.Media.Brushes.Orange;
-                CompareButton.Content = "📝 REVIEW & COMMIT";
-                CompareButton.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 143, 0));
-                CompareButton.Tag = "commit";
-                PushToGithubButton.IsEnabled = false; // Disable push until committed
-            }
-            else
-            {
-                StatusText.Text = "Ready to compare changes...";
-                StatusText.Foreground = System.Windows.Media.Brushes.LightGray;
-                CompareButton.Content = "🔍 COMPARE";
-                CompareButton.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(230, 81, 0));
-                CompareButton.Tag = "compare";
-                PushToGithubButton.IsEnabled = true;
-            }
+            SourceBranchComboBox.Items.Clear();
+            TargetBranchComboBox.Items.Clear();
+            SourceBranchComboBox.IsEnabled = false;
+            TargetBranchComboBox.IsEnabled = false;
+            if (ActionButton != null) ActionButton.IsEnabled = false;
+            if (DeployButton != null) DeployButton.IsEnabled = false;
         }
 
         private void SelectFallbackTargetBranch(List<string> branches)
         {
             int targetIndex = -1;
-            targetIndex = branches.IndexOf("master");
+            targetIndex = branches.IndexOf("production");
+            if (targetIndex == -1) targetIndex = branches.IndexOf("master");
             if (targetIndex == -1) targetIndex = branches.IndexOf("main");
             
             if (targetIndex != -1 && TargetBranchComboBox.Items.Count > targetIndex)
@@ -173,23 +157,111 @@ namespace GitDeployPro.Pages
             if (!_isLoaded) return;
 
             if (DeployButton != null) DeployButton.IsEnabled = false;
-
-            if (sender is System.Windows.Controls.ComboBox combo && combo.SelectedItem is ComboBoxItem selected)
-            {
-                string type = combo.Name == "SourceBranchComboBox" ? "Source" : "Target";
-                AddLog($"🔀 {type} Branch selected: {selected.Content}");
-            }
+            UpdateActionButtonState();
         }
 
-        private async void CompareButton_Click(object sender, RoutedEventArgs e)
+        private void UpdateActionButtonState(int uncommittedCount = -1, int totalCommits = -1)
         {
-            if (CompareButton.Tag?.ToString() == "commit")
+            if (ActionButton == null) return;
+
+            if (uncommittedCount == -1) uncommittedCount = _cachedUncommittedCount;
+            if (totalCommits == -1) totalCommits = _cachedTotalCommits;
+
+            if (totalCommits == 0)
             {
-                await HandleCommit();
+                SetActionButton("commit", "📝 REVIEW & COMMIT", "#E65100");
+                StatusText.Text = "⚠️ Create the initial commit before deploying.";
+                StatusText.Foreground = System.Windows.Media.Brushes.Orange;
                 return;
             }
 
-            await HandleCompare();
+            if (uncommittedCount > 0)
+            {
+                SetActionButton("commit", "📝 REVIEW & COMMIT", "#E65100");
+                string pendingText = uncommittedCount >= 0 ? uncommittedCount.ToString() : "some";
+                StatusText.Text = $"⚠️ You have {pendingText} uncommitted changes!";
+                StatusText.Foreground = System.Windows.Media.Brushes.Orange;
+                return;
+            }
+
+            if (SourceBranchComboBox.SelectedItem is not ComboBoxItem sourceItem ||
+                TargetBranchComboBox.SelectedItem is not ComboBoxItem targetItem)
+            {
+                SetBranchSelectionRequiredState();
+                return;
+            }
+
+            string? source = sourceItem.Content?.ToString();
+            string? target = targetItem.Content?.ToString();
+
+            if (string.IsNullOrWhiteSpace(source) || string.IsNullOrWhiteSpace(target))
+            {
+                SetBranchSelectionRequiredState();
+                return;
+            }
+
+            bool sameBranch = (source == target);
+
+            if (sameBranch)
+            {
+                SetActionButton("push", "☁️ PUSH TO GITHUB", "#24292E");
+                StatusText.Text = "Branches are same. Ready to push to remote.";
+                StatusText.Foreground = System.Windows.Media.Brushes.LightGray;
+            }
+            else
+            {
+                SetActionButton("compare", "🔍 COMPARE", "#E65100");
+                StatusText.Text = "Ready to compare branches...";
+                StatusText.Foreground = System.Windows.Media.Brushes.LightGray;
+            }
+        }
+
+        private void SetBranchSelectionRequiredState()
+        {
+            if (ActionButton == null) return;
+
+            ActionButton.Content = "Select Branches";
+            ActionButton.Tag = null;
+            ActionButton.IsEnabled = false;
+            try
+            {
+                ActionButton.Background = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#444444"));
+            }
+            catch { }
+
+            StatusText.Text = "Select source and target branches to continue.";
+            StatusText.Foreground = System.Windows.Media.Brushes.Orange;
+        }
+
+        private void SetActionButton(string tag, string content, string colorHex)
+        {
+            if (ActionButton == null) return;
+            
+            ActionButton.Content = content;
+            ActionButton.Tag = tag;
+            try {
+                ActionButton.Background = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(colorHex));
+            } catch { }
+            ActionButton.IsEnabled = true;
+        }
+
+        private async void ActionButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (ActionButton.Tag == null) return;
+            string action = ActionButton.Tag.ToString();
+
+            if (action == "commit")
+            {
+                await HandleCommit();
+            }
+            else if (action == "push")
+            {
+                await PushToGithub();
+            }
+            else if (action == "compare")
+            {
+                await HandleCompare();
+            }
         }
 
         private async Task HandleCommit()
@@ -206,7 +278,7 @@ namespace GitDeployPro.Pages
                     await _gitService.CommitChangesAsync(commitWindow.CommitMessage);
                     AddLog("✅ Changes committed successfully!");
                     
-                    LoadGitData();
+                    LoadGitData(); 
                     ModernMessageBox.Show("Changes committed successfully!", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
             }
@@ -224,18 +296,10 @@ namespace GitDeployPro.Pages
                 string? source = sourceItem.Content?.ToString();
                 string? target = targetItem.Content?.ToString();
 
-                if (source == null || target == null) return;
-
-                if (source == target)
-                {
-                    ModernMessageBox.Show("Source and Target branches must be different.", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
-                }
-
                 try
                 {
-                    CompareButton.IsEnabled = false;
-                    CompareButton.Content = "⏳ Comparing...";
+                    ActionButton.IsEnabled = false;
+                    ActionButton.Content = "⏳ Processing...";
 
                     var changes = await _gitService.GetDiffAsync(source, target);
 
@@ -249,23 +313,18 @@ namespace GitDeployPro.Pages
                     }
                     else
                     {
-                        // Open DiffWindow with checkboxes
                         var diffWindow = new DiffWindow(changes);
                         diffWindow.ShowDialog();
 
                         if (diffWindow.Confirmed)
                         {
-                            // User clicked "DEPLOY SELECTED" in DiffWindow
                             var selectedFiles = diffWindow.SelectedFiles;
-                            
                             AddLog($"✅ Selection confirmed. Starting deploy for {selectedFiles.Count} files.");
                             
-                            // Map back to ViewModel just for displaying list if needed (optional)
                             _fileViewModels = selectedFiles.Select(c => new DeployFileViewModel(c) { IsSelected = true }).ToList();
                             FilesItemsControl.ItemsSource = _fileViewModels;
                             SelectAllCheckBox.IsChecked = true;
 
-                            // START DEPLOY AUTOMATICALLY
                             await StartDeployProcess(selectedFiles);
                         }
                         else
@@ -282,18 +341,18 @@ namespace GitDeployPro.Pages
                 }
                 finally
                 {
-                    CompareButton.IsEnabled = true;
-                    CompareButton.Content = "🔍 COMPARE";
+                    ActionButton.IsEnabled = true;
+                    UpdateActionButtonState();
                 }
             }
         }
 
-        private async void PushToGithubButton_Click(object sender, RoutedEventArgs e)
+        private async Task PushToGithub()
         {
             try
             {
-                PushToGithubButton.IsEnabled = false;
-                PushToGithubButton.Content = "⏳ Pushing...";
+                ActionButton.IsEnabled = false;
+                ActionButton.Content = "⏳ Pushing...";
                 AddLog("☁️ Pushing changes to GitHub...");
 
                 await _gitService.PushAsync();
@@ -308,18 +367,15 @@ namespace GitDeployPro.Pages
             }
             finally
             {
-                PushToGithubButton.IsEnabled = true;
-                PushToGithubButton.Content = "☁️ Push to GitHub";
+                ActionButton.IsEnabled = true;
+                UpdateActionButtonState();
             }
         }
 
         private async void DeployButton_Click(object sender, RoutedEventArgs e)
         {
-            // This button is now mostly for re-deploying or if user cancelled auto-deploy
-            
             if (isDeploying) return;
 
-            // Filter selected files from UI
             var selectedFiles = _fileViewModels.Where(x => x.IsSelected).Select(x => new FileChange { Name = x.Name, Type = x.Type }).ToList();
             
             if (selectedFiles.Count == 0)
@@ -335,8 +391,7 @@ namespace GitDeployPro.Pages
         {
             isDeploying = true;
             DeployButton.IsEnabled = false;
-            CompareButton.IsEnabled = false;
-            PushToGithubButton.IsEnabled = false;
+            ActionButton.IsEnabled = false;
             SourceBranchComboBox.IsEnabled = false;
             TargetBranchComboBox.IsEnabled = false;
 
@@ -344,10 +399,8 @@ namespace GitDeployPro.Pages
             {
                 AddLog($"🚀 Starting deployment process ({filesToDeploy.Count} files)...");
                 
-                // 1. Upload files
                 await SimulateDeploy(filesToDeploy);
                 
-                // 2. Save History
                 string commitHash = await _gitService.GetLastCommitHashAsync();
 
                 var record = new DeploymentRecord
@@ -362,7 +415,7 @@ namespace GitDeployPro.Pages
                 };
                 _historyService.AddRecord(record);
 
-                // 3. Sync Local Branches (Merge Source into Target)
+                // Sync Branches
                 if (SourceBranchComboBox.SelectedItem is ComboBoxItem sourceItem && 
                     TargetBranchComboBox.SelectedItem is ComboBoxItem targetItem)
                 {
@@ -384,7 +437,7 @@ namespace GitDeployPro.Pages
                     }
                 }
 
-                // 4. Auto-Push to GitHub if enabled
+                // Auto-Push
                 if (_projectConfig.AutoPush)
                 {
                     AddLog("☁️ Auto-pushing to GitHub...");
@@ -414,13 +467,13 @@ namespace GitDeployPro.Pages
             finally
             {
                 isDeploying = false;
-                DeployButton.IsEnabled = true; // Re-enable for retry
-                CompareButton.IsEnabled = true;
-                PushToGithubButton.IsEnabled = true;
+                DeployButton.IsEnabled = true; 
+                ActionButton.IsEnabled = true;
                 SourceBranchComboBox.IsEnabled = true;
                 TargetBranchComboBox.IsEnabled = true;
                 DeployProgressBar.Value = 0;
                 ProgressText.Text = "Deployment finished!";
+                LoadGitData();
             }
         }
 
@@ -442,7 +495,6 @@ namespace GitDeployPro.Pages
             AddLog("🎉 All files uploaded successfully!");
         }
 
-        // ... SelectAll_Click, AddLog, ClearLogs_Click ...
         private void SelectAll_Click(object sender, RoutedEventArgs e)
         {
             if (SelectAllCheckBox.IsChecked == true)

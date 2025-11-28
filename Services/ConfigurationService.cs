@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using GitDeployPro.Models;
 using Newtonsoft.Json;
 
@@ -13,6 +15,7 @@ namespace GitDeployPro.Services
         public class GlobalConfig
         {
             public string LastProjectPath { get; set; } = "";
+            public List<string> RecentProjects { get; set; } = new List<string>();
         }
 
         // Global Config Management
@@ -39,6 +42,28 @@ namespace GitDeployPro.Services
                 File.WriteAllText(path, JsonConvert.SerializeObject(config, Formatting.Indented));
             }
             catch { }
+        }
+
+        public void AddRecentProject(string path)
+        {
+            var config = LoadGlobalConfig();
+            
+            // Remove if exists to re-add at top
+            if (config.RecentProjects.Contains(path))
+            {
+                config.RecentProjects.Remove(path);
+            }
+            
+            config.RecentProjects.Insert(0, path);
+            
+            // Limit to 10 recent projects
+            if (config.RecentProjects.Count > 10)
+            {
+                config.RecentProjects = config.RecentProjects.Take(10).ToList();
+            }
+            
+            config.LastProjectPath = path;
+            SaveGlobalConfig(config);
         }
 
         // Project Config Management
@@ -71,15 +96,17 @@ namespace GitDeployPro.Services
 
                 var path = Path.Combine(config.LocalProjectPath, ProjectConfigFile);
                 
-                // Ensure password is encrypted before saving if it's not already (logic handled in UI usually, but good to double check or assume UI sets encrypted prop)
-                // In this design, the UI sets the properties on ProjectConfig. 
-                // We should ensure we don't double encrypt or save plain text if possible, 
-                // but ProjectConfig.FtpPassword is meant to hold the encrypted string.
-
                 File.WriteAllText(path, JsonConvert.SerializeObject(config, Formatting.Indented));
+                
+                // Hide the config file
+                try
+                {
+                    var fileInfo = new FileInfo(path);
+                    fileInfo.Attributes |= FileAttributes.Hidden;
+                }
+                catch { }
             }
             catch { }
         }
     }
 }
-
