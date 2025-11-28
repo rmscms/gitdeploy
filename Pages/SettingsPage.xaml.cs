@@ -103,12 +103,16 @@ namespace GitDeployPro.Pages
 
                     if (branches.Contains(config.DefaultTargetBranch))
                         DefaultTargetBranchComboBox.SelectedItem = config.DefaultTargetBranch;
+
+                    var branchStatus = await _gitService.GetBranchStatusAsync();
+                    UpdateGitPushStatusBadge(branchStatus);
                 }
                 else
                 {
                     DefaultSourceBranchComboBox.ItemsSource = null;
                     DefaultTargetBranchComboBox.ItemsSource = null;
                     RemoteUrlTextBox.Text = "";
+                    UpdateGitPushStatusBadge(new BranchStatusInfo());
                 }
             }
             catch { }
@@ -358,6 +362,21 @@ namespace GitDeployPro.Pages
 
              EnsureConfigInGitIgnore(projectPath);
              ModernMessageBox.Show(".gitdeploy.config added to .gitignore!", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        private void UpdateGitPushStatusBadge(BranchStatusInfo status)
+        {
+            if (GitPushStatusBadge == null || GitPushStatusText == null) return;
+
+            if (status.HasRemote && status.AheadCount > 0)
+            {
+                GitPushStatusBadge.Visibility = Visibility.Visible;
+                GitPushStatusText.Text = $"Push pending: {status.AheadCount} commit(s)";
+            }
+            else
+            {
+                GitPushStatusBadge.Visibility = Visibility.Collapsed;
+            }
         }
     }
 }
