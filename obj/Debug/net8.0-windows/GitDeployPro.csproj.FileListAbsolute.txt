@@ -21,6 +21,7 @@ C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net8.0-windows\Pages\Sett
 C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net8.0-windows\Windows\CommitWindow.baml
 C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net8.0-windows\Windows\DiffWindow.baml
 C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net8.0-windows\Windows\HistoryDetailsWindow.baml
+C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net8.0-windows\Windows\InitGitWindow.baml
 C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net8.0-windows\Windows\RemoteBrowserWindow.baml
 C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net8.0-windows\App.baml
 C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net8.0-windows\Controls\ModernMessageBox.g.cs
@@ -33,6 +34,7 @@ C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net8.0-windows\Pages\Sett
 C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net8.0-windows\Windows\CommitWindow.g.cs
 C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net8.0-windows\Windows\DiffWindow.g.cs
 C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net8.0-windows\Windows\HistoryDetailsWindow.g.cs
+C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net8.0-windows\Windows\InitGitWindow.g.cs
 C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net8.0-windows\Windows\RemoteBrowserWindow.g.cs
 C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net8.0-windows\App.g.cs
 C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net8.0-windows\GitDeployPro_MarkupCompile.cache
@@ -41,12 +43,10 @@ C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net8.0-windows\GitDeployP
 C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net8.0-windows\GitDeployPro.AssemblyInfoInputs.cache
 C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net8.0-windows\GitDeployPro.AssemblyInfo.cs
 C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net8.0-windows\GitDeployPro.csproj.CoreCompileInputs.cache
+C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net8.0-windows\GitDeployPro.sourcelink.json
 C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net8.0-windows\GitDeplo.78E5B2F8.Up2Date
 C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net8.0-windows\GitDeployPro.dll
 C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net8.0-windows\refint\GitDeployPro.dll
 C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net8.0-windows\GitDeployPro.pdb
 C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net8.0-windows\GitDeployPro.genruntimeconfig.cache
 C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net8.0-windows\ref\GitDeployPro.dll
-C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net8.0-windows\Windows\InitGitWindow.baml
-C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net8.0-windows\Windows\InitGitWindow.g.cs
-C:\laragon\www\rms2\develop-ftp\GitDeployPro\obj\Debug\net8.0-windows\GitDeployPro.sourcelink.json

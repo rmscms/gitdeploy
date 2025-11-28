@@ -49,6 +49,18 @@ namespace GitDeployPro.Services
             // 1. Init
             await RunGitCommandAsync("init");
 
+            // 1.1. Hide .git folder (Fix for TortoiseGit/Windows Icons)
+            try
+            {
+                var gitPath = Path.Combine(_workingDirectory, ".git");
+                if (Directory.Exists(gitPath))
+                {
+                    var dirInfo = new DirectoryInfo(gitPath);
+                    dirInfo.Attributes |= FileAttributes.Hidden;
+                }
+            }
+            catch { }
+
             // 2. Add all files
             await RunGitCommandAsync("add .");
 

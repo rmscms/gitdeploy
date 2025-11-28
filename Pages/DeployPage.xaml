@@ -63,7 +63,7 @@
             <!-- Target Branch -->
             <Border Grid.Column="2" Background="#2B2B2B" CornerRadius="8" Padding="15">
                 <StackPanel>
-                    <TextBlock Text="Target Branch (Server):" FontSize="13" Foreground="#CCCCCC" Margin="0,0,0,8"/>
+                    <TextBlock Text="Target Branch (Local):" FontSize="13" Foreground="#CCCCCC" Margin="0,0,0,8"/>
                     <ComboBox x:Name="TargetBranchComboBox" 
                              Height="40" 
                              FontSize="14"
@@ -78,9 +78,9 @@
                 </StackPanel>
             </Border>
 
-            <!-- Compare Button -->
+            <!-- Action Button (Commit / Compare / Push) -->
             <Button Grid.Column="4" 
-                   x:Name="CompareButton"
+                   x:Name="ActionButton"
                    Content="🔍 COMPARE" 
                    Height="76" 
                    FontSize="16"
@@ -88,9 +88,9 @@
                    Background="#E65100"
                    Foreground="White"
                    BorderThickness="0"
-                   Cursor="Hand"
-                   Click="CompareButton_Click">
-                <Button.Style>
+                        Cursor="Hand"
+                        Click="ActionButton_Click">
+                    <Button.Style>
                     <Style TargetType="Button">
                         <Setter Property="Template">
                             <Setter.Value>
@@ -148,38 +148,6 @@
                                      IsChecked="True"
                                      Click="SelectAll_Click"/>
                         </StackPanel>
-
-                        <Button Grid.Column="1"
-                               x:Name="PushToGithubButton"
-                               Content="☁️ Push to GitHub"
-                               Width="150"
-                               Height="40"
-                               FontSize="14"
-                               FontWeight="SemiBold"
-                               Background="#24292E"
-                               Foreground="White"
-                               BorderThickness="0"
-                               Cursor="Hand"
-                               Click="PushToGithubButton_Click">
-                            <Button.Style>
-                                <Style TargetType="Button">
-                                    <Setter Property="Template">
-                                        <Setter.Value>
-                                            <ControlTemplate TargetType="Button">
-                                                <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="6">
-                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                </Border>
-                                                <ControlTemplate.Triggers>
-                                                    <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter TargetName="border" Property="Background" Value="#444D56"/>
-                                                    </Trigger>
-                                                </ControlTemplate.Triggers>
-                                            </ControlTemplate>
-                                        </Setter.Value>
-                                    </Setter>
-                                </Style>
-                            </Button.Style>
-                        </Button>
 
                         <Button Grid.Column="3" 
                                x:Name="DeployButton"

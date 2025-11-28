@@ -7,14 +7,14 @@
         Width="1100"
         Icon="icon.ico"
         WindowStartupLocation="CenterScreen"
-        Background="#202020"
+        Background="#1E1F22"
         BorderBrush="#3F3F3F"
         BorderThickness="1"
         WindowStyle="None"
         AllowsTransparency="True"
         ResizeMode="CanResizeWithGrip">
     <WindowChrome.WindowChrome>
-        <WindowChrome CaptionHeight="32" 
+        <WindowChrome CaptionHeight="40" 
                      ResizeBorderThickness="5" 
                      GlassFrameThickness="0"
                      CornerRadius="0"/>
@@ -26,9 +26,9 @@
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
-        <!-- Sidebar - Windows Style -->
-        <Border Grid.Column="0" Background="#2B2B2B" BorderThickness="0,0,1,0" BorderBrush="#3F3F3F">
-    <Grid>
+        <!-- Sidebar - Darker, Modern -->
+        <Border Grid.Column="0" Background="#2B2D30" BorderThickness="0,0,1,0" BorderBrush="#1E1F22">
+            <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
@@ -38,293 +38,322 @@
                 <!-- Logo/Header -->
                 <Border Grid.Row="0" Margin="20,30,20,30">
                     <StackPanel HorizontalAlignment="Center">
-                        <Border Background="#0078D420" CornerRadius="12" Width="60" Height="60" HorizontalAlignment="Center">
-                            <TextBlock Text="🚀" FontSize="32" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <Border Background="#3574F0" CornerRadius="8" Width="48" Height="48" HorizontalAlignment="Center">
+                            <TextBlock Text="🚀" FontSize="24" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <TextBlock Text="GitDeploy Pro" 
-                                  FontSize="18" 
-                                  FontWeight="SemiBold" 
-                                  Foreground="White" 
+                                  FontSize="16" 
+                                  FontWeight="Bold" 
+                                  Foreground="#FFFFFF" 
                                   HorizontalAlignment="Center"
                                   Margin="0,12,0,0"/>
-                        <TextBlock Text="v1.0.0" 
-                                  FontSize="12" 
-                                  Foreground="#999999" 
-                                  HorizontalAlignment="Center"
-                                  Margin="0,4,0,0"/>
                     </StackPanel>
                 </Border>
 
                 <!-- Navigation Buttons -->
-                <StackPanel Grid.Row="1" Margin="12,0">
-                    <Button Height="48" 
-                           Margin="0,4"
-                           Background="Transparent"
-                           BorderThickness="0"
-                           Cursor="Hand"
-                           Click="Dashboard_Click">
-                        <Button.Style>
-                            <Style TargetType="Button">
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="Button">
-                                            <Border x:Name="border" Background="{TemplateBinding Background}" 
-                                                   CornerRadius="6" 
-                                                   Padding="15,0">
-                                                <StackPanel Orientation="Horizontal">
-                                                    <TextBlock Text="📊" FontSize="20" VerticalAlignment="Center" Foreground="White"/>
-                                                    <TextBlock Text="Dashboard" 
-                                                              FontSize="14" 
-                                                              Foreground="#E0E0E0" 
-                                                              VerticalAlignment="Center" 
-                                                              Margin="15,0,0,0"
-                                                              FontWeight="Medium"/>
-                                                </StackPanel>
-                                            </Border>
-                                            <ControlTemplate.Triggers>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="border" Property="Background" Value="#383838"/> <!-- Dark gray hover -->
-                                                </Trigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                            </Style>
-                        </Button.Style>
+                <StackPanel Grid.Row="1" Margin="10,0">
+                    <StackPanel.Resources>
+                        <Style TargetType="Button">
+                            <Setter Property="Height" Value="40"/>
+                            <Setter Property="Margin" Value="0,2"/>
+                            <Setter Property="Background" Value="Transparent"/>
+                            <Setter Property="BorderThickness" Value="0"/>
+                            <Setter Property="Cursor" Value="Hand"/>
+                            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="4" Padding="15,0">
+                                            <ContentPresenter VerticalAlignment="Center"/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="border" Property="Background" Value="#2D3135"/> <!-- Slightly lighter hover -->
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </StackPanel.Resources>
+
+                    <Button Click="Dashboard_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="📊" FontSize="16" Margin="0,0,12,0" Foreground="#A0A0A0"/>
+                            <TextBlock Text="Dashboard" FontSize="13" Foreground="#D0D0D0"/>
+                        </StackPanel>
                     </Button>
                     
-                    <Button Height="48" 
-                           Margin="0,4"
-                           Background="Transparent"
-                           BorderThickness="0"
-                           Cursor="Hand"
-                           Click="Deploy_Click">
-                        <Button.Style>
-                            <Style TargetType="Button">
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="Button">
-                                            <Border x:Name="border" Background="{TemplateBinding Background}" 
-                                                   CornerRadius="6" 
-                                                   Padding="15,0">
-                                                <StackPanel Orientation="Horizontal">
-                                                    <TextBlock Text="🚀" FontSize="20" VerticalAlignment="Center" Foreground="White"/>
-                                                    <TextBlock Text="Deploy" 
-                                                              FontSize="14" 
-                                                              Foreground="#E0E0E0" 
-                                                              VerticalAlignment="Center" 
-                                                              Margin="15,0,0,0"
-                                                              FontWeight="Medium"/>
-                                                </StackPanel>
-                                            </Border>
-                                            <ControlTemplate.Triggers>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="border" Property="Background" Value="#383838"/>
-                                                </Trigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                            </Style>
-                        </Button.Style>
+                    <Button Click="Deploy_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="🚀" FontSize="16" Margin="0,0,12,0" Foreground="#A0A0A0"/>
+                            <TextBlock Text="Deploy" FontSize="13" Foreground="#D0D0D0"/>
+                        </StackPanel>
                     </Button>
                     
-                    <Button Height="48" 
-                           Margin="0,4"
-                           Background="Transparent"
-                           BorderThickness="0"
-                           Cursor="Hand"
-                           Click="Git_Click">
-                        <Button.Style>
-                            <Style TargetType="Button">
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="Button">
-                                            <Border x:Name="border" Background="{TemplateBinding Background}" 
-                                                   CornerRadius="6" 
-                                                   Padding="15,0">
-                                                <StackPanel Orientation="Horizontal">
-                                                    <TextBlock Text="🐱" FontSize="20" VerticalAlignment="Center" Foreground="White"/>
-                                                    <TextBlock Text="Git &amp; GitHub" 
-                                                              FontSize="14" 
-                                                              Foreground="#E0E0E0" 
-                                                              VerticalAlignment="Center" 
-                                                              Margin="15,0,0,0"
-                                                              FontWeight="Medium"/>
-                                                </StackPanel>
-                                            </Border>
-                                            <ControlTemplate.Triggers>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="border" Property="Background" Value="#383838"/>
-                                                </Trigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                            </Style>
-                        </Button.Style>
+                    <Button Click="Git_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="🐱" FontSize="16" Margin="0,0,12,0" Foreground="#A0A0A0"/>
+                            <TextBlock Text="Git &amp; GitHub" FontSize="13" Foreground="#D0D0D0"/>
+                        </StackPanel>
                     </Button>
                     
-                    <Button Height="48" 
-                           Margin="0,4"
-                           Background="Transparent"
-                           BorderThickness="0"
-                           Cursor="Hand"
-                           Click="History_Click">
-                        <Button.Style>
-                            <Style TargetType="Button">
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="Button">
-                                            <Border x:Name="border" Background="{TemplateBinding Background}" 
-                                                   CornerRadius="6" 
-                                                   Padding="15,0">
-                                                <StackPanel Orientation="Horizontal">
-                                                    <TextBlock Text="📜" FontSize="20" VerticalAlignment="Center" Foreground="White"/>
-                                                    <TextBlock Text="History" 
-                                                              FontSize="14" 
-                                                              Foreground="#E0E0E0" 
-                                                              VerticalAlignment="Center" 
-                                                              Margin="15,0,0,0"
-                                                              FontWeight="Medium"/>
-                                                </StackPanel>
-                                            </Border>
-                                            <ControlTemplate.Triggers>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="border" Property="Background" Value="#383838"/>
-                                                </Trigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                            </Style>
-                        </Button.Style>
+                    <Button Click="History_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="📜" FontSize="16" Margin="0,0,12,0" Foreground="#A0A0A0"/>
+                            <TextBlock Text="History" FontSize="13" Foreground="#D0D0D0"/>
+                        </StackPanel>
                     </Button>
                     
-                    <Button Height="48" 
-                           Margin="0,4"
-                           Background="Transparent"
-                           BorderThickness="0"
-                           Cursor="Hand"
-                           Click="Settings_Click">
-                        <Button.Style>
-                            <Style TargetType="Button">
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="Button">
-                                            <Border x:Name="border" Background="{TemplateBinding Background}" 
-                                                   CornerRadius="6" 
-                                                   Padding="15,0">
-                                                <StackPanel Orientation="Horizontal">
-                                                    <TextBlock Text="⚙️" FontSize="20" VerticalAlignment="Center" Foreground="White"/>
-                                                    <TextBlock Text="Settings" 
-                                                              FontSize="14" 
-                                                              Foreground="#E0E0E0" 
-                                                              VerticalAlignment="Center" 
-                                                              Margin="15,0,0,0"
-                                                              FontWeight="Medium"/>
-                                                </StackPanel>
-                                            </Border>
-                                            <ControlTemplate.Triggers>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="border" Property="Background" Value="#383838"/>
-                                                </Trigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                            </Style>
-                        </Button.Style>
+                    <Button Click="Settings_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="⚙️" FontSize="16" Margin="0,0,12,0" Foreground="#A0A0A0"/>
+                            <TextBlock Text="Settings" FontSize="13" Foreground="#D0D0D0"/>
+                        </StackPanel>
                     </Button>
                 </StackPanel>
-
-                <!-- Footer -->
-                <Border Grid.Row="2" Background="#252525" Padding="15" Margin="12,10,12,20" CornerRadius="8">
-                    <StackPanel>
-                        <TextBlock Text="💡 Tip" FontSize="12" Foreground="#999999" Margin="0,0,0,4" FontWeight="Bold"/>
-                        <TextBlock Text="Ready to deploy? Click the Deploy button to start." 
-                                  FontSize="11" 
-                                  Foreground="#BBBBBB" 
-                                  TextWrapping="Wrap"
-                                  LineHeight="16"/>
-                    </StackPanel>
-                </Border>
             </Grid>
         </Border>
 
         <!-- Main Content Area -->
-        <Grid Grid.Column="1" Background="#202020">
+        <Grid Grid.Column="1" Background="#1E1F22">
             <Grid.RowDefinitions>
-                <RowDefinition Height="32"/> <!-- Title Bar -->
+                <RowDefinition Height="40"/> <!-- Modern Title Bar Height -->
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
-            <!-- Custom Title Bar -->
-            <Grid Grid.Row="0" Background="Transparent">
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" WindowChrome.IsHitTestVisibleInChrome="True">
-                    <Button Content="─" Width="46" Height="32" Background="Transparent" Foreground="#AAAAAA" BorderThickness="0" Click="Minimize_Click">
-                        <Button.Style>
-                            <Style TargetType="Button">
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="Button">
-                                            <Border x:Name="border" Background="{TemplateBinding Background}">
-                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                            </Border>
-                                            <ControlTemplate.Triggers>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="border" Property="Background" Value="#383838"/>
-                                                </Trigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                            </Style>
-                        </Button.Style>
+            <!-- PHPStorm Style Project Selector Bar -->
+            <Border Grid.Row="0" Background="#2B2D30" BorderThickness="0,0,0,1" BorderBrush="#1E1F22">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Project Selector Button -->
+                    <Button x:Name="ProjectSelectorBtn"
+                            Grid.Column="0"
+                            WindowChrome.IsHitTestVisibleInChrome="True"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Margin="15,0,0,0"
+                            Cursor="Hand"
+                            Click="ProjectSelectorBtn_Click">
+                        <Button.Content>
+                            <StackPanel Orientation="Horizontal">
+                                <!-- Project Avatar -->
+                                <Border x:Name="ProjectAvatarBorder" 
+                                        Width="20" Height="20" 
+                                        CornerRadius="4" 
+                                        Margin="0,0,8,0"
+                                        Background="#3574F0">
+                                    <TextBlock x:Name="ProjectInitialText" 
+                                              Text="P" 
+                                              Foreground="White" 
+                                              FontSize="11" 
+                                              FontWeight="Bold" 
+                                              HorizontalAlignment="Center" 
+                                              VerticalAlignment="Center"/>
+                                </Border>
+                                
+                                <TextBlock x:Name="ProjectNameText" 
+                                          Text="MyProject" 
+                                          FontSize="13" 
+                                          FontWeight="Bold" 
+                                          Foreground="#FFFFFF" 
+                                          VerticalAlignment="Center"/>
+                                <TextBlock Text="▼" FontSize="10" VerticalAlignment="Center" Margin="8,2,0,0" Foreground="#808080"/>
+                            </StackPanel>
+                        </Button.Content>
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="bdr" Background="{TemplateBinding Background}" CornerRadius="4" Padding="8,4">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="bdr" Property="Background" Value="#35373B"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
                     </Button>
-                    <Button Content="☐" Width="46" Height="32" Background="Transparent" Foreground="#AAAAAA" BorderThickness="0" Click="Maximize_Click">
-                        <Button.Style>
-                            <Style TargetType="Button">
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="Button">
-                                            <Border x:Name="border" Background="{TemplateBinding Background}">
-                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                            </Border>
-                                            <ControlTemplate.Triggers>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="border" Property="Background" Value="#383838"/>
-                                                </Trigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                            </Style>
-                        </Button.Style>
-                    </Button>
-                    <Button Content="✕" Width="46" Height="32" Background="Transparent" Foreground="#AAAAAA" BorderThickness="0" Click="Close_Click">
-                        <Button.Style>
-                            <Style TargetType="Button">
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="Button">
-                                            <Border x:Name="border" Background="{TemplateBinding Background}">
-                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                            </Border>
-                                            <ControlTemplate.Triggers>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="border" Property="Background" Value="#E81123"/>
-                                                    <Setter Property="Foreground" Value="White"/>
-                                                </Trigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                            </Style>
-                        </Button.Style>
-                    </Button>
-                </StackPanel>
-            </Grid>
+
+                    <!-- Popup Menu for Projects -->
+                    <Popup x:Name="ProjectMenuPopup" 
+                           PlacementTarget="{Binding ElementName=ProjectSelectorBtn}" 
+                           Placement="Bottom" 
+                           StaysOpen="False"
+                           AllowsTransparency="True"
+                           PopupAnimation="Fade">
+                        <Border Background="#2B2D30" 
+                                BorderThickness="1" 
+                                BorderBrush="#454545" 
+                                CornerRadius="4" 
+                                Padding="5" 
+                                MinWidth="250">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="10" Color="Black" Opacity="0.4" ShadowDepth="2"/>
+                            </Border.Effect>
+                            <StackPanel>
+                                <!-- Open Option -->
+                                <Button Click="OpenProject_Click" 
+                                        Background="Transparent" 
+                                        BorderThickness="0" 
+                                        HorizontalContentAlignment="Left"
+                                        Padding="10,8"
+                                        Cursor="Hand">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="📂" FontSize="14" Margin="0,0,10,0" Foreground="#3574F0"/>
+                                        <TextBlock Text="Open..." FontSize="13" Foreground="#FFFFFF"/>
+                                    </StackPanel>
+                                    <Button.Style>
+                                        <Style TargetType="Button">
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="Button">
+                                                        <Border x:Name="bdr" Background="{TemplateBinding Background}" CornerRadius="3">
+                                                            <ContentPresenter Margin="{TemplateBinding Padding}"/>
+                                                        </Border>
+                                                        <ControlTemplate.Triggers>
+                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                <Setter TargetName="bdr" Property="Background" Value="#3574F0"/>
+                                                            </Trigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+
+                                <Separator Background="#3F3F3F" Margin="0,5"/>
+                                
+                                <TextBlock Text="Recent Projects" FontSize="11" Foreground="#808080" Margin="10,5,0,5"/>
+
+                                <!-- Recent Items Container -->
+                                <ItemsControl x:Name="RecentProjectsList">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Button Click="RecentProject_Click" 
+                                                    Tag="{Binding Path}"
+                                                    Background="Transparent" 
+                                                    BorderThickness="0" 
+                                                    HorizontalContentAlignment="Left"
+                                                    Padding="10,6"
+                                                    Cursor="Hand">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <!-- Avatar -->
+                                                    <Border Width="24" Height="24" 
+                                                            CornerRadius="4" 
+                                                            Margin="0,0,10,0"
+                                                            Background="{Binding ColorBrush}">
+                                                        <TextBlock Text="{Binding Initial}" 
+                                                                  Foreground="White" 
+                                                                  FontSize="12" 
+                                                                  FontWeight="Bold" 
+                                                                  HorizontalAlignment="Center" 
+                                                                  VerticalAlignment="Center"/>
+                                                    </Border>
+                                                    
+                                                    <StackPanel VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Name}" FontSize="13" Foreground="#FFFFFF"/>
+                                                        <TextBlock Text="{Binding Path}" FontSize="11" Foreground="#808080" TextTrimming="CharacterEllipsis" MaxWidth="280"/>
+                                                    </StackPanel>
+                                                </StackPanel>
+                                                <Button.Style>
+                                                    <Style TargetType="Button">
+                                                        <Setter Property="Template">
+                                                            <Setter.Value>
+                                                                <ControlTemplate TargetType="Button">
+                                                                    <Border x:Name="bdr" Background="{TemplateBinding Background}" CornerRadius="3">
+                                                                        <ContentPresenter Margin="{TemplateBinding Padding}"/>
+                                                                    </Border>
+                                                                    <ControlTemplate.Triggers>
+                                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                                            <Setter TargetName="bdr" Property="Background" Value="#2D3135"/> <!-- Subtle hover -->
+                                                                        </Trigger>
+                                                                    </ControlTemplate.Triggers>
+                                                                </ControlTemplate>
+                                                            </Setter.Value>
+                                                        </Setter>
+                                                    </Style>
+                                                </Button.Style>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                    </Popup>
+
+                    <!-- Window Controls -->
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" WindowChrome.IsHitTestVisibleInChrome="True">
+                        <Button Content="─" Width="46" Height="40" Background="Transparent" Foreground="#AAAAAA" BorderThickness="0" Click="Minimize_Click">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="border" Background="{TemplateBinding Background}">
+                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="border" Property="Background" Value="#35373B"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                        <Button Content="☐" Width="46" Height="40" Background="Transparent" Foreground="#AAAAAA" BorderThickness="0" Click="Maximize_Click">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="border" Background="{TemplateBinding Background}">
+                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="border" Property="Background" Value="#35373B"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                        <Button Content="✕" Width="46" Height="40" Background="Transparent" Foreground="#AAAAAA" BorderThickness="0" Click="Close_Click">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="border" Background="{TemplateBinding Background}">
+                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="border" Property="Background" Value="#E81123"/>
+                                                        <Setter Property="Foreground" Value="White"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Border>
 
             <!-- Page Content -->
             <Frame x:Name="ContentFrame" 
