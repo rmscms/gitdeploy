@@ -1,0 +1,13 @@
+GitDeploy Pro Changelog
+=======================
+
+1.0.1 (2025-11-28)
+------------------
+- Added automatic Git health badges across Dashboard, Deploy, and Settings to surface pending pushes.
+- Implemented smart action button workflow (Review & Commit → Compare → Push) with branch sync + auto push.
+- Introduced PHPStorm-style project selector with avatar colors and recent projects menu.
+- Built per-project configuration/history storage plus Git auto-init, remote setter, and branch defaults.
+- Added DiffWindow checkboxes, deploy-selected flow, and deploy logs with sync + history recording.
+- Integrated FTP/SFTP settings tabs, connection testing, and encrypted credential storage.
+- Published single-file Win-x64 build with embedded icon and hidden .git helper to keep TortoiseGit overlays accurate.
+
