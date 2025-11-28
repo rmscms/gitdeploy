@@ -28,6 +28,7 @@
 - **ftp/sftp tooling** – connection tester, remote browser placeholder, encrypted credentials
 - **history & rollback-ready** – per-project `.gitdeploy.history` records with plan for revert
 - **project switching** – hash-colored avatar, “open / recent projects” popup like phpstorm 2024
+- **instant clone/connect** – git tab button crafts https/ssh urls, picks a default path, and clones without leaving the UI
 - **tortoisegit friendly** – hides `.git` folder after git ops to restore overlay icons
 
 ## 📁 repository layout
@@ -127,6 +128,7 @@ dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=
 | **mc3074 / xaml tag errors** | clean `bin/obj`, re-run `dotnet run` (MahApps works with net8) |
 | **commit window empty** | ensure git repo initialized; settings auto-init helper available |
 | **history mixing projects** | make sure to switch via avatar popup; each project has isolated `.gitdeploy.history` |
+| **ssh pull/push failing** | use the new Clone / Connect button so the app can auto-load `%USERPROFILE%\.ssh\id_*` keys into `ssh-agent`, or switch the remote to HTTPS |
 
 ## 🛣 roadmap ideas
 

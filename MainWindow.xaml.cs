@@ -50,17 +50,21 @@ namespace GitDeployPro
             RecentProjectsList.ItemsSource = null;
             if (config.RecentProjects != null && config.RecentProjects.Any())
             {
-                var recentItems = config.RecentProjects.Select(path => 
-                {
-                    string name = System.IO.Path.GetFileName(path);
-                    return new 
-                    { 
-                        Name = name,
-                        Path = path,
-                        Initial = GetProjectInitial(name),
-                        ColorBrush = GetProjectColor(name)
-                    };
-                }).ToList();
+                var recentItems = config.RecentProjects
+                    .Where(entry => !string.IsNullOrWhiteSpace(entry.Path))
+                    .OrderByDescending(entry => entry.LastOpenedUtc)
+                    .Select(entry =>
+                    {
+                        string name = System.IO.Path.GetFileName(entry.Path);
+                        return new
+                        {
+                            Name = string.IsNullOrWhiteSpace(name) ? entry.Path : name,
+                            Path = entry.Path,
+                            Initial = GetProjectInitial(name),
+                            ColorBrush = GetProjectColor(name)
+                        };
+                    })
+                    .ToList();
                 
                 RecentProjectsList.ItemsSource = recentItems;
             }
@@ -155,7 +159,13 @@ namespace GitDeployPro
             ContentFrame.Navigate(new DashboardPage());
         }
 
-        private void Dashboard_Click(object sender, RoutedEventArgs e) => ContentFrame.Navigate(new DashboardPage());
+        public void NavigateToDashboard()
+        {
+            LoadRecentProjects();
+            ContentFrame.Navigate(new DashboardPage());
+        }
+
+        private void Dashboard_Click(object sender, RoutedEventArgs e) => NavigateToDashboard();
         private void Deploy_Click(object sender, RoutedEventArgs e) => ContentFrame.Navigate(new DeployPage());
         private void Git_Click(object sender, RoutedEventArgs e) => ContentFrame.Navigate(new GitPage());
         private void History_Click(object sender, RoutedEventArgs e) => ContentFrame.Navigate(new HistoryPage());

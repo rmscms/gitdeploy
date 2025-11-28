@@ -14,6 +14,7 @@ namespace GitDeployPro.Services
     public class GitService
     {
         private static string _workingDirectory = Directory.GetCurrentDirectory();
+        private readonly SshAgentService _sshAgentService = new SshAgentService();
 
         public GitService()
         {
@@ -108,6 +109,7 @@ namespace GitDeployPro.Services
                 // Try push if remote is set
                 try 
                 {
+                    await EnsureSshKeyForRemoteAsync("origin", remoteUrl);
                     string current = await GetCurrentBranchAsync();
                     await RunGitCommandAsync($"push -u origin {current}");
                 } 
@@ -309,6 +311,7 @@ namespace GitDeployPro.Services
 
         public async Task PushAsync(string remote = "origin")
         {
+            await EnsureSshKeyForRemoteAsync(remote);
             var branch = await GetCurrentBranchAsync();
             try
             {
@@ -330,8 +333,52 @@ namespace GitDeployPro.Services
 
         public async Task PullAsync(string remote = "origin")
         {
+            await EnsureSshKeyForRemoteAsync(remote);
             var branch = await GetCurrentBranchAsync();
             await RunGitCommandAsync($"pull {remote} {branch}");
+        }
+
+        public async Task CloneRepositoryAsync(string remoteUrl, string targetDirectory)
+        {
+            if (string.IsNullOrWhiteSpace(remoteUrl))
+                throw new ArgumentException("Remote URL is required.", nameof(remoteUrl));
+            if (string.IsNullOrWhiteSpace(targetDirectory))
+                throw new ArgumentException("Target directory is required.", nameof(targetDirectory));
+
+            var normalizedTarget = targetDirectory.Trim().Trim('"');
+            var targetInfo = new DirectoryInfo(normalizedTarget);
+            var parentDirectory = targetInfo.Parent?.FullName;
+
+            if (string.IsNullOrWhiteSpace(parentDirectory))
+            {
+                throw new InvalidOperationException("Please select a folder that is not the root of a drive.");
+            }
+
+            if (!Directory.Exists(parentDirectory))
+            {
+                Directory.CreateDirectory(parentDirectory);
+            }
+
+            if (Directory.Exists(normalizedTarget))
+            {
+                bool isEmpty = !Directory.EnumerateFileSystemEntries(normalizedTarget).Any();
+                if (!isEmpty)
+                {
+                    throw new InvalidOperationException("Target directory must be empty before cloning.");
+                }
+
+                Directory.Delete(normalizedTarget);
+            }
+
+            if (LooksLikeSshRemote(remoteUrl))
+            {
+                await _sshAgentService.EnsureDefaultKeyLoadedAsync();
+            }
+
+            await RunGitCommandAsync($"clone \"{remoteUrl}\" \"{targetInfo.Name}\"", parentDirectory);
+
+            SetWorkingDirectory(normalizedTarget);
+            EnsureGitFolderHidden();
         }
 
         public async Task<List<string>> GetTagsAsync()
@@ -355,6 +402,7 @@ namespace GitDeployPro.Services
 
         public async Task PushTagsAsync(string remote = "origin")
         {
+            await EnsureSshKeyForRemoteAsync(remote);
             await RunGitCommandAsync($"push {remote} --tags");
         }
         
@@ -439,7 +487,7 @@ namespace GitDeployPro.Services
             }
         }
 
-        private async Task<string> RunGitCommandAsync(string arguments)
+        private async Task<string> RunGitCommandAsync(string arguments, string? workingDirectory = null)
         {
             return await Task.Run(() =>
             {
@@ -451,7 +499,7 @@ namespace GitDeployPro.Services
                         {
                             FileName = "git",
                             Arguments = arguments,
-                            WorkingDirectory = _workingDirectory,
+                            WorkingDirectory = workingDirectory ?? _workingDirectory,
                             RedirectStandardOutput = true,
                             RedirectStandardError = true,
                             UseShellExecute = false,
@@ -482,6 +530,28 @@ namespace GitDeployPro.Services
                     throw new Exception($"Failed to execute git command: {ex.Message}");
                 }
             });
+        }
+
+        private async Task EnsureSshKeyForRemoteAsync(string remoteName, string remoteUrlOverride = "")
+        {
+            string remoteUrl = remoteUrlOverride;
+            if (string.IsNullOrWhiteSpace(remoteUrl))
+            {
+                remoteUrl = await GetRemoteUrlAsync(remoteName);
+            }
+
+            if (LooksLikeSshRemote(remoteUrl))
+            {
+                await _sshAgentService.EnsureDefaultKeyLoadedAsync();
+            }
+        }
+
+        private static bool LooksLikeSshRemote(string? remoteUrl)
+        {
+            if (string.IsNullOrWhiteSpace(remoteUrl)) return false;
+            var trimmed = remoteUrl.Trim();
+            return trimmed.StartsWith("git@", StringComparison.OrdinalIgnoreCase) ||
+                   trimmed.StartsWith("ssh://", StringComparison.OrdinalIgnoreCase);
         }
 
         public void EnsureGitFolderHidden()

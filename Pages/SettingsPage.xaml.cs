@@ -252,11 +252,10 @@ namespace GitDeployPro.Pages
                 _configService.SaveProjectConfig(projectConfig);
 
                 // 2. Save Global Config (Update Last Project)
-                var globalConfig = new ConfigurationService.GlobalConfig
+                _configService.UpdateGlobalConfig(cfg =>
                 {
-                    LastProjectPath = projectPath
-                };
-                _configService.SaveGlobalConfig(globalConfig);
+                    cfg.LastProjectPath = projectPath;
+                });
                 
                 // 3. Update Git Service
                 GitService.SetWorkingDirectory(projectPath);

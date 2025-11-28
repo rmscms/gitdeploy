@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using GitDeployPro.Controls;
 using GitDeployPro.Services;
+using GitDeployPro.Windows;
 
 namespace GitDeployPro.Pages
 {
@@ -180,6 +181,68 @@ namespace GitDeployPro.Pages
             {
                 CreateTagButton.IsEnabled = true;
                 CreateTagButton.Content = "Create & Push Tag";
+            }
+        }
+
+        private async void CloneRepoButton_Click(object sender, RoutedEventArgs e)
+        {
+            var cloneWindow = new CloneRepoWindow();
+            
+            // Safer Owner setting
+            if (System.Windows.Application.Current?.MainWindow != null && 
+                System.Windows.Application.Current.MainWindow.IsVisible)
+            {
+                cloneWindow.Owner = System.Windows.Application.Current.MainWindow;
+            }
+            else
+            {
+                cloneWindow.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+            }
+
+            if (cloneWindow.ShowDialog() != true)
+            {
+                return;
+            }
+
+            try
+            {
+                CloneRepoButton.IsEnabled = false;
+                CloneRepoButton.Content = "⏳ Cloning...";
+
+                await _gitService.CloneRepositoryAsync(cloneWindow.RemoteUrl, cloneWindow.LocalPath);
+
+                var configurationService = new ConfigurationService();
+                configurationService.AddRecentProject(cloneWindow.LocalPath);
+                GitService.SetWorkingDirectory(cloneWindow.LocalPath);
+                HistoryService.SetWorkingDirectory(cloneWindow.LocalPath);
+
+                ModernMessageBox.Show("Repository cloned successfully! ✅", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+                
+                // Navigate to dashboard to refresh context
+                if (System.Windows.Application.Current?.MainWindow is MainWindow mainWindow)
+                {
+                    mainWindow.NavigateToDashboard();
+                }
+                else 
+                {
+                    LoadData();
+                }
+            }
+            catch (Exception ex)
+            {
+                // Show detailed error including inner exception
+                var msg = ex.Message;
+                if (ex.InnerException != null)
+                {
+                    msg += $"\n\nDetails: {ex.InnerException.Message}";
+                }
+                
+                ModernMessageBox.Show($"Clone failed:\n{msg}", "Clone Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                CloneRepoButton.IsEnabled = true;
+                CloneRepoButton.Content = "Clone / Connect";
             }
         }
     }

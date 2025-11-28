@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using GitDeployPro.Models;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace GitDeployPro.Services
 {
@@ -15,7 +16,14 @@ namespace GitDeployPro.Services
         public class GlobalConfig
         {
             public string LastProjectPath { get; set; } = "";
-            public List<string> RecentProjects { get; set; } = new List<string>();
+            public List<RecentProjectEntry> RecentProjects { get; set; } = new List<RecentProjectEntry>();
+            public string DefaultSshKeyPath { get; set; } = "";
+        }
+
+        public class RecentProjectEntry
+        {
+            public string Path { get; set; } = "";
+            public DateTime LastOpenedUtc { get; set; } = DateTime.UtcNow;
         }
 
         // Global Config Management
@@ -27,7 +35,33 @@ namespace GitDeployPro.Services
                 if (File.Exists(path))
                 {
                     var json = File.ReadAllText(path);
-                    return JsonConvert.DeserializeObject<GlobalConfig>(json) ?? new GlobalConfig();
+                    var token = JToken.Parse(json);
+                    var config = token.ToObject<GlobalConfig>() ?? new GlobalConfig();
+
+                    if ((config.RecentProjects == null || config.RecentProjects.Count == 0) &&
+                        token["RecentProjects"] is JArray legacyArray)
+                    {
+                        var now = DateTime.UtcNow;
+                        int offset = 0;
+                        var migrated = legacyArray
+                            .Where(t => t.Type == JTokenType.String)
+                            .Select(t => t.Value<string>() ?? string.Empty)
+                            .Where(pathValue => !string.IsNullOrWhiteSpace(pathValue))
+                            .Select(pathValue => new RecentProjectEntry
+                            {
+                                Path = pathValue,
+                                LastOpenedUtc = now.AddSeconds(-(offset++))
+                            })
+                            .ToList();
+
+                        if (migrated.Count > 0)
+                        {
+                            config.RecentProjects = migrated;
+                        }
+                    }
+
+                    config.RecentProjects ??= new List<RecentProjectEntry>();
+                    return config;
                 }
             }
             catch { }
@@ -38,6 +72,9 @@ namespace GitDeployPro.Services
         {
             try
             {
+                config ??= new GlobalConfig();
+                config.RecentProjects ??= new List<RecentProjectEntry>();
+
                 var path = Path.Combine(AppContext.BaseDirectory, GlobalConfigFile);
                 File.WriteAllText(path, JsonConvert.SerializeObject(config, Formatting.Indented));
             }
@@ -46,23 +83,52 @@ namespace GitDeployPro.Services
 
         public void AddRecentProject(string path)
         {
+            if (string.IsNullOrWhiteSpace(path)) return;
+
             var config = LoadGlobalConfig();
-            
-            // Remove if exists to re-add at top
-            if (config.RecentProjects.Contains(path))
+            config.RecentProjects ??= new List<RecentProjectEntry>();
+
+            string normalizedPath;
+            try
             {
-                config.RecentProjects.Remove(path);
+                normalizedPath = Path.GetFullPath(path);
             }
-            
-            config.RecentProjects.Insert(0, path);
-            
-            // Limit to 10 recent projects
-            if (config.RecentProjects.Count > 10)
+            catch
             {
-                config.RecentProjects = config.RecentProjects.Take(10).ToList();
+                normalizedPath = path;
             }
-            
-            config.LastProjectPath = path;
+
+            var existing = config.RecentProjects.FirstOrDefault(p =>
+                string.Equals(p.Path, normalizedPath, StringComparison.OrdinalIgnoreCase));
+
+            if (existing != null)
+            {
+                existing.LastOpenedUtc = DateTime.UtcNow;
+            }
+            else
+            {
+                config.RecentProjects.Add(new RecentProjectEntry
+                {
+                    Path = normalizedPath,
+                    LastOpenedUtc = DateTime.UtcNow
+                });
+            }
+
+            config.RecentProjects = config.RecentProjects
+                .OrderByDescending(p => p.LastOpenedUtc)
+                .Take(10)
+                .ToList();
+
+            config.LastProjectPath = normalizedPath;
+            SaveGlobalConfig(config);
+        }
+
+        public void UpdateGlobalConfig(Action<GlobalConfig> update)
+        {
+            if (update == null) return;
+
+            var config = LoadGlobalConfig();
+            update(config);
             SaveGlobalConfig(config);
         }
 
