@@ -49,17 +49,7 @@ namespace GitDeployPro.Services
             // 1. Init
             await RunGitCommandAsync("init");
 
-            // 1.1. Hide .git folder (Fix for TortoiseGit/Windows Icons)
-            try
-            {
-                var gitPath = Path.Combine(_workingDirectory, ".git");
-                if (Directory.Exists(gitPath))
-                {
-                    var dirInfo = new DirectoryInfo(gitPath);
-                    dirInfo.Attributes |= FileAttributes.Hidden;
-                }
-            }
-            catch { }
+            EnsureGitFolderHidden();
 
             // 2. Add all files
             await RunGitCommandAsync("add .");
@@ -234,16 +224,21 @@ namespace GitDeployPro.Services
         public async Task PushAsync(string remote = "origin")
         {
             var branch = await GetCurrentBranchAsync();
-            
-            // Check if branch has upstream
-            try 
+            try
             {
-                await RunGitCommandAsync($"push {remote} {branch}");
+                try 
+                {
+                    await RunGitCommandAsync($"push {remote} {branch}");
+                }
+                catch
+                {
+                    // If push fails, try setting upstream
+                    await RunGitCommandAsync($"push --set-upstream {remote} {branch}");
+                }
             }
-            catch
+            finally
             {
-                // If push fails, try setting upstream
-                await RunGitCommandAsync($"push --set-upstream {remote} {branch}");
+                EnsureGitFolderHidden();
             }
         }
 
@@ -401,6 +396,25 @@ namespace GitDeployPro.Services
                     throw new Exception($"Failed to execute git command: {ex.Message}");
                 }
             });
+        }
+
+        public void EnsureGitFolderHidden()
+        {
+            try
+            {
+                var gitPath = Path.Combine(_workingDirectory, ".git");
+                if (!Directory.Exists(gitPath)) return;
+
+                var dirInfo = new DirectoryInfo(gitPath);
+                if (!dirInfo.Attributes.HasFlag(FileAttributes.Hidden))
+                {
+                    dirInfo.Attributes |= FileAttributes.Hidden;
+                }
+            }
+            catch
+            {
+                // Swallow: visual cue only, don't block git operations
+            }
         }
     }
 

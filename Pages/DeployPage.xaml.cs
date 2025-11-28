@@ -466,6 +466,7 @@ namespace GitDeployPro.Pages
             }
             finally
             {
+                _gitService.EnsureGitFolderHidden();
                 isDeploying = false;
                 DeployButton.IsEnabled = true; 
                 ActionButton.IsEnabled = true;
