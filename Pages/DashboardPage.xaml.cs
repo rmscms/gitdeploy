@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Navigation;
 using GitDeployPro.Controls;
 using GitDeployPro.Services;
+using System.Windows.Threading;
 
 namespace GitDeployPro.Pages
 {
@@ -13,6 +14,8 @@ namespace GitDeployPro.Pages
         private GitService _gitService;
         private HistoryService _historyService;
         private ConfigurationService _configService;
+        private DispatcherTimer _refreshTimer;
+        private bool _isRefreshing;
 
         public DashboardPage()
         {
@@ -21,10 +24,14 @@ namespace GitDeployPro.Pages
             _historyService = new HistoryService();
             _configService = new ConfigurationService();
             LoadDashboardData();
+            SetupAutoRefresh();
         }
 
         private async void LoadDashboardData()
         {
+            if (_isRefreshing) return;
+            _isRefreshing = true;
+
             try
             {
                 // 1. Project Info
@@ -91,6 +98,10 @@ namespace GitDeployPro.Pages
             {
                 System.Diagnostics.Debug.WriteLine(ex.Message);
             }
+            finally
+            {
+                _isRefreshing = false;
+            }
         }
 
         private void QuickDeploy_Click(object sender, RoutedEventArgs e)
@@ -122,6 +133,17 @@ namespace GitDeployPro.Pages
             {
                 PushStatusBadge.Visibility = Visibility.Collapsed;
             }
+        }
+
+        private void SetupAutoRefresh()
+        {
+            _refreshTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMinutes(1)
+            };
+            _refreshTimer.Tick += (s, e) => LoadDashboardData();
+            _refreshTimer.Start();
+            this.Unloaded += (s, e) => _refreshTimer?.Stop();
         }
     }
 }

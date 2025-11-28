@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows.Media;
+using System.Windows.Threading;
 using GitDeployPro.Controls;
 using GitDeployPro.Windows;
 using GitDeployPro.Services;
@@ -22,6 +23,8 @@ namespace GitDeployPro.Pages
         private bool _isLoaded = false;
         private ProjectConfig _projectConfig;
         private BranchStatusInfo _branchStatus = new BranchStatusInfo();
+        private DispatcherTimer _autoRefreshTimer;
+        private bool _isRefreshingGit;
         private int _cachedUncommittedCount = -1;
         private int _cachedTotalCommits = -1;
 
@@ -34,10 +37,13 @@ namespace GitDeployPro.Pages
             _configService = new ConfigurationService();
             _projectConfig = new ProjectConfig();
             LoadGitData();
+            SetupAutoRefreshTimer();
         }
 
         private async void LoadGitData()
         {
+            if (_isRefreshingGit) return;
+            _isRefreshingGit = true;
             _isLoaded = false;
             try
             {
@@ -125,6 +131,7 @@ namespace GitDeployPro.Pages
             finally
             {
                 _isLoaded = true;
+                _isRefreshingGit = false;
             }
         }
 
@@ -287,6 +294,17 @@ namespace GitDeployPro.Pages
             {
                 DeployPushBadge.Visibility = Visibility.Collapsed;
             }
+        }
+
+        private void SetupAutoRefreshTimer()
+        {
+            _autoRefreshTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMinutes(1)
+            };
+            _autoRefreshTimer.Tick += (s, e) => LoadGitData();
+            _autoRefreshTimer.Start();
+            this.Unloaded += (s, e) => _autoRefreshTimer?.Stop();
         }
 
         private void SetActionButton(string tag, string content, string colorHex, bool isEnabled = true)
