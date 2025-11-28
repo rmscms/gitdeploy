@@ -42,6 +42,21 @@ namespace GitDeployPro.Services
             return Directory.Exists(Path.Combine(_workingDirectory, ".git"));
         }
 
+        public async Task RemovePathFromIndexAsync(string relativePath)
+        {
+            if (string.IsNullOrWhiteSpace(relativePath) || !IsGitRepository())
+                return;
+
+            try
+            {
+                await RunGitCommandAsync($"rm -r --cached \"{relativePath}\"");
+            }
+            catch
+            {
+                // ignore errors if path isn't tracked or doesn't exist
+            }
+        }
+
         public async Task InitRepoAsync(List<string> branches, string remoteUrl)
         {
             if (IsGitRepository()) return;

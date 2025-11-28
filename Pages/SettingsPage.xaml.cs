@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -17,6 +18,19 @@ namespace GitDeployPro.Pages
     {
         private readonly ConfigurationService _configService;
         private readonly GitService _gitService;
+        private static readonly string[] DefaultIgnorePatterns = new[]
+        {
+            "bin/",
+            "obj/",
+            ".vs/",
+            "packages/",
+            "node_modules/",
+            ".env",
+            "*.log",
+            "vendor/",
+            ".gitdeploy.config",
+            ".gitdeploy.history"
+        };
 
         public SettingsPage()
         {
@@ -63,15 +77,8 @@ namespace GitDeployPro.Pages
             AutoCommitCheckBox.IsChecked = projectConfig.AutoCommit;
             AutoPushCheckBox.IsChecked = projectConfig.AutoPush;
             
-            if (projectConfig.ExcludePatterns != null && projectConfig.ExcludePatterns.Length > 0)
-            {
-                ExcludePatternsTextBox.Text = string.Join(Environment.NewLine, projectConfig.ExcludePatterns);
-            }
-            else
-            {
-                // Default ignores
-                ExcludePatternsTextBox.Text = "node_modules/\n.git/\n.env\n*.log\nvendor/";
-            }
+            var gitIgnoreLines = LoadOrCreateGitIgnoreLines(path);
+            ExcludePatternsTextBox.Text = string.Join(Environment.NewLine, gitIgnoreLines);
             
             // Set Git Service Path
             GitService.SetWorkingDirectory(path);
@@ -221,6 +228,8 @@ namespace GitDeployPro.Pages
 
                 int.TryParse(PortTextBox.Text, out int port);
 
+                var ignoreEntries = GetIgnoreEntriesFromTextBox();
+
                 // 1. Save Project Config
                 var projectConfig = new ProjectConfig
                 {
@@ -236,9 +245,9 @@ namespace GitDeployPro.Pages
                     UseSSH = UseSSHCheckBox.IsChecked ?? false,
                     AutoInitGit = AutoInitGitCheckBox.IsChecked ?? true,
                     AutoCommit = AutoCommitCheckBox.IsChecked ?? true,
-                    AutoPush = AutoPushCheckBox.IsChecked ?? false,
-                    ExcludePatterns = ExcludePatternsTextBox.Text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                    AutoPush = AutoPushCheckBox.IsChecked ?? false
                 };
+                projectConfig.ExcludePatterns = ignoreEntries.ToArray();
 
                 _configService.SaveProjectConfig(projectConfig);
 
@@ -309,11 +318,9 @@ namespace GitDeployPro.Pages
                     }
                 }
 
-                // 5. Add to .gitignore if requested
-                if (AddToGitIgnoreCheckBox.IsChecked == true)
-                {
-                    EnsureConfigInGitIgnore(projectPath);
-                }
+                // 5. Persist .gitignore entries
+                WriteGitIgnoreFile(projectPath, ignoreEntries);
+                await ApplyGitIgnoreRemovals(projectPath, ignoreEntries);
 
                 ModernMessageBox.Show("Settings saved successfully!", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
             }
@@ -323,27 +330,85 @@ namespace GitDeployPro.Pages
             }
         }
 
-        private void EnsureConfigInGitIgnore(string projectPath)
+        private string[] LoadOrCreateGitIgnoreLines(string projectPath)
         {
+            if (string.IsNullOrWhiteSpace(projectPath))
+            {
+                return DefaultIgnorePatterns;
+            }
+
             try
             {
                 string gitignorePath = Path.Combine(projectPath, ".gitignore");
-                string configFileName = ".gitdeploy.config";
-                
                 if (!File.Exists(gitignorePath))
                 {
-                    File.WriteAllText(gitignorePath, configFileName + Environment.NewLine);
+                    File.WriteAllLines(gitignorePath, DefaultIgnorePatterns);
+                    return DefaultIgnorePatterns;
                 }
-                else
+
+                var lines = File.ReadAllLines(gitignorePath)
+                                .Select(l => l.Trim())
+                                .Where(l => !string.IsNullOrWhiteSpace(l))
+                                .ToList();
+
+                if (lines.Count == 0)
                 {
-                    string[] lines = File.ReadAllLines(gitignorePath);
-                    bool exists = lines.Any(l => l.Trim() == configFileName);
-                    
-                    if (!exists)
+                    File.WriteAllLines(gitignorePath, DefaultIgnorePatterns);
+                    return DefaultIgnorePatterns;
+                }
+
+                return lines.ToArray();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to read .gitignore: {ex.Message}");
+                return DefaultIgnorePatterns;
+            }
+        }
+
+        private List<string> GetIgnoreEntriesFromTextBox()
+        {
+            return ExcludePatternsTextBox.Text
+                .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(line => line.Trim())
+                .Where(line => !string.IsNullOrWhiteSpace(line))
+                .ToList();
+        }
+
+        private void WriteGitIgnoreFile(string projectPath, IEnumerable<string> entries)
+        {
+            if (string.IsNullOrWhiteSpace(projectPath) || !Directory.Exists(projectPath))
+            {
+                return;
+            }
+
+            try
+            {
+                string gitignorePath = Path.Combine(projectPath, ".gitignore");
+                var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var output = new List<string>();
+
+                void AddLine(string line)
+                {
+                    if (string.IsNullOrWhiteSpace(line)) return;
+                    var trimmed = line.Trim();
+                    if (seen.Add(trimmed))
                     {
-                        File.AppendAllText(gitignorePath, Environment.NewLine + configFileName + Environment.NewLine);
+                        output.Add(trimmed);
                     }
                 }
+
+                foreach (var entry in entries)
+                {
+                    AddLine(entry);
+                }
+
+                foreach (var defaults in DefaultIgnorePatterns)
+                {
+                    AddLine(defaults);
+                }
+
+                File.WriteAllLines(gitignorePath, output);
             }
             catch (Exception ex)
             {
@@ -351,7 +416,34 @@ namespace GitDeployPro.Pages
             }
         }
 
-        private void AddGitIgnore_Click(object sender, RoutedEventArgs e)
+        private async Task ApplyGitIgnoreRemovals(string projectPath, IEnumerable<string> entries)
+        {
+            if (!_gitService.IsGitRepository()) return;
+
+            foreach (var entry in entries)
+            {
+                var trimmed = entry?.Trim();
+                if (string.IsNullOrWhiteSpace(trimmed) || trimmed.StartsWith("#")) continue;
+
+                // consider folder-style entries (ending with /) or explicit directories
+                bool looksLikeFolder = trimmed.EndsWith("/") || trimmed.EndsWith("\\");
+                if (!looksLikeFolder)
+                {
+                    var pathGuess = trimmed.Replace("/", "\\");
+                    var fullPath = Path.Combine(projectPath, pathGuess);
+                    looksLikeFolder = Directory.Exists(fullPath);
+                }
+
+                if (!looksLikeFolder) continue;
+
+                var normalized = trimmed.TrimEnd('/', '\\');
+                if (string.IsNullOrWhiteSpace(normalized)) continue;
+
+                await _gitService.RemovePathFromIndexAsync(normalized);
+            }
+        }
+
+        private async void AddGitIgnore_Click(object sender, RoutedEventArgs e)
         {
              string projectPath = LocalPathTextBox.Text;
              if (string.IsNullOrWhiteSpace(projectPath) || !Directory.Exists(projectPath))
@@ -360,8 +452,20 @@ namespace GitDeployPro.Pages
                  return;
              }
 
-             EnsureConfigInGitIgnore(projectPath);
-             ModernMessageBox.Show(".gitdeploy.config added to .gitignore!", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+             var entries = GetIgnoreEntriesFromTextBox();
+             if (!entries.Any(e => string.Equals(e, ".gitdeploy.config", StringComparison.OrdinalIgnoreCase)))
+             {
+                 entries.Add(".gitdeploy.config");
+             }
+             if (!entries.Any(e => string.Equals(e, ".gitdeploy.history", StringComparison.OrdinalIgnoreCase)))
+             {
+                 entries.Add(".gitdeploy.history");
+             }
+
+             ExcludePatternsTextBox.Text = string.Join(Environment.NewLine, entries);
+             WriteGitIgnoreFile(projectPath, entries);
+             await ApplyGitIgnoreRemovals(projectPath, entries);
+             ModernMessageBox.Show(".gitignore updated with app entries!", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private void UpdateGitPushStatusBadge(BranchStatusInfo status)
