@@ -238,16 +238,32 @@
                                          Unchecked="UseSSHCheckBox_Unchecked"/>
                             </StackPanel>
 
-                            <Button x:Name="TestConnectionButton"
-                                    Content="🔄 Test Connection" 
-                                    Height="40" 
-                                    Background="#333333"
-                                    Foreground="White"
-                                    BorderThickness="0"
-                                    FontSize="14"
-                                    FontWeight="SemiBold"
-                                    Cursor="Hand"
-                                    Click="TestConnection_Click"/>
+                            <StackPanel Orientation="Horizontal">
+                                <Button x:Name="TestConnectionButton"
+                                        Content="🔄 Test Connection" 
+                                        Height="40" 
+                                        Width="160"
+                                        Background="#333333"
+                                        Foreground="White"
+                                        BorderThickness="0"
+                                        FontSize="14"
+                                        FontWeight="SemiBold"
+                                        Cursor="Hand"
+                                        Margin="0,0,10,0"
+                                        Click="TestConnection_Click"/>
+                                
+                                <Button x:Name="ReSetupButton"
+                                        Content="🛠 Re-Run Setup Wizard" 
+                                        Height="40" 
+                                        Width="180"
+                                        Background="#333333"
+                                        Foreground="#FFD54F"
+                                        BorderThickness="0"
+                                        FontSize="14"
+                                        FontWeight="SemiBold"
+                                        Cursor="Hand"
+                                        Click="ReSetupButton_Click"/>
+                            </StackPanel>
                         </StackPanel>
                     </Border>
                 </ScrollViewer>

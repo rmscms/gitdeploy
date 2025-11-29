@@ -6,6 +6,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Media; 
 using GitDeployPro.Pages;
 using GitDeployPro.Services;
+using GitDeployPro.Windows;
 using Button = System.Windows.Controls.Button;
 
 namespace GitDeployPro
@@ -156,7 +157,63 @@ namespace GitDeployPro
             GitService.SetWorkingDirectory(path);
             HistoryService.SetWorkingDirectory(path);
 
-            ContentFrame.Navigate(new DashboardPage());
+            CheckAndShowSetupWizard(path);
+
+            NavigateToDashboard();
+        }
+
+        private void CheckAndShowSetupWizard(string path)
+        {
+            // Ensure we're on UI thread and window is loaded
+            Dispatcher.InvokeAsync(() =>
+            {
+                try
+                {
+                    // Check if configured
+                    var gitService = new GitService();
+                    var config = _configService.LoadProjectConfig(path);
+                    
+                    bool isGitRepo = gitService.IsGitRepository();
+                    
+                    // If not a git repo OR (is a repo but has no config file), show wizard
+                    // BUT: If it is a git repo, we should be careful. Maybe user just opened an existing repo.
+                    // Let's only force wizard if:
+                    // 1. Not a git repo at all
+                    // 2. Is a git repo but we have never seen it (no config) AND it has no remotes (fresh init)?
+                    // Actually, the requirement is "Setup Wizard" for "New Projects".
+                    // If a folder has .git, it's technically initialized.
+                    // If .gitdeploy.config is missing, it just means we haven't configured FTP/Deployment settings.
+                    // So, if IsGitRepo is true, we should probably SKIP the wizard or make it optional?
+                    // User said: "I opened a project with .git folder but wizard popped up. It shouldn't."
+
+                    bool shouldShowWizard = !isGitRepo;
+
+                    // If it IS a repo, but no config, maybe just let them use it as a Git Client?
+                    // Only show wizard if it's NOT a repo.
+                    // If they want to configure FTP later, they can use Settings or "Run Setup" button.
+                    
+                    if (shouldShowWizard)
+                    {
+                        var wizard = new ProjectSetupWizard(path)
+                        {
+                            Owner = this
+                        };
+                        
+                        // Ensure owner is visible
+                        if (!this.IsVisible) this.Show();
+
+                        wizard.ShowDialog();
+                        
+                        if (wizard.SetupCompleted)
+                        {
+                            // Reload everything and refresh Dashboard
+                            LoadRecentProjects();
+                            NavigateToDashboard();
+                        }
+                    }
+                }
+                catch { }
+            }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
         }
 
         public void NavigateToDashboard()

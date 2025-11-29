@@ -10,6 +10,7 @@ using GitDeployPro.Controls;
 using GitDeployPro.Windows;
 using GitDeployPro.Services;
 using GitDeployPro.Models;
+using FluentFTP;
 
 namespace GitDeployPro.Pages
 {
@@ -77,12 +78,14 @@ namespace GitDeployPro.Pages
 
                 foreach (var branch in branches)
                 {
+                    // Source Logic
                     bool isSource = !string.IsNullOrEmpty(_projectConfig.DefaultSourceBranch) 
                         ? branch == _projectConfig.DefaultSourceBranch 
                         : branch == current;
                     
                     SourceBranchComboBox.Items.Add(new ComboBoxItem { Content = branch, IsSelected = isSource });
                     
+                    // Target Logic - Add all branches, try to select default
                     bool isTarget = !string.IsNullOrEmpty(_projectConfig.DefaultTargetBranch) 
                         ? branch == _projectConfig.DefaultTargetBranch 
                         : false; 
@@ -90,7 +93,13 @@ namespace GitDeployPro.Pages
                     TargetBranchComboBox.Items.Add(new ComboBoxItem { Content = branch, IsSelected = isTarget });
                 }
 
-                // Fallback logic
+                // If no default target selected, try fallback
+                if (TargetBranchComboBox.SelectedIndex == -1)
+                {
+                    SelectFallbackTargetBranch(branches);
+                }
+
+                // Fallback logic for Source
                 if (SourceBranchComboBox.SelectedIndex == -1 && SourceBranchComboBox.Items.Count > 0)
                 {
                     for(int i=0; i<SourceBranchComboBox.Items.Count; i++)
@@ -102,11 +111,6 @@ namespace GitDeployPro.Pages
                         }
                     }
                     if (SourceBranchComboBox.SelectedIndex == -1) SourceBranchComboBox.SelectedIndex = 0;
-                }
-
-                if (TargetBranchComboBox.SelectedIndex == -1)
-                {
-                    SelectFallbackTargetBranch(branches);
                 }
 
                 await RefreshBranchStatusAsync();
@@ -122,6 +126,29 @@ namespace GitDeployPro.Pages
                 {
                     StatusText.Text = "Ready...";
                     StatusText.Foreground = System.Windows.Media.Brushes.LightGray;
+                }
+                
+                // LOG UNCOMMITTED FOR DEBUG
+                if (uncommitted.Count > 0) AddLog($"[DEBUG] Found {uncommitted.Count} uncommitted changes.");
+
+                // --- NEW: Check if branches are already synced ---
+                if (SourceBranchComboBox.SelectedItem is ComboBoxItem src && 
+                    TargetBranchComboBox.SelectedItem is ComboBoxItem tgt)
+                {
+                    string? s = src.Content?.ToString();
+                    string? t = tgt.Content?.ToString();
+                    
+                    // Check uncommitted again to be safe
+                    if (uncommitted.Count == 0 && !string.IsNullOrEmpty(s) && !string.IsNullOrEmpty(t) && s != t)
+                    {
+                        var diff = await _gitService.GetDiffAsync(s, t);
+                        if (diff.Count == 0)
+                        {
+                            SetActionButton("synced", "✅ SYNCED", "#2E7D32", false);
+                            StatusText.Text = "Branches are synchronized.";
+                            StatusText.Foreground = System.Windows.Media.Brushes.LightGreen;
+                        }
+                    }
                 }
             }
             catch (Exception ex)
@@ -201,13 +228,15 @@ namespace GitDeployPro.Pages
 
             if (uncommittedCount > 0)
             {
-                SetActionButton("commit", "📝 REVIEW & COMMIT", "#E65100");
+                // Priority 1: If there are uncommitted changes, button MUST be "REVIEW & COMMIT"
+                SetActionButton("commit", "📝 REVIEW & COMMIT", "#E65100", true); // Force Enabled
                 string pendingText = uncommittedCount >= 0 ? uncommittedCount.ToString() : "some";
                 StatusText.Text = $"⚠️ You have {pendingText} uncommitted changes!";
                 StatusText.Foreground = System.Windows.Media.Brushes.Orange;
                 return;
             }
 
+            // If source/target selection is invalid
             if (SourceBranchComboBox.SelectedItem is not ComboBoxItem sourceItem ||
                 TargetBranchComboBox.SelectedItem is not ComboBoxItem targetItem)
             {
@@ -226,38 +255,69 @@ namespace GitDeployPro.Pages
 
             bool sameBranch = (source == target);
 
+            // Priority 2 & 3: Push Pending or Sync
             if (sameBranch)
             {
                 bool remoteReady = _branchStatus != null && _branchStatus.HasRemote;
-                string pushLabel = "☁️ PUSH TO GITHUB";
-                if (_branchStatus != null && _branchStatus.AheadCount > 0)
+                
+                if (!remoteReady)
                 {
-                    pushLabel = $"☁️ PUSH ({_branchStatus.AheadCount})";
+                    // Case 1: No Remote
+                    SetActionButton("push", "☁️ PUSH TO GITHUB", "#555555", false); // Disabled or Gray
+                    StatusText.Text = "No remote repository configured. Nothing to deploy/push.";
+                    StatusText.Foreground = System.Windows.Media.Brushes.Gray;
+                    return;
                 }
 
-                SetActionButton("push", pushLabel, "#24292E", remoteReady);
-
-                if (remoteReady)
+                // Remote exists
+                int ahead = _branchStatus != null ? _branchStatus.AheadCount : 0;
+                
+                if (ahead > 0)
                 {
-                    if (_branchStatus != null && _branchStatus.AheadCount > 0)
-                    {
-                        StatusText.Text = "You have commits pending push.";
-                        StatusText.Foreground = System.Windows.Media.Brushes.Orange;
-                    }
-                    else
-                    {
-                        StatusText.Text = "Branches are up to date with remote.";
-                        StatusText.Foreground = System.Windows.Media.Brushes.LightGray;
-                    }
+                    string pushLabel = $"☁️ PUSH ({ahead})";
+                    SetActionButton("push", pushLabel, "#24292E", true);
+                    StatusText.Text = "You have commits pending push.";
+                    StatusText.Foreground = System.Windows.Media.Brushes.Orange;
                 }
                 else
                 {
-                    StatusText.Text = "Configure a remote in Settings to enable push.";
-                    StatusText.Foreground = System.Windows.Media.Brushes.Orange;
+                    // No commits to push -> Check for Synced State from ActionButton Tag or assume synced
+                    // BUT we just confirmed uncommittedCount == 0.
+                    
+                    // If we previously set it to "synced" because of deployment success, keep it?
+                    // Or revert to "NOTHING TO PUSH"? 
+                    // User wants "Synced" if synced.
+                    // But here source==target, so they are definitionally synced locally.
+                    // The question is sync with REMOTE.
+                    
+                    // Let's stick to "NOTHING TO PUSH" for same branch, unless user prefers "Synced".
+                    // "Synced" usually implies source vs target branches.
+                    // Here source == target, so "Nothing to Push" is more accurate for remote sync.
+                    
+                    SetActionButton("push", "✅ NOTHING TO PUSH", "#2E7D32", false); 
+                    StatusText.Text = "Branch is up to date with remote.";
+                    StatusText.Foreground = System.Windows.Media.Brushes.LightGray;
                 }
             }
             else
             {
+                // Different branches (Source != Target)
+                // We rely on the explicit check in LoadGitData to set "synced" state initially.
+                // If we are here, it means LoadGitData hasn't set it OR we need to determine state.
+                
+                // CRITICAL FIX: Do NOT block updates if tag was "synced" but now we have changes.
+                // We already checked uncommitted > 0 at the top. If we are here, uncommitted == 0.
+                // So if tag is "synced", it means we are likely still synced.
+                // UNLESS a push happened on source that made them diverge?
+                // Re-checking Diff here is expensive.
+                // We will trust the "synced" tag if set by LoadGitData/Deploy success, 
+                // UNLESS uncommitted changes appeared (handled above).
+                
+                if (ActionButton.Tag?.ToString() == "synced")
+                {
+                     return;
+                }
+
                 SetActionButton("compare", "🔍 COMPARE", "#E65100");
                 StatusText.Text = "Ready to compare branches...";
                 StatusText.Foreground = System.Windows.Media.Brushes.LightGray;
@@ -300,7 +360,7 @@ namespace GitDeployPro.Pages
         {
             _autoRefreshTimer = new DispatcherTimer
             {
-                Interval = TimeSpan.FromMinutes(1)
+                Interval = TimeSpan.FromSeconds(10) // Refresh every 10 seconds for better UX
             };
             _autoRefreshTimer.Tick += (s, e) => LoadGitData();
             _autoRefreshTimer.Start();
@@ -474,10 +534,22 @@ namespace GitDeployPro.Pages
             {
                 AddLog($"🚀 Starting deployment process ({filesToDeploy.Count} files)...");
                 
-                await SimulateDeploy(filesToDeploy);
-                
-                string commitHash = await _gitService.GetLastCommitHashAsync();
+                // Use REAL Deploy if FTP is configured, otherwise Simulate
+                bool deployed = false;
+                if (!string.IsNullOrEmpty(_projectConfig.FtpHost))
+                {
+                    deployed = await UploadFilesAsync(filesToDeploy);
+                }
+                else
+                {
+                    await SimulateDeploy(filesToDeploy);
+                    deployed = true;
+                }
 
+                if (!deployed) throw new Exception("Upload failed.");
+
+                string commitHash = await _gitService.GetLastCommitHashAsync();
+                
                 var record = new DeploymentRecord
                 {
                     Title = $"Deploy {SourceBranchComboBox.Text} to {TargetBranchComboBox.Text}",
@@ -504,6 +576,21 @@ namespace GitDeployPro.Pages
                         {
                             await _gitService.SyncBranchesAsync(source, target);
                             AddLog("✅ Branches synced successfully!");
+                            
+                            // Force button update to reflect synced state
+                            _cachedUncommittedCount = 0; 
+                            // We assume sync worked, so diff is empty.
+                            // UpdateActionButtonState won't know this unless we refresh, 
+                            // but Refresh is called in finally block via LoadGitData().
+                            // However, LoadGitData might take a moment.
+                            // We can manually set button state here for better UX.
+                            
+                            Dispatcher.Invoke(() =>
+                            {
+                                SetActionButton("synced", "✅ SYNCED", "#2E7D32", false);
+                                StatusText.Text = "Branches are synchronized.";
+                                StatusText.Foreground = System.Windows.Media.Brushes.LightGreen;
+                            });
                         }
                         catch (Exception syncEx)
                         {
@@ -553,6 +640,60 @@ namespace GitDeployPro.Pages
             }
         }
 
+        private async Task<bool> UploadFilesAsync(List<FileChange> files)
+        {
+            try
+            {
+                AddLog($"🔌 Connecting to {_projectConfig.FtpHost}...");
+                
+                using (var client = new AsyncFtpClient(_projectConfig.FtpHost, _projectConfig.FtpUsername, _projectConfig.FtpPasswordDecrypted, _projectConfig.FtpPort))
+                {
+                    await client.Connect();
+                    AddLog("✅ Connected!");
+
+                    int total = files.Count;
+                    int current = 0;
+
+                    foreach (var file in files)
+                    {
+                        current++;
+                        if (file.Type == ChangeType.Deleted)
+                        {
+                            continue;
+                        }
+
+                        string localPath = System.IO.Path.Combine(_projectConfig.LocalProjectPath, file.Name);
+                        if (!System.IO.File.Exists(localPath)) continue;
+
+                        string remotePath = _projectConfig.RemotePath.TrimEnd('/') + "/" + file.Name.Replace("\\", "/");
+                        
+                        string remoteDir = System.IO.Path.GetDirectoryName(remotePath)?.Replace("\\", "/");
+                        if (!string.IsNullOrEmpty(remoteDir))
+                        {
+                             if (!await client.DirectoryExists(remoteDir))
+                             {
+                                 await client.CreateDirectory(remoteDir); 
+                             }
+                        }
+
+                        AddLog($"📤 Uploading {file.Name}...");
+                        ProgressText.Text = $"Uploading {current}/{total}: {file.Name}";
+                        DeployProgressBar.Value = (current * 100) / total;
+
+                        await client.UploadFile(localPath, remotePath, FtpRemoteExists.Overwrite);
+                        AddLog($"✅ Uploaded {file.Name}");
+                    }
+                }
+                AddLog("🎉 All files uploaded successfully!");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                AddLog($"❌ Upload Error: {ex.Message}");
+                throw;
+            }
+        }
+
         private async Task SimulateDeploy(List<FileChange> files)
         {
             int total = files.Count;
@@ -561,14 +702,14 @@ namespace GitDeployPro.Pages
             foreach (var file in files)
             {
                 current++;
-                AddLog($"📤 Uploading {file.Name}...");
-                ProgressText.Text = $"Uploading {current}/{total}: {file.Name}";
+                AddLog($"[SIMULATION] 📤 Uploading {file.Name}...");
+                ProgressText.Text = $"Simulating {current}/{total}: {file.Name}";
                 DeployProgressBar.Value = (current * 100) / total;
-                await Task.Delay(500); 
-                AddLog($"✅ Uploaded {file.Name}");
+                await Task.Delay(200); 
+                AddLog($"[SIMULATION] ✅ Uploaded {file.Name}");
             }
             
-            AddLog("🎉 All files uploaded successfully!");
+            AddLog("🎉 Simulation complete!");
         }
 
         private void SelectAll_Click(object sender, RoutedEventArgs e)
@@ -613,6 +754,32 @@ namespace GitDeployPro.Pages
             {
                 LogTextBlock.Text = "Waiting for deployment...";
                 AddLog("🗑️ Logs cleared");
+            }
+        }
+
+        private void NewBranchButton_Click(object sender, RoutedEventArgs e)
+        {
+            var inputDialog = new InputDialog("Create New Branch", "Enter new branch name:");
+            if (inputDialog.ShowDialog() == true)
+            {
+                string newBranch = inputDialog.ResponseText.Trim();
+                if (string.IsNullOrWhiteSpace(newBranch)) return;
+
+                CreateNewBranch(newBranch);
+            }
+        }
+
+        private async void CreateNewBranch(string branchName)
+        {
+            try
+            {
+                await _gitService.CreateBranchAsync(branchName);
+                ModernMessageBox.Show($"Branch '{branchName}' created successfully!", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+                LoadGitData(); // Refresh UI
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show($"Failed to create branch: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
     }

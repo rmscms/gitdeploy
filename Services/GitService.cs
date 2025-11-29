@@ -408,18 +408,32 @@ namespace GitDeployPro.Services
         
         // --- Sync Logic ---
         
+        public async Task CreateBranchAsync(string branchName)
+        {
+            if (string.IsNullOrWhiteSpace(branchName)) throw new ArgumentException("Branch name required");
+            
+            // Create and checkout
+            await RunGitCommandAsync($"checkout -b {branchName}");
+        }
+
         public async Task SyncBranchesAsync(string sourceBranch, string targetBranch)
         {
-            // 1. Checkout target branch
-            await RunGitCommandAsync($"checkout {targetBranch}");
-            
-            // 2. Merge source into target
-            // --no-edit: accept default merge message
-            // --allow-unrelated-histories: if needed, but risky
-            await RunGitCommandAsync($"merge {sourceBranch} --no-edit");
-            
-            // 3. Switch back to source branch
-            await RunGitCommandAsync($"checkout {sourceBranch}");
+            try
+            {
+                // 1. Checkout target branch
+                await RunGitCommandAsync($"checkout {targetBranch}");
+                
+                // 2. Merge source into target
+                // --no-edit: accept default merge message
+                // --allow-unrelated-histories: Force merge even if branches have different roots
+                // -X theirs: In case of conflicts, accept changes from source branch (master)
+                await RunGitCommandAsync($"merge {sourceBranch} --no-edit --allow-unrelated-histories -X theirs");
+            }
+            finally
+            {
+                // 3. Switch back to source branch (ALWAYS)
+                await RunGitCommandAsync($"checkout {sourceBranch}");
+            }
         }
 
         // -----------------------------------
@@ -489,7 +503,7 @@ namespace GitDeployPro.Services
 
         private async Task<string> RunGitCommandAsync(string arguments, string? workingDirectory = null)
         {
-            return await Task.Run(() =>
+            return await Task.Run(async () =>
             {
                 try
                 {
@@ -508,10 +522,22 @@ namespace GitDeployPro.Services
                         }
                     };
 
+                    // Prevent Git from prompting for credentials (avoids infinite hang)
+                    process.StartInfo.EnvironmentVariables["GIT_TERMINAL_PROMPT"] = "0";
+                    process.StartInfo.EnvironmentVariables["GIT_ASKPASS"] = "echo"; 
+                    process.StartInfo.EnvironmentVariables["SSH_ASKPASS"] = "echo"; 
+
                     process.Start();
-                    string output = process.StandardOutput.ReadToEnd();
-                    string error = process.StandardError.ReadToEnd();
+                    
+                    // Read streams asynchronously to avoid deadlocks
+                    var stdoutTask = process.StandardOutput.ReadToEndAsync();
+                    var stderrTask = process.StandardError.ReadToEndAsync();
+
+                    await Task.WhenAll(stdoutTask, stderrTask);
                     process.WaitForExit();
+
+                    string output = stdoutTask.Result;
+                    string error = stderrTask.Result;
 
                     // Allow non-zero exit for status, remote, init commands
                     if (process.ExitCode != 0 && 

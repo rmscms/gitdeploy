@@ -80,7 +80,7 @@
                                   Foreground="#AAAAAA"
                                   Margin="0,0,0,10"/>
                         <TextBlock x:Name="ChangedFilesCount" 
-                                  Text="3" 
+                                  Text="-" 
                                   FontSize="36" 
                                   FontWeight="Bold" 
                                   HorizontalAlignment="Center" 
@@ -100,7 +100,7 @@
                                   Foreground="#AAAAAA"
                                   Margin="0,0,0,10"/>
                         <TextBlock x:Name="CommitsCount" 
-                                  Text="12" 
+                                  Text="-" 
                                   FontSize="36" 
                                   FontWeight="Bold" 
                                   HorizontalAlignment="Center" 
@@ -120,7 +120,7 @@
                                   Foreground="#AAAAAA"
                                   Margin="0,0,0,10"/>
                         <TextBlock x:Name="LastDeployText" 
-                                  Text="Never" 
+                                  Text="-" 
                                   FontSize="24" 
                                   FontWeight="Bold" 
                                   HorizontalAlignment="Center" 
@@ -215,6 +215,44 @@
                     </Button.Style>
                 </Button>
                 
+                <Button Width="160" 
+                       Height="45"
+                       Margin="0,0,12,0"
+                       Background="#333333"
+                       BorderThickness="0"
+                       Cursor="Hand"
+                       Click="RunSetupWizard_Click">
+                    <Button.Style>
+                        <Style TargetType="Button">
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="border" 
+                                               Background="{TemplateBinding Background}" 
+                                               CornerRadius="6">
+                                            <StackPanel Orientation="Horizontal" 
+                                                       VerticalAlignment="Center" 
+                                                       HorizontalAlignment="Center">
+                                                <TextBlock Text="🛠" FontSize="16" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="White"/>
+                                                <TextBlock Text="Run Setup" 
+                                                          FontSize="13" 
+                                                          FontWeight="SemiBold"
+                                                          Foreground="White" 
+                                                          VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="border" Property="Background" Value="#444444"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </Button.Style>
+                </Button>
+
                 <Button Width="160" 
                        Height="45"
                        Background="#333333"

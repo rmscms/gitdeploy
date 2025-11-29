@@ -481,5 +481,21 @@ namespace GitDeployPro.Pages
                 GitPushStatusBadge.Visibility = Visibility.Collapsed;
             }
         }
+        private async void ReSetupButton_Click(object sender, RoutedEventArgs e)
+        {
+            string path = LocalPathTextBox.Text;
+            if (string.IsNullOrWhiteSpace(path)) return;
+
+            var wizard = new ProjectSetupWizard(path)
+            {
+                Owner = System.Windows.Application.Current.MainWindow
+            };
+
+            if (wizard.ShowDialog() == true)
+            {
+                ModernMessageBox.Show("Project configuration re-setup successfully! 🔄", "Setup Completed", MessageBoxButton.OK, MessageBoxImage.Information);
+                await ReloadSettingsForPath(path);
+            }
+        }
     }
 }
