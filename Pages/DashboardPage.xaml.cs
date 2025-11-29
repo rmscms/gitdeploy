@@ -23,6 +23,13 @@ namespace GitDeployPro.Pages
             _gitService = new GitService();
             _historyService = new HistoryService();
             _configService = new ConfigurationService();
+            
+            // Initialize timer here to avoid CS8618
+            _refreshTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMinutes(1)
+            };
+            
             LoadDashboardData();
             SetupAutoRefresh();
             this.Loaded += DashboardPage_Loaded;
@@ -40,6 +47,11 @@ namespace GitDeployPro.Pages
 
             try
             {
+                // Reset UI placeholders
+                ChangedFilesCount.Text = "-";
+                CommitsCount.Text = "-";
+                LastDeployText.Text = "-";
+
                 // 1. Project Info
                 string currentPath = "No Project Selected";
                 
@@ -48,21 +60,16 @@ namespace GitDeployPro.Pages
                 if (!string.IsNullOrEmpty(globalConfig.LastProjectPath) && Directory.Exists(globalConfig.LastProjectPath))
                 {
                     currentPath = globalConfig.LastProjectPath;
-                    
-                    // Update GitService to point to this path
                     GitService.SetWorkingDirectory(currentPath);
                 }
                 else
                 {
-                    // Fallback to current directory if not set
-                    // But usually we want to show "Select Project" if nothing is set
                     if (currentPath == "No Project Selected")
                     {
                          currentPath = Directory.GetCurrentDirectory();
-                         // Check if this fallback is actually a repo
                          if (!Directory.Exists(Path.Combine(currentPath, ".git")))
                          {
-                             currentPath = "Please select a project in Settings";
+                             currentPath = "Please select or setup a project";
                          }
                     }
                 }
@@ -71,8 +78,13 @@ namespace GitDeployPro.Pages
 
                 if (!_gitService.IsGitRepository())
                 {
-                    CurrentBranchText.Text = "Git Repository not found";
+                    CurrentBranchText.Text = "Not a Git Repository";
                     UpdatePushStatusBadge(new BranchStatusInfo());
+                    
+                    ChangedFilesCount.Text = "N/A";
+                    CommitsCount.Text = "N/A";
+                    LastDeployText.Text = "N/A";
+                    
                     return;
                 }
 
@@ -110,6 +122,31 @@ namespace GitDeployPro.Pages
             }
         }
 
+        private void RunSetupWizard_Click(object sender, RoutedEventArgs e)
+        {
+             var globalConfig = _configService.LoadGlobalConfig();
+             string path = globalConfig.LastProjectPath;
+             
+             if (string.IsNullOrEmpty(path))
+             {
+                 path = Directory.GetCurrentDirectory();
+             }
+
+             if (string.IsNullOrEmpty(path)) return;
+
+            var wizard = new GitDeployPro.Windows.ProjectSetupWizard(path)
+            {
+                Owner = System.Windows.Application.Current.MainWindow
+            };
+            
+            if (wizard.ShowDialog() == true)
+            {
+                LoadDashboardData();
+                ModernMessageBox.Show("Project re-configured successfully!", "Setup Complete", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        }
+
+
         private void QuickDeploy_Click(object sender, RoutedEventArgs e)
         {
             NavigationService?.Navigate(new DeployPage());
@@ -143,10 +180,7 @@ namespace GitDeployPro.Pages
 
         private void SetupAutoRefresh()
         {
-            _refreshTimer = new DispatcherTimer
-            {
-                Interval = TimeSpan.FromMinutes(1)
-            };
+            // _refreshTimer is already initialized in constructor
             _refreshTimer.Tick += (s, e) => LoadDashboardData();
             _refreshTimer.Start();
             this.Unloaded += (s, e) => _refreshTimer?.Stop();

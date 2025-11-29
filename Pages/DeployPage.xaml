@@ -37,19 +37,33 @@
             <Border Grid.Column="0" Background="#2B2B2B" CornerRadius="8" Padding="15">
                 <StackPanel>
                     <TextBlock Text="Source Branch (Local):" FontSize="13" Foreground="#CCCCCC" Margin="0,0,0,8"/>
-                    <ComboBox x:Name="SourceBranchComboBox" 
-                             Height="40" 
-                             FontSize="14"
-                             Background="#3A3A3A"
-                             Foreground="White"
-                             BorderBrush="#0078D4"
-                             BorderThickness="1"
-                             Padding="10,0"
-                             SelectionChanged="BranchComboBox_SelectionChanged">
-                        <ComboBoxItem Content="🌿 master" IsSelected="True"/>
-                        <ComboBoxItem Content="🔧 development"/>
-                        <ComboBoxItem Content="🧪 beta"/>
-                    </ComboBox>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <ComboBox x:Name="SourceBranchComboBox" 
+                                 Grid.Column="0"
+                                 Height="40" 
+                                 FontSize="14"
+                                 Background="#3A3A3A"
+                                 Foreground="White"
+                                 BorderBrush="#0078D4"
+                                 BorderThickness="1"
+                                 Padding="10,0"
+                                 SelectionChanged="BranchComboBox_SelectionChanged"/>
+                        <Button x:Name="NewBranchButton"
+                                Grid.Column="1"
+                                Content="➕"
+                                ToolTip="Create New Branch"
+                                Width="30"
+                                Height="40"
+                                Margin="5,0,0,0"
+                                Background="#333333"
+                                Foreground="White"
+                                BorderThickness="0"
+                                Click="NewBranchButton_Click"/>
+                    </Grid>
                 </StackPanel>
             </Border>
 
@@ -71,10 +85,8 @@
                              Foreground="White"
                              BorderBrush="#E0E0E0"
                              BorderThickness="1"
-                             Padding="10,0">
-                        <ComboBoxItem Content="🚀 production" IsSelected="True"/>
-                        <ComboBoxItem Content="🌐 staging"/>
-                    </ComboBox>
+                             Padding="10,0"
+                             SelectionChanged="BranchComboBox_SelectionChanged"/>
                 </StackPanel>
             </Border>
 

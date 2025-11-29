@@ -162,6 +162,30 @@ namespace GitDeployPro.Services
 
                 var path = Path.Combine(config.LocalProjectPath, ProjectConfigFile);
                 
+                // Ensure we can write to it if it exists (handle Hidden/ReadOnly)
+                if (File.Exists(path))
+                {
+                    var fi = new FileInfo(path);
+                    FileAttributes attributes = fi.Attributes;
+                    bool changed = false;
+
+                    if ((attributes & FileAttributes.ReadOnly) == FileAttributes.ReadOnly)
+                    {
+                        attributes &= ~FileAttributes.ReadOnly;
+                        changed = true;
+                    }
+                    if ((attributes & FileAttributes.Hidden) == FileAttributes.Hidden)
+                    {
+                        attributes &= ~FileAttributes.Hidden;
+                        changed = true;
+                    }
+
+                    if (changed)
+                    {
+                        fi.Attributes = attributes;
+                    }
+                }
+
                 File.WriteAllText(path, JsonConvert.SerializeObject(config, Formatting.Indented));
                 
                 // Hide the config file
@@ -172,7 +196,10 @@ namespace GitDeployPro.Services
                 }
                 catch { }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to save project config: {ex.Message}");
+            }
         }
     }
 }
