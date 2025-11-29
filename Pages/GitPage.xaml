@@ -26,25 +26,32 @@
             </StackPanel>
             <Button x:Name="CloneRepoButton"
                     Grid.Column="1"
-                    Content="Clone / Connect"
                     Height="42"
                     Padding="20,0"
-                    Background="#2E7D32"
+                    Background="#333333"
                     Foreground="White"
-                    BorderThickness="0"
+                    BorderThickness="1"
+                    BorderBrush="#444444"
                     Cursor="Hand"
                     Click="CloneRepoButton_Click">
+                <Button.Content>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="🔗" FontSize="16" Margin="0,0,12,0" Foreground="#4FC3F7"/>
+                        <TextBlock Text="Clone / Connect" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                    </StackPanel>
+                </Button.Content>
                 <Button.Style>
                     <Style TargetType="Button">
                         <Setter Property="Template">
                             <Setter.Value>
                                 <ControlTemplate TargetType="Button">
-                                    <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="6">
+                                    <Border x:Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="6">
                                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     </Border>
                                     <ControlTemplate.Triggers>
                                         <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="border" Property="Background" Value="#388E3C"/>
+                                            <Setter TargetName="border" Property="Background" Value="#3E3E3E"/>
+                                            <Setter TargetName="border" Property="BorderBrush" Value="#666666"/>
                                         </Trigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>
