@@ -25,6 +25,12 @@ namespace GitDeployPro.Pages
             _configService = new ConfigurationService();
             LoadDashboardData();
             SetupAutoRefresh();
+            this.Loaded += DashboardPage_Loaded;
+        }
+
+        private void DashboardPage_Loaded(object sender, RoutedEventArgs e)
+        {
+            LoadDashboardData();
         }
 
         private async void LoadDashboardData()
