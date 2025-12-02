@@ -14,11 +14,15 @@ namespace GitDeployPro
     public partial class MainWindow : Window
     {
         private ConfigurationService _configService;
+        public bool IsSidebarCollapsed => _isSidebarCollapsed;
+        private bool _isSidebarCollapsed;
+        private const double DefaultSidebarWidth = 240;
 
         public MainWindow()
         {
             InitializeComponent();
             _configService = new ConfigurationService();
+            SetSidebarCollapsed(false);
             LoadRecentProjects();
             
             ContentFrame.Navigate(new DashboardPage());
@@ -112,6 +116,66 @@ namespace GitDeployPro
         private void ProjectSelectorBtn_Click(object sender, RoutedEventArgs e)
         {
             ProjectMenuPopup.IsOpen = !ProjectMenuPopup.IsOpen;
+        }
+
+        private void SidebarToggleButton_Click(object sender, RoutedEventArgs e)
+        {
+            SetSidebarCollapsed(!_isSidebarCollapsed);
+            LogSidebarAction("ToggleButton");
+        }
+
+        private void SidebarToggleButton_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            SidebarToggleButton.Background = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#35373B"));
+        }
+
+        private void SidebarToggleButton_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            SidebarToggleButton.Background = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#2B2D30"));
+        }
+
+        private void SidebarTriggerZone_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            if (SidebarTriggerZone.FindName("SidebarTriggerZoneVisual") is Border visual)
+            {
+                visual.Background = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#773A3D43"));
+            }
+        }
+
+        private void SidebarTriggerZone_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            if (SidebarTriggerZone.FindName("SidebarTriggerZoneVisual") is Border visual)
+            {
+                visual.Background = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#553A3D43"));
+            }
+        }
+
+        public void SetSidebarCollapsed(bool collapsed)
+        {
+            _isSidebarCollapsed = collapsed;
+            SidebarColumn.Width = collapsed ? new GridLength(0) : new GridLength(DefaultSidebarWidth);
+            SidebarPanel.Visibility = collapsed ? Visibility.Collapsed : Visibility.Visible;
+            SidebarToggleIcon.Text = collapsed ? "☰" : "⮜";
+            SidebarToggleButton.ToolTip = collapsed ? "Show Sidebar" : "Hide Sidebar";
+            SidebarTriggerZone.Visibility = collapsed ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        private void SidebarRevealButton_Click(object sender, RoutedEventArgs e)
+        {
+            SetSidebarCollapsed(false);
+            LogSidebarAction("RevealButton");
+        }
+
+        private void SidebarTriggerZone_OnClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            e.Handled = true; // Mark as handled
+            SetSidebarCollapsed(false);
+            LogSidebarAction("TriggerZone");
+        }
+
+        private void LogSidebarAction(string source)
+        {
+            System.Diagnostics.Debug.WriteLine($"[Sidebar] action={source}, collapsed={_isSidebarCollapsed}, time={DateTime.Now:HH:mm:ss}");
         }
 
         private void RecentProject_Click(object sender, RoutedEventArgs e)
@@ -225,6 +289,7 @@ namespace GitDeployPro
         private void Dashboard_Click(object sender, RoutedEventArgs e) => NavigateToDashboard();
         private void Deploy_Click(object sender, RoutedEventArgs e) => ContentFrame.Navigate(new DeployPage());
         private void DirectUpload_Click(object sender, RoutedEventArgs e) => ContentFrame.Navigate(new DirectUploadPage());
+        private void Database_Click(object sender, RoutedEventArgs e) => ContentFrame.Navigate(new DatabasePage());
         private void Terminal_Click(object sender, RoutedEventArgs e) => ContentFrame.Navigate(new TerminalPage());
         private void Git_Click(object sender, RoutedEventArgs e) => ContentFrame.Navigate(new GitPage());
         private void History_Click(object sender, RoutedEventArgs e) => ContentFrame.Navigate(new HistoryPage());

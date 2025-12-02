@@ -1,0 +1,190 @@
+<Page x:Class="GitDeployPro.Pages.DatabasePage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      mc:Ignorable="d"
+      d:DesignHeight="768" d:DesignWidth="1366"
+      Title="DatabasePage">
+
+    <Grid Background="#1E1F22">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="320"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Left Sidebar -->
+        <Border Grid.Column="0" Background="#25262A" BorderBrush="#1B1C1F" BorderThickness="0,0,1,0">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="18">
+                    <TextBlock Text="⚡ Quick Connect" FontSize="16" FontWeight="SemiBold" Foreground="#FFFFFF" Margin="0,0,0,12"/>
+                    <Border Background="#2F3035" Padding="12" CornerRadius="8" Margin="0,0,0,20">
+                        <StackPanel>
+                            <ComboBox x:Name="QuickDbTypeCombo" Margin="0,0,0,10" Height="28">
+                                <ComboBoxItem Content="MySQL" Tag="MySQL" IsSelected="True"/>
+                                <ComboBoxItem Content="MariaDB" Tag="MariaDB"/>
+                            </ComboBox>
+
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="80"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="QuickHostBox" Grid.Column="0" Height="28" Margin="0,0,8,0" Text="127.0.0.1"/>
+                                <TextBox x:Name="QuickPortBox" Grid.Column="1" Height="28" Text="3306" HorizontalContentAlignment="Center"/>
+                            </Grid>
+
+                            <TextBox x:Name="QuickUserBox" Height="28" Margin="0,0,0,8" Text="root"/>
+                            <PasswordBox x:Name="QuickPasswordBox" Height="28" Margin="0,0,0,8"/>
+                            <TextBox x:Name="QuickDatabaseBox" Height="28" Margin="0,0,0,8"/>
+
+                            <Button x:Name="QuickConnectButton" Content="Connect" Height="32" Background="#3F8EF7" Foreground="White" BorderThickness="0" Click="QuickConnectButton_Click"/>
+                        </StackPanel>
+                    </Border>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock Text="Saved Connections" FontSize="15" FontWeight="SemiBold" Foreground="#FFFFFF" VerticalAlignment="Center"/>
+                        <Button x:Name="ManageConnectionsButton" Content="Manage" Margin="8,0,0,0" Height="26" Padding="12,0" Background="#3A3B40" Foreground="#DADADA" BorderThickness="0" Click="OpenConnectionManager_Click"/>
+                    </StackPanel>
+
+                    <Border x:Name="ConnectionsEmptyState" Background="#2F3035" Padding="12" CornerRadius="6" Visibility="Collapsed">
+                        <TextBlock Text="No database profiles yet. Use Connection Manager to add credentials." TextWrapping="Wrap" Foreground="#BBBBBB" FontSize="12"/>
+                    </Border>
+
+                    <ListBox x:Name="ConnectionsList" Margin="0,10,0,20" Background="Transparent" BorderThickness="0" SelectionMode="Single">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="#2B2D30" CornerRadius="6" Padding="10" Margin="0,0,0,8">
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Name}" Foreground="White" FontWeight="SemiBold" FontSize="14"/>
+                                        <TextBlock Text="{Binding Description}" Foreground="#A0A0A0" FontSize="11" Margin="0,2,0,8"/>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                            <Button Content="Connect" Padding="12,2" Background="#3F8EF7" Foreground="White" BorderThickness="0" Tag="{Binding}" Click="ConnectProfile_Click"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+        <!-- Main Workspace -->
+        <Grid Grid.Column="1" Background="#1E1F22">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <Border Background="#232428" Padding="20" BorderBrush="#1B1C1F" BorderThickness="0,0,0,1">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock x:Name="ConnectionBadge" Text="🛢️" FontSize="18" Margin="0,0,8,0"/>
+                            <TextBlock x:Name="ConnectionStatusText" Text="No database connected" FontSize="18" FontWeight="SemiBold" Foreground="#FFFFFF"/>
+                        </StackPanel>
+                        <TextBlock x:Name="ConnectionDetailsText" Text="Select or create a connection to get started." Foreground="#A0A0A0" Margin="0,4,0,0"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,0">
+                        <Button x:Name="ShowSidebarButton" Content="☰  Show Menu" Height="32" Padding="14,0" Background="#3A3B40" Foreground="#FFFFFF" BorderThickness="0" Visibility="Collapsed" Margin="0,0,10,0" Click="ShowSidebarButton_Click"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,0">
+                            <Button x:Name="RefreshSchemaButton" Content="↻ Refresh" Height="32" Padding="14,0" Background="#2F3035" Foreground="#FFFFFF" BorderThickness="0" Click="RefreshSchemaButton_Click" IsEnabled="False" Margin="0,0,10,0"/>
+                            <Button x:Name="DisconnectButton" Content="Disconnect" Height="32" Padding="14,0" Background="#8A2C2C" Foreground="White" BorderThickness="0" Click="DisconnectButton_Click" IsEnabled="False"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Body -->
+            <Grid Grid.Row="1" Margin="20">
+                <Grid x:Name="DisconnectedState" Visibility="Visible">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Width="420">
+                        <TextBlock Text="🛠️ Database Studio" FontSize="26" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,12"/>
+                        <TextBlock Text="Connect to your local phpMyAdmin database or any remote server stored in Connections." Foreground="#B0B0B0" TextWrapping="Wrap" TextAlignment="Center"/>
+                    </StackPanel>
+                </Grid>
+
+                <Grid x:Name="DatabaseContent" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Grid Grid.Row="0" Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Orientation="Horizontal">
+                            <StackPanel>
+                                <TextBlock Text="Active Database" Foreground="#A0A0A0" FontSize="11"/>
+                                <TextBlock x:Name="ActiveDatabaseText" Text="None" Foreground="#FFFFFF" FontSize="16" FontWeight="SemiBold"/>
+                            </StackPanel>
+                            <ComboBox x:Name="DatabaseSelector" Width="220" Margin="10,0,0,0" SelectionChanged="DatabaseSelector_SelectionChanged"/>
+                        </StackPanel>
+                        <ProgressBar x:Name="QueryProgress" Grid.Column="1" Width="220" Height="6" VerticalAlignment="Center" Visibility="Collapsed"/>
+                    </Grid>
+
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="260"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Tables Panel -->
+                        <Border Background="#232428" Padding="12" CornerRadius="10" Margin="0,0,12,0">
+                            <StackPanel>
+                                <TextBlock Text="Tables" FontSize="15" FontWeight="SemiBold" Foreground="#FFFFFF"/>
+                                <TextBox x:Name="TablesSearchBox" Margin="0,10,0,8" Height="26" TextChanged="TablesSearchBox_TextChanged"/>
+                                <ListBox x:Name="TablesList" Height="400" Background="#1F2023" BorderThickness="0" SelectionChanged="TablesList_SelectionChanged"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Query + Results -->
+                        <Grid Grid.Column="1">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="120"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <StackPanel Orientation="Horizontal" Grid.Row="0" HorizontalAlignment="Stretch" Margin="0,0,0,6">
+                                <TextBlock x:Name="TableTitleText" Text="Query Editor" FontSize="15" FontWeight="SemiBold" Foreground="#FFFFFF" VerticalAlignment="Center"/>
+                            </StackPanel>
+
+                            <Border Grid.Row="1" Background="#232428" CornerRadius="8" Padding="6">
+                                <TextBox x:Name="QueryEditor" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Foreground="#FFFFFF" Background="Transparent" BorderThickness="0"/>
+                            </Border>
+
+                            <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,10,0,10">
+                                <Button x:Name="RunQueryButton" Content="Run Query" Padding="20,4" Background="#3F8EF7" Foreground="White" BorderThickness="0" Click="RunQueryButton_Click"/>
+                                <Button x:Name="ClearQueryButton" Content="Clear" Padding="16,4" Background="#3A3B40" Foreground="#FFFFFF" BorderThickness="0" Click="ClearQueryButton_Click" Margin="10,0,0,0"/>
+                            </StackPanel>
+
+                            <Border Grid.Row="3" Background="#232428" CornerRadius="10" Padding="0">
+                                <DataGrid x:Name="ResultsGrid" AutoGenerateColumns="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal" Background="Transparent" Foreground="#FFFFFF" BorderThickness="0" RowBackground="#1F2023" AlternatingRowBackground="#2A2B30"/>
+                            </Border>
+
+                            <TextBlock x:Name="ResultStatusText" Grid.Row="4" Margin="0,10,0,0" Foreground="#A0A0A0"/>
+                        </Grid>
+                    </Grid>
+                </Grid>
+
+                <Border x:Name="LoadingOverlay" Background="#AA000000" CornerRadius="10" Visibility="Collapsed">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock Text="⏳" FontSize="32" HorizontalAlignment="Center"/>
+                        <TextBlock x:Name="LoadingText" Text="Working..." Foreground="#FFFFFF" FontSize="16" FontWeight="SemiBold"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Grid>
+    </Grid>
+</Page>
+
