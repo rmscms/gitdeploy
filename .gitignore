@@ -9,3 +9,4 @@ node_modules/
 *.log
 vendor/
 .gitdeploy.history
+publish/
