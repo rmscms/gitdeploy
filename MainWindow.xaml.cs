@@ -224,6 +224,8 @@ namespace GitDeployPro
 
         private void Dashboard_Click(object sender, RoutedEventArgs e) => NavigateToDashboard();
         private void Deploy_Click(object sender, RoutedEventArgs e) => ContentFrame.Navigate(new DeployPage());
+        private void DirectUpload_Click(object sender, RoutedEventArgs e) => ContentFrame.Navigate(new DirectUploadPage());
+        private void Terminal_Click(object sender, RoutedEventArgs e) => ContentFrame.Navigate(new TerminalPage());
         private void Git_Click(object sender, RoutedEventArgs e) => ContentFrame.Navigate(new GitPage());
         private void History_Click(object sender, RoutedEventArgs e) => ContentFrame.Navigate(new HistoryPage());
         private void Settings_Click(object sender, RoutedEventArgs e) => ContentFrame.Navigate(new SettingsPage());

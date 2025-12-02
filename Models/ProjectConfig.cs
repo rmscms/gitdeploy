@@ -6,17 +6,22 @@ namespace GitDeployPro.Models
 {
     public class ProjectConfig
     {
+        // New Approach: Reference a Connection Profile
+        public string ConnectionProfileId { get; set; } = "";
+
+        // Legacy Fields (Kept for backward compatibility if needed, but UI will use ProfileId)
         public string FtpHost { get; set; } = "";
         public string FtpUsername { get; set; } = "";
         public string FtpPassword { get; set; } = ""; // Encrypted
         public int FtpPort { get; set; } = 21;
+        public bool UseSSH { get; set; }
+
         public string RemotePath { get; set; } = "/";
         public string LocalProjectPath { get; set; } = "";
         
         public string DefaultSourceBranch { get; set; } = "master";
         public string DefaultTargetBranch { get; set; } = "";
         
-        public bool UseSSH { get; set; }
         public bool AutoInitGit { get; set; } = true;
         public bool AutoCommit { get; set; } = true;
         public bool AutoPush { get; set; }

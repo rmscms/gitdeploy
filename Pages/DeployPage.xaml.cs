@@ -37,6 +37,7 @@ namespace GitDeployPro.Pages
             _historyService = new HistoryService();
             _configService = new ConfigurationService();
             _projectConfig = new ProjectConfig();
+            _autoRefreshTimer = new DispatcherTimer(); // Initialize explicitly
             LoadGitData();
             SetupAutoRefreshTimer();
         }

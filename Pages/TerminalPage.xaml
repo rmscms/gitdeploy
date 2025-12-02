@@ -1,0 +1,47 @@
+<Page x:Class="GitDeployPro.Pages.TerminalPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+      xmlns:local="clr-namespace:GitDeployPro.Pages"
+      xmlns:controls="clr-namespace:GitDeployPro.Controls"
+      mc:Ignorable="d" 
+      d:DesignHeight="450" d:DesignWidth="800"
+      Title="TerminalPage">
+
+    <Grid Background="#1E1E1E">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/> <!-- Toolbar -->
+            <RowDefinition Height="*"/>    <!-- Terminal -->
+        </Grid.RowDefinitions>
+
+        <!-- SSH Connection Toolbar -->
+        <Border Grid.Row="0" Background="#252526" Padding="10" BorderThickness="0,0,0,1" BorderBrush="#3E3E42">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="SSH Connection:" Foreground="#CCCCCC" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                
+                <ComboBox x:Name="SshProfilesCombo" Width="250" Height="28" 
+                          DisplayMemberPath="DisplayName"
+                          Background="#333337" Foreground="White"
+                          SelectionChanged="SshProfilesCombo_SelectionChanged">
+                    <ComboBox.Resources>
+                        <Style TargetType="ComboBoxItem">
+                            <Setter Property="Background" Value="#333337"/>
+                            <Setter Property="Foreground" Value="White"/>
+                        </Style>
+                    </ComboBox.Resources>
+                </ComboBox>
+
+                <Button Content="🔌 Quick Connect" Margin="10,0,0,0" Height="28" Padding="10,0"
+                        Style="{StaticResource ModernButtonStyle}" Background="#007ACC"
+                        Click="QuickConnect_Click"/>
+                
+                <Button Content="⚙️ Manage Profiles" Margin="10,0,0,0" Height="28" Padding="10,0"
+                        Style="{StaticResource ModernButtonStyle}" Background="#3E3E42"
+                        Click="ManageProfiles_Click"/>
+            </StackPanel>
+        </Border>
+
+        <controls:TerminalControl x:Name="Terminal" Grid.Row="1"/>
+    </Grid>
+</Page>

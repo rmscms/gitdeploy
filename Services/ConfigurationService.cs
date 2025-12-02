@@ -11,7 +11,19 @@ namespace GitDeployPro.Services
     public class ConfigurationService
     {
         private const string GlobalConfigFile = "global_config.json";
+        private const string ConnectionsFile = "connections.json"; // New file for stored connections
         private const string ProjectConfigFile = ".gitdeploy.config";
+
+        private string GetAppDataPath()
+        {
+            string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            string folder = Path.Combine(appData, "GitDeployPro");
+            if (!Directory.Exists(folder))
+            {
+                Directory.CreateDirectory(folder);
+            }
+            return folder;
+        }
 
         public class GlobalConfig
         {
@@ -26,46 +38,114 @@ namespace GitDeployPro.Services
             public DateTime LastOpenedUtc { get; set; } = DateTime.UtcNow;
         }
 
-        // Global Config Management
+        // --- Connection Profiles Management ---
+
+        public List<ConnectionProfile> LoadConnections()
+        {
+            try
+            {
+                var path = Path.Combine(GetAppDataPath(), ConnectionsFile);
+                if (File.Exists(path))
+                {
+                    var json = File.ReadAllText(path);
+                    var list = JsonConvert.DeserializeObject<List<ConnectionProfile>>(json);
+                    return list ?? new List<ConnectionProfile>();
+                }
+            }
+            catch { }
+            return new List<ConnectionProfile>();
+        }
+
+        public void SaveConnections(List<ConnectionProfile> profiles)
+        {
+            try
+            {
+                var path = Path.Combine(GetAppDataPath(), ConnectionsFile);
+                File.WriteAllText(path, JsonConvert.SerializeObject(profiles, Formatting.Indented));
+            }
+            catch { }
+        }
+
+        public void AddOrUpdateConnection(ConnectionProfile profile)
+        {
+            var connections = LoadConnections();
+            var existing = connections.FirstOrDefault(x => x.Id == profile.Id);
+            
+            if (existing != null)
+            {
+                connections.Remove(existing);
+            }
+            connections.Add(profile);
+            SaveConnections(connections);
+        }
+
+        public void DeleteConnection(string id)
+        {
+            var connections = LoadConnections();
+            var existing = connections.FirstOrDefault(x => x.Id == id);
+            if (existing != null)
+            {
+                connections.Remove(existing);
+                SaveConnections(connections);
+            }
+        }
+
+        // --- Global Config Management ---
         public GlobalConfig LoadGlobalConfig()
         {
             try
             {
-                var path = Path.Combine(AppContext.BaseDirectory, GlobalConfigFile);
-                if (File.Exists(path))
+                // Try AppData first
+                var appDataPath = Path.Combine(GetAppDataPath(), GlobalConfigFile);
+                if (File.Exists(appDataPath))
                 {
-                    var json = File.ReadAllText(path);
-                    var token = JToken.Parse(json);
-                    var config = token.ToObject<GlobalConfig>() ?? new GlobalConfig();
+                    return LoadConfigFromFile(appDataPath);
+                }
 
-                    if ((config.RecentProjects == null || config.RecentProjects.Count == 0) &&
-                        token["RecentProjects"] is JArray legacyArray)
-                    {
-                        var now = DateTime.UtcNow;
-                        int offset = 0;
-                        var migrated = legacyArray
-                            .Where(t => t.Type == JTokenType.String)
-                            .Select(t => t.Value<string>() ?? string.Empty)
-                            .Where(pathValue => !string.IsNullOrWhiteSpace(pathValue))
-                            .Select(pathValue => new RecentProjectEntry
-                            {
-                                Path = pathValue,
-                                LastOpenedUtc = now.AddSeconds(-(offset++))
-                            })
-                            .ToList();
-
-                        if (migrated.Count > 0)
-                        {
-                            config.RecentProjects = migrated;
-                        }
-                    }
-
-                    config.RecentProjects ??= new List<RecentProjectEntry>();
+                // Fallback to local directory (migration logic)
+                var localPath = Path.Combine(AppContext.BaseDirectory, GlobalConfigFile);
+                if (File.Exists(localPath))
+                {
+                    var config = LoadConfigFromFile(localPath);
+                    // Save to AppData immediately to migrate
+                    SaveGlobalConfig(config);
                     return config;
                 }
             }
             catch { }
             return new GlobalConfig();
+        }
+
+        private GlobalConfig LoadConfigFromFile(string path)
+        {
+            var json = File.ReadAllText(path);
+            var token = JToken.Parse(json);
+            var config = token.ToObject<GlobalConfig>() ?? new GlobalConfig();
+
+            if ((config.RecentProjects == null || config.RecentProjects.Count == 0) &&
+                token["RecentProjects"] is JArray legacyArray)
+            {
+                var now = DateTime.UtcNow;
+                int offset = 0;
+                var migrated = legacyArray
+                    .Where(t => t.Type == JTokenType.String)
+                    .Select(t => t.Value<string>() ?? string.Empty)
+                    .Where(pathValue => !string.IsNullOrWhiteSpace(pathValue))
+                    .Select(pathValue => new RecentProjectEntry
+                    {
+                        Path = pathValue,
+                        LastOpenedUtc = now.AddSeconds(-(offset++))
+                    })
+                    .ToList();
+
+                if (migrated.Count > 0)
+                {
+                    config.RecentProjects = migrated;
+                }
+            }
+
+            config.RecentProjects ??= new List<RecentProjectEntry>();
+            return config;
         }
 
         public void SaveGlobalConfig(GlobalConfig config)
@@ -75,7 +155,7 @@ namespace GitDeployPro.Services
                 config ??= new GlobalConfig();
                 config.RecentProjects ??= new List<RecentProjectEntry>();
 
-                var path = Path.Combine(AppContext.BaseDirectory, GlobalConfigFile);
+                var path = Path.Combine(GetAppDataPath(), GlobalConfigFile);
                 File.WriteAllText(path, JsonConvert.SerializeObject(config, Formatting.Indented));
             }
             catch { }
