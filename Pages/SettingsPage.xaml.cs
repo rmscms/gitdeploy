@@ -7,9 +7,9 @@ using System.Windows;
 using System.Windows.Controls;
 using FluentFTP;
 using GitDeployPro.Controls;
-using GitDeployPro.Models; // For ProjectConfig
-using GitDeployPro.Services; // For ConfigurationService, GitService, EncryptionService
-using GitDeployPro.Windows; 
+using GitDeployPro.Models;
+using GitDeployPro.Services;
+using GitDeployPro.Windows;
 using System.Windows.Forms; // For FolderBrowserDialog
 
 namespace GitDeployPro.Pages
@@ -20,16 +20,7 @@ namespace GitDeployPro.Pages
         private readonly GitService _gitService;
         private static readonly string[] DefaultIgnorePatterns = new[]
         {
-            "bin/",
-            "obj/",
-            ".vs/",
-            "packages/",
-            "node_modules/",
-            ".env",
-            "*.log",
-            "vendor/",
-            ".gitdeploy.config",
-            ".gitdeploy.history"
+            "bin/", "obj/", ".vs/", "packages/", "node_modules/", ".env", "*.log", "vendor/", ".gitdeploy.config", ".gitdeploy.history"
         };
 
         public SettingsPage()
@@ -44,9 +35,7 @@ namespace GitDeployPro.Pages
         {
             try
             {
-                // 1. Load Global Config to find last project
                 var globalConfig = _configService.LoadGlobalConfig();
-                
                 if (!string.IsNullOrEmpty(globalConfig.LastProjectPath))
                 {
                     await ReloadSettingsForPath(globalConfig.LastProjectPath);
@@ -61,18 +50,28 @@ namespace GitDeployPro.Pages
         private async Task ReloadSettingsForPath(string path)
         {
             LocalPathTextBox.Text = path;
-            
-            // Load Project Config
             var projectConfig = _configService.LoadProjectConfig(path);
             
-            // Populate UI with Project Config (or defaults/empty if new)
-            HostTextBox.Text = projectConfig.FtpHost;
-            PortTextBox.Text = projectConfig.FtpPort == 0 ? "21" : projectConfig.FtpPort.ToString();
-            UsernameTextBox.Text = projectConfig.FtpUsername;
-            PasswordBox.Password = projectConfig.FtpPasswordDecrypted;
-            RemotePathTextBox.Text = string.IsNullOrEmpty(projectConfig.RemotePath) ? "/" : projectConfig.RemotePath;
-            
-            UseSSHCheckBox.IsChecked = projectConfig.UseSSH;
+            // Load Saved Connections
+            var connections = _configService.LoadConnections();
+            ConnectionProfileComboBox.ItemsSource = connections;
+
+            // Select Saved Profile
+            if (!string.IsNullOrEmpty(projectConfig.ConnectionProfileId))
+            {
+                var selected = connections.FirstOrDefault(c => c.Id == projectConfig.ConnectionProfileId);
+                if (selected != null)
+                {
+                    ConnectionProfileComboBox.SelectedItem = selected;
+                    UpdatePreview(selected);
+                }
+            }
+            else if (connections.Count > 0)
+            {
+                // Optional: Auto-select first if none saved? Or leave empty
+                ConnectionProfileComboBox.SelectedIndex = 0;
+            }
+
             AutoInitGitCheckBox.IsChecked = projectConfig.AutoInitGit;
             AutoCommitCheckBox.IsChecked = projectConfig.AutoCommit;
             AutoPushCheckBox.IsChecked = projectConfig.AutoPush;
@@ -80,10 +79,7 @@ namespace GitDeployPro.Pages
             var gitIgnoreLines = LoadOrCreateGitIgnoreLines(path);
             ExcludePatternsTextBox.Text = string.Join(Environment.NewLine, gitIgnoreLines);
             
-            // Set Git Service Path
             GitService.SetWorkingDirectory(path);
-
-            // Load Branches & Remote URL
             await LoadGitInfo(projectConfig);
         }
 
@@ -93,13 +89,10 @@ namespace GitDeployPro.Pages
             {
                 if (_gitService.IsGitRepository())
                 {
-                    // Load Remote URL
                     string remoteUrl = await _gitService.GetRemoteUrlAsync();
                     RemoteUrlTextBox.Text = remoteUrl;
 
-                    // Load Branches
                     var branches = await _gitService.GetBranchesAsync();
-                    
                     DefaultSourceBranchComboBox.ItemsSource = branches;
                     DefaultTargetBranchComboBox.ItemsSource = branches;
 
@@ -125,64 +118,56 @@ namespace GitDeployPro.Pages
             catch { }
         }
 
-        private void UseSSHCheckBox_Checked(object sender, RoutedEventArgs e)
+        private void ConnectionProfileComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (PortTextBox.Text == "21") PortTextBox.Text = "22";
+            if (ConnectionProfileComboBox.SelectedItem is ConnectionProfile profile)
+            {
+                UpdatePreview(profile);
+            }
+            else
+            {
+                PreviewHostText.Text = "-";
+                PreviewProtocolText.Text = "-";
+                PreviewUserText.Text = "-";
+                PreviewPathText.Text = "-";
+            }
         }
 
-        private void UseSSHCheckBox_Unchecked(object sender, RoutedEventArgs e)
+        private void UpdatePreview(ConnectionProfile p)
         {
-            if (PortTextBox.Text == "22") PortTextBox.Text = "21";
+            PreviewHostText.Text = $"{p.Host}:{p.Port}";
+            PreviewProtocolText.Text = p.UseSSH ? "SFTP (SSH)" : "FTP";
+            PreviewUserText.Text = p.Username;
+            PreviewPathText.Text = p.RemotePath;
         }
 
-        private async void TestConnection_Click(object sender, RoutedEventArgs e)
+        private void ManageConnectionsButton_Click(object sender, RoutedEventArgs e)
         {
-            if (string.IsNullOrWhiteSpace(HostTextBox.Text) || string.IsNullOrWhiteSpace(UsernameTextBox.Text))
-            {
-                ModernMessageBox.Show("Please enter Host and Username.", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
-            int port = 21;
-            if (!int.TryParse(PortTextBox.Text, out port))
-            {
-                ModernMessageBox.Show("Invalid Port number.", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
-            TestConnectionButton.IsEnabled = false;
-            TestConnectionButton.Content = "⏳ Testing...";
-
             try
             {
-                using (var client = new AsyncFtpClient(HostTextBox.Text, UsernameTextBox.Text, PasswordBox.Password, port))
+                var manager = new ConnectionManagerWindow();
+                manager.Owner = System.Windows.Application.Current.MainWindow;
+                
+                if (manager.ShowDialog() == true)
                 {
-                    await client.Connect();
-                    ModernMessageBox.Show("Connection Successful! ✅", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
-                    BrowseButton.IsEnabled = true;
+                     // Refresh list
+                     var connections = _configService.LoadConnections();
+                     ConnectionProfileComboBox.ItemsSource = connections;
+                     
+                     if (manager.SelectedProfile != null)
+                     {
+                          // Try to find and select the one that was edited/created
+                          var selected = connections.FirstOrDefault(c => c.Id == manager.SelectedProfile.Id);
+                          if (selected != null)
+                          {
+                              ConnectionProfileComboBox.SelectedItem = selected;
+                          }
+                     }
                 }
             }
             catch (Exception ex)
             {
-                ModernMessageBox.Show($"Connection Failed: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                BrowseButton.IsEnabled = false;
-            }
-            finally
-            {
-                TestConnectionButton.IsEnabled = true;
-                TestConnectionButton.Content = "🔄 Test Connection";
-            }
-        }
-
-        private void BrowseButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (int.TryParse(PortTextBox.Text, out int port))
-            {
-                var browser = new RemoteBrowserWindow(HostTextBox.Text, UsernameTextBox.Text, PasswordBox.Password, port);
-                if (browser.ShowDialog() == true)
-                {
-                    RemotePathTextBox.Text = browser.SelectedPath;
-                }
+                ModernMessageBox.Show($"Failed to open Connection Manager:\n{ex.ToString()}", "Critical Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -195,7 +180,6 @@ namespace GitDeployPro.Pages
                 
                 if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
                 {
-                    // Reload everything for the new path
                     await ReloadSettingsForPath(dialog.SelectedPath);
                 }
             }
@@ -216,7 +200,7 @@ namespace GitDeployPro.Pages
                 string projectPath = LocalPathTextBox.Text;
                 if (string.IsNullOrWhiteSpace(projectPath))
                 {
-                    ModernMessageBox.Show("Please select a Local Project Path.", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    ModernMessageBox.Show("Please select a valid Local Project Path.", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
 
@@ -226,23 +210,27 @@ namespace GitDeployPro.Pages
                      return;
                 }
 
-                int.TryParse(PortTextBox.Text, out int port);
-
+                var selectedProfile = ConnectionProfileComboBox.SelectedItem as ConnectionProfile;
                 var ignoreEntries = GetIgnoreEntriesFromTextBox();
 
-                // 1. Save Project Config
                 var projectConfig = new ProjectConfig
                 {
                     LocalProjectPath = projectPath,
-                    FtpHost = HostTextBox.Text,
-                    FtpPort = port,
-                    FtpUsername = UsernameTextBox.Text,
-                    FtpPassword = EncryptionService.Encrypt(PasswordBox.Password),
-                    RemotePath = RemotePathTextBox.Text,
+                    
+                    // Save Profile ID
+                    ConnectionProfileId = selectedProfile?.Id ?? "",
+                    
+                    // Legacy fallback (optional, can be removed later)
+                    FtpHost = selectedProfile?.Host ?? "",
+                    FtpPort = selectedProfile?.Port ?? 21,
+                    FtpUsername = selectedProfile?.Username ?? "",
+                    FtpPassword = selectedProfile?.Password ?? "",
+                    UseSSH = selectedProfile?.UseSSH ?? false,
+                    RemotePath = selectedProfile?.RemotePath ?? "/",
+
                     DefaultSourceBranch = DefaultSourceBranchComboBox.SelectedItem as string ?? "master",
                     DefaultTargetBranch = DefaultTargetBranchComboBox.SelectedItem as string ?? "",
                     
-                    UseSSH = UseSSHCheckBox.IsChecked ?? false,
                     AutoInitGit = AutoInitGitCheckBox.IsChecked ?? true,
                     AutoCommit = AutoCommitCheckBox.IsChecked ?? true,
                     AutoPush = AutoPushCheckBox.IsChecked ?? false
@@ -251,19 +239,15 @@ namespace GitDeployPro.Pages
 
                 _configService.SaveProjectConfig(projectConfig);
 
-                // 2. Save Global Config (Update Last Project)
                 _configService.UpdateGlobalConfig(cfg =>
                 {
                     cfg.LastProjectPath = projectPath;
                 });
                 
-                // 3. Update Git Service
                 GitService.SetWorkingDirectory(projectPath);
 
-                // 3.5. Smart Git Init
                 if (!_gitService.IsGitRepository())
                 {
-                    // Ask user how to initialize
                     var initWindow = new InitGitWindow(RemoteUrlTextBox.Text);
                     initWindow.ShowDialog();
 
@@ -273,8 +257,6 @@ namespace GitDeployPro.Pages
                         {
                             await _gitService.InitRepoAsync(initWindow.SelectedBranches, initWindow.RemoteUrl);
                             ModernMessageBox.Show("Git repository initialized successfully!", "Git Init", MessageBoxButton.OK, MessageBoxImage.Information);
-                            
-                            // Refresh Git Info
                             await LoadGitInfo(projectConfig);
                         }
                         catch (Exception ex)
@@ -285,7 +267,6 @@ namespace GitDeployPro.Pages
                 }
                 else
                 {
-                    // If repo exists, check if Remote URL changed or needs setting
                     if (!string.IsNullOrWhiteSpace(RemoteUrlTextBox.Text))
                     {
                         string currentRemote = await _gitService.GetRemoteUrlAsync();
@@ -317,7 +298,6 @@ namespace GitDeployPro.Pages
                     }
                 }
 
-                // 5. Persist .gitignore entries
                 WriteGitIgnoreFile(projectPath, ignoreEntries);
                 await ApplyGitIgnoreRemovals(projectPath, ignoreEntries);
 
@@ -331,10 +311,7 @@ namespace GitDeployPro.Pages
 
         private string[] LoadOrCreateGitIgnoreLines(string projectPath)
         {
-            if (string.IsNullOrWhiteSpace(projectPath))
-            {
-                return DefaultIgnorePatterns;
-            }
+            if (string.IsNullOrWhiteSpace(projectPath)) return DefaultIgnorePatterns;
 
             try
             {
@@ -358,9 +335,8 @@ namespace GitDeployPro.Pages
 
                 return lines.ToArray();
             }
-            catch (Exception ex)
+            catch
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to read .gitignore: {ex.Message}");
                 return DefaultIgnorePatterns;
             }
         }
@@ -376,10 +352,7 @@ namespace GitDeployPro.Pages
 
         private void WriteGitIgnoreFile(string projectPath, IEnumerable<string> entries)
         {
-            if (string.IsNullOrWhiteSpace(projectPath) || !Directory.Exists(projectPath))
-            {
-                return;
-            }
+            if (string.IsNullOrWhiteSpace(projectPath) || !Directory.Exists(projectPath)) return;
 
             try
             {
@@ -397,15 +370,8 @@ namespace GitDeployPro.Pages
                     }
                 }
 
-                foreach (var entry in entries)
-                {
-                    AddLine(entry);
-                }
-
-                foreach (var defaults in DefaultIgnorePatterns)
-                {
-                    AddLine(defaults);
-                }
+                foreach (var entry in entries) AddLine(entry);
+                foreach (var defaults in DefaultIgnorePatterns) AddLine(defaults);
 
                 File.WriteAllLines(gitignorePath, output);
             }
@@ -424,7 +390,6 @@ namespace GitDeployPro.Pages
                 var trimmed = entry?.Trim();
                 if (string.IsNullOrWhiteSpace(trimmed) || trimmed.StartsWith("#")) continue;
 
-                // consider folder-style entries (ending with /) or explicit directories
                 bool looksLikeFolder = trimmed.EndsWith("/") || trimmed.EndsWith("\\");
                 if (!looksLikeFolder)
                 {
@@ -452,14 +417,8 @@ namespace GitDeployPro.Pages
              }
 
              var entries = GetIgnoreEntriesFromTextBox();
-             if (!entries.Any(e => string.Equals(e, ".gitdeploy.config", StringComparison.OrdinalIgnoreCase)))
-             {
-                 entries.Add(".gitdeploy.config");
-             }
-             if (!entries.Any(e => string.Equals(e, ".gitdeploy.history", StringComparison.OrdinalIgnoreCase)))
-             {
-                 entries.Add(".gitdeploy.history");
-             }
+             if (!entries.Any(e => string.Equals(e, ".gitdeploy.config", StringComparison.OrdinalIgnoreCase))) entries.Add(".gitdeploy.config");
+             if (!entries.Any(e => string.Equals(e, ".gitdeploy.history", StringComparison.OrdinalIgnoreCase))) entries.Add(".gitdeploy.history");
 
              ExcludePatternsTextBox.Text = string.Join(Environment.NewLine, entries);
              WriteGitIgnoreFile(projectPath, entries);

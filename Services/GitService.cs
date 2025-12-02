@@ -67,6 +67,9 @@ namespace GitDeployPro.Services
 
             EnsureGitFolderHidden();
 
+            // Check identity before commit
+            await EnsureIdentityConfiguredAsync();
+
             // 2. Add all files
             await RunGitCommandAsync("add .");
 
@@ -94,10 +97,36 @@ namespace GitDeployPro.Services
                 string firstBranch = branches[0];
                 await RunGitCommandAsync($"branch -M {firstBranch}");
 
-                // Create other branches
-                for (int i = 1; i < branches.Count; i++)
+                // Check if we have a valid commit (HEAD exists)
+                bool hasCommits = false;
+                try
                 {
-                    await RunGitCommandAsync($"branch {branches[i]}");
+                    await RunGitCommandAsync("rev-parse HEAD");
+                    hasCommits = true;
+                }
+                catch 
+                { 
+                    // No commits yet (unborn branch)
+                    // Try one last time to force an initial commit allow-empty
+                    try
+                    {
+                        await RunGitCommandAsync("commit --allow-empty -m \"Initial empty commit\"");
+                        hasCommits = true;
+                    }
+                    catch { }
+                }
+
+                // Create other branches ONLY if we have a valid commit
+                if (hasCommits)
+                {
+                    for (int i = 1; i < branches.Count; i++)
+                    {
+                        try 
+                        { 
+                            await RunGitCommandAsync($"branch {branches[i]}"); 
+                        } 
+                        catch { /* Ignore branch creation errors to prevent wizard failure */ }
+                    }
                 }
             }
 
@@ -597,6 +626,30 @@ namespace GitDeployPro.Services
             {
                 // Swallow: visual cue only, don't block git operations
             }
+        }
+
+        private async Task EnsureIdentityConfiguredAsync()
+        {
+            try
+            {
+                // Check if user.name is set globally or locally
+                // If "git config user.name" returns empty or fails, we set a default local identity
+                bool identityMissing = false;
+                try 
+                { 
+                    string name = await RunGitCommandAsync("config user.name");
+                    if (string.IsNullOrWhiteSpace(name)) identityMissing = true;
+                } 
+                catch { identityMissing = true; }
+
+                if (identityMissing)
+                {
+                    // Set local config only for this repository
+                    await RunGitCommandAsync("config user.name \"GitDeploy Pro User\"");
+                    await RunGitCommandAsync("config user.email \"auto@gitdeploy.pro\"");
+                }
+            }
+            catch { /* Ignore errors, if we can't set config, commit might fail but we tried */ }
         }
     }
 

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -17,6 +18,7 @@ namespace GitDeployPro.Windows
         private readonly string _projectPath;
         private readonly GitService _gitService;
         private readonly ConfigurationService _configService;
+        private List<ConnectionProfile> _connections;
 
         public bool SetupCompleted { get; private set; }
 
@@ -36,6 +38,53 @@ namespace GitDeployPro.Windows
                 LocalGitPanel.Visibility = Visibility.Collapsed;
                 RemoteGitRadio.IsEnabled = false;
             }
+            
+            LoadConnectionProfiles();
+        }
+
+        private void LoadConnectionProfiles()
+        {
+             _connections = _configService.LoadConnections();
+             ConnectionProfileComboBox.ItemsSource = _connections;
+             
+             if (_connections.Count > 0)
+             {
+                 ConnectionProfileComboBox.SelectedIndex = 0;
+             }
+             else
+             {
+                 PreviewHostText.Text = "-";
+                 PreviewProtocolText.Text = "-";
+                 PreviewUserText.Text = "-";
+                 PreviewPathText.Text = "-";
+             }
+        }
+
+        private void ConnectionProfileComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+             if (ConnectionProfileComboBox.SelectedItem is ConnectionProfile p)
+             {
+                 PreviewHostText.Text = $"{p.Host}:{p.Port}";
+                 PreviewProtocolText.Text = p.UseSSH ? "SFTP (SSH)" : "FTP";
+                 PreviewUserText.Text = p.Username;
+                 PreviewPathText.Text = p.RemotePath;
+             }
+        }
+
+        private void ManageProfilesButton_Click(object sender, RoutedEventArgs e)
+        {
+             var manager = new ConnectionManagerWindow();
+             manager.Owner = this;
+             if (manager.ShowDialog() == true)
+             {
+                 LoadConnectionProfiles();
+                 if (manager.SelectedProfile != null)
+                 {
+                      var selected = _connections.FirstOrDefault(c => c.Id == manager.SelectedProfile.Id);
+                      if (selected != null)
+                          ConnectionProfileComboBox.SelectedItem = selected;
+                 }
+             }
         }
 
         private void GitSource_Checked(object sender, RoutedEventArgs e)
@@ -60,63 +109,10 @@ namespace GitDeployPro.Windows
             FtpConfigPanel.Visibility = (EnableFtpCheck.IsChecked == true) ? Visibility.Visible : Visibility.Collapsed;
         }
 
-        private void UseSsh_Checked(object sender, RoutedEventArgs e)
-        {
-            if (FtpPortBox == null) return;
-            if (UseSshCheck.IsChecked == true && FtpPortBox.Text == "21") FtpPortBox.Text = "22";
-            else if (UseSshCheck.IsChecked == false && FtpPortBox.Text == "22") FtpPortBox.Text = "21";
-        }
-
         private void Cancel_Click(object sender, RoutedEventArgs e)
         {
             DialogResult = false;
             Close();
-        }
-
-        private async void TestFtp_Click(object sender, RoutedEventArgs e)
-        {
-            if (string.IsNullOrWhiteSpace(FtpHostBox.Text) || string.IsNullOrWhiteSpace(FtpUserBox.Text))
-            {
-                ModernMessageBox.Show("Please enter Host and Username.", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
-            int.TryParse(FtpPortBox.Text, out int port);
-            if (port <= 0) port = 21;
-
-            var btn = (System.Windows.Controls.Button)sender;
-            btn.IsEnabled = false;
-            btn.Content = "⏳ Testing...";
-
-            try
-            {
-                using (var client = new AsyncFtpClient(FtpHostBox.Text, FtpUserBox.Text, FtpPassBox.Password, port))
-                {
-                    await client.Connect();
-                    ModernMessageBox.Show("Connection Successful! ✅", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
-                }
-            }
-            catch (Exception ex)
-            {
-                ModernMessageBox.Show($"Connection Failed: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-            finally
-            {
-                btn.IsEnabled = true;
-                btn.Content = "🔄 Test Connection";
-            }
-        }
-
-        private void BrowseFtp_Click(object sender, RoutedEventArgs e)
-        {
-            int.TryParse(FtpPortBox.Text, out int port);
-            if (port <= 0) port = 21;
-
-            var browser = new RemoteBrowserWindow(FtpHostBox.Text, FtpUserBox.Text, FtpPassBox.Password, port);
-            if (browser.ShowDialog() == true)
-            {
-                FtpPathBox.Text = browser.SelectedPath;
-            }
         }
 
         private void AddLog(string message)
@@ -208,14 +204,25 @@ namespace GitDeployPro.Windows
 
                 if (EnableFtpCheck.IsChecked == true)
                 {
-                    config.FtpHost = FtpHostBox.Text;
-                    config.FtpUsername = FtpUserBox.Text;
-                    config.FtpPassword = EncryptionService.Encrypt(FtpPassBox.Password);
-                    config.RemotePath = FtpPathBox.Text;
-                    config.UseSSH = UseSshCheck.IsChecked == true;
+                    var selectedProfile = ConnectionProfileComboBox.SelectedItem as ConnectionProfile;
+                    if (selectedProfile == null)
+                    {
+                         ModernMessageBox.Show("Please select a connection profile.", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
+                         OverlayGrid.Visibility = Visibility.Collapsed;
+                         CancelButton.IsEnabled = true;
+                         FinishButton.IsEnabled = true;
+                         return;
+                    }
+
+                    config.ConnectionProfileId = selectedProfile.Id;
                     
-                    int.TryParse(FtpPortBox.Text, out int port);
-                    config.FtpPort = port > 0 ? port : 21;
+                    // Legacy fields backup
+                    config.FtpHost = selectedProfile.Host;
+                    config.FtpPort = selectedProfile.Port;
+                    config.FtpUsername = selectedProfile.Username;
+                    config.FtpPassword = selectedProfile.Password;
+                    config.UseSSH = selectedProfile.UseSSH;
+                    config.RemotePath = selectedProfile.RemotePath;
                 }
 
                 _configService.SaveProjectConfig(config);
@@ -244,6 +251,7 @@ namespace GitDeployPro.Windows
                 ModernMessageBox.Show($"Setup failed: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
+
         private void CreateGitIgnore(string path)
         {
             try
