@@ -22,12 +22,12 @@
     
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="240"/>
+            <ColumnDefinition x:Name="SidebarColumn" Width="240"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
         <!-- Sidebar - Darker, Modern -->
-        <Border Grid.Column="0" Background="#2B2D30" BorderThickness="0,0,1,0" BorderBrush="#1E1F22">
+        <Border x:Name="SidebarPanel" Grid.Column="0" Background="#2B2D30" BorderThickness="0,0,1,0" BorderBrush="#1E1F22">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -98,6 +98,13 @@
                         </StackPanel>
                     </Button>
 
+                    <Button Click="Database_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="🛢️" FontSize="16" Margin="0,0,12,0" Foreground="#A0A0A0"/>
+                            <TextBlock Text="Database" FontSize="13" Foreground="#D0D0D0"/>
+                        </StackPanel>
+                    </Button>
+
                     <Button Click="Git_Click">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="🐱" FontSize="16" Margin="0,0,12,0" Foreground="#A0A0A0"/>
@@ -145,54 +152,71 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <!-- Project Selector Button -->
-                    <Button x:Name="ProjectSelectorBtn"
-                            Grid.Column="0"
-                            WindowChrome.IsHitTestVisibleInChrome="True"
-                            Background="Transparent"
-                            BorderThickness="0"
-                            Margin="15,0,0,0"
-                            Cursor="Hand"
-                            Click="ProjectSelectorBtn_Click">
-                        <Button.Content>
-                            <StackPanel Orientation="Horizontal">
-                                <!-- Project Avatar -->
-                                <Border x:Name="ProjectAvatarBorder" 
-                                        Width="20" Height="20" 
-                                        CornerRadius="4" 
-                                        Margin="0,0,8,0"
-                                        Background="#3574F0">
-                                    <TextBlock x:Name="ProjectInitialText" 
-                                              Text="P" 
-                                              Foreground="White" 
-                                              FontSize="11" 
+                    <!-- Sidebar Toggle + Project Selector -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button x:Name="SidebarToggleButton"
+                                WindowChrome.IsHitTestVisibleInChrome="True"
+                                Width="36"
+                                Height="30"
+                                Margin="10,0,5,0"
+                                Background="#2B2D30"
+                                Foreground="#FFFFFF"
+                                BorderThickness="0"
+                                Cursor="Hand"
+                                Click="SidebarToggleButton_Click"
+                                MouseEnter="SidebarToggleButton_MouseEnter"
+                                MouseLeave="SidebarToggleButton_MouseLeave"
+                                ToolTip="Toggle Sidebar">
+                            <TextBlock x:Name="SidebarToggleIcon" Text="☰" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Button>
+
+                        <Button x:Name="ProjectSelectorBtn"
+                                WindowChrome.IsHitTestVisibleInChrome="True"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                Margin="5,0,0,0"
+                                Cursor="Hand"
+                                Click="ProjectSelectorBtn_Click">
+                            <Button.Content>
+                                <StackPanel Orientation="Horizontal">
+                                    <!-- Project Avatar -->
+                                    <Border x:Name="ProjectAvatarBorder" 
+                                            Width="20" Height="20" 
+                                            CornerRadius="4" 
+                                            Margin="0,0,8,0"
+                                            Background="#3574F0">
+                                        <TextBlock x:Name="ProjectInitialText" 
+                                                  Text="P" 
+                                                  Foreground="White" 
+                                                  FontSize="11" 
+                                                  FontWeight="Bold" 
+                                                  HorizontalAlignment="Center" 
+                                                  VerticalAlignment="Center"/>
+                                    </Border>
+                                    
+                                    <TextBlock x:Name="ProjectNameText" 
+                                              Text="MyProject" 
+                                              FontSize="13" 
                                               FontWeight="Bold" 
-                                              HorizontalAlignment="Center" 
+                                              Foreground="#FFFFFF" 
                                               VerticalAlignment="Center"/>
-                                </Border>
-                                
-                                <TextBlock x:Name="ProjectNameText" 
-                                          Text="MyProject" 
-                                          FontSize="13" 
-                                          FontWeight="Bold" 
-                                          Foreground="#FFFFFF" 
-                                          VerticalAlignment="Center"/>
-                                <TextBlock Text="▼" FontSize="10" VerticalAlignment="Center" Margin="8,2,0,0" Foreground="#808080"/>
-                            </StackPanel>
-                        </Button.Content>
-                        <Button.Template>
-                            <ControlTemplate TargetType="Button">
-                                <Border x:Name="bdr" Background="{TemplateBinding Background}" CornerRadius="4" Padding="8,4">
-                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                </Border>
-                                <ControlTemplate.Triggers>
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter TargetName="bdr" Property="Background" Value="#35373B"/>
-                                    </Trigger>
-                                </ControlTemplate.Triggers>
-                            </ControlTemplate>
-                        </Button.Template>
-                    </Button>
+                                    <TextBlock Text="▼" FontSize="10" VerticalAlignment="Center" Margin="8,2,0,0" Foreground="#808080"/>
+                                </StackPanel>
+                            </Button.Content>
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="bdr" Background="{TemplateBinding Background}" CornerRadius="4" Padding="8,4">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="bdr" Property="Background" Value="#35373B"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+                    </StackPanel>
 
                     <!-- Popup Menu for Projects -->
                     <Popup x:Name="ProjectMenuPopup" 
@@ -374,5 +398,34 @@
                   Grid.Row="1" 
                   NavigationUIVisibility="Hidden"/>
         </Grid>
+
+        <!-- Reveal Handle (Sidebar collapsed trigger) -->
+        <Border x:Name="SidebarTriggerZone"
+                Grid.Column="1"
+                Grid.RowSpan="2"
+                Width="30"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Stretch"
+                Background="Transparent"
+                BorderThickness="0"
+                Panel.ZIndex="5000"
+                Visibility="Collapsed"
+                MouseLeftButtonDown="SidebarTriggerZone_OnClick"
+                MouseEnter="SidebarTriggerZone_MouseEnter"
+                MouseLeave="SidebarTriggerZone_MouseLeave"
+                Cursor="Hand">
+            <Border x:Name="SidebarTriggerZoneVisual" 
+                    Width="30" Height="120" 
+                    CornerRadius="0,6,6,0" 
+                    Background="#553A3D43"
+                    HorizontalAlignment="Center" 
+                    VerticalAlignment="Center"
+                    IsHitTestVisible="False">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,6,0,6">
+                    <TextBlock Text="▶" FontSize="18" Foreground="White" HorizontalAlignment="Center" IsHitTestVisible="False"/>
+                    <TextBlock Text="Menu" FontSize="10" Foreground="#EEEEEE" HorizontalAlignment="Center" Margin="0,4,0,0" IsHitTestVisible="False"/>
+                </StackPanel>
+            </Border>
+        </Border>
     </Grid>
 </Window>
