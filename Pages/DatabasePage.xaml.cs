@@ -1,32 +1,58 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using GitDeployPro;
+using System.Windows.Input;
+using System.Xml;
 using GitDeployPro.Controls;
 using GitDeployPro.Models;
 using GitDeployPro.Services;
 using GitDeployPro.Windows;
-using Button = System.Windows.Controls.Button;
+using ICSharpCode.AvalonEdit.CodeCompletion;
+using ICSharpCode.AvalonEdit.Document;
+using ICSharpCode.AvalonEdit.Highlighting;
+using ICSharpCode.AvalonEdit.Highlighting.Xshd;
 
 namespace GitDeployPro.Pages
 {
     public partial class DatabasePage : Page
     {
         private readonly ConfigurationService _configService = new();
-        private readonly ObservableCollection<DatabaseConnectionEntry> _connections = new();
         private readonly ObservableCollection<string> _databaseOptions = new();
         private readonly ObservableCollection<string> _tables = new();
         private readonly List<string> _tableCache = new();
         private readonly DatabaseClient _client = new();
+        private readonly List<string> _columnCache = new();
+        private CompletionWindow? _completionWindow;
 
         private DatabaseConnectionEntry? _activeConnection;
         private bool _isInitialized;
         private bool _sidebarAdjusted;
         private bool _collapsedSidebarByPage;
+
+        // SQL Keywords for autocomplete
+        private static readonly string[] SqlKeywords = {
+            "SELECT", "FROM", "WHERE", "AND", "OR", "NOT", "IN", "LIKE", "BETWEEN", "IS", "NULL",
+            "AS", "ON", "JOIN", "LEFT", "RIGHT", "INNER", "OUTER", "CROSS", "FULL", "UNION", "ALL",
+            "DISTINCT", "ORDER", "BY", "ASC", "DESC", "GROUP", "HAVING", "LIMIT", "OFFSET",
+            "INSERT", "INTO", "VALUES", "UPDATE", "SET", "DELETE", "CREATE", "ALTER", "DROP",
+            "TABLE", "INDEX", "VIEW", "DATABASE", "IF", "EXISTS", "PRIMARY", "KEY", "FOREIGN",
+            "REFERENCES", "UNIQUE", "DEFAULT", "AUTO_INCREMENT", "CONSTRAINT", "CASCADE",
+            "TRUNCATE", "EXPLAIN", "SHOW", "DESCRIBE", "USE", "BEGIN", "COMMIT", "ROLLBACK",
+            "TRANSACTION", "CASE", "WHEN", "THEN", "ELSE", "END", "TRUE", "FALSE"
+        };
+
+        private static readonly string[] SqlFunctions = {
+            "COUNT", "SUM", "AVG", "MIN", "MAX", "CONCAT", "SUBSTRING", "LENGTH", "UPPER", "LOWER",
+            "TRIM", "LTRIM", "RTRIM", "REPLACE", "COALESCE", "IFNULL", "NULLIF", "CAST", "CONVERT",
+            "NOW", "CURDATE", "CURTIME", "YEAR", "MONTH", "DAY", "HOUR", "MINUTE", "SECOND",
+            "DATEDIFF", "DATE_ADD", "DATE_SUB", "DATE_FORMAT", "ROUND", "FLOOR", "CEIL", "ABS",
+            "MOD", "RAND", "GROUP_CONCAT", "FIND_IN_SET", "UUID"
+        };
 
         public DatabasePage()
         {
@@ -34,9 +60,183 @@ namespace GitDeployPro.Pages
             Loaded += DatabasePage_Loaded;
             Unloaded += DatabasePage_Unloaded;
 
-            ConnectionsList.ItemsSource = _connections;
             DatabaseSelector.ItemsSource = _databaseOptions;
-            TablesList.ItemsSource = _tables;
+            TableSelector.ItemsSource = _tables;
+
+            InitializeSqlEditor();
+        }
+
+        private void InitializeSqlEditor()
+        {
+            SqlEditor.SyntaxHighlighting = CreateSqlHighlighting();
+            SqlEditor.TextArea.TextEntering += SqlEditor_TextEntering;
+            SqlEditor.TextArea.TextEntered += SqlEditor_TextEntered;
+            SqlEditor.PreviewKeyDown += SqlEditor_PreviewKeyDown;
+        }
+
+        private IHighlightingDefinition CreateSqlHighlighting()
+        {
+            var xshdXml = @"<?xml version=""1.0""?>
+<SyntaxDefinition name=""SQL"" xmlns=""http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008"">
+  <Color name=""Comment"" foreground=""#6A9955"" fontStyle=""italic""/>
+  <Color name=""String"" foreground=""#CE9178""/>
+  <Color name=""Keyword"" foreground=""#569CD6"" fontWeight=""bold""/>
+  <Color name=""Function"" foreground=""#DCDCAA""/>
+  <Color name=""Number"" foreground=""#B5CEA8""/>
+  <Color name=""DataType"" foreground=""#4EC9B0""/>
+  
+  <RuleSet ignoreCase=""true"">
+    <Span color=""Comment"" begin=""--"" />
+    <Span color=""Comment"" multiline=""true"" begin=""/\*"" end=""\*/"" />
+    <Span color=""String"" begin=""'"" end=""'"" />
+    <Span color=""String"" begin=""&quot;"" end=""&quot;"" />
+    
+    <Rule color=""Number"">
+      \b\d+(\.\d+)?\b
+    </Rule>
+    
+    <Keywords color=""Keyword"">
+      <Word>SELECT</Word><Word>FROM</Word><Word>WHERE</Word><Word>AND</Word><Word>OR</Word>
+      <Word>NOT</Word><Word>IN</Word><Word>LIKE</Word><Word>BETWEEN</Word><Word>IS</Word>
+      <Word>NULL</Word><Word>AS</Word><Word>ON</Word><Word>JOIN</Word><Word>LEFT</Word>
+      <Word>RIGHT</Word><Word>INNER</Word><Word>OUTER</Word><Word>CROSS</Word><Word>FULL</Word>
+      <Word>UNION</Word><Word>ALL</Word><Word>DISTINCT</Word><Word>ORDER</Word><Word>BY</Word>
+      <Word>ASC</Word><Word>DESC</Word><Word>GROUP</Word><Word>HAVING</Word><Word>LIMIT</Word>
+      <Word>OFFSET</Word><Word>INSERT</Word><Word>INTO</Word><Word>VALUES</Word><Word>UPDATE</Word>
+      <Word>SET</Word><Word>DELETE</Word><Word>CREATE</Word><Word>ALTER</Word><Word>DROP</Word>
+      <Word>TABLE</Word><Word>INDEX</Word><Word>VIEW</Word><Word>DATABASE</Word><Word>IF</Word>
+      <Word>EXISTS</Word><Word>PRIMARY</Word><Word>KEY</Word><Word>FOREIGN</Word><Word>REFERENCES</Word>
+      <Word>UNIQUE</Word><Word>DEFAULT</Word><Word>AUTO_INCREMENT</Word><Word>CONSTRAINT</Word>
+      <Word>CASCADE</Word><Word>TRUNCATE</Word><Word>EXPLAIN</Word><Word>SHOW</Word>
+      <Word>DESCRIBE</Word><Word>USE</Word><Word>BEGIN</Word><Word>COMMIT</Word><Word>ROLLBACK</Word>
+      <Word>TRANSACTION</Word><Word>CASE</Word><Word>WHEN</Word><Word>THEN</Word><Word>ELSE</Word>
+      <Word>END</Word><Word>TRUE</Word><Word>FALSE</Word>
+    </Keywords>
+    
+    <Keywords color=""Function"">
+      <Word>COUNT</Word><Word>SUM</Word><Word>AVG</Word><Word>MIN</Word><Word>MAX</Word>
+      <Word>CONCAT</Word><Word>SUBSTRING</Word><Word>LENGTH</Word><Word>UPPER</Word><Word>LOWER</Word>
+      <Word>TRIM</Word><Word>REPLACE</Word><Word>COALESCE</Word><Word>IFNULL</Word><Word>NULLIF</Word>
+      <Word>CAST</Word><Word>CONVERT</Word><Word>NOW</Word><Word>CURDATE</Word><Word>YEAR</Word>
+      <Word>MONTH</Word><Word>DAY</Word><Word>DATEDIFF</Word><Word>DATE_FORMAT</Word><Word>ROUND</Word>
+      <Word>FLOOR</Word><Word>CEIL</Word><Word>ABS</Word><Word>MOD</Word><Word>RAND</Word>
+      <Word>GROUP_CONCAT</Word><Word>UUID</Word>
+    </Keywords>
+    
+    <Keywords color=""DataType"">
+      <Word>INT</Word><Word>INTEGER</Word><Word>BIGINT</Word><Word>SMALLINT</Word><Word>TINYINT</Word>
+      <Word>FLOAT</Word><Word>DOUBLE</Word><Word>DECIMAL</Word><Word>CHAR</Word><Word>VARCHAR</Word>
+      <Word>TEXT</Word><Word>BLOB</Word><Word>DATE</Word><Word>DATETIME</Word><Word>TIMESTAMP</Word>
+      <Word>TIME</Word><Word>BOOLEAN</Word><Word>BOOL</Word><Word>ENUM</Word><Word>JSON</Word>
+      <Word>UNSIGNED</Word><Word>SIGNED</Word>
+    </Keywords>
+  </RuleSet>
+</SyntaxDefinition>";
+
+            using var reader = new XmlTextReader(new StringReader(xshdXml));
+            return HighlightingLoader.Load(reader, HighlightingManager.Instance);
+        }
+
+        private void SqlEditor_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (e.Key == Key.Space && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+            {
+                ShowCompletionWindow();
+                e.Handled = true;
+            }
+        }
+
+        private void SqlEditor_TextEntering(object sender, TextCompositionEventArgs e)
+        {
+            if (e.Text.Length > 0 && _completionWindow != null)
+            {
+                if (!char.IsLetterOrDigit(e.Text[0]) && e.Text[0] != '_')
+                {
+                    _completionWindow.CompletionList.RequestInsertion(e);
+                }
+            }
+        }
+
+        private void SqlEditor_TextEntered(object sender, TextCompositionEventArgs e)
+        {
+            if (e.Text.Length == 1 && char.IsLetter(e.Text[0]))
+            {
+                ShowCompletionWindow();
+            }
+            else if (e.Text == ".")
+            {
+                ShowCompletionWindow();
+            }
+        }
+
+        private void ShowCompletionWindow()
+        {
+            if (_completionWindow != null) return;
+
+            var completionData = GetCompletionData();
+            if (!completionData.Any()) return;
+
+            _completionWindow = new CompletionWindow(SqlEditor.TextArea);
+            _completionWindow.Background = new System.Windows.Media.SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#1E1E1E"));
+            _completionWindow.Foreground = System.Windows.Media.Brushes.White;
+            _completionWindow.BorderBrush = new System.Windows.Media.SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#3F3F46"));
+            _completionWindow.BorderThickness = new Thickness(1);
+            _completionWindow.CompletionList.Background = new System.Windows.Media.SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#252526"));
+            _completionWindow.CompletionList.Foreground = System.Windows.Media.Brushes.White;
+
+            var data = _completionWindow.CompletionList.CompletionData;
+            foreach (var item in completionData)
+            {
+                data.Add(item);
+            }
+
+            _completionWindow.Show();
+            _completionWindow.Closed += (s, args) => _completionWindow = null;
+        }
+
+        private IEnumerable<ICompletionData> GetCompletionData()
+        {
+            var result = new List<SqlCompletionData>();
+            var currentWord = GetCurrentWord().ToUpper();
+
+            foreach (var keyword in SqlKeywords.Where(k => k.StartsWith(currentWord, StringComparison.OrdinalIgnoreCase)))
+            {
+                result.Add(new SqlCompletionData(keyword, "SQL Keyword", "🔑"));
+            }
+
+            foreach (var func in SqlFunctions.Where(f => f.StartsWith(currentWord, StringComparison.OrdinalIgnoreCase)))
+            {
+                result.Add(new SqlCompletionData(func + "()", "SQL Function", "ƒ"));
+            }
+
+            foreach (var table in _tableCache.Where(t => t.StartsWith(currentWord, StringComparison.OrdinalIgnoreCase)))
+            {
+                result.Add(new SqlCompletionData(table, "Table", "📋"));
+            }
+
+            foreach (var col in _columnCache.Where(c => c.StartsWith(currentWord, StringComparison.OrdinalIgnoreCase)))
+            {
+                result.Add(new SqlCompletionData(col, "Column", "📊"));
+            }
+
+            return result.OrderBy(x => x.Text);
+        }
+
+        private string GetCurrentWord()
+        {
+            var offset = SqlEditor.CaretOffset;
+            var doc = SqlEditor.Document;
+
+            if (offset == 0) return string.Empty;
+
+            var start = offset - 1;
+            while (start >= 0 && (char.IsLetterOrDigit(doc.GetCharAt(start)) || doc.GetCharAt(start) == '_'))
+            {
+                start--;
+            }
+            start++;
+
+            return doc.GetText(start, offset - start);
         }
 
         private void DatabasePage_Loaded(object sender, RoutedEventArgs e)
@@ -48,7 +248,7 @@ namespace GitDeployPro.Pages
             }
             if (_isInitialized) return;
             _isInitialized = true;
-            LoadSavedConnections();
+            UpdateSavedConnectionsCount();
         }
 
         private async void DatabasePage_Unloaded(object sender, RoutedEventArgs e)
@@ -58,77 +258,65 @@ namespace GitDeployPro.Pages
             _sidebarAdjusted = false;
         }
 
-        private void LoadSavedConnections()
+        private void UpdateSavedConnectionsCount()
         {
-            _connections.Clear();
-
-            var localEntry = DatabaseConnectionEntry.CreateLocalDefault();
-            _connections.Add(localEntry);
-
             var profiles = _configService.LoadConnections();
-            foreach (var profile in profiles)
-            {
-                if (profile.DbType == DatabaseType.None) continue;
-                _connections.Add(DatabaseConnectionEntry.FromProfile(profile));
-            }
-
-            var hasProfiles = _connections.Any(c => c.IsFromProfile);
-            ConnectionsEmptyState.Visibility = hasProfiles ? Visibility.Collapsed : Visibility.Visible;
+            var dbProfiles = profiles.Count(p => p.DbType != DatabaseType.None);
+            SavedCountBadge.Text = $" ({dbProfiles + 1})"; // +1 for localhost
         }
 
-        private async void QuickConnectButton_Click(object sender, RoutedEventArgs e)
+        // ========== NEW TOOLBAR BUTTON HANDLERS ==========
+
+        private void NewConnectionButton_Click(object sender, RoutedEventArgs e)
         {
-            var host = string.IsNullOrWhiteSpace(QuickHostBox.Text) ? "127.0.0.1" : QuickHostBox.Text.Trim();
-            var port = ParsePort(QuickPortBox.Text);
-            var username = string.IsNullOrWhiteSpace(QuickUserBox.Text) ? "root" : QuickUserBox.Text.Trim();
-            var databaseName = QuickDatabaseBox.Text?.Trim() ?? string.Empty;
-
-            var entry = new DatabaseConnectionEntry
+            var window = new NewConnectionWindow { Owner = Window.GetWindow(this) };
+            if (window.ShowDialog() == true && window.ResultConnection != null)
             {
-                Id = Guid.NewGuid().ToString(),
-                Name = "Local Quick Connect",
-                DbType = GetSelectedDbType(),
-                Host = host,
-                Port = port,
-                Username = username,
-                Password = QuickPasswordBox.Password,
-                DatabaseName = databaseName,
-                Description = $"{host}:{port} · {username}",
-                IsLocal = true
-            };
+                _ = ConnectToEntryAsync(window.ResultConnection);
+            }
+        }
 
+        private void SavedConnectionsButton_Click(object sender, RoutedEventArgs e)
+        {
+            var window = new SavedConnectionsWindow { Owner = Window.GetWindow(this) };
+            if (window.ShowDialog() == true && window.ShouldConnect && window.SelectedConnection != null)
+            {
+                _ = ConnectToEntryAsync(window.SelectedConnection);
+            }
+            UpdateSavedConnectionsCount();
+        }
+
+        private async void LocalhostButton_Click(object sender, RoutedEventArgs e)
+        {
+            var entry = DatabaseConnectionEntry.CreateLocalDefault();
             await ConnectToEntryAsync(entry);
         }
 
-        private async void ConnectProfile_Click(object sender, RoutedEventArgs e)
-        {
-            if (sender is Button button && button.Tag is DatabaseConnectionEntry entry)
-            {
-                await ConnectToEntryAsync(entry);
-            }
-        }
+        // ========== CONNECTION LOGIC ==========
 
         private async Task ConnectToEntryAsync(DatabaseConnectionEntry entry)
         {
             if (!entry.SupportsCurrentVersion)
             {
-                ModernMessageBox.Show("This build currently supports MySQL / MariaDB only. PostgreSQL, SQL Server and others are coming soon.", "Not Supported", MessageBoxButton.OK, MessageBoxImage.Information);
+                ModernMessageBox.Show("This build supports MySQL/MariaDB only. Others coming soon.", "Not Supported", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
             try
             {
-                ToggleSidebar(false);
                 SetBusy(true, $"Connecting to {entry.Name}...");
 
                 await _client.ConnectAsync(entry.ToConnectionInfo());
                 _activeConnection = entry;
 
-                ConnectionStatusText.Text = $"Connected to {entry.Name}";
-                ConnectionDetailsText.Text = $"{entry.DbType} · {entry.Host}:{entry.Port}";
-                ConnectionBadge.Text = entry.Badge;
-                RefreshSchemaButton.IsEnabled = true;
+                // Update UI
+                StatusIndicator.Fill = new System.Windows.Media.SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#4CAF50"));
+                ConnectionStatusText.Text = $"Connected to {entry.Host}:{entry.Port}";
+                ConnectionStatusText.Foreground = System.Windows.Media.Brushes.White;
+                ActiveDatabaseText.Text = "";
+                RefreshButton.IsEnabled = true;
                 DisconnectButton.IsEnabled = true;
+                SelectorBar.Visibility = Visibility.Visible;
                 DisconnectedState.Visibility = Visibility.Collapsed;
                 DatabaseContent.Visibility = Visibility.Visible;
 
@@ -141,7 +329,6 @@ namespace GitDeployPro.Pages
             }
             finally
             {
-                ToggleSidebar(true);
                 SetBusy(false);
             }
         }
@@ -172,11 +359,11 @@ namespace GitDeployPro.Pages
                 if (!string.IsNullOrWhiteSpace(targetDb))
                 {
                     DatabaseSelector.SelectedItem = targetDb;
+                    ActiveDatabaseText.Text = $"· {targetDb}";
                 }
                 else
                 {
                     DatabaseSelector.SelectedItem = null;
-                    ActiveDatabaseText.Text = "None";
                     _tables.Clear();
                     _tableCache.Clear();
                 }
@@ -222,41 +409,29 @@ namespace GitDeployPro.Pages
         {
             if (DatabaseSelector.SelectedItem is string db && _activeConnection != null)
             {
-                ActiveDatabaseText.Text = db;
+                ActiveDatabaseText.Text = $"· {db}";
                 await LoadTablesAsync(db);
             }
             else
             {
-                ActiveDatabaseText.Text = "None";
+                ActiveDatabaseText.Text = "";
                 _tables.Clear();
                 _tableCache.Clear();
             }
         }
 
-        private void TablesSearchBox_TextChanged(object sender, TextChangedEventArgs e)
-        {
-            ApplyTableFilter();
-        }
-
         private void ApplyTableFilter()
         {
-            var query = TablesSearchBox.Text?.Trim() ?? string.Empty;
             _tables.Clear();
-
-            var filtered = string.IsNullOrWhiteSpace(query)
-                ? _tableCache
-                : _tableCache.Where(t => t.Contains(query, StringComparison.OrdinalIgnoreCase));
-
-            foreach (var table in filtered)
+            foreach (var table in _tableCache)
             {
                 _tables.Add(table);
             }
         }
 
-        private async void TablesList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private async void TableSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (TablesList.SelectedItem is string table &&
-                DatabaseSelector.SelectedItem is string db)
+            if (TableSelector.SelectedItem is string table && DatabaseSelector.SelectedItem is string db)
             {
                 await LoadTablePreviewAsync(db, table);
             }
@@ -272,6 +447,17 @@ namespace GitDeployPro.Pages
                 ResultsGrid.ItemsSource = preview.Table?.DefaultView;
                 TableTitleText.Text = $"Table Preview · {table}";
                 ResultStatusText.Text = preview.Message;
+
+                _columnCache.Clear();
+                if (preview.Table != null)
+                {
+                    foreach (System.Data.DataColumn col in preview.Table.Columns)
+                    {
+                        _columnCache.Add(col.ColumnName);
+                    }
+                }
+
+                SqlEditor.Text = $"SELECT * FROM `{table}` LIMIT 100;";
             }
             catch (Exception ex)
             {
@@ -291,7 +477,7 @@ namespace GitDeployPro.Pages
                 return;
             }
 
-            var sql = QueryEditor.Text?.Trim();
+            var sql = SqlEditor.Text?.Trim();
             if (string.IsNullOrWhiteSpace(sql))
             {
                 ModernMessageBox.Show("Please enter a SQL query.", "Empty Query", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -328,7 +514,7 @@ namespace GitDeployPro.Pages
 
         private void ClearQueryButton_Click(object sender, RoutedEventArgs e)
         {
-            QueryEditor.Clear();
+            SqlEditor.Clear();
             ResultStatusText.Text = "Query editor cleared.";
         }
 
@@ -341,25 +527,19 @@ namespace GitDeployPro.Pages
         private void ShowDisconnectedState()
         {
             _activeConnection = null;
-            RefreshSchemaButton.IsEnabled = false;
+            RefreshButton.IsEnabled = false;
             DisconnectButton.IsEnabled = false;
-            ConnectionStatusText.Text = "No database connected";
-            ConnectionDetailsText.Text = "Select or create a connection to get started.";
-            ConnectionBadge.Text = "🛢️";
+            StatusIndicator.Fill = new System.Windows.Media.SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#666666"));
+            ConnectionStatusText.Text = "Not Connected";
+            ConnectionStatusText.Foreground = new System.Windows.Media.SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#A0A0A0"));
+            ActiveDatabaseText.Text = "";
+            SelectorBar.Visibility = Visibility.Collapsed;
             DatabaseContent.Visibility = Visibility.Collapsed;
             DisconnectedState.Visibility = Visibility.Visible;
             ResultsGrid.ItemsSource = null;
             _databaseOptions.Clear();
             _tables.Clear();
             _tableCache.Clear();
-            ActiveDatabaseText.Text = "None";
-        }
-
-        private void ToggleSidebar(bool enabled)
-        {
-            QuickConnectButton.IsEnabled = enabled;
-            ManageConnectionsButton.IsEnabled = enabled;
-            ConnectionsList.IsEnabled = enabled;
         }
 
         private void SetBusy(bool isBusy, string? message = null)
@@ -376,32 +556,14 @@ namespace GitDeployPro.Pages
             QueryProgress.Visibility = isRunning ? Visibility.Visible : Visibility.Collapsed;
             RunQueryButton.IsEnabled = !isRunning;
             ClearQueryButton.IsEnabled = !isRunning;
-            TablesList.IsEnabled = !isRunning;
+            TableSelector.IsEnabled = !isRunning;
         }
 
-        private int ParsePort(string? text)
+        private void OpenConnectionManager_Click(object sender, RoutedEventArgs e)
         {
-            return int.TryParse(text, out int port) && port > 0 ? port : 3306;
-        }
-
-        private DatabaseType GetSelectedDbType()
-        {
-            if (QuickDbTypeCombo.SelectedItem is ComboBoxItem item && item.Tag is string tag)
-            {
-                return tag.Equals("MariaDB", StringComparison.OrdinalIgnoreCase)
-                    ? DatabaseType.MariaDB
-                    : DatabaseType.MySQL;
-            }
-            return DatabaseType.MySQL;
-        }
-
-        private async void OpenConnectionManager_Click(object sender, RoutedEventArgs e)
-        {
-            var manager = new ConnectionManagerWindow();
-            if (manager.ShowDialog() == true)
-            {
-                LoadSavedConnections();
-            }
+            var manager = new ConnectionManagerWindow { Owner = Window.GetWindow(this) };
+            manager.ShowDialog();
+            UpdateSavedConnectionsCount();
         }
 
         private void UpdateSidebarState(bool collapse)
@@ -422,96 +584,51 @@ namespace GitDeployPro.Pages
                     _collapsedSidebarByPage = false;
                 }
             }
-
-            if (ShowSidebarButton != null)
-            {
-                ShowSidebarButton.Visibility = collapse ? Visibility.Visible : Visibility.Collapsed;
-            }
         }
 
-        private void ShowSidebarButton_Click(object sender, RoutedEventArgs e)
+        // ========== INNER CLASSES ==========
+
+        private class SqlCompletionData : ICompletionData
         {
-            UpdateSidebarState(false);
-            _sidebarAdjusted = false;
-        }
-
-        private class DatabaseConnectionEntry
-        {
-            public string Id { get; set; } = Guid.NewGuid().ToString();
-            public string Name { get; set; } = string.Empty;
-            public string Description { get; set; } = string.Empty;
-            public DatabaseType DbType { get; set; } = DatabaseType.MySQL;
-            public string Host { get; set; } = "127.0.0.1";
-            public int Port { get; set; } = 3306;
-            public string Username { get; set; } = "root";
-            public string Password { get; set; } = string.Empty;
-            public string DatabaseName { get; set; } = string.Empty;
-            public bool IsLocal { get; set; }
-            public bool IsFromProfile { get; set; }
-
-            public string Badge => DbType switch
+            public SqlCompletionData(string text, string description, string icon)
             {
-                DatabaseType.MariaDB => "🛢️",
-                DatabaseType.MySQL => "🛢️",
-                DatabaseType.PostgreSQL => "🐘",
-                DatabaseType.SQLServer => "🗄️",
-                DatabaseType.MongoDB => "🍃",
-                DatabaseType.Redis => "🧠",
-                _ => "🛢️"
-            };
-
-            public bool SupportsCurrentVersion => DbType == DatabaseType.MySQL || DbType == DatabaseType.MariaDB;
-
-            public DatabaseConnectionInfo ToConnectionInfo()
-            {
-                return new DatabaseConnectionInfo
-                {
-                    Name = Name,
-                    DbType = DbType,
-                    Host = Host,
-                    Port = Port,
-                    Username = Username,
-                    Password = Password,
-                    DatabaseName = DatabaseName,
-                    IsLocal = IsLocal,
-                    SourceId = Id
-                };
+                Text = text;
+                Description = $"{icon} {description}";
+                _icon = icon;
             }
 
-            public static DatabaseConnectionEntry CreateLocalDefault()
-            {
-                return new DatabaseConnectionEntry
-                {
-                    Id = "local-default",
-                    Name = "Local phpMyAdmin",
-                    Description = "127.0.0.1 · root",
-                    DbType = DatabaseType.MySQL,
-                    Host = "127.0.0.1",
-                    Port = 3306,
-                    Username = "root",
-                    IsLocal = true,
-                    IsFromProfile = false
-                };
-            }
+            private readonly string _icon;
 
-            public static DatabaseConnectionEntry FromProfile(ConnectionProfile profile)
+            public System.Windows.Media.ImageSource? Image => null;
+            public string Text { get; }
+            public object Content => $"{_icon} {Text}";
+            public object Description { get; }
+            public double Priority => 0;
+
+            public void Complete(ICSharpCode.AvalonEdit.Editing.TextArea textArea, ISegment completionSegment, EventArgs insertionRequestEventArgs)
             {
-                return new DatabaseConnectionEntry
+                var doc = textArea.Document;
+                var offset = completionSegment.Offset;
+                var start = offset;
+
+                while (start > 0 && (char.IsLetterOrDigit(doc.GetCharAt(start - 1)) || doc.GetCharAt(start - 1) == '_'))
                 {
-                    Id = profile.Id ?? Guid.NewGuid().ToString(),
-                    Name = string.IsNullOrWhiteSpace(profile.Name) ? "Database Connection" : profile.Name,
-                    Description = $"{profile.DbType} · {profile.DbHost}:{(profile.DbPort <= 0 ? 3306 : profile.DbPort)}",
-                    DbType = profile.DbType == DatabaseType.None ? DatabaseType.MySQL : profile.DbType,
-                    Host = string.IsNullOrWhiteSpace(profile.DbHost) ? "127.0.0.1" : profile.DbHost,
-                    Port = profile.DbPort <= 0 ? 3306 : profile.DbPort,
-                    Username = string.IsNullOrWhiteSpace(profile.DbUsername) ? "root" : profile.DbUsername,
-                    Password = EncryptionService.Decrypt(profile.DbPassword),
-                    DatabaseName = profile.DbName ?? string.Empty,
-                    IsLocal = false,
-                    IsFromProfile = true
-                };
+                    start--;
+                }
+
+                var length = completionSegment.EndOffset - start;
+                var insertText = Text;
+
+                if (insertText.EndsWith("()"))
+                {
+                    doc.Replace(start, length, insertText);
+                    textArea.Caret.Offset = start + insertText.Length - 1;
+                }
+                else
+                {
+                    doc.Replace(start, length, insertText);
+                }
             }
         }
     }
 }
-
