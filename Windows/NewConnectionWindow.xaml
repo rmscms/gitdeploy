@@ -1,0 +1,76 @@
+<Window x:Class="GitDeployPro.Windows.NewConnectionWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="New Database Connection" 
+        Height="420" Width="450"
+        WindowStartupLocation="CenterOwner"
+        Background="#1E1F22"
+        ResizeMode="NoResize"
+        WindowStyle="None"
+        AllowsTransparency="True">
+    
+    <Border Background="#25262A" BorderBrush="#3A3B40" BorderThickness="1" CornerRadius="10">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="50"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="60"/>
+            </Grid.RowDefinitions>
+
+            <!-- Header -->
+            <Border Grid.Row="0" Background="#2B2D31" CornerRadius="10,10,0,0" MouseLeftButtonDown="Header_MouseLeftButtonDown">
+                <Grid>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0">
+                        <TextBlock Text="➕" FontSize="16" Margin="0,0,10,0"/>
+                        <TextBlock Text="New Database Connection" FontSize="16" FontWeight="SemiBold" Foreground="White"/>
+                    </StackPanel>
+                    <Button Content="✕" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0" 
+                            Width="30" Height="30" Background="Transparent" Foreground="#808080" BorderThickness="0"
+                            Click="CloseButton_Click" Cursor="Hand"/>
+                </Grid>
+            </Border>
+
+            <!-- Form -->
+            <StackPanel Grid.Row="1" Margin="24,20">
+                <TextBlock Text="Database Type" Foreground="#A0A0A0" FontSize="12" Margin="0,0,0,6"/>
+                <ComboBox x:Name="DbTypeCombo" Height="34" Margin="0,0,0,14">
+                    <ComboBoxItem Content="MySQL" Tag="MySQL" IsSelected="True"/>
+                    <ComboBoxItem Content="MariaDB" Tag="MariaDB"/>
+                </ComboBox>
+
+                <Grid Margin="0,0,0,14">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="100"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                        <TextBlock Text="Host" Foreground="#A0A0A0" FontSize="12" Margin="0,0,0,6"/>
+                        <TextBox x:Name="HostBox" Height="34" Text="127.0.0.1"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1">
+                        <TextBlock Text="Port" Foreground="#A0A0A0" FontSize="12" Margin="0,0,0,6"/>
+                        <TextBox x:Name="PortBox" Height="34" Text="3306" HorizontalContentAlignment="Center"/>
+                    </StackPanel>
+                </Grid>
+
+                <TextBlock Text="Username" Foreground="#A0A0A0" FontSize="12" Margin="0,0,0,6"/>
+                <TextBox x:Name="UsernameBox" Height="34" Text="root" Margin="0,0,0,14"/>
+
+                <TextBlock Text="Password" Foreground="#A0A0A0" FontSize="12" Margin="0,0,0,6"/>
+                <PasswordBox x:Name="PasswordBox" Height="34" Margin="0,0,0,14"/>
+
+                <TextBlock Text="Database (optional)" Foreground="#A0A0A0" FontSize="12" Margin="0,0,0,6"/>
+                <TextBox x:Name="DatabaseBox" Height="34"/>
+            </StackPanel>
+
+            <!-- Footer -->
+            <Border Grid.Row="2" Background="#2B2D31" CornerRadius="0,0,10,10">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <Button Content="Cancel" Width="90" Height="34" Background="#3A3B40" Foreground="White" BorderThickness="0" Click="CancelButton_Click" Cursor="Hand" Margin="0,0,10,0"/>
+                    <Button x:Name="ConnectButton" Content="Connect" Width="100" Height="34" Background="#3F8EF7" Foreground="White" BorderThickness="0" Click="ConnectButton_Click" Cursor="Hand" FontWeight="SemiBold"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Border>
+</Window>
+
