@@ -30,6 +30,7 @@ namespace GitDeployPro.Services
             public string LastProjectPath { get; set; } = "";
             public List<RecentProjectEntry> RecentProjects { get; set; } = new List<RecentProjectEntry>();
             public string DefaultSshKeyPath { get; set; } = "";
+            public List<TerminalCommandPreset> TerminalPresets { get; set; } = new List<TerminalCommandPreset>();
         }
 
         public class RecentProjectEntry
@@ -49,6 +50,13 @@ namespace GitDeployPro.Services
                 {
                     var json = File.ReadAllText(path);
                     var list = JsonConvert.DeserializeObject<List<ConnectionProfile>>(json);
+                    if (list != null)
+                    {
+                        foreach (var profile in list)
+                        {
+                            profile.PathMappings ??= new List<PathMapping>();
+                        }
+                    }
                     return list ?? new List<ConnectionProfile>();
                 }
             }
@@ -145,6 +153,7 @@ namespace GitDeployPro.Services
             }
 
             config.RecentProjects ??= new List<RecentProjectEntry>();
+            config.TerminalPresets ??= new List<TerminalCommandPreset>();
             return config;
         }
 
@@ -154,6 +163,7 @@ namespace GitDeployPro.Services
             {
                 config ??= new GlobalConfig();
                 config.RecentProjects ??= new List<RecentProjectEntry>();
+                config.TerminalPresets ??= new List<TerminalCommandPreset>();
 
                 var path = Path.Combine(GetAppDataPath(), GlobalConfigFile);
                 File.WriteAllText(path, JsonConvert.SerializeObject(config, Formatting.Indented));

@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>GitDeploy Pro</title>
+  <link rel="icon" type="image/x-icon" href="faveicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      font-family: "Outfit", sans-serif;
+      background: radial-gradient(circle at top, #1dc8ff 0%, transparent 40%), linear-gradient(135deg, #09192a, #050914);
+      color: #f5f7ff;
+      min-height: 100vh;
+      padding: 60px 15px 100px;
+    }
+    .glass {
+      background: rgba(7, 12, 24, 0.7);
+      border-radius: 30px;
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(18px);
+    }
+    .nav-link {
+      color: #9aa5c7 !important;
+    }
+    .nav-link:hover {
+      color: #61f6ff !important;
+    }
+    .text-muted {
+      color: #ced8ff !important;
+    }
+    .btn-glow {
+      background: linear-gradient(90deg, #8dffe6, #58f0ff, #00d5ff);
+      color: #04121f;
+      border: none;
+      border-radius: 999px;
+      font-weight: 600;
+      box-shadow: 0 20px 45px rgba(0, 196, 255, 0.35);
+    }
+    .feature-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.05);
+      display: grid;
+      place-items: center;
+      font-size: 1.3rem;
+      color: #61f6ff;
+    }
+    .profile-card {
+      background: #101828;
+      border-radius: 24px;
+      padding: 32px;
+      text-align: center;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+    }
+    .profile-card img {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      border: 3px solid rgba(97, 246, 255, 0.45);
+      object-fit: cover;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6);
+    }
+    .download-card {
+      border-radius: 20px;
+      padding: 20px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .section-label {
+      text-transform: uppercase;
+      letter-spacing: 0.3em;
+      font-size: 0.78rem;
+      color: #6be2ff;
+    }
+    .doc-card {
+      background: rgba(20, 28, 50, 0.7);
+      border-radius: 20px;
+      padding: 24px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      height: 100%;
+    }
+    .doc-card h5 {
+      margin-bottom: 10px;
+    }
+    .doc-card ul {
+      padding-left: 18px;
+      margin-bottom: 0;
+      color: #ced8ff;
+    }
+    .screen-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 18px;
+      margin-top: 30px;
+    }
+    .screen-card {
+      background: rgba(255, 255, 255, 0.04);
+      border-radius: 18px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .screen-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+    }
+    .screen-card img {
+      width: 100%;
+      height: 190px;
+      object-fit: cover;
+    }
+    .screen-card p {
+      margin: 0;
+      padding: 14px 16px 18px;
+      color: #ccd6ff;
+    }
+    .lightbox {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.85);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+      z-index: 9999;
+    }
+    .lightbox.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .lightbox-content {
+      max-width: 90vw;
+      max-height: 85vh;
+      text-align: center;
+    }
+    .lightbox-content img {
+      width: 100%;
+      height: auto;
+      max-height: 70vh;
+      object-fit: contain;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.65);
+    }
+    .lightbox-caption {
+      margin-top: 18px;
+      font-size: 1rem;
+      color: #dfe6ff;
+    }
+    .lightbox-close {
+      position: absolute;
+      top: 24px;
+      right: 36px;
+      font-size: 2rem;
+      color: #fff;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+    }
+    .changelog {
+      border-radius: 24px;
+      background: rgba(12, 18, 35, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      padding: 24px 28px;
+      color: #dfe6ff;
+    }
+    .changelog h4 {
+      margin-bottom: 12px;
+    }
+    .changelog small {
+      color: #8eb5ff;
+      display: block;
+      margin-bottom: 12px;
+    }
+    .changelog ul {
+      margin: 0;
+      padding-left: 18px;
+      color: #c4d1ff;
+    }
+  </style>
+</head>
+<body>
+  <div class="container-lg glass p-5">
+    <header class="d-flex flex-column flex-md-row align-items-center justify-content-between gap-4">
+      <div class="d-flex align-items-center gap-3">
+        <svg width="44" height="44" viewBox="0 0 48 48" fill="#61f6ff" xmlns="http://www.w3.org/2000/svg">
+          <path d="M34.8 10.4c-5.2 0-9.5 4.3-9.5 9.5 0 3.6 2 6.7 4.9 8.4-1.1 2.8-3.8 4.7-6.9 4.7-4.1 0-7.5-3.4-7.5-7.5 0-2.7 1.4-5.1 3.6-6.4l-2.2-4.3C13 16.7 10 21 10 26.2 10 34 16.3 40.3 24.1 40.3c6.9 0 12.6-4.9 14-11.4 4.1-1.4 7.1-5.4 7.1-9.9 0-5.8-4.7-10.6-10.4-10.6z" />
+        </svg>
+        <h5 class="mb-0 fw-semibold">GitDeploy Pro</h5>
+      </div>
+      <nav class="nav gap-3">
+        <a class="nav-link" href="#features">Features</a>
+        <a class="nav-link" href="#docs">Docs</a>
+        <a class="nav-link" href="#screens">Gallery</a>
+        <a class="nav-link" href="#changelog">Changelog</a>
+        <a class="btn btn-sm btn-outline-light rounded-pill px-4" href="https://github.com/rmscms/gitdeploy" target="_blank" rel="noreferrer">GitHub</a>
+      </nav>
+    </header>
+
+    <section class="text-center my-5">
+      <p class="text-uppercase text-info fw-semibold small mb-2">GitDeploy Pro</p>
+      <h1 class="display-4 fw-semibold">Command every deployment from one desktop hub</h1>
+      <p class="text-muted mx-auto" style="max-width:540px;">Coordinate Git workflows, terminals, SSH sessions, database ops, and release automation for any language stack directly inside GitDeploy Pro.</p>
+      <button class="btn btn-glow btn-lg px-5 mt-3">Get Started</button>
+    </section>
+
+    <div id="features" class="row g-4 align-items-stretch">
+      <div class="col-lg-8">
+        <div class="row g-4">
+          <div class="col-12">
+            <h2>Features</h2>
+          </div>
+          <div class="col-12">
+            <div class="d-flex gap-3 border-bottom pb-3 border-secondary-subtle">
+              <div class="feature-icon">🚀</div>
+              <div>
+                <h5 class="mb-1">Git + Deploy Workflow</h5>
+                <p class="text-muted mb-0">Sync repos, compare branches, and now pop entire Deploy or Git tabs into separate windows so you can watch multiple environments while pushes run.</p>
+              </div>
+            </div>
+          </div>
+          <div class="col-12">
+            <div class="d-flex gap-3 border-bottom pb-3 border-secondary-subtle">
+              <div class="feature-icon">🗄️</div>
+              <div>
+                <h5 class="mb-1">Database Studio</h5>
+                <p class="text-muted mb-0">Connect to local phpMyAdmin or remote MySQL/MariaDB, browse schemas, and launch the full SQL workspace in its own floating window for dedicated monitoring.</p>
+              </div>
+            </div>
+          </div>
+          <div class="col-12">
+            <div class="d-flex gap-3 border-bottom pb-3 border-secondary-subtle">
+              <div class="feature-icon">💻</div>
+              <div>
+                <h5 class="mb-1">Integrated Terminal</h5>
+                <p class="text-muted mb-0">Use detachable local PowerShell or SSH terminals with command presets, combo-box insertion, and broadcast mode to inject text into every open terminal without auto-running it.</p>
+              </div>
+            </div>
+          </div>
+          <div class="col-12">
+            <div class="d-flex gap-3">
+              <div class="feature-icon">📦</div>
+              <div>
+                <h5 class="mb-1">Direct Upload & Rollback</h5>
+                <p class="text-muted mb-0">Push single files or mapped folders, see live transfer progress, roll back instantly, and pop the Direct Upload board to another screen while FTP Explorer runs alongside.</p>
+              </div>
+            </div>
+          </div>
+          <div class="col-12">
+            <div class="d-flex gap-3 border-top pt-3 border-secondary-subtle">
+              <div class="feature-icon">🗂️</div>
+              <div>
+                <h5 class="mb-1">FTP Explorer</h5>
+                <p class="text-muted mb-0">Plan uploads, manage hidden files, handle quick select / clear toggles, and download with resume + conflict dialogs that match modern IDEs.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-4">
+        <div class="profile-card h-100">
+          <img src="images/logo.jpg" alt="Nitron Team logo">
+          <h4>Nitron Team</h4>
+          <span>Creators of GitDeploy Pro</span>
+          <p class="text-muted mt-3">“We needed one Windows tool that covers Git, servers, terminals, and databases. GitDeploy Pro is that control center.”</p>
+        </div>
+      </div>
+    </div>
+
+    <section id="docs" class="mt-5 pt-4">
+      <p class="section-label mb-2">Docs snapshot</p>
+      <div class="d-flex flex-column flex-lg-row align-items-start justify-content-between gap-4">
+        <div class="flex-grow-1">
+          <h2 class="mb-3">Desktop-native toolkit for Git deploys</h2>
+          <p class="text-muted mb-4" style="max-width:600px;">Each workspace tab inside the WPF app is built for a deployment workflow: from cloning repos and configuring remotes to opening a SQL editor or direct-uploading hotfix files. Documentation lives inside the product, but here’s a quick look at the main modules.</p>
+        </div>
+      </div>
+      <div class="row g-3">
+        <div class="col-md-6 col-xl-3">
+          <div class="doc-card">
+            <h5>Git + History</h5>
+            <p class="text-muted">Stage, commit, and push with inline diff viewing and a history timeline.</p>
+            <ul>
+              <li>Init or clone repos and wire remotes.</li>
+              <li>Push button guidance for clean vs dirty trees.</li>
+              <li>History details window for comparing releases.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+          <div class="doc-card">
+            <h5>Deploy & Direct Upload</h5>
+            <p class="text-muted">Bundle files, run scripted tasks, or mirror an entire mapped folder via SSH/SFTP.</p>
+            <ul>
+              <li>Pre/post deploy hooks with status logging.</li>
+              <li>Rollback button tied to History page checkpoints.</li>
+              <li>Direct Upload tab with Path Mapping support, crash recovery, and live per-file progress.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+          <div class="doc-card">
+            <h5>Database Studio</h5>
+            <p class="text-muted">MySQL/MariaDB browser with schema caching plus SQL IntelliSense.</p>
+            <ul>
+              <li>Quick schema refresh & table previews.</li>
+              <li>AvalonEdit SQL editor with autocomplete.</li>
+              <li>Saved connection profiles + localhost shortcut.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+          <div class="doc-card">
+            <h5>Terminal Control</h5>
+            <p class="text-muted">Detachable PowerShell/SSH terminal with rich ANSI color parsing.</p>
+            <ul>
+              <li>Local profile auto-connect + Ctrl+C passthrough.</li>
+              <li>Font tuning, clear screen, multi-connection list.</li>
+              <li>Pop-out window synced with main workspace.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="screens" class="mt-5 pt-4">
+      <p class="section-label mb-2">Screenshots</p>
+      <h2>Explore the app UI</h2>
+      <p class="text-muted" style="max-width:620px;">Fresh captures from the current WPF build running on Windows 11. Each screen mirrors the modules you’ll use daily.</p>
+      <div class="screen-grid">
+        <div class="screen-card">
+          <img src="images/dashboard.PNG" alt="Dashboard overview">
+          <p>Dashboard & quick actions: repo status, environment health, and primary shortcuts.</p>
+        </div>
+        <div class="screen-card">
+          <img src="images/github-section.PNG" alt="Git settings">
+          <p>Git configuration wizard showing remotes, SSH key guidance, and auth helpers.</p>
+        </div>
+        <div class="screen-card">
+          <img src="images/commit-review.PNG" alt="Commit review">
+          <p>Commit window with staged file list and inline diff viewer before pushing.</p>
+        </div>
+        <div class="screen-card">
+          <img src="images/deploy.PNG" alt="Deploy queue">
+          <p>Deploy panel orchestrating bundles, hooks, and progress logging.</p>
+        </div>
+        <div class="screen-card">
+          <img src="images/direct-upload.PNG" alt="Direct upload">
+          <p>Direct Upload dashboard showing Path Mapping, session resume, and live transfer percentages.</p>
+        </div>
+        <div class="screen-card">
+          <img src="images/database.PNG" alt="Database management">
+          <p>Database page with schema browser, SQL editor, and autocomplete suggestions.</p>
+        </div>
+        <div class="screen-card">
+          <img src="images/database-combos.png" alt="Database combo selectors">
+          <p>Fresh Database page layout: sidebar collapsed plus database/table ComboBoxes for more space.</p>
+        </div>
+        <div class="screen-card">
+          <img src="images/terminal.PNG" alt="Terminal window">
+          <p>Detachable local terminal running PowerShell with ANSI colors and Ctrl+C support.</p>
+        </div>
+        <div class="screen-card">
+          <img src="images/monaco-editor-save.png" alt="VSCode style modal editor">
+          <p>Full-screen Monaco editor with language detection plus save button that glows when dirty.</p>
+        </div>
+        <div class="screen-card">
+          <img src="images/deploy-vs-buttons.png" alt="VS buttons in lists">
+          <p>New “VS” buttons beside Deploy/Compare/Commit lists for one-click editor launch.</p>
+        </div>
+        <div class="screen-card">
+          <img src="images/unsaved-dialog.png" alt="Modern unsaved dialog">
+          <p>Custom Nitron dialog for Save / Don’t Save / Cancel when closing with unsaved edits.</p>
+        </div>
+        <div class="screen-card">
+          <img src="images/ftp-explore.png" alt="FTP Explorer download manager">
+          <p>FTP Explorer with quick select toggles, neon Download/Pause buttons, and the enlarged conflict dialog.</p>
+        </div>
+        <div class="screen-card">
+          <img src="images/preset-commands.png" alt="Terminal command presets combo">
+          <p>Command Presets dropdown with one-click insertion, optional broadcast setting, and matching UI in pop-out terminals.</p>
+        </div>
+        <div class="screen-card">
+          <img src="images/windows-operations.png" alt="Detached workspace windows">
+          <p>Deploy and Terminal pages popped out into separate Metro windows so you can pin them to other monitors.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="download" class="row g-3 mt-5">
+      <div class="col-md-6 col-lg-5">
+        <div class="download-card h-100">
+          <strong>Windows 10/11 (x64)</strong>
+          <p class="text-muted mb-3">Self-contained build v1.0.9 introducing pop-out pages for every module, combo-based Terminal presets with broadcast mode, and the refreshed FTP Explorer + command gallery.</p>
+          <a class="btn btn-glow w-100" href="versions/GitDeployPro_1.0.9.exe">Download for Windows</a>
+        </div>
+      </div>
+    </section>
+
+    <section id="changelog" class="mt-5 pt-4">
+      <p class="section-label mb-2">Changelog</p>
+      <h2>What’s new in each build</h2>
+      <p class="text-muted" style="max-width:620px;">Quick snapshot of the releases we’ve shipped so you know exactly what changed before installing.</p>
+      <div class="row g-3 mt-2">
+        <div class="col-lg-6">
+          <div class="changelog">
+            <h4>v1.0.9</h4>
+            <small>Released Dec 2025</small>
+            <ul>
+              <li>Every core page (Deploy, Direct Upload, Database, Terminal, Git & FTP Explorer) now has a pop-out button for multi-monitor workflows.</li>
+              <li>Terminal Command Presets gained a combo picker, quick Insert/Delete actions, and an optional “send to all open terminals” broadcast.</li>
+              <li>FTP Explorer conforms to the new quick-select UI, tinted action buttons, resume-safe downloads, and an updated gallery capture.</li>
+              <li>Error handling/refinements: pause/resume no longer throws global dialogs, and pop-out terminals stay in sync with presets.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="changelog">
+            <h4>v1.0.8</h4>
+            <small>Released Dec 2025</small>
+            <ul>
+              <li>FTP Explorer polish: neon Download/Pause buttons, “Select all / Clear selection” toggles, and a new gallery capture.</li>
+              <li>Pause / Resume rewritten so partial downloads truly resume mid-file and update progress accurately.</li>
+              <li>File conflict dialog enlarged with apply-to-all buttons plus a close (X) so canceling feels modern.</li>
+              <li>Benign cancellations (pause/stop) no longer trigger the generic “Unexpected error” popup.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="changelog">
+            <h4>v1.0.7</h4>
+            <small>Released Dec 2025</small>
+            <ul>
+              <li>VSCode-like Monaco modal editor gets enable-edit toggle, formatters, and dirty-state Save button.</li>
+              <li>VS launcher buttons beside Deploy/Compare/Commit diff lists plus double-click shortcuts.</li>
+              <li>Direct Upload now shows the active connection banner and respects Path Mappings (e.g. site/ → /public_html).</li>
+              <li>Real-time Direct Upload telemetry: file-level progress text, resume badges, and crash-safe sessions.</li>
+              <li>Custom Nitron “Unsaved Changes” dialog with themed Save / Don’t Save / Cancel actions.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="changelog">
+            <h4>v1.0.6</h4>
+            <small>Released Dec 2025</small>
+            <ul>
+              <li>Redesigned Database Studio with top action bar, IntelliSense SQL editor, and saved connection modals.</li>
+              <li>Improved sidebar UX: auto-collapse on Database page, reliable toggle buttons, hover cues.</li>
+              <li>Local terminal upgrades: auto-connect, Ctrl+C passthrough, font controls, and compressed single-file publish.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="changelog">
+            <h4>v1.0.5</h4>
+            <small>Released Nov 2025</small>
+            <ul>
+              <li>Introduced detachable Terminal Window plus local PowerShell profile with clear-screen button.</li>
+              <li>Fixed Git push/sync flows and enhanced history inspection dialogs.</li>
+              <li>Smaller installer footprint and general stability patches ahead of Database launch.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+  <div class="lightbox" id="galleryLightbox" aria-hidden="true">
+    <button class="lightbox-close" id="lightboxClose" aria-label="Close screenshot">&times;</button>
+    <div class="lightbox-content">
+      <img id="lightboxImage" src="" alt="">
+      <p class="lightbox-caption" id="lightboxCaption"></p>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    (() => {
+      const lightbox = document.getElementById('galleryLightbox');
+      const lightboxImage = document.getElementById('lightboxImage');
+      const lightboxCaption = document.getElementById('lightboxCaption');
+      const closeBtn = document.getElementById('lightboxClose');
+
+      const closeLightbox = () => {
+        lightbox.classList.remove('show');
+        lightbox.setAttribute('aria-hidden', 'true');
+        lightboxImage.src = '';
+        lightboxImage.alt = '';
+      };
+
+      document.querySelectorAll('.screen-card').forEach(card => {
+        const img = card.querySelector('img');
+        const caption = card.querySelector('p');
+        const description = caption ? caption.textContent : img.alt;
+        card.addEventListener('click', () => {
+          lightboxImage.src = img.src;
+          lightboxImage.alt = img.alt;
+          lightboxCaption.textContent = description;
+          lightbox.classList.add('show');
+          lightbox.setAttribute('aria-hidden', 'false');
+        });
+      });
+
+      closeBtn.addEventListener('click', closeLightbox);
+      lightbox.addEventListener('click', event => {
+        if (event.target === lightbox) {
+          closeLightbox();
+        }
+      });
+      document.addEventListener('keydown', event => {
+        if (event.key === 'Escape') {
+          closeLightbox();
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
+

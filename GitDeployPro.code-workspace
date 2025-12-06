@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../pouri"
+		},
+		{
+			"path": "../rms2-packages/packages/rms/api"
+		}
+	],
+	"settings": {}
+}

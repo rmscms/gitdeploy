@@ -28,7 +28,20 @@
                           FontSize="14" 
                           Foreground="#AAAAAA" 
                           Margin="2,4,0,0"/>
+                <TextBlock x:Name="ConnectionInfoText"
+                           Text="Detecting connection..."
+                           FontSize="13"
+                           Foreground="#64B5F6"
+                           Margin="0,6,0,0"/>
             </StackPanel>
+            <Button Content="🗖 Pop-out"
+                    Margin="25,0,0,0"
+                    Padding="14,4"
+                    Background="#333333"
+                    Foreground="#EEEEEE"
+                    BorderThickness="0"
+                    Cursor="Hand"
+                    Click="DetachDirectUploadPage_Click"/>
         </StackPanel>
 
         <!-- Toolbar -->
@@ -104,6 +117,13 @@
                                       Margin="10,0,0,0" 
                                       VerticalAlignment="Center"
                                       Visibility="{Binding SizeVisibility}"/>
+                            <TextBlock Text="{Binding UploadBadgeText}"
+                                       FontSize="12"
+                                       FontWeight="Bold"
+                                       Margin="8,0,0,0"
+                                       VerticalAlignment="Center"
+                                       Foreground="{Binding UploadBadgeBrush}"
+                                       Visibility="{Binding UploadBadgeVisibility}"/>
                         </StackPanel>
                     </HierarchicalDataTemplate>
                 </TreeView.ItemTemplate>
@@ -151,6 +171,7 @@
                 </StackPanel>
                 
                 <TextBlock x:Name="StatusText" Text="Ready." Foreground="#AAAAAA" FontSize="13" Margin="0,0,0,5"/>
+                <TextBlock x:Name="UploadDetailText" Text="" Foreground="#DDDDDD" FontSize="12" Margin="0,0,0,5"/>
                 <ProgressBar x:Name="UploadProgressBar" Height="6" Margin="0,0,20,0" Background="#333" Foreground="#0078D4" Value="0"/>
             </StackPanel>
 

@@ -81,6 +81,16 @@
                                     <TextBlock Text="Disconnect"/>
                                 </StackPanel>
                             </Button>
+                            <Button Content="🗖"
+                                    Height="34"
+                                    Width="40"
+                                    Margin="8,0,0,0"
+                                    Background="#3A3B40"
+                                    Foreground="#FFFFFF"
+                                    BorderThickness="0"
+                                    ToolTip="Open in new window"
+                                    Cursor="Hand"
+                                    Click="DetachDatabasePage_Click"/>
                         </StackPanel>
                     </Grid>
                 </Border>

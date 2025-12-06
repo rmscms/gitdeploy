@@ -12,13 +12,17 @@ using System.Windows.Media;
 using GitDeployPro.Services;
 using FluentFTP; 
 using GitDeployPro.Controls;
+using GitDeployPro.Models;
+using GitDeployPro.Windows;
 
 namespace GitDeployPro.Pages
 {
     public partial class DirectUploadPage : Page
     {
         private ConfigurationService _configService;
-        private string _projectPath;
+        private string _projectPath = string.Empty;
+        private string _scanRootPath = string.Empty;
+        private string _activeRemoteBasePath = "/";
         private ObservableCollection<FileSystemItem> _items;
         private bool _isUploading = false;
         private CancellationTokenSource? _cancellationTokenSource;
@@ -34,6 +38,12 @@ namespace GitDeployPro.Pages
             Loaded += DirectUploadPage_Loaded;
         }
 
+        private void DetachDirectUploadPage_Click(object sender, RoutedEventArgs e)
+        {
+            var window = new PageHostWindow(new DirectUploadPage(), "Direct Upload • Detached");
+            window.Show();
+        }
+
         private async void DirectUploadPage_Loaded(object sender, RoutedEventArgs e)
         {
             await LoadProjectFilesAsync();
@@ -42,7 +52,12 @@ namespace GitDeployPro.Pages
 
         private void CheckSessionStatus()
         {
-            if (string.IsNullOrEmpty(_projectPath)) return;
+            if (!TryRefreshProjectPath())
+            {
+                SessionStatusText.Text = "";
+                DeleteSessionButton.Visibility = Visibility.Collapsed;
+                return;
+            }
 
             string sessionPath = Path.Combine(_projectPath, SessionFileName);
             if (File.Exists(sessionPath))
@@ -76,6 +91,12 @@ namespace GitDeployPro.Pages
 
         private void DeleteSessionButton_Click(object sender, RoutedEventArgs e)
         {
+            if (!TryRefreshProjectPath())
+            {
+                ModernMessageBox.Show("No project selected.", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
             if (ModernMessageBox.Show("Are you sure you want to clear the upload session history?", "Confirm Delete", MessageBoxButton.YesNo, MessageBoxImage.Warning))
             {
                 try
@@ -96,23 +117,33 @@ namespace GitDeployPro.Pages
         {
             try
             {
-                var globalConfig = _configService.LoadGlobalConfig();
-                _projectPath = globalConfig.LastProjectPath;
-
-                if (string.IsNullOrEmpty(_projectPath) || !Directory.Exists(_projectPath))
+                var config = LoadCurrentProjectConfig(out bool hasProject);
+                if (!hasProject)
                 {
                     StatusText.Text = "No project selected.";
+                    StartUploadButton.IsEnabled = false;
+                    UpdateConnectionInfoBanner(null, skipProjectRefresh: true);
                     return;
                 }
+
+                var profile = ResolveConnectionProfile(config.ConnectionProfileId);
+                var mapping = GetPrimaryMapping(profile);
+                var roots = ResolveRoots(config, mapping);
+                _scanRootPath = roots.localRoot;
+                _activeRemoteBasePath = roots.remoteRoot;
+
+                UpdateConnectionInfoBanner(config, skipProjectRefresh: true, profileOverride: profile, mappingOverride: mapping);
 
                 StatusText.Text = "Scanning files...";
                 StartUploadButton.IsEnabled = false;
 
                 _items.Clear();
 
+                var scanRoot = Directory.Exists(_scanRootPath) ? _scanRootPath : _projectPath;
+
                 await Task.Run(() =>
                 {
-                    var rootItems = ScanDirectory(_projectPath);
+                    var rootItems = ScanDirectory(scanRoot);
                     Dispatcher.Invoke(() =>
                     {
                         foreach (var item in rootItems)
@@ -288,10 +319,17 @@ namespace GitDeployPro.Pages
         {
             if (_isUploading) return;
 
-            var config = _configService.LoadProjectConfig(_projectPath);
+            var config = LoadCurrentProjectConfig(out bool hasProject);
+            if (!hasProject)
+            {
+                ModernMessageBox.Show("No project selected. Go to Settings and pick a workspace first.", "Missing Project", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
             if (string.IsNullOrEmpty(config.FtpHost))
             {
-                ModernMessageBox.Show("FTP Configuration is missing.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                ModernMessageBox.Show("No deployment connection is assigned to this project yet. Open Settings → Connection Manager and select a connection.", "Connection Missing", MessageBoxButton.OK, MessageBoxImage.Warning);
+                UpdateConnectionInfoBanner(config, skipProjectRefresh: true);
                 return;
             }
 
@@ -306,6 +344,8 @@ namespace GitDeployPro.Pages
                 StatusText.Text = "Ready.";
                 return;
             }
+
+            ResetUploadIndicators(filesToUpload);
 
             // 2. Session / Resume Logic
             HashSet<string> uploadedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -366,8 +406,9 @@ namespace GitDeployPro.Pages
                     StatusText.Text = "Connecting...";
                     await client.AutoConnect(token);
 
-                    string remoteBasePath = config.RemotePath;
-                    if (!remoteBasePath.EndsWith("/")) remoteBasePath += "/";
+                    string remoteBasePath = string.IsNullOrWhiteSpace(_activeRemoteBasePath)
+                        ? NormalizeRemoteBase(config.RemotePath)
+                        : _activeRemoteBasePath;
 
                     int processed = 0;
                     int skipped = 0;
@@ -379,18 +420,42 @@ namespace GitDeployPro.Pages
                         processed++;
                         Dispatcher.Invoke(() => UploadProgressBar.Value = processed);
 
-                        string relativePath = Path.GetRelativePath(_projectPath, file.FullPath).Replace("\\", "/");
+                        var relativeSource = string.IsNullOrEmpty(_scanRootPath) ? _projectPath : _scanRootPath;
+                        if (string.IsNullOrEmpty(relativeSource)) relativeSource = _projectPath;
+                        string relativePath = Path.GetRelativePath(relativeSource, file.FullPath).Replace("\\", "/");
                         
                         // Check Session Skip
                         if (resumeSession && uploadedFiles.Contains(relativePath))
                         {
                             skipped++;
                             StatusText.Text = $"Skipped (Session): {file.Name}";
+                            Dispatcher.Invoke(() =>
+                            {
+                                file.UploadState = UploadState.Uploaded;
+                                UpdateUploadDetailText(file.Name, 100, file.Size, file.Size, "Already uploaded (session)");
+                            });
                             continue; 
                         }
 
                         string remotePath = remoteBasePath + relativePath;
                         StatusText.Text = $"Uploading ({processed}/{filesToUpload.Count}): {file.Name}";
+                        Dispatcher.Invoke(() => file.UploadState = UploadState.InProgress);
+
+                        long fileSize = file.Size > 0 ? file.Size : GetFileSizeSafe(file.FullPath);
+                        var progressHandler = new Progress<FtpProgress>(ftpProgress =>
+                        {
+                            var transferred = (long)Math.Max(0, ftpProgress.TransferredBytes);
+                            var totalBytes = fileSize > 0 ? fileSize : Math.Max(transferred, 1);
+                            double percent = fileSize > 0
+                                ? (double)transferred / totalBytes * 100
+                                : Math.Max(ftpProgress.Progress, 0);
+                            Dispatcher.Invoke(() =>
+                            {
+                                UpdateUploadDetailText(file.Name, percent, transferred, totalBytes);
+                            });
+                        });
+
+                        Dispatcher.Invoke(() => UpdateUploadDetailText(file.Name, 0, 0, fileSize));
 
                         // Create directory
                         string remoteDir = Path.GetDirectoryName(remotePath)?.Replace("\\", "/");
@@ -401,7 +466,13 @@ namespace GitDeployPro.Pages
 
                         // Upload
                         var existsMode = OverwriteCheck.IsChecked == true ? FtpRemoteExists.Overwrite : FtpRemoteExists.Skip;
-                        await client.UploadFile(file.FullPath, remotePath, existsMode, true, FtpVerify.None, null, token);
+                        await client.UploadFile(file.FullPath, remotePath, existsMode, true, FtpVerify.None, progressHandler, token);
+
+                        Dispatcher.Invoke(() =>
+                        {
+                            file.UploadState = UploadState.Uploaded;
+                            UpdateUploadDetailText(file.Name, 100, fileSize, fileSize, "Completed");
+                        });
 
                         // Log to Session File
                         if (UseSessionCheck.IsChecked == true)
@@ -446,6 +517,10 @@ namespace GitDeployPro.Pages
                 _cancellationTokenSource?.Dispose();
                 _cancellationTokenSource = null;
                 CheckSessionStatus();
+                if (UploadDetailText != null)
+                {
+                    UploadDetailText.Text = string.Empty;
+                }
             }
         }
 
@@ -464,12 +539,278 @@ namespace GitDeployPro.Pages
                 }
             }
         }
+
+        private void ResetUploadIndicators(IEnumerable<FileSystemItem> files)
+        {
+            foreach (var item in files)
+            {
+                Dispatcher.Invoke(item.ResetUploadState);
+            }
+        }
+
+        private long GetFileSizeSafe(string path)
+        {
+            try
+            {
+                if (File.Exists(path))
+                {
+                    return new FileInfo(path).Length;
+                }
+            }
+            catch { }
+            return 0;
+        }
+
+        private void UpdateUploadDetailText(string fileName, double percent, long transferred, long total, string? note = null)
+        {
+            if (UploadDetailText == null) return;
+            var percentText = percent >= 0 ? $"{percent:0.##}%" : string.Empty;
+            var transferredText = FormatSizeReadable(transferred);
+            var totalText = total > 0 ? FormatSizeReadable(total) : "Unknown";
+            var message = $"{fileName}: {transferredText} / {totalText}";
+            if (!string.IsNullOrEmpty(percentText)) message += $" ({percentText})";
+            if (!string.IsNullOrEmpty(note)) message += $" · {note}";
+            UploadDetailText.Text = message;
+        }
+
+        private string FormatSizeReadable(long bytes)
+        {
+            string[] units = { "B", "KB", "MB", "GB", "TB" };
+            double value = bytes;
+            int index = 0;
+            while (value >= 1024 && index < units.Length - 1)
+            {
+                value /= 1024;
+                index++;
+            }
+            return $"{value:0.##} {units[index]}";
+        }
+
+        private PathMapping? GetPrimaryMapping(ConnectionProfile? profile)
+        {
+            if (profile?.PathMappings == null) return null;
+            return profile.PathMappings.FirstOrDefault(pm =>
+                pm != null &&
+                (!string.IsNullOrWhiteSpace(pm.LocalPath) || !string.IsNullOrWhiteSpace(pm.RemotePath)));
+        }
+
+        private (string localRoot, string remoteRoot) ResolveRoots(ProjectConfig config, PathMapping? mapping)
+        {
+            string remoteRoot = NormalizeRemoteBase(config.RemotePath);
+            string localRoot = _projectPath;
+
+            if (mapping != null)
+            {
+                var localSegment = (mapping.LocalPath ?? string.Empty).Trim();
+                if (!string.IsNullOrEmpty(localSegment) && !string.IsNullOrEmpty(_projectPath))
+                {
+                    var normalizedSegment = localSegment.Replace("/", System.IO.Path.DirectorySeparatorChar.ToString());
+                    var combined = System.IO.Path.GetFullPath(System.IO.Path.Combine(_projectPath, normalizedSegment));
+                    if (Directory.Exists(combined))
+                    {
+                        localRoot = combined;
+                    }
+                }
+
+                remoteRoot = CombineRemotePaths(remoteRoot, mapping.RemotePath);
+            }
+
+            if (string.IsNullOrEmpty(localRoot) && !string.IsNullOrEmpty(_projectPath))
+            {
+                localRoot = _projectPath;
+            }
+
+            return (localRoot, remoteRoot);
+        }
+
+        private string NormalizeRemoteBase(string? path)
+        {
+            var trimmed = (path ?? "/").Trim();
+            trimmed = trimmed.Replace("\\", "/");
+            if (!trimmed.StartsWith("/"))
+            {
+                trimmed = "/" + trimmed;
+            }
+            trimmed = trimmed.TrimEnd('/');
+            if (trimmed.Length == 0)
+            {
+                trimmed = "/";
+            }
+            if (!trimmed.EndsWith("/"))
+            {
+                trimmed += "/";
+            }
+            return trimmed;
+        }
+
+        private string CombineRemotePaths(string baseRemote, string? mappingRemote)
+        {
+            var normalizedBase = NormalizeRemoteBase(baseRemote);
+            if (string.IsNullOrWhiteSpace(mappingRemote) || mappingRemote.Trim() == "/")
+            {
+                return normalizedBase;
+            }
+
+            var trimmed = mappingRemote.Trim();
+            if (trimmed.Equals("~", StringComparison.Ordinal))
+            {
+                return normalizedBase;
+            }
+
+            if (trimmed.StartsWith("///"))
+            {
+                // Absolute override after triple slash
+                return NormalizeRemoteBase(trimmed.Substring(2));
+            }
+
+            var segment = trimmed.Trim('/');
+            if (string.IsNullOrEmpty(segment))
+            {
+                return normalizedBase;
+            }
+
+            var combined = normalizedBase.TrimEnd('/') + "/" + segment;
+            return NormalizeRemoteBase(combined);
+        }
+
+        private bool TryRefreshProjectPath()
+        {
+            try
+            {
+                var globalConfig = _configService.LoadGlobalConfig();
+                var candidate = globalConfig.LastProjectPath;
+                if (string.IsNullOrWhiteSpace(candidate) || !Directory.Exists(candidate))
+                {
+                    _projectPath = string.Empty;
+                    _scanRootPath = string.Empty;
+                    _activeRemoteBasePath = "/";
+                    return false;
+                }
+
+                if (!string.Equals(_projectPath, candidate, StringComparison.OrdinalIgnoreCase))
+                {
+                    _projectPath = candidate;
+                }
+
+                if (string.IsNullOrEmpty(_scanRootPath))
+                {
+                    _scanRootPath = _projectPath;
+                }
+
+                return true;
+            }
+            catch
+            {
+                _projectPath = string.Empty;
+                _scanRootPath = string.Empty;
+                _activeRemoteBasePath = "/";
+                return false;
+            }
+        }
+
+        private ProjectConfig LoadCurrentProjectConfig(out bool hasProject)
+        {
+            hasProject = TryRefreshProjectPath();
+            if (!hasProject)
+            {
+                return new ProjectConfig();
+            }
+
+            return _configService.LoadProjectConfig(_projectPath);
+        }
+
+        private ConnectionProfile? ResolveConnectionProfile(string profileId)
+        {
+            if (string.IsNullOrWhiteSpace(profileId)) return null;
+            try
+            {
+                var connections = _configService.LoadConnections();
+                return connections.FirstOrDefault(c => string.Equals(c.Id, profileId, StringComparison.OrdinalIgnoreCase));
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private void UpdateConnectionInfoBanner(
+            ProjectConfig? config = null,
+            bool skipProjectRefresh = false,
+            ConnectionProfile? profileOverride = null,
+            PathMapping? mappingOverride = null)
+        {
+            if (ConnectionInfoText == null)
+            {
+                return;
+            }
+
+            if (!skipProjectRefresh && !TryRefreshProjectPath())
+            {
+                ConnectionInfoText.Text = "No project selected. Choose a project in Settings.";
+                ConnectionInfoText.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 183, 77));
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(_projectPath) || !Directory.Exists(_projectPath))
+            {
+                ConnectionInfoText.Text = "No project selected. Choose a project in Settings.";
+                ConnectionInfoText.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 183, 77));
+                return;
+            }
+
+            var effectiveConfig = config ?? _configService.LoadProjectConfig(_projectPath);
+            var accentBrush = new SolidColorBrush(System.Windows.Media.Color.FromRgb(129, 212, 250));
+
+            ConnectionProfile? profile = profileOverride ?? ResolveConnectionProfile(effectiveConfig.ConnectionProfileId);
+            if (profile != null)
+            {
+                var protocol = profile.UseSSH ? "SFTP (SSH)" : "FTP";
+                var hostText = string.IsNullOrWhiteSpace(profile.Host) ? "Host missing" : $"{profile.Host}:{profile.Port}";
+                var remotePath = string.IsNullOrWhiteSpace(profile.RemotePath) ? "/" : profile.RemotePath;
+                var mapping = mappingOverride ?? GetPrimaryMapping(profile);
+                if (mapping != null)
+                {
+                    var localLabel = string.IsNullOrWhiteSpace(mapping.LocalPath) ? "(project root)" : mapping.LocalPath;
+                    var remoteLabel = string.IsNullOrWhiteSpace(mapping.RemotePath) ? remotePath : mapping.RemotePath;
+                    ConnectionInfoText.Text = $"Active Connection: {profile.Name} · {protocol} · {hostText} · Local '{localLabel}' → Remote '{remoteLabel}'";
+                }
+                else
+                {
+                    ConnectionInfoText.Text = $"Active Connection: {profile.Name} · {protocol} · {hostText} → {remotePath}";
+                }
+                ConnectionInfoText.Foreground = accentBrush;
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(effectiveConfig.FtpHost))
+            {
+                var protocol = effectiveConfig.UseSSH ? "SFTP (SSH)" : "FTP";
+                var port = effectiveConfig.FtpPort <= 0 ? 21 : effectiveConfig.FtpPort;
+                var user = string.IsNullOrWhiteSpace(effectiveConfig.FtpUsername) ? "Unknown user" : effectiveConfig.FtpUsername;
+                ConnectionInfoText.Text = $"Active Connection: {effectiveConfig.FtpHost}:{port} as {user} ({protocol})";
+                ConnectionInfoText.Foreground = accentBrush;
+            }
+            else
+            {
+                ConnectionInfoText.Text = "No connection selected. Open Settings → Connection Manager to assign one.";
+                ConnectionInfoText.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 138, 101));
+            }
+        }
+    }
+
+    public enum UploadState
+    {
+        Pending,
+        InProgress,
+        Uploaded,
+        Skipped
     }
 
     public class FileSystemItem : INotifyPropertyChanged
     {
         private bool? _isChecked = false;
         private bool _isExpanded;
+        private UploadState _uploadState = UploadState.Pending;
 
         public string Name { get; set; } = "";
         public string FullPath { get; set; } = "";
@@ -559,6 +900,76 @@ namespace GitDeployPro.Pages
                     _isExpanded = value;
                     OnPropertyChanged(nameof(IsExpanded));
                 }
+            }
+        }
+
+        public UploadState UploadState
+        {
+            get => _uploadState;
+            set
+            {
+                if (_uploadState != value)
+                {
+                    _uploadState = value;
+                    OnPropertyChanged(nameof(UploadState));
+                    OnPropertyChanged(nameof(UploadBadgeText));
+                    OnPropertyChanged(nameof(UploadBadgeBrush));
+                    OnPropertyChanged(nameof(UploadBadgeVisibility));
+                    Parent?.RefreshUploadStateFromChildren();
+                }
+            }
+        }
+
+        public string UploadBadgeText => UploadState switch
+        {
+            UploadState.Pending => string.Empty,
+            UploadState.InProgress => "…",
+            UploadState.Uploaded => "✓",
+            UploadState.Skipped => "↺",
+            _ => string.Empty
+        };
+
+        public System.Windows.Media.Brush UploadBadgeBrush => UploadState switch
+        {
+            UploadState.InProgress => System.Windows.Media.Brushes.DeepSkyBlue,
+            UploadState.Uploaded => System.Windows.Media.Brushes.LightGreen,
+            UploadState.Skipped => System.Windows.Media.Brushes.Orange,
+            _ => System.Windows.Media.Brushes.Transparent
+        };
+
+        public Visibility UploadBadgeVisibility => UploadState == UploadState.Pending ? Visibility.Collapsed : Visibility.Visible;
+
+        public void ResetUploadState()
+        {
+            UploadState = UploadState.Pending;
+            foreach (var child in Children)
+            {
+                child.ResetUploadState();
+            }
+        }
+
+        public void RefreshUploadStateFromChildren()
+        {
+            if (Children == null || Children.Count == 0) return;
+            bool allUploaded = Children.All(c => c.UploadState == UploadState.Uploaded);
+            bool allPending = Children.All(c => c.UploadState == UploadState.Pending);
+            bool anyInProgress = Children.Any(c => c.UploadState == UploadState.InProgress);
+
+            if (allUploaded)
+            {
+                UploadState = UploadState.Uploaded;
+            }
+            else if (allPending)
+            {
+                UploadState = UploadState.Pending;
+            }
+            else if (anyInProgress)
+            {
+                UploadState = UploadState.InProgress;
+            }
+            else
+            {
+                UploadState = UploadState.Skipped;
             }
         }
 

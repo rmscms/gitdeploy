@@ -10,6 +10,7 @@ using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Diagnostics;
+using System.Linq;
 using Renci.SshNet;
 using GitDeployPro.Services;
 using GitDeployPro.Windows;
@@ -27,16 +28,35 @@ namespace GitDeployPro.Controls
         private ConfigurationService _configService;
         private bool _isConnected = false;
         private string? _projectPath;
+        private static readonly HashSet<TerminalControl> _activeTerminals = new HashSet<TerminalControl>();
 
         public TerminalControl()
         {
             InitializeComponent();
             _configService = new ConfigurationService();
+            Loaded += TerminalControl_Loaded;
+            Unloaded += TerminalControl_Unloaded;
             
             // Header: keep explicit colors
             AppendText("GitDeploy Pro Terminal [v1.0]\n", System.Windows.Media.Brushes.Cyan);
             // Info: Use null to inherit default theme
             AppendText("Ready to connect...\n\n", null);
+        }
+
+        private void TerminalControl_Loaded(object sender, RoutedEventArgs e)
+        {
+            lock (_activeTerminals)
+            {
+                _activeTerminals.Add(this);
+            }
+        }
+
+        private void TerminalControl_Unloaded(object sender, RoutedEventArgs e)
+        {
+            lock (_activeTerminals)
+            {
+                _activeTerminals.Remove(this);
+            }
         }
 
         public void SetProjectPath(string path)
@@ -207,6 +227,48 @@ namespace GitDeployPro.Controls
                 ConnectButton.Content = "🔌 Connect";
                 ConnectButton.Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 122, 204));
                 AppendText("\nSession closed.\n", null);
+            }
+        }
+
+        public void InjectCommandText(string command)
+        {
+            if (string.IsNullOrWhiteSpace(command))
+            {
+                return;
+            }
+
+            if (!_isConnected)
+            {
+                AppendText($"{command}\n", System.Windows.Media.Brushes.Gray);
+                TerminalScroller.ScrollToBottom();
+                return;
+            }
+
+            if (_isLocal && _localProcess != null)
+            {
+                AppendText(command, null);
+                TerminalScroller.ScrollToBottom();
+                _localProcess.StandardInput.Write(command);
+            }
+            else if (_shellStream != null)
+            {
+                _shellStream.Write(command);
+            }
+        }
+
+        public static void BroadcastCommand(string command)
+        {
+            if (string.IsNullOrWhiteSpace(command)) return;
+
+            List<TerminalControl> snapshot;
+            lock (_activeTerminals)
+            {
+                snapshot = _activeTerminals.ToList();
+            }
+
+            foreach (var terminal in snapshot)
+            {
+                terminal.Dispatcher.Invoke(() => terminal.InjectCommandText(command));
             }
         }
 

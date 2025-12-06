@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using GitDeployPro.Services;
@@ -18,6 +20,7 @@ namespace GitDeployPro.Windows
         private ConfigurationService _configService;
         private List<ConnectionProfile> _profiles = new List<ConnectionProfile>();
         private ConnectionProfile? _currentProfile;
+        private readonly ObservableCollection<PathMapping> _pathMappings = new ObservableCollection<PathMapping>();
 
         public ConnectionProfile? SelectedProfile { get; private set; }
 
@@ -25,6 +28,7 @@ namespace GitDeployPro.Windows
         {
             InitializeComponent();
             _configService = new ConfigurationService();
+            PathMappingsList.ItemsSource = _pathMappings;
             
             try
             {
@@ -66,6 +70,7 @@ namespace GitDeployPro.Windows
             else
             {
                 EditPanel.IsEnabled = false;
+                _pathMappings.Clear();
             }
             UpdateEditPanelVisibility();
         }
@@ -103,6 +108,8 @@ namespace GitDeployPro.Windows
             DbUserBox.Text = profile.DbUsername;
             DbPassBox.Password = EncryptionService.Decrypt(profile.DbPassword);
             DbNameBox.Text = profile.DbName;
+
+            PopulatePathMappings(profile);
         }
 
         private void CancelButton_Click(object sender, RoutedEventArgs e)
@@ -182,6 +189,9 @@ namespace GitDeployPro.Windows
                     PassiveMode = profile.PassiveMode,
                     ShowHiddenFiles = profile.ShowHiddenFiles,
                     KeepAliveSeconds = profile.KeepAliveSeconds,
+                    PathMappings = profile.PathMappings?
+                        .Select(m => new PathMapping { LocalPath = m.LocalPath, RemotePath = m.RemotePath })
+                        .ToList() ?? new List<PathMapping>(),
                     DbType = profile.DbType,
                     DbHost = profile.DbHost,
                     DbPort = profile.DbPort,
@@ -213,28 +223,35 @@ namespace GitDeployPro.Windows
             if (_currentProfile == null) return;
 
             // Update object
-            _currentProfile.Name = NameBox.Text;
-            _currentProfile.Host = HostBox.Text;
-            _currentProfile.Username = UserBox.Text;
+            _currentProfile.Name = (NameBox.Text ?? string.Empty).Trim();
+            _currentProfile.Host = (HostBox.Text ?? string.Empty).Trim();
+            _currentProfile.Username = (UserBox.Text ?? string.Empty).Trim();
             _currentProfile.Password = EncryptionService.Encrypt(PassBox.Password);
             _currentProfile.UseSSH = SftpRadio.IsChecked == true;
             
             if (int.TryParse(PortBox.Text, out int port)) _currentProfile.Port = port;
 
             // Advanced Fields
-            _currentProfile.RemotePath = RootPathBox.Text;
-            _currentProfile.WebServerUrl = WebUrlBox.Text;
+            _currentProfile.RemotePath = (RootPathBox.Text ?? string.Empty).Trim();
+            _currentProfile.WebServerUrl = (WebUrlBox.Text ?? string.Empty).Trim();
             _currentProfile.PassiveMode = PassiveModeCheck.IsChecked == true;
             _currentProfile.ShowHiddenFiles = ShowHiddenCheck.IsChecked == true;
             if (int.TryParse(KeepAliveBox.Text, out int keepAlive)) _currentProfile.KeepAliveSeconds = keepAlive;
+            _currentProfile.PathMappings = _pathMappings
+                .Select(pm => new PathMapping
+                {
+                    LocalPath = pm.LocalPath ?? string.Empty,
+                    RemotePath = pm.RemotePath ?? string.Empty
+                })
+                .ToList();
 
             // Database Fields
             if (DbTypeCombo.SelectedItem is DatabaseType dbType) _currentProfile.DbType = dbType;
-            _currentProfile.DbHost = DbHostBox.Text;
+            _currentProfile.DbHost = (DbHostBox.Text ?? string.Empty).Trim();
             if (int.TryParse(DbPortBox.Text, out int dbPort)) _currentProfile.DbPort = dbPort;
-            _currentProfile.DbUsername = DbUserBox.Text;
+            _currentProfile.DbUsername = (DbUserBox.Text ?? string.Empty).Trim();
             _currentProfile.DbPassword = EncryptionService.Encrypt(DbPassBox.Password);
-            _currentProfile.DbName = DbNameBox.Text;
+            _currentProfile.DbName = (DbNameBox.Text ?? string.Empty).Trim();
 
             // Save to disk
             _configService.AddOrUpdateConnection(_currentProfile);
@@ -242,6 +259,97 @@ namespace GitDeployPro.Windows
             SelectedProfile = _currentProfile;
             DialogResult = true;
             Close();
+        }
+
+        private void PopulatePathMappings(ConnectionProfile profile)
+        {
+            _pathMappings.Clear();
+            if (profile.PathMappings != null)
+            {
+                foreach (var mapping in profile.PathMappings)
+                {
+                    if (mapping == null) continue;
+                    _pathMappings.Add(new PathMapping
+                    {
+                        LocalPath = mapping.LocalPath ?? string.Empty,
+                        RemotePath = mapping.RemotePath ?? string.Empty
+                    });
+                }
+            }
+            LocalMappingTextBox.Text = string.Empty;
+            RemoteMappingTextBox.Text = string.Empty;
+            PathMappingsList.SelectedItem = null;
+        }
+
+        private void PathMappingsList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (PathMappingsList.SelectedItem is PathMapping mapping)
+            {
+                LocalMappingTextBox.Text = mapping.LocalPath;
+                RemoteMappingTextBox.Text = mapping.RemotePath;
+            }
+        }
+
+        private void SaveMappingButton_Click(object sender, RoutedEventArgs e)
+        {
+            var local = NormalizeLocalPath(LocalMappingTextBox.Text);
+            var remote = NormalizeRemotePath(RemoteMappingTextBox.Text);
+
+            if (PathMappingsList.SelectedItem is PathMapping selected)
+            {
+                selected.LocalPath = local;
+                selected.RemotePath = remote;
+                PathMappingsList.Items.Refresh();
+            }
+            else
+            {
+                var existing = _pathMappings.FirstOrDefault(pm => pm.LocalPath.Equals(local, StringComparison.OrdinalIgnoreCase));
+                if (existing != null)
+                {
+                    existing.RemotePath = remote;
+                    PathMappingsList.Items.Refresh();
+                }
+                else
+                {
+                    _pathMappings.Add(new PathMapping { LocalPath = local, RemotePath = remote });
+                }
+            }
+
+            LocalMappingTextBox.Text = string.Empty;
+            RemoteMappingTextBox.Text = string.Empty;
+            PathMappingsList.SelectedItem = null;
+        }
+
+        private void DeleteMappingButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (PathMappingsList.SelectedItem is PathMapping mapping)
+            {
+                _pathMappings.Remove(mapping);
+                PathMappingsList.SelectedItem = null;
+                LocalMappingTextBox.Text = string.Empty;
+                RemoteMappingTextBox.Text = string.Empty;
+            }
+        }
+
+        private string NormalizeLocalPath(string? input)
+        {
+            if (string.IsNullOrWhiteSpace(input)) return string.Empty;
+            var trimmed = input.Trim();
+            if (trimmed == ".") trimmed = string.Empty;
+            trimmed = trimmed.Trim().TrimStart('\\', '/').Trim();
+            trimmed = trimmed.Replace("\\", "/");
+            return trimmed;
+        }
+
+        private string NormalizeRemotePath(string? input)
+        {
+            if (string.IsNullOrWhiteSpace(input)) return "/";
+            var trimmed = input.Trim();
+            trimmed = trimmed.Replace("\\", "/");
+            if (!trimmed.StartsWith("/")) trimmed = "/" + trimmed;
+            trimmed = trimmed.TrimEnd('/');
+            if (trimmed.Length == 0) trimmed = "/";
+            return trimmed;
         }
 
         private async void TestButton_Click(object sender, RoutedEventArgs e)
@@ -283,9 +391,79 @@ namespace GitDeployPro.Windows
             }
         }
 
-        private void TestDatabase_Click(object sender, RoutedEventArgs e)
+        private async void TestDatabase_Click(object sender, RoutedEventArgs e)
         {
-            ModernMessageBox.Show("Database testing is temporarily disabled to fix crashes.", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
+            var dbType = DbTypeCombo.SelectedItem is DatabaseType selected && selected != DatabaseType.None
+                ? selected
+                : DatabaseType.MySQL;
+
+            if (dbType != DatabaseType.MySQL && dbType != DatabaseType.MariaDB)
+            {
+                ModernMessageBox.Show("Database testing currently supports MySQL / MariaDB only.", "Not Supported", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var host = string.IsNullOrWhiteSpace(DbHostBox.Text) ? "127.0.0.1" : DbHostBox.Text.Trim();
+            var username = string.IsNullOrWhiteSpace(DbUserBox.Text) ? "root" : DbUserBox.Text.Trim();
+            var password = DbPassBox.Password ?? string.Empty;
+            var database = DbNameBox.Text?.Trim() ?? string.Empty;
+            var connectionName = string.IsNullOrWhiteSpace(NameBox.Text) ? "Database Test" : NameBox.Text.Trim();
+            var button = TestDatabaseButton;
+            var originalContent = button.Content;
+            var useSshTunnel = SftpRadio.IsChecked == true;
+            var sshHost = string.IsNullOrWhiteSpace(HostBox.Text) ? "127.0.0.1" : HostBox.Text.Trim();
+            var sshUsername = string.IsNullOrWhiteSpace(UserBox.Text) ? "root" : UserBox.Text.Trim();
+            var sshPassword = PassBox.Password ?? string.Empty;
+            var sshPortText = string.IsNullOrWhiteSpace(PortBox.Text) ? string.Empty : PortBox.Text.Trim();
+            var sshPort = int.TryParse(sshPortText, out var parsedSshPort) ? parsedSshPort : (useSshTunnel ? 22 : 21);
+            if (sshPort <= 0)
+            {
+                sshPort = useSshTunnel ? 22 : 21;
+            }
+            var privateKeyPath = _currentProfile?.PrivateKeyPath ?? string.Empty;
+
+            if (!int.TryParse(DbPortBox.Text, out int port) || port <= 0)
+            {
+                port = 3306;
+            }
+
+            var entry = new DatabaseConnectionEntry
+            {
+                Name = connectionName,
+                DbType = dbType,
+                Host = host,
+                Port = port,
+                Username = username,
+                Password = password,
+                DatabaseName = database,
+                UseSshTunnel = useSshTunnel,
+                SshHost = sshHost,
+                SshPort = useSshTunnel ? sshPort : 0,
+                SshUsername = sshUsername,
+                SshPassword = sshPassword,
+                SshPrivateKeyPath = privateKeyPath
+            };
+
+            button.IsEnabled = false;
+            button.Content = "Testing...";
+
+            try
+            {
+                await using var client = new DatabaseClient();
+                await client.ConnectAsync(entry.ToConnectionInfo());
+                await client.DisconnectAsync();
+
+                ModernMessageBox.Show("Database connection successful. ✅", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show($"Database test failed: {ex.Message}", "Database Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                button.IsEnabled = true;
+                button.Content = originalContent;
+            }
         }
     }
 }

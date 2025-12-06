@@ -1,9 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.IO;
+using System.Net;
+using System.Net.Sockets;
 using System.Threading.Tasks;
 using GitDeployPro.Models;
 using MySqlConnector;
+using Renci.SshNet;
+using Renci.SshNet.Common;
 
 namespace GitDeployPro.Services
 {
@@ -12,6 +17,9 @@ namespace GitDeployPro.Services
         private MySqlConnection? _mysqlConnection;
         private DatabaseType _currentType = DatabaseType.None;
         private string? _activeDatabase;
+        private SshClient? _sshClient;
+        private ForwardedPortLocal? _forwardedPort;
+        private uint _localTunnelPort;
 
         public bool IsConnected => _mysqlConnection?.State == ConnectionState.Open;
         public DatabaseType CurrentType => _currentType;
@@ -28,28 +36,43 @@ namespace GitDeployPro.Services
                 throw new NotSupportedException("Only MySQL / MariaDB connections are supported in this version.");
             }
 
-            var builder = new MySqlConnectionStringBuilder
+            try
             {
-                Server = string.IsNullOrWhiteSpace(info.Host) ? "127.0.0.1" : info.Host,
-                Port = (uint)(info.Port <= 0 ? 3306 : info.Port),
-                UserID = string.IsNullOrWhiteSpace(info.Username) ? "root" : info.Username,
-                Password = info.Password ?? string.Empty,
-                CharacterSet = "utf8mb4",
-                AllowUserVariables = true,
-                ConnectionTimeout = 15,
-                DefaultCommandTimeout = 60
-            };
+                if (info.UseSshTunnel)
+                {
+                    await SetupSshTunnelAsync(info);
+                }
 
-            if (!string.IsNullOrWhiteSpace(info.DatabaseName))
-            {
-                builder.Database = info.DatabaseName;
+                var defaultHost = string.IsNullOrWhiteSpace(info.Host) ? "127.0.0.1" : info.Host;
+                var defaultPort = (uint)(info.Port <= 0 ? 3306 : info.Port);
+                var builder = new MySqlConnectionStringBuilder
+                {
+                    Server = info.UseSshTunnel ? "127.0.0.1" : defaultHost,
+                    Port = info.UseSshTunnel && _localTunnelPort != 0 ? _localTunnelPort : defaultPort,
+                    UserID = string.IsNullOrWhiteSpace(info.Username) ? "root" : info.Username,
+                    Password = info.Password ?? string.Empty,
+                    CharacterSet = "utf8mb4",
+                    AllowUserVariables = true,
+                    ConnectionTimeout = 15,
+                    DefaultCommandTimeout = 60
+                };
+
+                if (!string.IsNullOrWhiteSpace(info.DatabaseName))
+                {
+                    builder.Database = info.DatabaseName;
+                }
+
+                _mysqlConnection = new MySqlConnection(builder.ConnectionString);
+                await _mysqlConnection.OpenAsync();
+
+                _currentType = info.DbType;
+                _activeDatabase = string.IsNullOrWhiteSpace(info.DatabaseName) ? null : info.DatabaseName;
             }
-
-            _mysqlConnection = new MySqlConnection(builder.ConnectionString);
-            await _mysqlConnection.OpenAsync();
-
-            _currentType = info.DbType;
-            _activeDatabase = string.IsNullOrWhiteSpace(info.DatabaseName) ? null : info.DatabaseName;
+            catch
+            {
+                await DisconnectAsync();
+                throw;
+            }
         }
 
         public async Task DisconnectAsync()
@@ -72,6 +95,8 @@ namespace GitDeployPro.Services
                     _activeDatabase = null;
                 }
             }
+
+            TearDownTunnel();
         }
 
         public async Task<IReadOnlyList<string>> GetDatabasesAsync()
@@ -229,11 +254,109 @@ namespace GitDeployPro.Services
         {
             _mysqlConnection?.Dispose();
             _mysqlConnection = null;
+            TearDownTunnel();
         }
 
         public async ValueTask DisposeAsync()
         {
             await DisconnectAsync();
+        }
+
+        private async Task SetupSshTunnelAsync(DatabaseConnectionInfo info)
+        {
+            if (string.IsNullOrWhiteSpace(info.SshHost))
+            {
+                throw new InvalidOperationException("SSH host is required to create a tunnel.");
+            }
+
+            if (string.IsNullOrWhiteSpace(info.SshUsername))
+            {
+                throw new InvalidOperationException("SSH username is required to create a tunnel.");
+            }
+
+            await Task.Run(() =>
+            {
+                var sshPort = info.SshPort <= 0 ? 22 : info.SshPort;
+                var authMethods = new List<AuthenticationMethod>();
+
+                if (!string.IsNullOrWhiteSpace(info.SshPrivateKeyPath) && File.Exists(info.SshPrivateKeyPath))
+                {
+                    var keyFile = new PrivateKeyFile(info.SshPrivateKeyPath);
+                    authMethods.Add(new PrivateKeyAuthenticationMethod(info.SshUsername, keyFile));
+                }
+
+                if (!string.IsNullOrEmpty(info.SshPassword))
+                {
+                    authMethods.Add(new PasswordAuthenticationMethod(info.SshUsername, info.SshPassword));
+                }
+
+                if (authMethods.Count == 0)
+                {
+                    throw new InvalidOperationException("Provide an SSH password or private key to open the tunnel.");
+                }
+
+                var connectionInfo = new ConnectionInfo(info.SshHost, sshPort, info.SshUsername, authMethods.ToArray());
+                _sshClient = new SshClient(connectionInfo);
+                _sshClient.Connect();
+
+                _localTunnelPort = GetAvailablePort();
+                var remotePort = (uint)(info.Port <= 0 ? 3306 : info.Port);
+                var remoteHost = string.IsNullOrWhiteSpace(info.Host) ? "127.0.0.1" : info.Host;
+
+                _forwardedPort = new ForwardedPortLocal("127.0.0.1", _localTunnelPort, remoteHost, remotePort);
+                _sshClient.AddForwardedPort(_forwardedPort);
+                _forwardedPort.Start();
+            });
+        }
+
+        private static uint GetAvailablePort()
+        {
+            var listener = new TcpListener(IPAddress.Loopback, 0);
+            listener.Start();
+            var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+            listener.Stop();
+            return (uint)port;
+        }
+
+        private void TearDownTunnel()
+        {
+            _localTunnelPort = 0;
+
+            if (_forwardedPort != null)
+            {
+                try
+                {
+                    if (_forwardedPort.IsStarted)
+                    {
+                        _forwardedPort.Stop();
+                    }
+                }
+                catch
+                {
+                    // ignore cleanup errors
+                }
+                finally
+                {
+                    _forwardedPort.Dispose();
+                    _forwardedPort = null;
+                }
+            }
+
+            if (_sshClient != null)
+            {
+                try
+                {
+                    if (_sshClient.IsConnected)
+                    {
+                        _sshClient.Disconnect();
+                    }
+                }
+                finally
+                {
+                    _sshClient.Dispose();
+                    _sshClient = null;
+                }
+            }
         }
     }
 }

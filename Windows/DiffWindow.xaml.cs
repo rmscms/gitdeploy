@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls; // For Button, CheckBox, etc.
@@ -29,7 +30,9 @@ namespace GitDeployPro.Windows
             TotalChangesText.Text = $"{_allChanges.Count} Files";
             
             _viewModels = _allChanges.Select(c => new DeployFileViewModel(c)).ToList();
-            FilesItemsControl.ItemsSource = _viewModels;
+            FilesListBox.ItemsSource = _viewModels;
+            FilesListBox.SelectedIndex = _viewModels.Count > 0 ? 0 : -1;
+            UpdateDiffPreview();
         }
 
         private void SelectAll_Click(object sender, RoutedEventArgs e)
@@ -42,8 +45,7 @@ namespace GitDeployPro.Windows
             {
                 foreach (var vm in _viewModels) vm.IsSelected = false;
             }
-            FilesItemsControl.ItemsSource = null;
-            FilesItemsControl.ItemsSource = _viewModels;
+            FilesListBox.Items.Refresh();
         }
 
         private void Confirm_Click(object sender, RoutedEventArgs e)
@@ -68,6 +70,68 @@ namespace GitDeployPro.Windows
         {
             Confirmed = false;
             this.Close();
+        }
+
+        private void FilesListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            UpdateDiffPreview();
+        }
+
+        private void UpdateDiffPreview()
+        {
+            if (CompareDiffViewer == null) return;
+
+            if (FilesListBox?.SelectedItem is DeployFileViewModel vm)
+            {
+                CompareDiffViewer.Title = vm.Name;
+                CompareDiffViewer.Status = vm.StatusText;
+                CompareDiffViewer.FilePath = vm.Name;
+                CompareDiffViewer.DiffText = vm.DiffText;
+            }
+            else
+            {
+                CompareDiffViewer.Title = "Diff preview";
+                CompareDiffViewer.Status = string.Empty;
+                CompareDiffViewer.FilePath = string.Empty;
+                CompareDiffViewer.DiffText = string.Empty;
+            }
+        }
+
+        private void FilesListBox_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (FilesListBox?.SelectedItem is DeployFileViewModel vm)
+            {
+                OpenCodeViewer(vm);
+            }
+        }
+
+        private void OpenCodeViewer(DeployFileViewModel vm)
+        {
+            try
+            {
+                var basePath = GitService.WorkingDirectoryPath;
+                var relative = vm.Name.Replace('/', Path.DirectorySeparatorChar);
+                var absolute = string.IsNullOrWhiteSpace(basePath) ? relative : Path.Combine(basePath, relative);
+                var content = File.Exists(absolute) ? File.ReadAllText(absolute) : vm.DiffText ?? string.Empty;
+                var viewer = new CodeViewerWindow(vm.Name, content, absolute)
+                {
+                    Owner = this
+                };
+                viewer.ShowDialog();
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show($"Unable to open viewer: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void OpenCodeButton_Click(object sender, RoutedEventArgs e)
+        {
+            if ((sender as FrameworkElement)?.Tag is DeployFileViewModel vm)
+            {
+                OpenCodeViewer(vm);
+                e.Handled = true;
+            }
         }
     }
 }

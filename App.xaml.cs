@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows;
@@ -39,10 +40,31 @@ namespace GitDeployPro
         {
             if (exception == null) return;
 
+            if (IsBenignCancellation(exception))
+            {
+                return;
+            }
+
             var message = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [{source}] {exception.Message}\n{exception.StackTrace}";
             Log(message);
 
             System.Windows.MessageBox.Show("An unexpected error occurred. Details saved to log file.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+
+        private bool IsBenignCancellation(Exception exception)
+        {
+            if (exception is OperationCanceledException || exception is TaskCanceledException)
+            {
+                return true;
+            }
+
+            if (exception is AggregateException aggregate)
+            {
+                aggregate = aggregate.Flatten();
+                return aggregate.InnerExceptions.All(IsBenignCancellation);
+            }
+
+            return false;
         }
 
         private void Log(string message)
