@@ -8,6 +8,8 @@ namespace GitDeployPro.Models
         public string Name { get; set; }
         public ChangeType Type { get; set; }
         public bool IsSelected { get; set; } = true;
+        public string DiffText { get; }
+        public bool HasDiff => !string.IsNullOrWhiteSpace(DiffText);
 
         public string StatusText 
         {
@@ -41,6 +43,7 @@ namespace GitDeployPro.Models
         {
             Name = change.Name;
             Type = change.Type;
+            DiffText = change.DiffPatch ?? string.Empty;
         }
     }
 }

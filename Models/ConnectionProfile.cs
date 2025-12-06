@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 
 namespace GitDeployPro.Models
@@ -41,6 +42,20 @@ namespace GitDeployPro.Models
         public bool PassiveMode { get; set; } = true;
         public bool ShowHiddenFiles { get; set; } = true;
         public int KeepAliveSeconds { get; set; } = 300;
+        public List<PathMapping> PathMappings { get; set; } = new List<PathMapping>();
+        private bool _isProjectDefault;
+        public bool IsProjectDefault
+        {
+            get => _isProjectDefault;
+            set
+            {
+                if (_isProjectDefault != value)
+                {
+                    _isProjectDefault = value;
+                    OnPropertyChanged(nameof(IsProjectDefault));
+                }
+            }
+        }
 
         // --- Database Configuration ---
         public DatabaseType DbType { get; set; } = DatabaseType.None;
@@ -61,6 +76,9 @@ namespace GitDeployPro.Models
                 return UseSSH ? "🔒" : "📂"; 
             }
         }
+
+        public string ProtocolBadgeText => UseSSH ? "S" : "F";
+        public string ProtocolBadgeColor => UseSSH ? "#7C4DFF" : "#34C759";
 
         public event PropertyChangedEventHandler? PropertyChanged;
         protected void OnPropertyChanged(string propertyName)

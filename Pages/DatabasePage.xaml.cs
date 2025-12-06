@@ -66,6 +66,12 @@ namespace GitDeployPro.Pages
             InitializeSqlEditor();
         }
 
+        private void DetachDatabasePage_Click(object sender, RoutedEventArgs e)
+        {
+            var window = new PageHostWindow(new DatabasePage(), "Database • Detached");
+            window.Show();
+        }
+
         private void InitializeSqlEditor()
         {
             SqlEditor.SyntaxHighlighting = CreateSqlHighlighting();

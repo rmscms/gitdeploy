@@ -43,6 +43,7 @@
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/> <!-- Toolbar -->
+            <RowDefinition Height="Auto"/> <!-- Presets -->
             <RowDefinition Height="*"/>    <!-- Terminal -->
         </Grid.RowDefinitions>
 
@@ -73,6 +74,75 @@
             </StackPanel>
         </Border>
 
-        <controls:TerminalControl x:Name="MyTerminal" Grid.Row="1"/>
+        <!-- Command Presets -->
+        <Border Grid.Row="1" Background="#222326" Padding="10" BorderBrush="#1F1F1F" BorderThickness="0,0,0,1">
+            <StackPanel>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <ComboBox x:Name="PresetComboBox"
+                              Grid.Column="0"
+                              Height="28"
+                              Background="#2F3035"
+                              Foreground="White"
+                              DisplayMemberPath="Title"
+                              SelectedValuePath="Id"
+                              Margin="0,0,12,0"/>
+                    <Button Content="Insert"
+                            Grid.Column="1"
+                            Margin="0,0,8,0"
+                            Padding="14,4"
+                            Background="#3F8EF7"
+                            Foreground="White"
+                            BorderThickness="0"
+                            Cursor="Hand"
+                            Click="UsePreset_Click"/>
+                    <Button Content="Delete"
+                            Grid.Column="2"
+                            Margin="0,0,8,0"
+                            Padding="14,4"
+                            Background="#3A3B40"
+                            Foreground="#FF8A80"
+                            BorderThickness="0"
+                            Cursor="Hand"
+                            Click="DeletePreset_Click"/>
+                    <CheckBox x:Name="BroadcastAllCheckBox"
+                              Grid.Column="3"
+                              Content="Send to all open terminals"
+                              Foreground="#9FA8DA"
+                              VerticalAlignment="Center"/>
+                </Grid>
+
+                <Grid Margin="0,10,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="170"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="PresetTitleBox"
+                             mah:TextBoxHelper.Watermark="Title"
+                             Grid.Column="0"
+                             Margin="0,0,12,0"/>
+                    <TextBox x:Name="PresetCommandBox"
+                             mah:TextBoxHelper.Watermark="Command"
+                             Grid.Column="1"
+                             Margin="0,0,12,0"/>
+                    <Button Content="Save"
+                            Grid.Column="2"
+                            Padding="14,4"
+                            Background="#3F8EF7"
+                            Foreground="White"
+                            BorderThickness="0"
+                            Cursor="Hand"
+                            Click="AddPresetButton_Click"/>
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <controls:TerminalControl x:Name="MyTerminal" Grid.Row="2"/>
     </Grid>
 </mah:MetroWindow>

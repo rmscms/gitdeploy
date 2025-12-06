@@ -30,6 +30,8 @@ namespace GitDeployPro.Services
             catch { }
         }
 
+        public static string WorkingDirectoryPath => _workingDirectory;
+
         public static void SetWorkingDirectory(string path)
         {
             if (Directory.Exists(path))
@@ -265,7 +267,7 @@ namespace GitDeployPro.Services
                 if (line.Length < 4) continue;
 
                 var status = line.Substring(0, 2).Trim();
-                var path = line.Substring(3).Trim();
+                var path = NormalizeGitPath(line.Substring(3).Trim());
                 
                 var changeType = ChangeType.Modified;
                 if (status.Contains("?")) changeType = ChangeType.Added;
@@ -274,6 +276,32 @@ namespace GitDeployPro.Services
                 else if (status.Contains("M")) changeType = ChangeType.Modified;
 
                 changes.Add(new FileChange { Name = path, Type = changeType });
+            }
+
+            var diffMap = await GetUnifiedDiffMapAsync("diff --unified=200");
+            var stagedMap = await GetUnifiedDiffMapAsync("diff --cached --unified=200");
+            foreach (var kvp in stagedMap)
+            {
+                diffMap[kvp.Key] = kvp.Value;
+            }
+
+            foreach (var change in changes)
+            {
+                if (diffMap.TryGetValue(change.Name, out var patch))
+                {
+                    change.DiffPatch = patch;
+                    continue;
+                }
+
+                if (change.Type == ChangeType.Added)
+                {
+                    var fullPath = Path.Combine(_workingDirectory, change.Name.Replace("/", Path.DirectorySeparatorChar.ToString()));
+                    if (File.Exists(fullPath))
+                    {
+                        var content = File.ReadAllText(fullPath);
+                        change.DiffPatch = DiffParser.BuildAddedFileDiff(change.Name, content);
+                    }
+                }
             }
 
             return changes;
@@ -472,6 +500,8 @@ namespace GitDeployPro.Services
             var output = await RunGitCommandAsync($"diff --name-status {targetBranch}..{sourceBranch}");
             var changes = new List<FileChange>();
 
+            var diffMap = await GetUnifiedDiffMapAsync($"diff --unified=200 {targetBranch}..{sourceBranch}");
+
             var lines = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
             foreach (var line in lines)
             {
@@ -479,13 +509,18 @@ namespace GitDeployPro.Services
                 if (parts.Length >= 2)
                 {
                     var status = parts[0][0];
-                    var path = parts[1];
+                    var path = NormalizeGitPath(parts[1]);
                     
                     var changeType = ChangeType.Modified;
                     if (status == 'A') changeType = ChangeType.Added;
                     else if (status == 'D') changeType = ChangeType.Deleted;
 
-                    changes.Add(new FileChange { Name = path, Type = changeType });
+                    var change = new FileChange { Name = path, Type = changeType };
+                    if (diffMap.TryGetValue(change.Name, out var patch))
+                    {
+                        change.DiffPatch = patch;
+                    }
+                    changes.Add(change);
                 }
             }
 
@@ -651,12 +686,31 @@ namespace GitDeployPro.Services
             }
             catch { /* Ignore errors, if we can't set config, commit might fail but we tried */ }
         }
+
+        private async Task<Dictionary<string, string>> GetUnifiedDiffMapAsync(string diffArguments)
+        {
+            try
+            {
+                var output = await RunGitCommandAsync(diffArguments);
+                return DiffParser.SplitByFile(output);
+            }
+            catch
+            {
+                return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            }
+        }
+
+        private static string NormalizeGitPath(string path)
+        {
+            return path.Replace("\\", "/").Trim();
+        }
     }
 
     public class FileChange
     {
         public string Name { get; set; } = "";
         public ChangeType Type { get; set; }
+        public string DiffPatch { get; set; } = string.Empty;
     }
 
     public class CommitInfo

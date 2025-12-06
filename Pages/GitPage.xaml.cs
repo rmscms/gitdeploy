@@ -245,6 +245,12 @@ namespace GitDeployPro.Pages
                 CloneRepoButton.Content = "Clone / Connect";
             }
         }
+
+        private void DetachGitPage_Click(object sender, RoutedEventArgs e)
+        {
+            var window = new PageHostWindow(new GitPage(), "GitHub • Detached");
+            window.Show();
+        }
     }
 }
 

@@ -8,6 +8,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using GitDeployPro.Controls;
 using GitDeployPro.Services;
+using GitDeployPro.Models;
 
 namespace GitDeployPro.Windows
 {
@@ -30,7 +31,9 @@ namespace GitDeployPro.Windows
             TotalChangesText.Text = $"{_changes.Count} Files";
             
             _viewModels = _changes.Select(f => new FileChangeViewModel(f)).ToList();
-            FilesItemsControl.ItemsSource = _viewModels;
+            FilesListBox.ItemsSource = _viewModels;
+            FilesListBox.SelectedIndex = _viewModels.Count > 0 ? 0 : -1;
+            UpdateDiffPreview();
         }
 
         private void Commit_Click(object sender, RoutedEventArgs e)
@@ -108,12 +111,75 @@ namespace GitDeployPro.Windows
                 }
             }
         }
+
+        private void FilesListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            UpdateDiffPreview();
+        }
+
+        private void UpdateDiffPreview()
+        {
+            if (CommitDiffViewer == null) return;
+
+            if (FilesListBox?.SelectedItem is FileChangeViewModel vm)
+            {
+                CommitDiffViewer.Title = vm.Name;
+                CommitDiffViewer.Status = vm.StatusText;
+                CommitDiffViewer.FilePath = vm.Name;
+                CommitDiffViewer.DiffText = vm.DiffText;
+            }
+            else
+            {
+                CommitDiffViewer.Title = "Diff preview";
+                CommitDiffViewer.Status = string.Empty;
+                CommitDiffViewer.FilePath = string.Empty;
+                CommitDiffViewer.DiffText = string.Empty;
+            }
+        }
+
+        private void FilesListBox_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (FilesListBox?.SelectedItem is FileChangeViewModel vm)
+            {
+                OpenCodeViewer(vm);
+            }
+        }
+
+        private void OpenCodeViewer(FileChangeViewModel vm)
+        {
+            try
+            {
+                var root = GitService.WorkingDirectoryPath;
+                var normalized = vm.Name.Replace('/', Path.DirectorySeparatorChar);
+                var absolute = string.IsNullOrWhiteSpace(root) ? normalized : Path.Combine(root, normalized);
+                var content = File.Exists(absolute) ? File.ReadAllText(absolute) : vm.DiffText ?? string.Empty;
+                var viewer = new CodeViewerWindow(vm.Name, content, absolute)
+                {
+                    Owner = this
+                };
+                viewer.ShowDialog();
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show($"Unable to open viewer: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void OpenCodeButton_Click(object sender, RoutedEventArgs e)
+        {
+            if ((sender as FrameworkElement)?.Tag is FileChangeViewModel vm)
+            {
+                OpenCodeViewer(vm);
+                e.Handled = true;
+            }
+        }
     }
 
     public class FileChangeViewModel
     {
         public string Name { get; set; }
         public ChangeType Type { get; set; }
+        public string DiffText { get; }
         
         public string StatusText 
         {
@@ -147,6 +213,7 @@ namespace GitDeployPro.Windows
         {
             Name = change.Name;
             Type = change.Type;
+            DiffText = change.DiffPatch ?? string.Empty;
         }
     }
 }

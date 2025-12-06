@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
 using System.Windows.Media;
 using System.Windows.Threading;
 using GitDeployPro.Controls;
@@ -40,6 +41,12 @@ namespace GitDeployPro.Pages
             _autoRefreshTimer = new DispatcherTimer(); // Initialize explicitly
             LoadGitData();
             SetupAutoRefreshTimer();
+        }
+
+        private void DetachDeployPage_Click(object sender, RoutedEventArgs e)
+        {
+            var window = new PageHostWindow(new DeployPage(), "Deploy • Detached");
+            window.Show();
         }
 
         private async void LoadGitData()
@@ -444,7 +451,8 @@ namespace GitDeployPro.Pages
                         StatusText.Text = "No changes to deploy.";
                         DeployButton.IsEnabled = false;
                         _fileViewModels.Clear();
-                        FilesItemsControl.ItemsSource = null;
+                        FilesListBox.ItemsSource = null;
+                        UpdateDiffViewerFromSelection();
                     }
                     else
                     {
@@ -457,8 +465,10 @@ namespace GitDeployPro.Pages
                             AddLog($"✅ Selection confirmed. Starting deploy for {selectedFiles.Count} files.");
                             
                             _fileViewModels = selectedFiles.Select(c => new DeployFileViewModel(c) { IsSelected = true }).ToList();
-                            FilesItemsControl.ItemsSource = _fileViewModels;
+                            FilesListBox.ItemsSource = _fileViewModels;
                             SelectAllCheckBox.IsChecked = true;
+                            FilesListBox.SelectedIndex = _fileViewModels.Count > 0 ? 0 : -1;
+                            UpdateDiffViewerFromSelection();
 
                             await StartDeployProcess(selectedFiles);
                         }
@@ -622,10 +632,19 @@ namespace GitDeployPro.Pages
             }
             catch (Exception ex)
             {
-                AddLog($"❌ Error: {ex.Message}");
+                AddLog($"❌ Error: {ex}");
                 StatusText.Text = "Deployment failed.";
                 StatusText.Foreground = System.Windows.Media.Brushes.Red;
-                ModernMessageBox.Show($"Deployment Failed: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                var detailed = ex.ToString();
+                try
+                {
+                    System.Windows.Clipboard.SetText(detailed);
+                }
+                catch
+                {
+                    // Clipboard might fail in some contexts; ignore.
+                }
+                ModernMessageBox.Show($"Deployment Failed:\n\n{detailed}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
             {
@@ -655,6 +674,14 @@ namespace GitDeployPro.Pages
                     int total = files.Count;
                     int current = 0;
 
+                    var profile = GetActiveConnectionProfile();
+                    var mapping = GetPrimaryMapping(profile);
+                    var defaultRemoteBase = NormalizeRemoteBase(_projectConfig.RemotePath);
+                    var mappedRemoteBase = mapping != null
+                        ? CombineRemotePaths(defaultRemoteBase, mapping.RemotePath)
+                        : defaultRemoteBase;
+                    var mappingLocalSegment = NormalizeLocalMappingSegment(mapping?.LocalPath);
+
                     foreach (var file in files)
                     {
                         current++;
@@ -666,7 +693,28 @@ namespace GitDeployPro.Pages
                         string localPath = System.IO.Path.Combine(_projectConfig.LocalProjectPath, file.Name);
                         if (!System.IO.File.Exists(localPath)) continue;
 
-                        string remotePath = _projectConfig.RemotePath.TrimEnd('/') + "/" + file.Name.Replace("\\", "/");
+                        string relativePath = file.Name.Replace("\\", "/");
+                        string remoteBaseToUse = defaultRemoteBase;
+                        string relativeRemote = relativePath;
+
+                        if (!string.IsNullOrEmpty(mappingLocalSegment))
+                        {
+                            var prefix = mappingLocalSegment.EndsWith("/")
+                                ? mappingLocalSegment
+                                : mappingLocalSegment + "/";
+
+                            if (relativePath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                            {
+                                remoteBaseToUse = mappedRemoteBase;
+                                relativeRemote = relativePath.Substring(prefix.Length);
+                                if (string.IsNullOrWhiteSpace(relativeRemote))
+                                {
+                                    relativeRemote = Path.GetFileName(relativePath);
+                                }
+                            }
+                        }
+
+                        string remotePath = $"{remoteBaseToUse.TrimEnd('/')}/{relativeRemote}";
                         
                         string remoteDir = System.IO.Path.GetDirectoryName(remotePath)?.Replace("\\", "/");
                         if (!string.IsNullOrEmpty(remoteDir))
@@ -691,8 +739,82 @@ namespace GitDeployPro.Pages
             catch (Exception ex)
             {
                 AddLog($"❌ Upload Error: {ex.Message}");
-                throw;
+                throw new InvalidOperationException($"Upload failed: {ex.GetType().Name} - {ex.Message}", ex);
             }
+        }
+
+        private ConnectionProfile? GetActiveConnectionProfile()
+        {
+            if (string.IsNullOrWhiteSpace(_projectConfig.ConnectionProfileId)) return null;
+            try
+            {
+                var connections = _configService.LoadConnections();
+                return connections.FirstOrDefault(c => string.Equals(c.Id, _projectConfig.ConnectionProfileId, StringComparison.OrdinalIgnoreCase));
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private PathMapping? GetPrimaryMapping(ConnectionProfile? profile)
+        {
+            if (profile?.PathMappings == null) return null;
+            return profile.PathMappings.FirstOrDefault(pm =>
+                pm != null &&
+                (!string.IsNullOrWhiteSpace(pm.LocalPath) || !string.IsNullOrWhiteSpace(pm.RemotePath)));
+        }
+
+        private string NormalizeLocalMappingSegment(string? localPath)
+        {
+            if (string.IsNullOrWhiteSpace(localPath)) return string.Empty;
+            var normalized = localPath.Trim().Trim('\\', '/');
+            normalized = normalized.Replace("\\", "/");
+            return normalized;
+        }
+
+        private string NormalizeRemoteBase(string? path)
+        {
+            var trimmed = (path ?? "/").Trim();
+            trimmed = trimmed.Replace("\\", "/");
+            if (!trimmed.StartsWith("/"))
+            {
+                trimmed = "/" + trimmed;
+            }
+            trimmed = trimmed.TrimEnd('/');
+            if (trimmed.Length == 0)
+            {
+                trimmed = "/";
+            }
+            if (!trimmed.EndsWith("/"))
+            {
+                trimmed += "/";
+            }
+            return trimmed;
+        }
+
+        private string CombineRemotePaths(string baseRemote, string? mappingRemote)
+        {
+            var normalizedBase = NormalizeRemoteBase(baseRemote);
+            if (string.IsNullOrWhiteSpace(mappingRemote) || mappingRemote.Trim() == "/")
+            {
+                return normalizedBase;
+            }
+
+            var trimmed = mappingRemote.Trim();
+            if (trimmed.StartsWith("///"))
+            {
+                return NormalizeRemoteBase(trimmed.Substring(2));
+            }
+
+            var segment = trimmed.Trim('/');
+            if (string.IsNullOrEmpty(segment))
+            {
+                return normalizedBase;
+            }
+
+            var combined = normalizedBase.TrimEnd('/') + "/" + segment;
+            return NormalizeRemoteBase(combined);
         }
 
         private async Task SimulateDeploy(List<FileChange> files)
@@ -723,8 +845,82 @@ namespace GitDeployPro.Pages
             {
                 foreach (var file in _fileViewModels) file.IsSelected = false;
             }
-            FilesItemsControl.ItemsSource = null;
-            FilesItemsControl.ItemsSource = _fileViewModels;
+            FilesListBox.Items.Refresh();
+            UpdateDiffViewerFromSelection();
+        }
+
+        private void FilesListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            UpdateDiffViewerFromSelection();
+        }
+
+        private void UpdateDiffViewerFromSelection()
+        {
+            if (FileDiffViewer == null) return;
+
+            if (FilesListBox?.SelectedItem is DeployFileViewModel vm)
+            {
+                FileDiffViewer.Title = vm.Name;
+                FileDiffViewer.Status = vm.StatusText;
+                FileDiffViewer.FilePath = vm.Name;
+                FileDiffViewer.DiffText = vm.DiffText;
+            }
+            else
+            {
+                FileDiffViewer.Title = "Diff preview";
+                FileDiffViewer.Status = string.Empty;
+                FileDiffViewer.FilePath = string.Empty;
+                FileDiffViewer.DiffText = string.Empty;
+            }
+        }
+
+        private void FilesListBox_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (FilesListBox?.SelectedItem is DeployFileViewModel vm)
+            {
+                OpenCodeViewer(vm);
+            }
+        }
+
+        private void OpenCodeViewer(DeployFileViewModel vm)
+        {
+            try
+            {
+                var absolutePath = ResolveAbsolutePath(vm.Name);
+                var content = File.Exists(absolutePath) ? File.ReadAllText(absolutePath) : vm.DiffText ?? string.Empty;
+                var viewer = new CodeViewerWindow(vm.Name, content, absolutePath)
+                {
+                    Owner = Window.GetWindow(this)
+                };
+                viewer.ShowDialog();
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show($"Unable to open viewer: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void OpenCodeButton_Click(object sender, RoutedEventArgs e)
+        {
+            if ((sender as FrameworkElement)?.Tag is DeployFileViewModel vm)
+            {
+                OpenCodeViewer(vm);
+                e.Handled = true;
+            }
+        }
+
+        private string ResolveAbsolutePath(string relativePath)
+        {
+            var root = _projectConfig?.LocalProjectPath;
+            if (string.IsNullOrWhiteSpace(root))
+            {
+                root = GitService.WorkingDirectoryPath;
+            }
+
+            var normalized = relativePath.Replace('/', Path.DirectorySeparatorChar);
+            return string.IsNullOrWhiteSpace(root)
+                ? normalized
+                : Path.Combine(root, normalized);
         }
 
         private void AddLog(string message)

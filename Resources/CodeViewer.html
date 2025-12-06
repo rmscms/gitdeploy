@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Code Viewer</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #1e1e1e;
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      font-family: "Segoe UI", sans-serif;
+    }
+
+    #header {
+      background: #252526;
+      color: #ccc;
+      height: 42px;
+      line-height: 42px;
+      padding: 0 16px;
+      font-size: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #1b1b1b;
+    }
+
+    #filename {
+      color: #fff;
+      font-weight: 600;
+    }
+
+    #container {
+      position: absolute;
+      top: 42px;
+      bottom: 0;
+      left: 0;
+      right: 0;
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+</head>
+<body>
+  <div id="header">
+    <div id="filename">Loading…</div>
+    <div id="language"></div>
+  </div>
+  <div id="container"></div>
+
+  <script>
+    let editor;
+    let pendingPayload = null;
+    let changeSubscription = null;
+    const languageMap = {
+      ".cs": "csharp",
+      ".xaml": "xml",
+      ".xml": "xml",
+      ".json": "json",
+      ".js": "javascript",
+      ".ts": "typescript",
+      ".jsx": "javascript",
+      ".tsx": "typescript",
+      ".css": "css",
+      ".scss": "scss",
+      ".sass": "scss",
+      ".html": "html",
+      ".htm": "html",
+      ".php": "php",
+      ".blade.php": "html",
+      ".cshtml": "html",
+      ".razor": "html",
+      ".sql": "sql",
+      ".md": "markdown"
+    };
+
+    const extRegex = /\.([a-z0-9]+(\.[a-z0-9]+)?)$/i;
+
+    function inferLanguage(filePath) {
+      if (!filePath) return "plaintext";
+      const lower = filePath.toLowerCase();
+      for (const key in languageMap) {
+        if (lower.endsWith(key)) {
+          return languageMap[key];
+        }
+      }
+
+      const match = lower.match(extRegex);
+      if (match && match[1]) {
+        return match[1];
+      }
+      return "plaintext";
+    }
+
+    function updateHeader(filePath, language) {
+      document.getElementById("filename").textContent = filePath || "Untitled";
+      document.getElementById("language").textContent = language;
+    }
+
+    function updateEditor(content, language) {
+      if (!editor) return;
+      const model = editor.getModel();
+      if (model) {
+        monaco.editor.setModelLanguage(model, language);
+        editor.setValue(content || "");
+      }
+    }
+
+    function applyPayload(data) {
+      if (!data) return;
+      const lang = inferLanguage(data.filePath);
+      updateHeader(data.filePath, lang);
+      updateEditor(data.content, lang);
+    }
+
+    function notifyHost(payload) {
+      if (window.chrome && window.chrome.webview) {
+        window.chrome.webview.postMessage(payload);
+      }
+    }
+
+    function initEditor() {
+      editor = monaco.editor.create(document.getElementById("container"), {
+        value: "// Loading...",
+        language: "plaintext",
+        theme: "vs-dark",
+        automaticLayout: true,
+        readOnly: true,
+        minimap: { enabled: true }
+      });
+
+      if (pendingPayload) {
+        applyPayload(pendingPayload);
+        pendingPayload = null;
+      }
+
+      if (window.chrome && window.chrome.webview) {
+        window.chrome.webview.addEventListener("message", event => {
+          const data = event.data || {};
+          if (data.type === "load" && data.filePath) {
+            applyPayload(data);
+          }
+        });
+        window.chrome.webview.postMessage({ Type: "ready" });
+      }
+    }
+
+    window.__loadCode = function(data) {
+      if (!data) return;
+      pendingPayload = data;
+      if (editor) {
+        applyPayload(pendingPayload);
+        pendingPayload = null;
+      }
+    };
+
+    window.__setEditable = function(enabled) {
+      if (!editor) return;
+      editor.updateOptions({ readOnly: !enabled });
+
+      if (enabled) {
+        notifyHost({ Type: "dirty", Value: false });
+        if (!changeSubscription) {
+          changeSubscription = editor.onDidChangeModelContent(() => notifyHost({ Type: "dirty", Value: true }));
+        }
+      } else if (changeSubscription) {
+        changeSubscription.dispose();
+        changeSubscription = null;
+        notifyHost({ Type: "dirty", Value: false });
+      }
+    };
+
+    window.__getValue = function() {
+      if (!editor) return "";
+      return editor.getValue();
+    };
+
+    window.__markClean = function() {
+      notifyHost({ Type: "dirty", Value: false });
+    };
+
+    require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
+    require(["vs/editor/editor.main"], initEditor);
+  </script>
+</body>
+</html>
+

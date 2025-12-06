@@ -96,14 +96,28 @@
                                                 <DataTrigger Binding="{Binding UseSSH}" Value="True">
                                                     <Setter Property="Background" Value="#9C27B0"/>
                                                 </DataTrigger>
-                                                <!-- Database (Red) - using a converter would be cleaner but triggers on Enum property name is tricky without one. 
-                                                     Simplification: Since DbType is an enum, we can try to bind to it. 
-                                                     However, DataTrigger on Enum value in XAML requires x:Static.
-                                                     Alternative: We can use a property in the View that exposes 'IsDatabase' bool, but we are in DataTemplate.
-                                                     
-                                                     Let's use a simpler approach: Just text for now to avoid the crash, or rely on UseSSH.
-                                                     Actually, let's revert to simple triggers. If DbType is not None, we want Red.
-                                                 -->
+                                                <!-- Database badge (Blue) -->
+                                                <DataTrigger Binding="{Binding DbType}" Value="{x:Static local:DatabaseType.MySQL}">
+                                                    <Setter Property="Background" Value="#1E88E5"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding DbType}" Value="{x:Static local:DatabaseType.MariaDB}">
+                                                    <Setter Property="Background" Value="#1E88E5"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding DbType}" Value="{x:Static local:DatabaseType.PostgreSQL}">
+                                                    <Setter Property="Background" Value="#1E88E5"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding DbType}" Value="{x:Static local:DatabaseType.SQLServer}">
+                                                    <Setter Property="Background" Value="#1E88E5"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding DbType}" Value="{x:Static local:DatabaseType.MongoDB}">
+                                                    <Setter Property="Background" Value="#1E88E5"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding DbType}" Value="{x:Static local:DatabaseType.Redis}">
+                                                    <Setter Property="Background" Value="#1E88E5"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding DbType}" Value="{x:Static local:DatabaseType.SQLite}">
+                                                    <Setter Property="Background" Value="#1E88E5"/>
+                                                </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
                                     </Border.Style>
@@ -115,6 +129,27 @@
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding UseSSH}" Value="True">
                                                         <Setter Property="Text" Value="S"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding DbType}" Value="{x:Static local:DatabaseType.MySQL}">
+                                                        <Setter Property="Text" Value="D"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding DbType}" Value="{x:Static local:DatabaseType.MariaDB}">
+                                                        <Setter Property="Text" Value="D"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding DbType}" Value="{x:Static local:DatabaseType.PostgreSQL}">
+                                                        <Setter Property="Text" Value="D"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding DbType}" Value="{x:Static local:DatabaseType.SQLServer}">
+                                                        <Setter Property="Text" Value="D"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding DbType}" Value="{x:Static local:DatabaseType.MongoDB}">
+                                                        <Setter Property="Text" Value="D"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding DbType}" Value="{x:Static local:DatabaseType.Redis}">
+                                                        <Setter Property="Text" Value="D"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding DbType}" Value="{x:Static local:DatabaseType.SQLite}">
+                                                        <Setter Property="Text" Value="D"/>
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
@@ -366,7 +401,8 @@
                                 </StackPanel>
                             </GroupBox>
 
-                            <Button Content="🔌 Test Database Connection" 
+                            <Button x:Name="TestDatabaseButton"
+                                    Content="🔌 Test Database Connection" 
                                     HorizontalAlignment="Left"
                                     Style="{StaticResource ModernButtonStyle}"
                                     Background="#2E7D32"
@@ -377,11 +413,56 @@
 
                 <!-- Mappings Tab -->
                 <TabItem Header="Path Mappings">
-                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                        <TextBlock Text="📂 Path Mappings" FontSize="24" Foreground="#444" HorizontalAlignment="Center" Margin="0,0,0,10"/>
-                        <TextBlock Text="Map local folders to remote server paths for precise deployments." Foreground="#666" HorizontalAlignment="Center"/>
-                        <TextBlock Text="(Coming Soon in v1.1)" Foreground="#444" HorizontalAlignment="Center" Margin="0,10,0,0"/>
-                    </StackPanel>
+                    <Grid Margin="10">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0"
+                                   Text="Route a local folder (relative to the project root) to a remote directory. The first mapping becomes the Direct Upload root."
+                                   TextWrapping="Wrap"
+                                   Foreground="#AAAAAA"
+                                   Margin="0,0,0,10"/>
+
+                        <Border Grid.Row="1" BorderBrush="#333" BorderThickness="1" CornerRadius="6" Background="#1f1f1f">
+                            <ListView x:Name="PathMappingsList"
+                                      Background="Transparent"
+                                      BorderThickness="0"
+                                      SelectionChanged="PathMappingsList_SelectionChanged">
+                                <ListView.View>
+                                    <GridView>
+                                        <GridViewColumn Header="Local Folder" Width="200" DisplayMemberBinding="{Binding LocalPath}"/>
+                                        <GridViewColumn Header="Remote Path" Width="240" DisplayMemberBinding="{Binding RemotePath}"/>
+                                    </GridView>
+                                </ListView.View>
+                            </ListView>
+                        </Border>
+
+                        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,10,0,0">
+                            <StackPanel Width="220" Margin="0,0,10,0">
+                                <TextBlock Text="Local Folder (relative, e.g. site)" Foreground="#CCCCCC" FontSize="12"/>
+                                <TextBox x:Name="LocalMappingTextBox" mah:TextBoxHelper.Watermark="site" />
+                            </StackPanel>
+                            <StackPanel Width="260" Margin="0,0,10,0">
+                                <TextBlock Text="Remote Path (e.g. /public_html)" Foreground="#CCCCCC" FontSize="12"/>
+                                <TextBox x:Name="RemoteMappingTextBox" mah:TextBoxHelper.Watermark="/public_html"/>
+                            </StackPanel>
+                            <Button Content="Save Mapping"
+                                    Width="130"
+                                    Margin="0,22,10,0"
+                                    Style="{StaticResource ModernButtonStyle}"
+                                    Background="#007ACC"
+                                    Click="SaveMappingButton_Click"/>
+                            <Button Content="Delete"
+                                    Width="90"
+                                    Margin="0,22,0,0"
+                                    Style="{StaticResource ModernButtonStyle}"
+                                    Background="#C62828"
+                                    Click="DeleteMappingButton_Click"/>
+                        </StackPanel>
+                    </Grid>
                 </TabItem>
             </TabControl>
 
