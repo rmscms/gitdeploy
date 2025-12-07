@@ -376,13 +376,15 @@
                        CornerRadius="6" 
                        Padding="12">
                     <ScrollViewer VerticalScrollBarVisibility="Auto"
-                                 x:Name="LogScrollViewer">
+                                  x:Name="LogScrollViewer"
+                                  Padding="0,0,0,40">
                         <TextBlock x:Name="LogTextBlock" 
                                   FontFamily="Consolas" 
                                   FontSize="12" 
                                   Foreground="#00FF88"
                                   TextWrapping="Wrap"
-                                  Text="Waiting for deployment..."/>
+                                  Text="Waiting for deployment..."
+                                  Margin="0,0,0,30"/>
                     </ScrollViewer>
                 </Border>
             </Grid>

@@ -28,9 +28,12 @@ namespace GitDeployPro.Services
         public class GlobalConfig
         {
             public string LastProjectPath { get; set; } = "";
-            public List<RecentProjectEntry> RecentProjects { get; set; } = new List<RecentProjectEntry>();
+            public List<RecentProjectEntry> RecentProjects { get; set; } = new();
             public string DefaultSshKeyPath { get; set; } = "";
-            public List<TerminalCommandPreset> TerminalPresets { get; set; } = new List<TerminalCommandPreset>();
+            public List<TerminalCommandPreset> TerminalPresets { get; set; } = new();
+            public List<BackupSchedule> BackupSchedules { get; set; } = new();
+            public List<BackupHistoryEntry> BackupHistory { get; set; } = new();
+            public bool LaunchOnStartup { get; set; }
         }
 
         public class RecentProjectEntry
@@ -154,6 +157,8 @@ namespace GitDeployPro.Services
 
             config.RecentProjects ??= new List<RecentProjectEntry>();
             config.TerminalPresets ??= new List<TerminalCommandPreset>();
+            config.BackupSchedules ??= new List<BackupSchedule>();
+            config.BackupHistory ??= new List<BackupHistoryEntry>();
             return config;
         }
 
@@ -161,9 +166,11 @@ namespace GitDeployPro.Services
         {
             try
             {
-                config ??= new GlobalConfig();
-                config.RecentProjects ??= new List<RecentProjectEntry>();
-                config.TerminalPresets ??= new List<TerminalCommandPreset>();
+            config ??= new GlobalConfig();
+            config.RecentProjects ??= new List<RecentProjectEntry>();
+            config.TerminalPresets ??= new List<TerminalCommandPreset>();
+            config.BackupSchedules ??= new List<BackupSchedule>();
+            config.BackupHistory ??= new List<BackupHistoryEntry>();
 
                 var path = Path.Combine(GetAppDataPath(), GlobalConfigFile);
                 File.WriteAllText(path, JsonConvert.SerializeObject(config, Formatting.Indented));

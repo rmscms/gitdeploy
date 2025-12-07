@@ -77,7 +77,12 @@
         </Border>
 
         <!-- Terminal Screen -->
-        <ScrollViewer x:Name="TerminalScroller" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Background="#1E1E1E">
+        <ScrollViewer x:Name="TerminalScroller"
+                      Grid.Row="1"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled"
+                      Background="#1E1E1E"
+                      Padding="0,0,0,50">
             <RichTextBox x:Name="TerminalOutput" 
                          Background="#1E1E1E" 
                          Foreground="#D4D4D4" 
@@ -87,7 +92,8 @@
                          IsReadOnly="True"
                          IsDocumentEnabled="True"
                          PreviewKeyDown="TerminalOutput_PreviewKeyDown"
-                         Padding="10">
+                         Padding="10,10,10,60"
+                         Margin="0,0,0,40">
                 <RichTextBox.Resources>
                     <Style TargetType="{x:Type Paragraph}">
                         <Setter Property="Margin" Value="0"/>

@@ -18,6 +18,7 @@ namespace GitDeployPro.Pages
     {
         private readonly ConfigurationService _configService;
         private readonly GitService _gitService;
+        private readonly AutoStartService _autoStartService = new();
         private static readonly string[] DefaultIgnorePatterns = new[]
         {
             "bin/", "obj/", ".vs/", "packages/", "node_modules/", ".env", "*.log", "vendor/", ".gitdeploy.config", ".gitdeploy.history"
@@ -40,6 +41,7 @@ namespace GitDeployPro.Pages
                 {
                     await ReloadSettingsForPath(globalConfig.LastProjectPath);
                 }
+                LaunchOnStartupCheckBox.IsChecked = globalConfig.LaunchOnStartup;
             }
             catch (Exception ex)
             {
@@ -239,10 +241,15 @@ namespace GitDeployPro.Pages
 
                 _configService.SaveProjectConfig(projectConfig);
 
+                bool launchOnStartup = LaunchOnStartupCheckBox.IsChecked == true;
+
                 _configService.UpdateGlobalConfig(cfg =>
                 {
                     cfg.LastProjectPath = projectPath;
+                    cfg.LaunchOnStartup = launchOnStartup;
                 });
+
+                _autoStartService.SetAutoStart(launchOnStartup);
                 
                 GitService.SetWorkingDirectory(projectPath);
 
