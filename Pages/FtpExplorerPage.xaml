@@ -70,63 +70,83 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <StackPanel>
-                        <TextBlock Text="Connection Profile" FontSize="13" Foreground="#A0A0A0" Margin="0,0,0,5"/>
-                        <ComboBox x:Name="ConnectionsCombo"
-                                  Height="38"
-                                  Background="#363636"
-                                  Foreground="White"
-                                  BorderBrush="#4B8FE2"
-                                  SelectionChanged="ConnectionsCombo_SelectionChanged">
-                            <ComboBox.ItemTemplate>
-                                <DataTemplate>
-                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <Border Width="26"
-                                                Height="26"
-                                                CornerRadius="6"
-                                                Background="{Binding ProtocolBadgeColor}"
-                                                Margin="0,0,10,0">
-                                            <TextBlock Text="{Binding ProtocolBadgeText}"
-                                                       Foreground="White"
-                                                       FontWeight="Bold"
-                                                       HorizontalAlignment="Center"
-                                                       VerticalAlignment="Center"/>
-                                        </Border>
-                                        <StackPanel>
-                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
-                                            <TextBlock Text="{Binding Host}" FontSize="11" Foreground="#A0A0A0"/>
-                                            <TextBlock Text="Project default"
-                                                       FontSize="10"
-                                                       Foreground="#9CFFCB"
-                                                       Margin="0,2,0,0">
-                                                <TextBlock.Style>
-                                                    <Style TargetType="TextBlock">
-                                                        <Setter Property="Visibility" Value="Collapsed"/>
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding IsProjectDefault}" Value="True">
-                                                                <Setter Property="Visibility" Value="Visible"/>
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </TextBlock.Style>
-                                            </TextBlock>
-                                        </StackPanel>
-                                    </StackPanel>
-                                </DataTemplate>
-                            </ComboBox.ItemTemplate>
-                        </ComboBox>
-                        <TextBlock x:Name="ConnectionSummaryText" FontSize="12" Foreground="#8DD1FF" Margin="0,4,0,0"/>
-                    </StackPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="3*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
 
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom">
-                        <CheckBox x:Name="ShowHiddenCheckBox"
-                                  Content="Show hidden"
-                                  Foreground="#D0D0D0"
-                                  Checked="ShowHiddenCheckBox_Changed"
-                                  Unchecked="ShowHiddenCheckBox_Changed"
-                                  Margin="0,0,10,0"/>
-                        <TextBlock x:Name="MappingSummaryText" Foreground="#FFC46B" VerticalAlignment="Center"/>
-                    </StackPanel>
+                        <StackPanel Grid.Column="0" VerticalAlignment="Bottom">
+                            <TextBlock Text="Connection Profile" FontSize="13" Foreground="#A0A0A0" Margin="0,0,0,5"/>
+                            <ComboBox x:Name="ConnectionsCombo"
+                                      Height="32"
+                                      Background="#363636"
+                                      Foreground="White"
+                                      BorderBrush="#4B8FE2"
+                                      Padding="6,0"
+                                      SelectionChanged="ConnectionsCombo_SelectionChanged">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Border Width="26"
+                                                    Height="26"
+                                                    CornerRadius="6"
+                                                    Background="{Binding ProtocolBadgeColor}"
+                                                    Margin="0,0,10,0">
+                                                <TextBlock Text="{Binding ProtocolBadgeText}"
+                                                           Foreground="White"
+                                                           FontWeight="Bold"
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center"/>
+                                            </Border>
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
+                                                <TextBlock Text="{Binding Host}" FontSize="11" Foreground="#A0A0A0"/>
+                                                <TextBlock Text="Project default"
+                                                           FontSize="10"
+                                                           Foreground="#9CFFCB"
+                                                           Margin="0,2,0,0">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsProjectDefault}" Value="True">
+                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <TextBlock x:Name="ConnectionSummaryText" FontSize="12" Foreground="#8DD1FF" Margin="0,4,0,0"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom">
+                            <Button x:Name="ConnectButton"
+                                    Content="🔗 Connect"
+                                    Padding="18,8"
+                                    Background="#4B8FE2"
+                                    Foreground="White"
+                                    FontWeight="Bold"
+                                    BorderThickness="0"
+                                    Cursor="Hand"
+                                    Click="ConnectButton_Click"
+                                    Margin="0,0,10,0"/>
+                            <CheckBox x:Name="ShowHiddenCheckBox"
+                                      Content="Show hidden"
+                                      Foreground="#D0D0D0"
+                                      Checked="ShowHiddenCheckBox_Changed"
+                                      Unchecked="ShowHiddenCheckBox_Changed"
+                                      VerticalAlignment="Center"/>
+                            <TextBlock x:Name="MappingSummaryText"
+                                       Foreground="#FFC46B"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Grid>
                 </Grid>
 
                 <Grid Grid.Row="1" Margin="0,15,0,0">
@@ -452,13 +472,16 @@
                             Click="ClearLog_Click"/>
                 </StackPanel>
 
-                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                <ScrollViewer Grid.Row="1"
+                              VerticalScrollBarVisibility="Auto"
+                              Padding="0,0,0,40">
                     <TextBox x:Name="LogTextBox"
                              Background="#151515"
                              Foreground="#8AE99C"
                              FontFamily="Consolas"
                              FontSize="12"
                              Padding="10"
+                             Margin="0,0,0,30"
                              VerticalContentAlignment="Top"
                              IsReadOnly="True"
                              TextWrapping="Wrap"/>

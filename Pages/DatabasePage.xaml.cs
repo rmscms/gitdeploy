@@ -1,8 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
+using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -16,6 +20,9 @@ using ICSharpCode.AvalonEdit.CodeCompletion;
 using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Highlighting;
 using ICSharpCode.AvalonEdit.Highlighting.Xshd;
+using Microsoft.Win32;
+using SharpCompress.Archives;
+using SharpCompress.Common;
 
 namespace GitDeployPro.Pages
 {
@@ -25,9 +32,15 @@ namespace GitDeployPro.Pages
         private readonly ObservableCollection<string> _databaseOptions = new();
         private readonly ObservableCollection<string> _tables = new();
         private readonly List<string> _tableCache = new();
+        private string _tableFilterText = string.Empty;
+        private bool _suppressTableSelection;
         private readonly DatabaseClient _client = new();
         private readonly List<string> _columnCache = new();
         private CompletionWindow? _completionWindow;
+        private int _commandTimeoutSeconds = 60;
+        private CancellationTokenSource? _importCts;
+        private bool _isImporting;
+        private DateTime _lastImportLog = DateTime.UtcNow;
 
         private DatabaseConnectionEntry? _activeConnection;
         private bool _isInitialized;
@@ -259,6 +272,7 @@ namespace GitDeployPro.Pages
 
         private async void DatabasePage_Unloaded(object sender, RoutedEventArgs e)
         {
+            CancelImportOperation();
             await _client.DisconnectAsync();
             UpdateSidebarState(false);
             _sidebarAdjusted = false;
@@ -269,6 +283,51 @@ namespace GitDeployPro.Pages
             var profiles = _configService.LoadConnections();
             var dbProfiles = profiles.Count(p => p.DbType != DatabaseType.None);
             SavedCountBadge.Text = $" ({dbProfiles + 1})"; // +1 for localhost
+        }
+
+        private void TableSearchBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            _tableFilterText = TableSearchBox.Text ?? string.Empty;
+            ApplyTableFilter();
+            if (_tables.Count > 0)
+            {
+                TableSelector.IsDropDownOpen = true;
+            }
+            else
+            {
+                TableSelector.IsDropDownOpen = false;
+            }
+        }
+
+        private void TableActionsButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (TableActionsButton.ContextMenu != null)
+            {
+                TableActionsButton.ContextMenu.PlacementTarget = TableActionsButton;
+                TableActionsButton.ContextMenu.IsOpen = true;
+            }
+        }
+
+        private async void TruncateTableMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (!TryGetSelectedTable(out var database, out var table)) return;
+            var confirm = ModernMessageBox.ShowWithResult($"Truncate '{table}'? This cannot be undone.", "Confirm truncate",
+                MessageBoxButton.YesNo, MessageBoxImage.Warning, "Truncate", "Cancel");
+            if (confirm != MessageBoxResult.Yes) return;
+
+            var sql = $"TRUNCATE TABLE {DatabaseClient.EscapeIdentifier(table)};";
+            await ExecuteTableMaintenanceAsync(database, table, sql, $"Table '{table}' truncated.");
+        }
+
+        private async void EmptyTableMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (!TryGetSelectedTable(out var database, out var table)) return;
+            var confirm = ModernMessageBox.ShowWithResult($"Delete all rows from '{table}'?", "Confirm delete",
+                MessageBoxButton.YesNo, MessageBoxImage.Warning, "Delete rows", "Cancel");
+            if (confirm != MessageBoxResult.Yes) return;
+
+            var sql = $"DELETE FROM {DatabaseClient.EscapeIdentifier(table)};";
+            await ExecuteTableMaintenanceAsync(database, table, sql, $"Removed every row from '{table}'.");
         }
 
         // ========== NEW TOOLBAR BUTTON HANDLERS ==========
@@ -416,6 +475,10 @@ namespace GitDeployPro.Pages
             if (DatabaseSelector.SelectedItem is string db && _activeConnection != null)
             {
                 ActiveDatabaseText.Text = $"· {db}";
+                if (ImportTargetBox != null)
+                {
+                    ImportTargetBox.Text = db;
+                }
                 await LoadTablesAsync(db);
             }
             else
@@ -428,15 +491,48 @@ namespace GitDeployPro.Pages
 
         private void ApplyTableFilter()
         {
-            _tables.Clear();
-            foreach (var table in _tableCache)
+            _suppressTableSelection = true;
+            try
             {
-                _tables.Add(table);
+                var currentSelection = TableSelector.SelectedItem as string;
+                var filter = _tableFilterText?.Trim() ?? string.Empty;
+                var filtered = string.IsNullOrWhiteSpace(filter)
+                    ? _tableCache
+                    : _tableCache.Where(t => t.Contains(filter, StringComparison.OrdinalIgnoreCase)).ToList();
+
+                _tables.Clear();
+                foreach (var table in filtered)
+                {
+                    _tables.Add(table);
+                }
+
+                if (!string.IsNullOrWhiteSpace(currentSelection) && filtered.Contains(currentSelection))
+                {
+                    TableSelector.SelectedItem = currentSelection;
+                }
+                else
+                {
+                    TableSelector.SelectedItem = null;
+                    TableTitleText.Text = "Table Preview";
+                    ResultsGrid.ItemsSource = null;
+                    ResultStatusText.Text = "Select a table to preview.";
+                }
+
+                UpdateTableActionsState();
+            }
+            finally
+            {
+                _suppressTableSelection = false;
             }
         }
 
         private async void TableSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            if (_suppressTableSelection)
+            {
+                return;
+            }
+            UpdateTableActionsState();
             if (TableSelector.SelectedItem is string table && DatabaseSelector.SelectedItem is string db)
             {
                 await LoadTablePreviewAsync(db, table);
@@ -565,6 +661,49 @@ namespace GitDeployPro.Pages
             TableSelector.IsEnabled = !isRunning;
         }
 
+        private async Task ExecuteTableMaintenanceAsync(string database, string table, string sql, string successMessage)
+        {
+            try
+            {
+                SetQueryRunning(true);
+                var result = await _client.ExecuteQueryAsync(sql, database, _commandTimeoutSeconds);
+                ResultStatusText.Text = $"{successMessage} Rows affected: {result.RowsAffected}.";
+                await LoadTablePreviewAsync(database, table);
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show($"Operation failed: {ex.Message}", "Database Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                SetQueryRunning(false);
+            }
+        }
+
+        private bool TryGetSelectedTable(out string database, out string table)
+        {
+            database = DatabaseSelector.SelectedItem as string ?? string.Empty;
+            table = TableSelector.SelectedItem as string ?? string.Empty;
+            return !string.IsNullOrWhiteSpace(database) && !string.IsNullOrWhiteSpace(table);
+        }
+
+        private void UpdateTableActionsState()
+        {
+            TableActionsButton.IsEnabled = TableSelector.SelectedItem != null;
+        }
+
+        private void TimeoutSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (TimeoutSelector.SelectedValue is string value && int.TryParse(value, out var seconds))
+            {
+                _commandTimeoutSeconds = seconds;
+            }
+            else if (TimeoutSelector.SelectedItem is ComboBoxItem item && int.TryParse(item.Tag?.ToString(), out var tagSeconds))
+            {
+                _commandTimeoutSeconds = tagSeconds;
+            }
+        }
+
         private void OpenConnectionManager_Click(object sender, RoutedEventArgs e)
         {
             var manager = new ConnectionManagerWindow { Owner = Window.GetWindow(this) };
@@ -591,6 +730,328 @@ namespace GitDeployPro.Pages
                 }
             }
         }
+
+        #region Import workflow
+
+        private void BrowseImportFile_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Filter = "SQL / Archive (*.sql;*.zip;*.gz;*.tar;*.tgz)|*.sql;*.zip;*.gz;*.tar;*.tgz;*.tar.gz|All files (*.*)|*.*",
+                Title = "Choose a backup file"
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                ImportFilePathBox.Text = dialog.FileName;
+            }
+        }
+
+        private async void StartImportButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_isImporting)
+            {
+                return;
+            }
+
+            if (!_client.IsConnected || _activeConnection == null)
+            {
+                ModernMessageBox.Show("Connect to a database profile before importing.", "No connection", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var filePath = ImportFilePathBox.Text?.Trim();
+            if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+            {
+                ModernMessageBox.Show("Select a valid .sql / .zip / .tar.gz file first.", "No file selected", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var targetDatabase = ImportTargetBox.Text?.Trim();
+            if (string.IsNullOrWhiteSpace(targetDatabase))
+            {
+                if (DatabaseSelector.SelectedItem is string selectedDb)
+                {
+                    targetDatabase = selectedDb;
+                    ImportTargetBox.Text = selectedDb;
+                }
+                else
+                {
+                    ModernMessageBox.Show("Specify the database you want to import into.", "Missing database", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+            }
+
+            AppendImportLog($"Starting import of {Path.GetFileName(filePath)} → {targetDatabase}");
+            SetImportRunning(true);
+            _importCts = new CancellationTokenSource();
+
+            var dropDatabase = ImportDropDatabaseCheck.IsChecked == true;
+            var disableForeignKeys = ImportDisableFkCheck.IsChecked == true;
+            var fastMode = IsFastModeSelected();
+            var continueOnError = ImportContinueOnErrorCheck.IsChecked == true;
+
+            try
+            {
+                await RunImportAsync(filePath, targetDatabase, dropDatabase, disableForeignKeys, fastMode, continueOnError, _importCts.Token);
+            }
+            finally
+            {
+                SetImportRunning(false);
+            }
+        }
+
+        private void CancelImportButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (!_isImporting)
+            {
+                return;
+            }
+
+            CancelImportOperation();
+            AppendImportLog("⚠️ Cancel requested...");
+        }
+
+        private void CancelImportOperation(bool signal = true)
+        {
+            try
+            {
+                if (signal)
+                {
+                    _importCts?.Cancel();
+                }
+            }
+            catch
+            {
+                // ignored
+            }
+            finally
+            {
+                _importCts?.Dispose();
+                _importCts = null;
+            }
+        }
+
+        private void SetImportRunning(bool isRunning)
+        {
+            _isImporting = isRunning;
+            StartImportButton.IsEnabled = !isRunning;
+            CancelImportButton.IsEnabled = isRunning;
+            ImportProgressBar.Visibility = isRunning ? Visibility.Visible : Visibility.Collapsed;
+            if (!isRunning)
+            {
+                CancelImportOperation(false);
+            }
+        }
+
+        private async Task RunImportAsync(string sourceFile,
+                                          string targetDatabase,
+                                          bool dropDatabase,
+                                          bool disableForeignKeys,
+                                          bool fastMode,
+                                          bool continueOnError,
+                                          CancellationToken cancellationToken)
+        {
+            string workingFile = sourceFile;
+            string? tempFileToDelete = null;
+
+            try
+            {
+                ImportProgressBar.Value = 0;
+                ImportProgressText.Text = "Preparing file...";
+
+                if (!sourceFile.EndsWith(".sql", StringComparison.OrdinalIgnoreCase))
+                {
+                    workingFile = await PrepareSqlFileAsync(sourceFile);
+                    tempFileToDelete = workingFile;
+                }
+
+                if (dropDatabase)
+                {
+                    AppendImportLog($"Dropping database '{targetDatabase}'...");
+                    await _client.DropAndCreateDatabaseAsync(targetDatabase, cancellationToken);
+                }
+                else
+                {
+                    await _client.EnsureDatabaseExistsAsync(targetDatabase, cancellationToken);
+                }
+
+                var progress = new Progress<ImportProgressUpdate>(HandleImportProgress);
+
+                try
+                {
+                    if (disableForeignKeys)
+                    {
+                        await _client.ExecuteNonQueryAsync("SET FOREIGN_KEY_CHECKS=0;", targetDatabase, _commandTimeoutSeconds, cancellationToken);
+                    }
+
+                    await _client.ImportSqlAsync(
+                        workingFile,
+                        targetDatabase,
+                        progress,
+                        cancellationToken,
+                        fastMode,
+                        _commandTimeoutSeconds,
+                        continueOnError,
+                        msg => Dispatcher.Invoke(() => AppendImportLog($"⚠️ {msg}")));
+                }
+                finally
+                {
+                    if (disableForeignKeys)
+                    {
+                        try
+                        {
+                            await _client.ExecuteNonQueryAsync("SET FOREIGN_KEY_CHECKS=1;", targetDatabase, _commandTimeoutSeconds);
+                        }
+                        catch
+                        {
+                            // ignore re-enable failures
+                        }
+                    }
+                }
+
+                AppendImportLog("✅ Import completed.");
+                ImportProgressText.Text = "Completed";
+            }
+            catch (OperationCanceledException)
+            {
+                ImportProgressText.Text = "Canceled";
+                AppendImportLog("⏹️ Import canceled.");
+            }
+            catch (Exception ex)
+            {
+                ImportProgressText.Text = $"Failed: {ex.Message}";
+                AppendImportLog($"❌ Import failed: {ex.Message}");
+                ModernMessageBox.Show($"Import failed: {ex.Message}", "Import error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                if (!string.IsNullOrWhiteSpace(tempFileToDelete) && File.Exists(tempFileToDelete))
+                {
+                    try { File.Delete(tempFileToDelete); } catch { /* ignore */ }
+                }
+            }
+        }
+
+        private void HandleImportProgress(ImportProgressUpdate update)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                if (update.TotalBytes > 0)
+                {
+                    var percent = (double)update.BytesProcessed / update.TotalBytes * 100d;
+                    ImportProgressBar.Visibility = Visibility.Visible;
+                    ImportProgressBar.Value = percent;
+                    ImportProgressText.Text = $"{FormatBytes(update.BytesProcessed)} / {FormatBytes(update.TotalBytes)} ({percent:0.#}%)";
+                }
+
+                if (!string.IsNullOrWhiteSpace(update.Message))
+                {
+                    var now = DateTime.UtcNow;
+                    if ((now - _lastImportLog).TotalMilliseconds > 500)
+                    {
+                        AppendImportLog(update.Message);
+                        _lastImportLog = now;
+                    }
+                }
+            });
+        }
+
+        private async Task<string> PrepareSqlFileAsync(string sourcePath)
+        {
+            var lower = sourcePath.ToLowerInvariant();
+            if (lower.EndsWith(".sql", StringComparison.Ordinal))
+            {
+                return sourcePath;
+            }
+
+            if (lower.EndsWith(".tar.gz") || lower.EndsWith(".tgz"))
+            {
+                var tarPath = Path.Combine(Path.GetTempPath(), $"gdp-import-{Guid.NewGuid():N}.tar");
+                await DecompressGzipAsync(sourcePath, tarPath);
+                var sqlPath = await ExtractSqlFromArchiveAsync(tarPath);
+                try { File.Delete(tarPath); } catch { }
+                return sqlPath;
+            }
+
+            if (lower.EndsWith(".gz"))
+            {
+                var sqlPath = Path.Combine(Path.GetTempPath(), $"gdp-import-{Guid.NewGuid():N}.sql");
+                await DecompressGzipAsync(sourcePath, sqlPath);
+                return sqlPath;
+            }
+
+            if (lower.EndsWith(".zip") || lower.EndsWith(".tar"))
+            {
+                return await ExtractSqlFromArchiveAsync(sourcePath);
+            }
+
+            throw new InvalidOperationException("Unsupported file type. Provide a .sql, .zip, .tar or .gz file.");
+        }
+
+        private static async Task DecompressGzipAsync(string sourcePath, string destinationPath)
+        {
+            await using var source = File.OpenRead(sourcePath);
+            await using var gzip = new GZipStream(source, CompressionMode.Decompress);
+            await using var destination = File.Create(destinationPath);
+            await gzip.CopyToAsync(destination);
+        }
+
+        private static async Task<string> ExtractSqlFromArchiveAsync(string archivePath)
+        {
+            var tempPath = Path.Combine(Path.GetTempPath(), $"gdp-import-{Guid.NewGuid():N}.sql");
+            await Task.Run(() =>
+            {
+                using var archive = ArchiveFactory.Open(archivePath);
+                var entry = archive.Entries.FirstOrDefault(e => !e.IsDirectory && e.Key.EndsWith(".sql", StringComparison.OrdinalIgnoreCase));
+                if (entry == null)
+                {
+                    throw new InvalidOperationException("Archive does not contain a .sql file.");
+                }
+
+                entry.WriteToFile(tempPath, new ExtractionOptions
+                {
+                    ExtractFullPath = false,
+                    Overwrite = true
+                });
+            });
+            return tempPath;
+        }
+
+        private bool IsFastModeSelected()
+        {
+            if (ImportModeCombo.SelectedItem is ComboBoxItem item && item.Tag != null)
+            {
+                return string.Equals(item.Tag.ToString(), "Fast", StringComparison.OrdinalIgnoreCase);
+            }
+            return false;
+        }
+
+        private void AppendImportLog(string message)
+        {
+            if (string.IsNullOrWhiteSpace(message) || ImportLogBox == null) return;
+
+            if (ImportLogBox.LineCount > 500)
+            {
+                ImportLogBox.Clear();
+            }
+
+            ImportLogBox.AppendText($"[{DateTime.Now:HH:mm:ss}] {message}{Environment.NewLine}");
+            ImportLogBox.ScrollToEnd();
+        }
+
+        private static string FormatBytes(long bytes)
+        {
+            if (bytes < 1024) return $"{bytes} B";
+            double value = bytes / 1024d;
+            if (value < 1024) return $"{value:0.#} KB";
+            value /= 1024d;
+            if (value < 1024) return $"{value:0.#} MB";
+            value /= 1024d;
+            return $"{value:0.#} GB";
+        }
+
+        #endregion
 
         // ========== INNER CLASSES ==========
 

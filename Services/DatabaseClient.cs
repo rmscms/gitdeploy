@@ -4,6 +4,8 @@ using System.Data;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using GitDeployPro.Models;
 using MySqlConnector;
@@ -22,6 +24,7 @@ namespace GitDeployPro.Services
         private uint _localTunnelPort;
 
         public bool IsConnected => _mysqlConnection?.State == ConnectionState.Open;
+        public uint TunnelPort => _localTunnelPort;
         public DatabaseType CurrentType => _currentType;
         public string? ActiveDatabase => _activeDatabase;
 
@@ -53,6 +56,8 @@ namespace GitDeployPro.Services
                     Password = info.Password ?? string.Empty,
                     CharacterSet = "utf8mb4",
                     AllowUserVariables = true,
+                    AllowZeroDateTime = true,
+                    ConvertZeroDateTime = true,
                     ConnectionTimeout = 15,
                     DefaultCommandTimeout = 60
                 };
@@ -160,7 +165,7 @@ namespace GitDeployPro.Services
             };
         }
 
-        public async Task<DatabaseQueryResult> ExecuteQueryAsync(string sql, string? database = null)
+        public async Task<DatabaseQueryResult> ExecuteQueryAsync(string sql, string? database = null, int? commandTimeoutSeconds = null)
         {
             EnsureMySqlConnection();
 
@@ -176,6 +181,10 @@ namespace GitDeployPro.Services
 
             await using var cmd = _mysqlConnection!.CreateCommand();
             cmd.CommandText = sql;
+            if (commandTimeoutSeconds.HasValue && commandTimeoutSeconds.Value > 0)
+            {
+                cmd.CommandTimeout = commandTimeoutSeconds.Value;
+            }
 
             if (expectsResult)
             {
@@ -219,7 +228,7 @@ namespace GitDeployPro.Services
             _activeDatabase = database;
         }
 
-        private void EnsureMySqlConnection()
+        internal void EnsureMySqlConnection()
         {
             if (_mysqlConnection == null || _mysqlConnection.State != ConnectionState.Open)
             {
@@ -227,7 +236,13 @@ namespace GitDeployPro.Services
             }
         }
 
-        private static string EscapeIdentifier(string identifier)
+        internal MySqlConnection GetOpenConnection()
+        {
+            EnsureMySqlConnection();
+            return _mysqlConnection!;
+        }
+
+        internal static string EscapeIdentifier(string identifier)
         {
             if (string.IsNullOrWhiteSpace(identifier))
             {
@@ -248,6 +263,285 @@ namespace GitDeployPro.Services
                 }
             }
             return false;
+        }
+
+        public async Task ExecuteNonQueryAsync(string sql, string? database = null, int commandTimeoutSeconds = 60, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(sql))
+            {
+                return;
+            }
+
+            EnsureMySqlConnection();
+            await SetActiveDatabaseAsync(database ?? _activeDatabase);
+
+            await using var cmd = _mysqlConnection!.CreateCommand();
+            cmd.CommandText = sql;
+            if (commandTimeoutSeconds > 0)
+            {
+                cmd.CommandTimeout = commandTimeoutSeconds;
+            }
+
+            await cmd.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        public async Task DropAndCreateDatabaseAsync(string databaseName, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(databaseName))
+            {
+                throw new ArgumentException("Database name is required.", nameof(databaseName));
+            }
+
+            EnsureMySqlConnection();
+            await SetActiveDatabaseAsync("information_schema");
+
+            var escaped = EscapeIdentifier(databaseName);
+            await ExecuteNonQueryAsync($"DROP DATABASE IF EXISTS {escaped};", null, 0, cancellationToken);
+            await ExecuteNonQueryAsync($"CREATE DATABASE {escaped} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;", null, 0, cancellationToken);
+
+            await SetActiveDatabaseAsync(databaseName);
+        }
+
+        public async Task EnsureDatabaseExistsAsync(string databaseName, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(databaseName))
+            {
+                throw new ArgumentException("Database name is required.", nameof(databaseName));
+            }
+
+            EnsureMySqlConnection();
+            var escaped = EscapeIdentifier(databaseName);
+            await ExecuteNonQueryAsync($"CREATE DATABASE IF NOT EXISTS {escaped} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;", null, 0, cancellationToken);
+        }
+
+        public async Task ImportSqlAsync(string sqlFilePath,
+                                         string targetDatabase,
+                                         IProgress<ImportProgressUpdate>? progress,
+                                         CancellationToken cancellationToken,
+                                         bool fastMode,
+                                         int commandTimeoutSeconds = 60,
+                                         bool continueOnError = false,
+                                         Action<string>? errorLogger = null)
+        {
+            if (string.IsNullOrWhiteSpace(sqlFilePath))
+            {
+                throw new ArgumentException("SQL file path required.", nameof(sqlFilePath));
+            }
+
+            if (!File.Exists(sqlFilePath))
+            {
+                throw new FileNotFoundException("SQL file not found.", sqlFilePath);
+            }
+
+            if (string.IsNullOrWhiteSpace(targetDatabase))
+            {
+                throw new ArgumentException("Target database required.", nameof(targetDatabase));
+            }
+
+            EnsureMySqlConnection();
+            await SetActiveDatabaseAsync(targetDatabase);
+
+            if (fastMode)
+            {
+                await ExecuteNonQueryAsync("SET unique_checks=0;", targetDatabase, commandTimeoutSeconds, cancellationToken);
+                await ExecuteNonQueryAsync("SET autocommit=0;", targetDatabase, commandTimeoutSeconds, cancellationToken);
+                await ExecuteNonQueryAsync("START TRANSACTION;", targetDatabase, commandTimeoutSeconds, cancellationToken);
+            }
+
+            try
+            {
+                await StreamImportAsync(sqlFilePath, progress, cancellationToken, commandTimeoutSeconds, continueOnError, errorLogger);
+
+                if (fastMode)
+                {
+                    await ExecuteNonQueryAsync("COMMIT;", targetDatabase, commandTimeoutSeconds, cancellationToken);
+                }
+            }
+            finally
+            {
+                if (fastMode)
+                {
+                    try
+                    {
+                        await ExecuteNonQueryAsync("SET autocommit=1;", targetDatabase, commandTimeoutSeconds);
+                        await ExecuteNonQueryAsync("SET unique_checks=1;", targetDatabase, commandTimeoutSeconds);
+                    }
+                    catch
+                    {
+                        // ignored
+                    }
+                }
+            }
+        }
+
+        private async Task StreamImportAsync(string sqlFilePath,
+                                             IProgress<ImportProgressUpdate>? progress,
+                                             CancellationToken cancellationToken,
+                                             int commandTimeoutSeconds,
+                                             bool continueOnError,
+                                             Action<string>? errorLogger)
+        {
+            var delimiter = ";";
+            var builder = new StringBuilder();
+            long totalBytes = new FileInfo(sqlFilePath).Length;
+            int statements = 0;
+
+            await using var stream = File.OpenRead(sqlFilePath);
+            using var reader = new StreamReader(stream, detectEncodingFromByteOrderMarks: true);
+
+            string? line;
+            while ((line = await reader.ReadLineAsync()) != null)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var trimmed = line.Trim();
+                if (trimmed.StartsWith("DELIMITER ", StringComparison.OrdinalIgnoreCase))
+                {
+                    delimiter = trimmed.Substring(10).Trim();
+                    builder.Clear();
+                    continue;
+                }
+
+                builder.AppendLine(line);
+
+                if (StatementReady(builder, delimiter))
+                {
+                    var statement = TrimDelimiter(builder, delimiter);
+                    builder.Clear();
+
+                    if (!string.IsNullOrWhiteSpace(statement))
+                    {
+                        await ExecuteStatementAsync(statement, commandTimeoutSeconds, cancellationToken, continueOnError, errorLogger);
+                        statements++;
+                        progress?.Report(new ImportProgressUpdate
+                        {
+                            BytesProcessed = stream.Position,
+                            TotalBytes = totalBytes,
+                            StatementsExecuted = statements,
+                            Message = $"Executed {statements:N0} statements"
+                        });
+                    }
+                }
+                else
+                {
+                    progress?.Report(new ImportProgressUpdate
+                    {
+                        BytesProcessed = stream.Position,
+                        TotalBytes = totalBytes,
+                        StatementsExecuted = statements
+                    });
+                }
+            }
+
+            var leftover = builder.ToString().Trim();
+            if (!string.IsNullOrWhiteSpace(leftover))
+            {
+                await ExecuteStatementAsync(leftover, commandTimeoutSeconds, cancellationToken, continueOnError, errorLogger);
+                statements++;
+                progress?.Report(new ImportProgressUpdate
+                {
+                    BytesProcessed = totalBytes,
+                    TotalBytes = totalBytes,
+                    StatementsExecuted = statements,
+                    Message = $"Executed {statements:N0} statements"
+                });
+            }
+        }
+
+        private async Task ExecuteStatementAsync(string sql,
+                                                int commandTimeoutSeconds,
+                                                CancellationToken cancellationToken,
+                                                bool continueOnError,
+                                                Action<string>? errorLogger)
+        {
+            await using var cmd = _mysqlConnection!.CreateCommand();
+            cmd.CommandText = NormalizeImportStatement(sql);
+            if (commandTimeoutSeconds > 0)
+            {
+                cmd.CommandTimeout = commandTimeoutSeconds;
+            }
+
+            try
+            {
+                await cmd.ExecuteNonQueryAsync(cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                if (!continueOnError)
+                {
+                    throw;
+                }
+
+                var preview = sql.Length > 200 ? sql[..200] + "..." : sql;
+                errorLogger?.Invoke($"Statement skipped: {ex.Message} (snippet: {preview})");
+            }
+        }
+
+        private static string NormalizeImportStatement(string sql)
+        {
+            if (string.IsNullOrWhiteSpace(sql))
+            {
+                return sql;
+            }
+
+            var trimmed = sql.Trim();
+            if (!trimmed.StartsWith("SET", StringComparison.OrdinalIgnoreCase) ||
+                !trimmed.Contains("sql_mode", StringComparison.OrdinalIgnoreCase))
+            {
+                return sql;
+            }
+
+            var lower = trimmed.ToLowerInvariant();
+            var startIndex = lower.IndexOf("set", StringComparison.Ordinal);
+            if (startIndex < 0) return sql;
+
+            var equalsIndex = lower.IndexOf("=", StringComparison.Ordinal);
+            if (equalsIndex < 0) return sql;
+
+            var valuePart = trimmed[(equalsIndex + 1)..].Trim().TrimEnd(';');
+            valuePart = valuePart.Trim('\'', '"');
+
+            var filteredModes = valuePart
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Where(mode => !string.Equals(mode, "NO_AUTO_CREATE_USER", StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+
+            if (filteredModes.Length == 0)
+            {
+                return "-- filtered sql_mode due to incompatible values";
+            }
+
+            var rebuilt = string.Join(",", filteredModes);
+            return $"SET sql_mode='{rebuilt}';";
+        }
+
+        private static bool StatementReady(StringBuilder builder, string delimiter)
+        {
+            if (builder.Length == 0) return false;
+
+            var text = builder.ToString().TrimEnd();
+            if (string.IsNullOrWhiteSpace(delimiter))
+            {
+                delimiter = ";";
+            }
+
+            return text.EndsWith(delimiter, StringComparison.Ordinal);
+        }
+
+        private static string TrimDelimiter(StringBuilder builder, string delimiter)
+        {
+            var text = builder.ToString().TrimEnd();
+            if (string.IsNullOrWhiteSpace(delimiter))
+            {
+                delimiter = ";";
+            }
+
+            if (text.EndsWith(delimiter, StringComparison.Ordinal))
+            {
+                text = text[..^delimiter.Length];
+            }
+
+            return text.Trim();
         }
 
         public void Dispose()

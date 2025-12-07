@@ -1,9 +1,12 @@
 ﻿using System;
+using System.ComponentModel;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives; 
 using System.Windows.Media; 
+using System.Windows.Threading;
+using GitDeployPro.Models;
 using GitDeployPro.Pages;
 using GitDeployPro.Services;
 using GitDeployPro.Windows;
@@ -11,12 +14,16 @@ using Button = System.Windows.Controls.Button;
 
 namespace GitDeployPro
 {
-    public partial class MainWindow : Window
+    public partial class MainWindow : Window, INotifyPropertyChanged
     {
         private ConfigurationService _configService;
         public bool IsSidebarCollapsed => _isSidebarCollapsed;
         private bool _isSidebarCollapsed;
         private const double DefaultSidebarWidth = 240;
+        private readonly BackupTaskMonitor _taskMonitor = BackupTaskMonitor.Instance;
+        private readonly DispatcherTimer _nextRunTimer;
+        private DateTime? _nextRunUtc;
+        private string _nextRunCountdownText = "next --";
 
         public MainWindow()
         {
@@ -24,8 +31,106 @@ namespace GitDeployPro
             _configService = new ConfigurationService();
             SetSidebarCollapsed(false);
             LoadRecentProjects();
-            
+            _taskMonitor.PropertyChanged += TaskMonitorOnPropertyChanged;
+            BackupScheduleStore.SchedulesChanged += BackupScheduleStoreOnSchedulesChanged;
+            _nextRunTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+            _nextRunTimer.Tick += NextRunTimer_Tick;
+            _nextRunTimer.Start();
+            RefreshNextRunTarget();
+
             ContentFrame.Navigate(new DashboardPage());
+        }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        public string BackupMenuLabel =>
+            _taskMonitor.ActiveCount > 0
+                ? $"Backup Plans ({_taskMonitor.ActiveCount})"
+                : $"Backup Plans • {_nextRunCountdownText}";
+
+        private void OnPropertyChanged(string propertyName) =>
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+
+        private void TaskMonitorOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(BackupTaskMonitor.ActiveCount))
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    OnPropertyChanged(nameof(BackupMenuLabel));
+                    UpdateCountdownLabel();
+                });
+            }
+        }
+
+        private void BackupScheduleStoreOnSchedulesChanged()
+        {
+            Dispatcher.Invoke(RefreshNextRunTarget);
+        }
+
+        private void NextRunTimer_Tick(object? sender, EventArgs e)
+        {
+            if (_taskMonitor.ActiveCount == 0 && _nextRunUtc.HasValue && _nextRunUtc <= DateTime.UtcNow)
+            {
+                RefreshNextRunTarget();
+            }
+            else
+            {
+                UpdateCountdownLabel();
+            }
+        }
+
+        private void RefreshNextRunTarget()
+        {
+            var state = BackupStateStore.LoadState();
+            DateTime? soonest = null;
+            foreach (var schedule in state.BackupSchedules)
+            {
+                if (!schedule.Enabled) continue;
+                var next = schedule.NextRunUtc ?? BackupSchedulePlanner.CalculateNextRunUtc(schedule, DateTime.UtcNow);
+                if (next == null) continue;
+                if (soonest == null || next < soonest)
+                {
+                    soonest = next;
+                }
+            }
+            _nextRunUtc = soonest;
+            UpdateCountdownLabel();
+        }
+
+        private void UpdateCountdownLabel()
+        {
+            string text;
+            if (_taskMonitor.ActiveCount > 0)
+            {
+                text = "running…";
+            }
+            else if (_nextRunUtc == null)
+            {
+                text = "no schedule";
+            }
+            else
+            {
+                var diff = _nextRunUtc.Value - DateTime.UtcNow;
+                if (diff <= TimeSpan.Zero)
+                {
+                    text = "pending";
+                }
+                else if (diff.TotalHours >= 1)
+                {
+                    text = $"{Math.Floor(diff.TotalHours)}h {diff.Minutes:D2}m";
+                }
+                else
+                {
+                    text = $"{diff.Minutes:D2}m {diff.Seconds:D2}s";
+                }
+            }
+
+            if (text != _nextRunCountdownText)
+            {
+                _nextRunCountdownText = text;
+                OnPropertyChanged(nameof(BackupMenuLabel));
+            }
         }
 
         private void LoadRecentProjects()
@@ -292,11 +397,20 @@ namespace GitDeployPro
         private void FtpExplorer_Click(object sender, RoutedEventArgs e) => ContentFrame.Navigate(new FtpExplorerPage());
         private void Database_Click(object sender, RoutedEventArgs e) => ContentFrame.Navigate(new DatabasePage());
         private void Terminal_Click(object sender, RoutedEventArgs e) => ContentFrame.Navigate(new TerminalPage());
+        private void BackupScheduler_Click(object sender, RoutedEventArgs e) => ContentFrame.Navigate(new BackupSchedulerPage());
         private void Git_Click(object sender, RoutedEventArgs e) => ContentFrame.Navigate(new GitPage());
         private void History_Click(object sender, RoutedEventArgs e) => ContentFrame.Navigate(new HistoryPage());
         private void Settings_Click(object sender, RoutedEventArgs e) => ContentFrame.Navigate(new SettingsPage());
         private void Minimize_Click(object sender, RoutedEventArgs e) => this.WindowState = WindowState.Minimized;
         private void Maximize_Click(object sender, RoutedEventArgs e) => this.WindowState = (this.WindowState == WindowState.Maximized) ? WindowState.Normal : WindowState.Maximized;
         private void Close_Click(object sender, RoutedEventArgs e) => this.Close();
+
+        protected override void OnClosed(EventArgs e)
+        {
+            base.OnClosed(e);
+            _taskMonitor.PropertyChanged -= TaskMonitorOnPropertyChanged;
+            BackupScheduleStore.SchedulesChanged -= BackupScheduleStoreOnSchedulesChanged;
+            _nextRunTimer.Stop();
+        }
     }
 }

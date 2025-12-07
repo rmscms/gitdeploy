@@ -120,6 +120,8 @@ namespace GitDeployPro.Pages
                 MappingSummaryText.Text = string.Empty;
                 await DisconnectClientsAsync();
                 _entries.Clear();
+                _currentProfile = null;
+                UpdateConnectButtonState();
                 return;
             }
 
@@ -137,14 +139,12 @@ namespace GitDeployPro.Pages
 
             if (defaultProfile != null)
             {
-                await SwitchProfileAsync(defaultProfile);
+                await SwitchProfileAsync(defaultProfile, autoConnect: false);
             }
         }
 
-        private async Task SwitchProfileAsync(ConnectionProfile profile)
+        private void ApplyProfileSelection(ConnectionProfile profile)
         {
-            if (_isBusy) return;
-
             _currentProfile = profile;
             _currentMapping = GetPrimaryMapping(profile);
             _remoteRoot = BuildRemoteRoot(profile, _currentMapping);
@@ -165,9 +165,23 @@ namespace GitDeployPro.Pages
 
             UpdateDownloadRoot(_currentMapping);
             UpdateDownloadPathText();
+            UpdateConnectButtonState();
+        }
 
-            await ConnectAndLoadAsync();
-            await TryResumePendingSessionAsync(profile);
+        private async Task SwitchProfileAsync(ConnectionProfile profile, bool autoConnect)
+        {
+            if (_isBusy) return;
+
+            ApplyProfileSelection(profile);
+
+            if (autoConnect)
+            {
+                await ConnectAndLoadAsync();
+            }
+            else
+            {
+                StatusText.Text = "Profile selected. Click Connect to browse.";
+            }
         }
 
         private async Task ConnectAndLoadAsync()
@@ -181,6 +195,7 @@ namespace GitDeployPro.Pages
             try
             {
                 _isBusy = true;
+                UpdateConnectButtonState();
                 StatusText.Text = "Connecting...";
                 await DisconnectClientsAsync();
 
@@ -195,6 +210,7 @@ namespace GitDeployPro.Pages
 
                 AddLog($"Connected to {_currentProfile.Host}:{_currentProfile.Port} ({(_currentProfile.UseSSH ? "SFTP" : "FTP")}).");
                 await LoadDirectoryAsync(_currentPath);
+                await TryResumePendingSessionAsync(_currentProfile);
             }
             catch (Exception ex)
             {
@@ -205,6 +221,7 @@ namespace GitDeployPro.Pages
             finally
             {
                 _isBusy = false;
+                UpdateConnectButtonState();
             }
         }
 
@@ -433,8 +450,20 @@ namespace GitDeployPro.Pages
             if (_suppressSelectionChanged) return;
             if (ConnectionsCombo.SelectedItem is ConnectionProfile profile)
             {
-                await SwitchProfileAsync(profile);
+                await SwitchProfileAsync(profile, autoConnect: false);
             }
+        }
+
+        private async void ConnectButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_isBusy) return;
+            if (_currentProfile == null)
+            {
+                ModernMessageBox.Show("Select a connection profile first.", "FTP Explorer", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            await ConnectAndLoadAsync();
         }
 
         private async void ShowHiddenCheckBox_Changed(object sender, RoutedEventArgs e)
@@ -544,6 +573,12 @@ namespace GitDeployPro.Pages
             PauseDownloadButton.Content = _isDownloadPaused ? "Resume" : "Pause";
         }
 
+        private void UpdateConnectButtonState()
+        {
+            if (ConnectButton == null) return;
+            ConnectButton.IsEnabled = _currentProfile != null && !_isBusy;
+        }
+
         private async void PauseDownloadButton_Click(object sender, RoutedEventArgs e)
         {
             if (_isDownloadPaused)
@@ -584,7 +619,7 @@ namespace GitDeployPro.Pages
                     _suppressSelectionChanged = true;
                     ConnectionsCombo.SelectedItem = match;
                     _suppressSelectionChanged = false;
-                    await SwitchProfileAsync(match);
+                    await SwitchProfileAsync(match, autoConnect: false);
                 }
             }
         }

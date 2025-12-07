@@ -1,0 +1,112 @@
+<mah:MetroWindow x:Class="GitDeployPro.Windows.BackupTasksWindow"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
+                 xmlns:models="clr-namespace:GitDeployPro.Models"
+                 Title="Active Backups"
+                 Width="900"
+                 Height="560"
+                 ResizeMode="CanResizeWithGrip"
+                 BorderThickness="0"
+                 WindowStartupLocation="CenterOwner"
+                 Background="#1C1C1C"
+                 Foreground="White">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <TextBlock Text="Running tasks"
+                   FontSize="20"
+                   FontWeight="SemiBold"
+                   Margin="0,0,0,8"/>
+        <ListView Grid.Row="1"
+                  ItemsSource="{Binding ActiveTasks}"
+                  Background="#121212"
+                  BorderThickness="0"
+                  Foreground="White">
+            <ListView.View>
+                <GridView>
+                    <GridViewColumn Header="Schedule" Width="160" DisplayMemberBinding="{Binding ScheduleName}"/>
+                    <GridViewColumn Header="Database" Width="130" DisplayMemberBinding="{Binding DatabaseName}"/>
+                    <GridViewColumn Header="Mode" Width="90" DisplayMemberBinding="{Binding Mode}"/>
+                    <GridViewColumn Header="Started" Width="120" DisplayMemberBinding="{Binding StartedLocal, StringFormat={}{0:T}}"/>
+                    <GridViewColumn Header="Stage" Width="200" DisplayMemberBinding="{Binding Stage}"/>
+                    <GridViewColumn Header="Progress" Width="150">
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <StackPanel>
+                                    <ProgressBar Minimum="0"
+                                                 Maximum="100"
+                                                 Value="{Binding Percent}"
+                                                 Height="8"/>
+                                    <TextBlock Text="{Binding ProgressSummary}" FontSize="11"/>
+                                    <TextBlock Text="{Binding CurrentTableProgress}" FontSize="10" Foreground="#B0B0B0"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+                    <GridViewColumn Header="Current table" Width="150" DisplayMemberBinding="{Binding CurrentTable}"/>
+                    <GridViewColumn Header="Row progress" Width="160" DisplayMemberBinding="{Binding CurrentTableProgress}"/>
+                    <GridViewColumn Header="Actions" Width="90">
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Content="Stop"
+                                        Padding="10,4"
+                                        Background="#E53935"
+                                        Foreground="White"
+                                        BorderThickness="0"
+                                        IsEnabled="{Binding IsCancelable}"
+                                        Click="StopTask_Click"/>
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+                </GridView>
+            </ListView.View>
+        </ListView>
+
+        <TextBlock Grid.Row="2"
+                   Text="Recent activity"
+                   Margin="0,16,0,8"
+                   FontSize="20"
+                   FontWeight="SemiBold"/>
+
+        <ListView Grid.Row="3"
+                  ItemsSource="{Binding RecentTasks}"
+                  Background="#121212"
+                  BorderThickness="0"
+                  Foreground="White">
+            <ListView.View>
+                <GridView>
+                    <GridViewColumn Header="When" Width="130" DisplayMemberBinding="{Binding FinishedLocal, StringFormat={}{0:G}}"/>
+                    <GridViewColumn Header="Schedule" Width="180" DisplayMemberBinding="{Binding ScheduleName}"/>
+                    <GridViewColumn Header="Mode" Width="90" DisplayMemberBinding="{Binding Mode}"/>
+                    <GridViewColumn Header="Result" Width="280">
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Message}">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="#9CFFCB"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding State}" Value="{x:Static models:BackupTaskState.Failed}">
+                                                    <Setter Property="Foreground" Value="#FF6B6B"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding State}" Value="{x:Static models:BackupTaskState.Cancelled}">
+                                                    <Setter Property="Foreground" Value="#FFB347"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+                </GridView>
+            </ListView.View>
+        </ListView>
+    </Grid>
+</mah:MetroWindow>
+
