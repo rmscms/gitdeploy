@@ -406,12 +406,17 @@ namespace GitDeployPro.Pages
                     StatusText.Text = "Connecting...";
                     await client.AutoConnect(token);
 
-                    string remoteBasePath = string.IsNullOrWhiteSpace(_activeRemoteBasePath)
-                        ? NormalizeRemoteBase(config.RemotePath)
-                        : _activeRemoteBasePath;
+                    // Use _activeRemoteBasePath which was calculated in LoadProjectFilesAsync
+                    // This already includes RemotePath + mapping.RemotePath (if mapping exists)
+                    string remoteBasePath = !string.IsNullOrWhiteSpace(_activeRemoteBasePath)
+                        ? _activeRemoteBasePath
+                        : NormalizeRemoteBase(config.RemotePath);
 
                     int processed = 0;
                     int skipped = 0;
+                    
+                    // Define relativeSource before loop
+                    var relativeSource = !string.IsNullOrEmpty(_scanRootPath) ? _scanRootPath : _projectPath;
 
                     foreach (var file in filesToUpload)
                     {
@@ -420,68 +425,90 @@ namespace GitDeployPro.Pages
                         processed++;
                         Dispatcher.Invoke(() => UploadProgressBar.Value = processed);
 
-                        var relativeSource = string.IsNullOrEmpty(_scanRootPath) ? _projectPath : _scanRootPath;
-                        if (string.IsNullOrEmpty(relativeSource)) relativeSource = _projectPath;
-                        string relativePath = Path.GetRelativePath(relativeSource, file.FullPath).Replace("\\", "/");
-                        
-                        // Check Session Skip
-                        if (resumeSession && uploadedFiles.Contains(relativePath))
+                        try
                         {
-                            skipped++;
-                            StatusText.Text = $"Skipped (Session): {file.Name}";
+                            // Calculate relative path from scan root (which includes mapping's LocalPath)
+                            string relativePath = Path.GetRelativePath(relativeSource, file.FullPath).Replace("\\", "/");
+                            
+                            // Check Session Skip
+                            if (resumeSession && uploadedFiles.Contains(relativePath))
+                            {
+                                skipped++;
+                                StatusText.Text = $"Skipped (Session): {file.Name}";
+                                Dispatcher.Invoke(() =>
+                                {
+                                    file.UploadState = UploadState.Uploaded;
+                                    UpdateUploadDetailText(file.Name, 100, file.Size, file.Size, "Already uploaded (session)");
+                                });
+                                continue; 
+                            }
+
+                            // Combine remote base with relative path properly
+                            string remotePath = CombineRemotePaths(remoteBasePath, relativePath);
+                            StatusText.Text = $"Uploading ({processed}/{filesToUpload.Count}): {file.Name}";
+                            Dispatcher.Invoke(() => file.UploadState = UploadState.InProgress);
+
+                            long fileSize = file.Size > 0 ? file.Size : GetFileSizeSafe(file.FullPath);
+                            var progressHandler = new Progress<FtpProgress>(ftpProgress =>
+                            {
+                                var transferred = (long)Math.Max(0, ftpProgress.TransferredBytes);
+                                var totalBytes = fileSize > 0 ? fileSize : Math.Max(transferred, 1);
+                                double percent = fileSize > 0
+                                    ? (double)transferred / totalBytes * 100
+                                    : Math.Max(ftpProgress.Progress, 0);
+                                Dispatcher.Invoke(() =>
+                                {
+                                    UpdateUploadDetailText(file.Name, percent, transferred, totalBytes);
+                                });
+                            });
+
+                            Dispatcher.Invoke(() => UpdateUploadDetailText(file.Name, 0, 0, fileSize));
+
+                            // Create directory
+                            string remoteDir = Path.GetDirectoryName(remotePath)?.Replace("\\", "/");
+                            if (!string.IsNullOrEmpty(remoteDir) && !await client.DirectoryExists(remoteDir, token))
+                            {
+                                await client.CreateDirectory(remoteDir, token);
+                            }
+
+                            // Upload
+                            var existsMode = OverwriteCheck.IsChecked == true ? FtpRemoteExists.Overwrite : FtpRemoteExists.Skip;
+                            await client.UploadFile(file.FullPath, remotePath, existsMode, true, FtpVerify.None, progressHandler, token);
+
                             Dispatcher.Invoke(() =>
                             {
                                 file.UploadState = UploadState.Uploaded;
-                                UpdateUploadDetailText(file.Name, 100, file.Size, file.Size, "Already uploaded (session)");
+                                UpdateUploadDetailText(file.Name, 100, fileSize, fileSize, "Completed");
                             });
-                            continue; 
+
+                            // Log to Session File
+                            if (UseSessionCheck.IsChecked == true)
+                            {
+                                try 
+                                { 
+                                    File.AppendAllText(sessionPath, relativePath + Environment.NewLine);
+                                    Dispatcher.Invoke(() => CheckSessionStatus()); // Live update session count
+                                } catch { }
+                            }
                         }
-
-                        string remotePath = remoteBasePath + relativePath;
-                        StatusText.Text = $"Uploading ({processed}/{filesToUpload.Count}): {file.Name}";
-                        Dispatcher.Invoke(() => file.UploadState = UploadState.InProgress);
-
-                        long fileSize = file.Size > 0 ? file.Size : GetFileSizeSafe(file.FullPath);
-                        var progressHandler = new Progress<FtpProgress>(ftpProgress =>
+                        catch (Exception fileEx)
                         {
-                            var transferred = (long)Math.Max(0, ftpProgress.TransferredBytes);
-                            var totalBytes = fileSize > 0 ? fileSize : Math.Max(transferred, 1);
-                            double percent = fileSize > 0
-                                ? (double)transferred / totalBytes * 100
-                                : Math.Max(ftpProgress.Progress, 0);
                             Dispatcher.Invoke(() =>
                             {
-                                UpdateUploadDetailText(file.Name, percent, transferred, totalBytes);
+                                file.UploadState = UploadState.Failed;
+                                UpdateUploadDetailText(file.Name, 0, 0, 0, "Failed");
                             });
-                        });
-
-                        Dispatcher.Invoke(() => UpdateUploadDetailText(file.Name, 0, 0, fileSize));
-
-                        // Create directory
-                        string remoteDir = Path.GetDirectoryName(remotePath)?.Replace("\\", "/");
-                        if (!string.IsNullOrEmpty(remoteDir) && !await client.DirectoryExists(remoteDir, token))
-                        {
-                            await client.CreateDirectory(remoteDir, token);
-                        }
-
-                        // Upload
-                        var existsMode = OverwriteCheck.IsChecked == true ? FtpRemoteExists.Overwrite : FtpRemoteExists.Skip;
-                        await client.UploadFile(file.FullPath, remotePath, existsMode, true, FtpVerify.None, progressHandler, token);
-
-                        Dispatcher.Invoke(() =>
-                        {
-                            file.UploadState = UploadState.Uploaded;
-                            UpdateUploadDetailText(file.Name, 100, fileSize, fileSize, "Completed");
-                        });
-
-                        // Log to Session File
-                        if (UseSessionCheck.IsChecked == true)
-                        {
-                            try 
-                            { 
-                                File.AppendAllText(sessionPath, relativePath + Environment.NewLine);
-                                Dispatcher.Invoke(() => CheckSessionStatus()); // Live update session count
-                            } catch { }
+                            
+                            // Calculate remote path same way as upload logic
+                            string relativePath = Path.GetRelativePath(relativeSource, file.FullPath).Replace("\\", "/");
+                            string remotePath = CombineRemotePaths(remoteBasePath, relativePath);
+                            
+                            string errorMsg = "Failed to upload: " + file.Name + Environment.NewLine + Environment.NewLine +
+                                            "Remote Path: " + remotePath + Environment.NewLine + Environment.NewLine +
+                                            "Error: " + fileEx.Message;
+                            
+                            ModernMessageBox.Show(errorMsg, "Upload Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                            break; // Stop upload on error
                         }
                     }
 
@@ -507,7 +534,12 @@ namespace GitDeployPro.Pages
             catch (Exception ex)
             {
                 StatusText.Text = "Upload Failed.";
-                ModernMessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                var detailedMessage = $"Error while uploading the file to the server.\n\n" +
+                                    $"Error Type: {ex.GetType().Name}\n" +
+                                    $"Message: {ex.Message}\n\n" +
+                                    $"Stack Trace:\n{ex.StackTrace}";
+                
+                ModernMessageBox.Show(detailedMessage, "Upload Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
             {
@@ -596,7 +628,9 @@ namespace GitDeployPro.Pages
 
         private (string localRoot, string remoteRoot) ResolveRoots(ProjectConfig config, PathMapping? mapping)
         {
-            string remoteRoot = NormalizeRemoteBase(config.RemotePath);
+            // Get profile to use its RemotePath (not legacy config.RemotePath)
+            var profile = ResolveConnectionProfile(config.ConnectionProfileId);
+            string remoteRoot = NormalizeRemoteBase(profile?.RemotePath ?? config.RemotePath);
             string localRoot = _projectPath;
 
             if (mapping != null)
@@ -657,12 +691,7 @@ namespace GitDeployPro.Pages
                 return normalizedBase;
             }
 
-            if (trimmed.StartsWith("///"))
-            {
-                // Absolute override after triple slash
-                return NormalizeRemoteBase(trimmed.Substring(2));
-            }
-
+            // Always append mapping path to base remote (no absolute override)
             var segment = trimmed.Trim('/');
             if (string.IsNullOrEmpty(segment))
             {
@@ -803,7 +832,8 @@ namespace GitDeployPro.Pages
         Pending,
         InProgress,
         Uploaded,
-        Skipped
+        Skipped,
+        Failed
     }
 
     public class FileSystemItem : INotifyPropertyChanged

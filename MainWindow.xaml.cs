@@ -318,6 +318,31 @@ namespace GitDeployPro
             }
         }
 
+        private void OpenExplorer_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var config = _configService.LoadGlobalConfig();
+                if (!string.IsNullOrEmpty(config.LastProjectPath) && System.IO.Directory.Exists(config.LastProjectPath))
+                {
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = config.LastProjectPath,
+                        UseShellExecute = true,
+                        Verb = "open"
+                    });
+                }
+                else
+                {
+                    System.Windows.MessageBox.Show("No project is currently open.", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show($"Error opening Explorer: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
         private void SwitchProject(string path)
         {
             _configService.AddRecentProject(path);

@@ -408,8 +408,8 @@
       <div class="col-md-6 col-lg-5">
         <div class="download-card h-100">
           <strong>Windows 10/11 (x64)</strong>
-          <p class="text-muted mb-3">Self-contained build v1.1.1 with charset-aware database creation, safer import targeting, live backup scheduler, mysqldump-grade exports, archive imports, and the revamped table search + command timeout tools.</p>
-          <a class="btn btn-glow w-100" href="versions/GitDeployPro-v1.1.1-win-x64.zip">Download GitDeployPro 1.1.1</a>
+          <p class="text-muted mb-3">Self-contained build v1.1.2 with improved RemotePath handling, Terminal SSH filtering, enhanced upload error messages, and Explorer button for quick project access.</p>
+          <a class="btn btn-glow w-100" href="versions/GitDeployPro-v1.1.2-win-x64.zip">Download GitDeployPro 1.1.2</a>
         </div>
       </div>
     </section>
@@ -421,15 +421,28 @@
       <div class="row g-3 mt-2">
         <div class="col-lg-6">
           <div class="changelog">
+            <h4>v1.1.2</h4>
+            <small>Released Dec 2025</small>
+            <ul>
+              <li>Direct Upload and Deploy now correctly use Connection Profile's RemotePath instead of legacy project config, ensuring Path Mappings work as expected.</li>
+              <li>Terminal page filters to SSH/SFTP connections only (FTP profiles excluded) and adds a search box to quickly find connections by name, host, or username.</li>
+              <li>Upload error dialogs now show the exact remote path where the file failed and clear error messages for easier troubleshooting.</li>
+              <li>Added Explorer button next to Project Selector in the top toolbar to quickly open the current project folder in Windows Explorer.</li>
+              <li>Fixed RemotePath resolution across all upload/deploy flows to always prioritize Connection Profile settings over project-level defaults.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="changelog">
             <h4>v1.1.1</h4>
             <small>Released Dec 2025</small>
             <ul>
               <li>Database Studio now includes a Create Database card with server-driven charset + collation pickers so new schemas align with production standards.</li>
               <li>Import workflow requires choosing an existing database from the live server list and surfaces warnings instead of silently spinning up new schemas from export file names.</li>
               <li>Drop &amp; Recreate mode preserves the prior charset/collation before rebuilding and logs each step so you know exactly what happens before data streams in.</li>
-              <li>FTP Explorer’s connect button now flips to Disconnect with a high-contrast style once you’re online, making it obvious when a session is active and removing the washed-out disabled state.</li>
+              <li>FTP Explorer's connect button now flips to Disconnect with a high-contrast style once you're online, making it obvious when a session is active and removing the washed-out disabled state.</li>
               <li>Connection Manager can import Navicat `.ncx/.xml` exports so migrating saved database profiles is a two-click process.</li>
-              <li>Database Manager gets a “SHOW FULL PROCESSLIST” monitor with refresh so you can watch long-running queries without leaving GitDeploy Pro.</li>
+              <li>Database Manager gets a "SHOW FULL PROCESSLIST" monitor with refresh so you can watch long-running queries without leaving GitDeploy Pro.</li>
             </ul>
           </div>
         </div>

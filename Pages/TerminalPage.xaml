@@ -22,10 +22,16 @@
             <StackPanel Orientation="Horizontal">
                 <TextBlock Text="SSH Connection:" Foreground="#CCCCCC" VerticalAlignment="Center" Margin="0,0,10,0"/>
                 
+                <TextBox x:Name="SearchBox" Width="120" Height="28" Margin="0,0,8,0"
+                         mah:TextBoxHelper.Watermark="🔍 Search..."
+                         Background="#333337" Foreground="White"
+                         TextChanged="SearchBox_TextChanged"/>
+                
                 <ComboBox x:Name="SshProfilesCombo" Width="250" Height="28" 
                           DisplayMemberPath="DisplayName"
                           Background="#333337" Foreground="White"
-                          SelectionChanged="SshProfilesCombo_SelectionChanged">
+                          SelectionChanged="SshProfilesCombo_SelectionChanged"
+                          IsEditable="False">
                     <ComboBox.Resources>
                         <Style TargetType="ComboBoxItem">
                             <Setter Property="Background" Value="#333337"/>
