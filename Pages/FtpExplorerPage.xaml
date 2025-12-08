@@ -135,7 +135,38 @@
                                     BorderThickness="0"
                                     Cursor="Hand"
                                     Click="ConnectButton_Click"
-                                    Margin="0,0,10,0"/>
+                                    Margin="0,0,10,0">
+                                <Button.Style>
+                                    <Style TargetType="Button">
+                                        <Setter Property="Foreground" Value="White"/>
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="Button">
+                                                    <Border x:Name="border"
+                                                            Background="{TemplateBinding Background}"
+                                                            CornerRadius="6"
+                                                            Padding="{TemplateBinding Padding}">
+                                                        <ContentPresenter HorizontalAlignment="Center"
+                                                                          VerticalAlignment="Center"/>
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="border" Property="Background" Value="#5AA0FF"/>
+                                                        </Trigger>
+                                                        <Trigger Property="IsPressed" Value="True">
+                                                            <Setter TargetName="border" Property="Background" Value="#3169C2"/>
+                                                        </Trigger>
+                                                        <Trigger Property="IsEnabled" Value="False">
+                                                            <Setter TargetName="border" Property="Opacity" Value="1"/>
+                                                            <Setter Property="Foreground" Value="White"/>
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
                             <CheckBox x:Name="ShowHiddenCheckBox"
                                       Content="Show hidden"
                                       Foreground="#D0D0D0"

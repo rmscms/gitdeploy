@@ -183,6 +183,15 @@
                 <StackPanel Grid.Row="2" Orientation="Horizontal" Background="#252526" Height="40">
                     <Button x:Name="AddButton" Content="➕" Width="40" Background="Transparent" BorderThickness="0" Foreground="#CCCCCC" Click="AddButton_Click" ToolTip="Add New Connection"/>
                     <Button x:Name="DeleteButton" Content="➖" Width="40" Background="Transparent" BorderThickness="0" Foreground="#CCCCCC" Click="DeleteButton_Click" ToolTip="Remove Connection"/>
+                    <Button Content="📥 Import Navicat"
+                            Margin="15,0,0,0"
+                            Padding="12,0"
+                            Background="Transparent"
+                            Foreground="#4EC9B0"
+                            BorderThickness="0"
+                            Cursor="Hand"
+                            ToolTip="Import Navicat export (*.ncx / *.xml)"
+                            Click="ImportNavicatButton_Click"/>
                 </StackPanel>
             </Grid>
         </Border>

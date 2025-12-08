@@ -242,6 +242,17 @@ namespace GitDeployPro.Services
             return _mysqlConnection!;
         }
 
+        private static string GetSafeString(MySqlDataReader reader, string column)
+        {
+            var ordinal = reader.GetOrdinal(column);
+            if (reader.IsDBNull(ordinal))
+            {
+                return string.Empty;
+            }
+
+            return reader.GetString(ordinal);
+        }
+
         internal static string EscapeIdentifier(string identifier)
         {
             if (string.IsNullOrWhiteSpace(identifier))
@@ -250,6 +261,40 @@ namespace GitDeployPro.Services
             }
 
             return $"`{identifier.Replace("`", "``")}`";
+        }
+
+        private static string SanitizeOptionValue(string? value, string fallback, string optionName)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return fallback;
+            }
+
+            var trimmed = value.Trim();
+            if (!IsValidOptionValue(trimmed))
+            {
+                throw new ArgumentException($"Invalid {optionName} value.", optionName);
+            }
+
+            return trimmed;
+        }
+
+        private static bool IsValidOptionValue(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return false;
+            }
+
+            foreach (var ch in value)
+            {
+                if (!(char.IsLetterOrDigit(ch) || ch == '_'))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private static bool StartsWithAny(string value, params string[] tokens)
@@ -285,7 +330,7 @@ namespace GitDeployPro.Services
             await cmd.ExecuteNonQueryAsync(cancellationToken);
         }
 
-        public async Task DropAndCreateDatabaseAsync(string databaseName, CancellationToken cancellationToken = default)
+        public async Task DropAndCreateDatabaseAsync(string databaseName, string? charset = null, string? collation = null, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(databaseName))
             {
@@ -297,12 +342,15 @@ namespace GitDeployPro.Services
 
             var escaped = EscapeIdentifier(databaseName);
             await ExecuteNonQueryAsync($"DROP DATABASE IF EXISTS {escaped};", null, 0, cancellationToken);
-            await ExecuteNonQueryAsync($"CREATE DATABASE {escaped} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;", null, 0, cancellationToken);
+
+            var sanitizedCharset = SanitizeOptionValue(charset, "utf8mb4", nameof(charset));
+            var sanitizedCollation = SanitizeOptionValue(collation, "utf8mb4_unicode_ci", nameof(collation));
+            await ExecuteNonQueryAsync($"CREATE DATABASE {escaped} CHARACTER SET {sanitizedCharset} COLLATE {sanitizedCollation};", null, 0, cancellationToken);
 
             await SetActiveDatabaseAsync(databaseName);
         }
 
-        public async Task EnsureDatabaseExistsAsync(string databaseName, CancellationToken cancellationToken = default)
+        public async Task EnsureDatabaseExistsAsync(string databaseName, string? charset = null, string? collation = null, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(databaseName))
             {
@@ -311,7 +359,188 @@ namespace GitDeployPro.Services
 
             EnsureMySqlConnection();
             var escaped = EscapeIdentifier(databaseName);
-            await ExecuteNonQueryAsync($"CREATE DATABASE IF NOT EXISTS {escaped} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;", null, 0, cancellationToken);
+            var sanitizedCharset = SanitizeOptionValue(charset, "utf8mb4", nameof(charset));
+            var sanitizedCollation = SanitizeOptionValue(collation, "utf8mb4_unicode_ci", nameof(collation));
+            await ExecuteNonQueryAsync($"CREATE DATABASE IF NOT EXISTS {escaped} CHARACTER SET {sanitizedCharset} COLLATE {sanitizedCollation};", null, 0, cancellationToken);
+        }
+
+        public async Task CreateDatabaseAsync(string databaseName,
+                                              string? charset = null,
+                                              string? collation = null,
+                                              bool switchToDatabase = false,
+                                              CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(databaseName))
+            {
+                throw new ArgumentException("Database name is required.", nameof(databaseName));
+            }
+
+            EnsureMySqlConnection();
+            await SetActiveDatabaseAsync("information_schema");
+
+            var escaped = EscapeIdentifier(databaseName);
+            var sanitizedCharset = SanitizeOptionValue(charset, "utf8mb4", nameof(charset));
+            var sanitizedCollation = SanitizeOptionValue(collation, "utf8mb4_unicode_ci", nameof(collation));
+
+            await ExecuteNonQueryAsync($"CREATE DATABASE {escaped} CHARACTER SET {sanitizedCharset} COLLATE {sanitizedCollation};", null, 0, cancellationToken);
+
+            if (switchToDatabase)
+            {
+                await SetActiveDatabaseAsync(databaseName);
+            }
+        }
+
+        public async Task<IReadOnlyList<DatabaseCharsetInfo>> GetCharacterSetsAsync(CancellationToken cancellationToken = default)
+        {
+            EnsureMySqlConnection();
+            var list = new List<DatabaseCharsetInfo>();
+            await using var cmd = _mysqlConnection!.CreateCommand();
+            cmd.CommandText = @"
+SELECT
+    CHARACTER_SET_NAME AS Charset,
+    DEFAULT_COLLATE_NAME AS DefaultCollation,
+    DESCRIPTION AS Description
+FROM information_schema.CHARACTER_SETS";
+
+            await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var name = reader.GetString("Charset");
+                var defaultCollation = reader.GetString("DefaultCollation");
+                var description = reader.GetString("Description");
+                list.Add(DatabaseCharsetInfo.Create(name, defaultCollation, description));
+            }
+
+            list.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
+            return list;
+        }
+
+        public async Task<IReadOnlyList<string>> GetCollationsAsync(string charset, CancellationToken cancellationToken = default)
+        {
+            var sanitizedCharset = SanitizeOptionValue(charset, "utf8mb4", nameof(charset));
+            EnsureMySqlConnection();
+
+            var collations = new List<string>();
+            await using var cmd = _mysqlConnection!.CreateCommand();
+            cmd.CommandText = @"
+SELECT COLLATION_NAME AS Collation
+FROM information_schema.COLLATIONS
+WHERE CHARACTER_SET_NAME = @charset";
+            var parameter = cmd.CreateParameter();
+            parameter.ParameterName = "@charset";
+            parameter.Value = sanitizedCharset;
+            cmd.Parameters.Add(parameter);
+
+            await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                collations.Add(reader.GetString("Collation"));
+            }
+
+            collations.Sort(StringComparer.OrdinalIgnoreCase);
+            return collations;
+        }
+
+        public async Task<(bool Found, string Charset, string Collation)> GetDatabaseDefaultsAsync(string databaseName, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(databaseName))
+            {
+                throw new ArgumentException("Database name is required.", nameof(databaseName));
+            }
+
+            EnsureMySqlConnection();
+            await using var cmd = _mysqlConnection!.CreateCommand();
+            cmd.CommandText = @"
+SELECT
+    DEFAULT_CHARACTER_SET_NAME AS Charset,
+    DEFAULT_COLLATION_NAME AS Collation
+FROM information_schema.SCHEMATA
+WHERE SCHEMA_NAME = @schema
+LIMIT 1";
+            var param = cmd.CreateParameter();
+            param.ParameterName = "@schema";
+            param.Value = databaseName;
+            cmd.Parameters.Add(param);
+
+            await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+            if (await reader.ReadAsync(cancellationToken))
+            {
+                return (true, reader.GetString("Charset"), reader.GetString("Collation"));
+            }
+
+            return (false, "utf8mb4", "utf8mb4_unicode_ci");
+        }
+
+        public async Task<bool> DatabaseExistsAsync(string databaseName, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(databaseName))
+            {
+                return false;
+            }
+
+            EnsureMySqlConnection();
+            await using var cmd = _mysqlConnection!.CreateCommand();
+            cmd.CommandText = @"
+SELECT 1
+FROM information_schema.SCHEMATA
+WHERE SCHEMA_NAME = @schema
+LIMIT 1";
+            var param = cmd.CreateParameter();
+            param.ParameterName = "@schema";
+            param.Value = databaseName;
+            cmd.Parameters.Add(param);
+
+            var result = await cmd.ExecuteScalarAsync(cancellationToken);
+            return result != null && result != DBNull.Value;
+        }
+
+        public async Task<IReadOnlyList<DatabaseProcessInfo>> GetProcessListAsync(CancellationToken cancellationToken = default)
+        {
+            EnsureMySqlConnection();
+
+            try
+            {
+                return await ExecuteProcessListAsync("SHOW FULL PROCESSLIST", cancellationToken);
+            }
+            catch (MySqlException ex) when (IsProcessPrivilegeError(ex))
+            {
+                // Fallback for accounts without PROCESS privilege; SHOW PROCESSLIST still returns own sessions.
+                return await ExecuteProcessListAsync("SHOW PROCESSLIST", cancellationToken);
+            }
+        }
+
+        private async Task<IReadOnlyList<DatabaseProcessInfo>> ExecuteProcessListAsync(string sql, CancellationToken cancellationToken)
+        {
+            var processes = new List<DatabaseProcessInfo>();
+
+            await using var cmd = _mysqlConnection!.CreateCommand();
+            cmd.CommandText = sql;
+
+            await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var process = new DatabaseProcessInfo
+                {
+                    Id = reader.GetInt64("Id"),
+                    User = GetSafeString(reader, "User"),
+                    Host = GetSafeString(reader, "Host"),
+                    Database = GetSafeString(reader, "db"),
+                    Command = GetSafeString(reader, "Command"),
+                    TimeSeconds = reader.IsDBNull(reader.GetOrdinal("Time")) ? 0 : reader.GetInt32("Time"),
+                    State = GetSafeString(reader, "State"),
+                    Info = GetSafeString(reader, "Info")
+                };
+
+                processes.Add(process);
+            }
+
+            return processes;
+        }
+
+        private static bool IsProcessPrivilegeError(MySqlException ex)
+        {
+            // 1227 = ER_SPECIFIC_ACCESS_DENIED_ERROR, 1142 = ER_TABLEACCESS_DENIED_ERROR, 1044 = ER_DBACCESS_DENIED_ERROR
+            return ex.Number == 1227 || ex.Number == 1142 || ex.Number == 1044;
         }
 
         public async Task ImportSqlAsync(string sqlFilePath,

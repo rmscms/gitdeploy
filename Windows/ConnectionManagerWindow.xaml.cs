@@ -2,8 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
+using Microsoft.Win32;
 using GitDeployPro.Services;
 using GitDeployPro.Models;
 using FluentFTP;
@@ -21,6 +23,7 @@ namespace GitDeployPro.Windows
         private List<ConnectionProfile> _profiles = new List<ConnectionProfile>();
         private ConnectionProfile? _currentProfile;
         private readonly ObservableCollection<PathMapping> _pathMappings = new ObservableCollection<PathMapping>();
+        private readonly NavicatImportService _navicatImportService = new NavicatImportService();
 
         public ConnectionProfile? SelectedProfile { get; private set; }
 
@@ -43,6 +46,80 @@ namespace GitDeployPro.Windows
                 ModernMessageBox.Show($"Error loading Connection Manager: {ex.Message}", "Initialization Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
+        private void ImportNavicatButton_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = "Import Navicat Connections",
+                Filter = "Navicat Connections (*.ncx;*.xml)|*.ncx;*.xml|All files (*.*)|*.*"
+            };
+
+            if (dialog.ShowDialog(this) != true)
+            {
+                return;
+            }
+
+            try
+            {
+                var result = _navicatImportService.Import(dialog.FileName);
+                if (result.Profiles.Count == 0)
+                {
+                    ModernMessageBox.Show("No supported Navicat connections were found in that file.", "Navicat Import", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                var existingNames = new HashSet<string>(_profiles.Select(p => p.Name), StringComparer.OrdinalIgnoreCase);
+                int imported = 0;
+                foreach (var profile in result.Profiles)
+                {
+                    profile.Name = EnsureUniqueName(profile.Name, existingNames);
+                    _configService.AddOrUpdateConnection(profile);
+                    existingNames.Add(profile.Name);
+                    imported++;
+                }
+
+                LoadProfiles();
+                var message = new StringBuilder();
+                message.AppendLine($"Imported {imported} connection(s) from Navicat.");
+                if (result.Warnings.Count > 0)
+                {
+                    message.AppendLine().AppendLine("Warnings:");
+                    foreach (var warning in result.Warnings.Take(5))
+                    {
+                        message.AppendLine($"• {warning}");
+                    }
+
+                    if (result.Warnings.Count > 5)
+                    {
+                        message.AppendLine("• ...");
+                    }
+                }
+
+                ModernMessageBox.Show(message.ToString(), "Navicat Import", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show($"Failed to import Navicat connections: {ex.Message}", "Navicat Import", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private static string EnsureUniqueName(string baseName, HashSet<string> existingNames)
+        {
+            if (!existingNames.Contains(baseName))
+            {
+                return baseName;
+            }
+
+            int counter = 2;
+            string candidate;
+            do
+            {
+                candidate = $"{baseName} ({counter++})";
+            } while (existingNames.Contains(candidate));
+
+            return candidate;
+        }
+
 
         private void LoadProfiles()
         {

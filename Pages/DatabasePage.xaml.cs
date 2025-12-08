@@ -31,6 +31,8 @@ namespace GitDeployPro.Pages
         private readonly ConfigurationService _configService = new();
         private readonly ObservableCollection<string> _databaseOptions = new();
         private readonly ObservableCollection<string> _tables = new();
+        private readonly ObservableCollection<DatabaseCharsetInfo> _charsetOptions = new();
+        private readonly ObservableCollection<string> _collationOptions = new();
         private readonly List<string> _tableCache = new();
         private string _tableFilterText = string.Empty;
         private bool _suppressTableSelection;
@@ -67,6 +69,15 @@ namespace GitDeployPro.Pages
             "MOD", "RAND", "GROUP_CONCAT", "FIND_IN_SET", "UUID"
         };
 
+        private static readonly DatabaseCharsetInfo[] DefaultCharsets =
+        {
+            DatabaseCharsetInfo.Create("utf8mb4", "utf8mb4_unicode_ci", "UTF-8 (4-byte)"),
+            DatabaseCharsetInfo.Create("utf8", "utf8_general_ci", "UTF-8 (3-byte)"),
+            DatabaseCharsetInfo.Create("latin1", "latin1_swedish_ci", "Western (latin1)")
+        };
+
+        private bool _suppressCharsetEvents;
+
         public DatabasePage()
         {
             InitializeComponent();
@@ -75,6 +86,9 @@ namespace GitDeployPro.Pages
 
             DatabaseSelector.ItemsSource = _databaseOptions;
             TableSelector.ItemsSource = _tables;
+            ImportTargetCombo.ItemsSource = _databaseOptions;
+            CreateDbCharsetCombo.ItemsSource = _charsetOptions;
+            CreateDbCollationCombo.ItemsSource = _collationOptions;
 
             InitializeSqlEditor();
         }
@@ -383,6 +397,7 @@ namespace GitDeployPro.Pages
                 DisconnectButton.IsEnabled = true;
                 SelectorBar.Visibility = Visibility.Visible;
                 DisconnectedState.Visibility = Visibility.Collapsed;
+                DatabaseScrollViewer.Visibility = Visibility.Visible;
                 DatabaseContent.Visibility = Visibility.Visible;
 
                 await LoadSchemaAsync(entry);
@@ -410,6 +425,8 @@ namespace GitDeployPro.Pages
                 {
                     _databaseOptions.Add(db);
                 }
+
+                await LoadCharsetMetadataAsync();
 
                 string? targetDb = null;
                 if (!string.IsNullOrWhiteSpace(entry.DatabaseName) && databases.Contains(entry.DatabaseName))
@@ -470,15 +487,27 @@ namespace GitDeployPro.Pages
             await LoadSchemaAsync(_activeConnection);
         }
 
+        private void OpenProcessMonitorWindowFromToolbar_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var entry = _activeConnection ?? DatabaseConnectionEntry.CreateLocalDefault();
+                var window = new ProcessMonitorWindow(entry);
+                window.Owner = Window.GetWindow(this);
+                window.Show();
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show($"Unable to open the process monitor: {ex.Message}", "Process Monitor", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
         private async void DatabaseSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (DatabaseSelector.SelectedItem is string db && _activeConnection != null)
             {
                 ActiveDatabaseText.Text = $"· {db}";
-                if (ImportTargetBox != null)
-                {
-                    ImportTargetBox.Text = db;
-                }
+                ImportTargetCombo.SelectedItem = db;
                 await LoadTablesAsync(db);
             }
             else
@@ -486,6 +515,7 @@ namespace GitDeployPro.Pages
                 ActiveDatabaseText.Text = "";
                 _tables.Clear();
                 _tableCache.Clear();
+                ImportTargetCombo.SelectedItem = null;
             }
         }
 
@@ -636,12 +666,20 @@ namespace GitDeployPro.Pages
             ConnectionStatusText.Foreground = new System.Windows.Media.SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#A0A0A0"));
             ActiveDatabaseText.Text = "";
             SelectorBar.Visibility = Visibility.Collapsed;
+            DatabaseScrollViewer.Visibility = Visibility.Collapsed;
             DatabaseContent.Visibility = Visibility.Collapsed;
             DisconnectedState.Visibility = Visibility.Visible;
             ResultsGrid.ItemsSource = null;
             _databaseOptions.Clear();
             _tables.Clear();
             _tableCache.Clear();
+            _charsetOptions.Clear();
+            _collationOptions.Clear();
+            ImportTargetCombo.SelectedItem = null;
+            CreateDbCharsetCombo.SelectedItem = null;
+            CreateDbCollationCombo.SelectedItem = null;
+            CreateDbNameBox?.Clear();
+            CreateDbStatusText.Text = string.Empty;
         }
 
         private void SetBusy(bool isBusy, string? message = null)
@@ -731,6 +769,171 @@ namespace GitDeployPro.Pages
             }
         }
 
+
+        #region Database creation helpers
+
+        private async Task LoadCharsetMetadataAsync()
+        {
+            if (!_client.IsConnected)
+            {
+                return;
+            }
+
+            IReadOnlyList<DatabaseCharsetInfo> charsets;
+            try
+            {
+                charsets = await _client.GetCharacterSetsAsync();
+                if (charsets.Count == 0)
+                {
+                    charsets = DefaultCharsets;
+                }
+            }
+            catch
+            {
+                charsets = DefaultCharsets;
+            }
+
+            ApplyCharsetOptions(charsets);
+
+            if (CreateDbCharsetCombo.SelectedItem is DatabaseCharsetInfo selected)
+            {
+                await LoadCollationsForCharsetAsync(selected);
+            }
+        }
+
+        private void ApplyCharsetOptions(IEnumerable<DatabaseCharsetInfo> charsets)
+        {
+            _suppressCharsetEvents = true;
+            try
+            {
+                _charsetOptions.Clear();
+                foreach (var charset in charsets.OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase))
+                {
+                    _charsetOptions.Add(charset);
+                }
+
+                if (_charsetOptions.Count == 0)
+                {
+                    foreach (var fallback in DefaultCharsets)
+                    {
+                        _charsetOptions.Add(fallback);
+                    }
+                }
+
+                if (_charsetOptions.Count > 0)
+                {
+                    CreateDbCharsetCombo.SelectedItem = _charsetOptions[0];
+                }
+            }
+            finally
+            {
+                _suppressCharsetEvents = false;
+            }
+        }
+
+        private async Task LoadCollationsForCharsetAsync(DatabaseCharsetInfo charsetInfo)
+        {
+            IEnumerable<string> collations;
+            try
+            {
+                var fetched = await _client.GetCollationsAsync(charsetInfo.Name);
+                collations = fetched.Count > 0 ? fetched : new[] { charsetInfo.DefaultCollation };
+            }
+            catch
+            {
+                collations = new[] { charsetInfo.DefaultCollation };
+            }
+
+            ApplyCollationOptions(collations, charsetInfo.DefaultCollation);
+        }
+
+        private void ApplyCollationOptions(IEnumerable<string> collations, string? preferred)
+        {
+            _collationOptions.Clear();
+            foreach (var collation in collations)
+            {
+                if (!string.IsNullOrWhiteSpace(collation))
+                {
+                    _collationOptions.Add(collation);
+                }
+            }
+
+            if (_collationOptions.Count == 0 && !string.IsNullOrWhiteSpace(preferred))
+            {
+                _collationOptions.Add(preferred);
+            }
+
+            if (_collationOptions.Count > 0)
+            {
+                var selected = _collationOptions.FirstOrDefault(c => string.Equals(c, preferred, StringComparison.OrdinalIgnoreCase));
+                CreateDbCollationCombo.SelectedItem = selected ?? _collationOptions[0];
+            }
+            else
+            {
+                CreateDbCollationCombo.SelectedItem = null;
+            }
+        }
+
+        private async void CreateDbCharsetCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_suppressCharsetEvents)
+            {
+                return;
+            }
+
+            if (CreateDbCharsetCombo.SelectedItem is DatabaseCharsetInfo charset)
+            {
+                await LoadCollationsForCharsetAsync(charset);
+            }
+            else
+            {
+                _collationOptions.Clear();
+            }
+        }
+
+        private async void CreateDatabaseButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (!_client.IsConnected || _activeConnection == null)
+            {
+                ModernMessageBox.Show("Connect to a server before creating databases.", "No connection", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var databaseName = CreateDbNameBox.Text?.Trim();
+            if (string.IsNullOrWhiteSpace(databaseName))
+            {
+                CreateDbStatusText.Text = "Enter a database name.";
+                return;
+            }
+
+            var charsetInfo = CreateDbCharsetCombo.SelectedItem as DatabaseCharsetInfo;
+            var charset = charsetInfo?.Name ?? "utf8mb4";
+            var collation = CreateDbCollationCombo.SelectedItem as string ?? charsetInfo?.DefaultCollation ?? "utf8mb4_unicode_ci";
+
+            try
+            {
+                CreateDatabaseButton.IsEnabled = false;
+                CreateDbStatusText.Text = $"Creating '{databaseName}'...";
+                await _client.CreateDatabaseAsync(databaseName, charset, collation, switchToDatabase: false);
+                CreateDbStatusText.Text = $"Created '{databaseName}' ({charset}/{collation}).";
+                await LoadSchemaAsync(_activeConnection);
+                DatabaseSelector.SelectedItem = databaseName;
+                ImportTargetCombo.SelectedItem = databaseName;
+                CreateDbNameBox.Clear();
+            }
+            catch (Exception ex)
+            {
+                CreateDbStatusText.Text = $"Failed: {ex.Message}";
+                ModernMessageBox.Show($"Unable to create database: {ex.Message}", "Database Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                CreateDatabaseButton.IsEnabled = true;
+            }
+        }
+
+        #endregion
+
         #region Import workflow
 
         private void BrowseImportFile_Click(object sender, RoutedEventArgs e)
@@ -767,19 +970,17 @@ namespace GitDeployPro.Pages
                 return;
             }
 
-            var targetDatabase = ImportTargetBox.Text?.Trim();
+            var targetDatabase = ImportTargetCombo.SelectedItem as string;
+            if (string.IsNullOrWhiteSpace(targetDatabase) && DatabaseSelector.SelectedItem is string selectedDb)
+            {
+                targetDatabase = selectedDb;
+                ImportTargetCombo.SelectedItem = selectedDb;
+            }
+
             if (string.IsNullOrWhiteSpace(targetDatabase))
             {
-                if (DatabaseSelector.SelectedItem is string selectedDb)
-                {
-                    targetDatabase = selectedDb;
-                    ImportTargetBox.Text = selectedDb;
-                }
-                else
-                {
-                    ModernMessageBox.Show("Specify the database you want to import into.", "Missing database", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
-                }
+                ModernMessageBox.Show("Choose the target database from the list before importing.", "Missing database", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
             }
 
             AppendImportLog($"Starting import of {Path.GetFileName(filePath)} → {targetDatabase}");
@@ -790,6 +991,17 @@ namespace GitDeployPro.Pages
             var disableForeignKeys = ImportDisableFkCheck.IsChecked == true;
             var fastMode = IsFastModeSelected();
             var continueOnError = ImportContinueOnErrorCheck.IsChecked == true;
+
+            if (!dropDatabase)
+            {
+                var exists = await _client.DatabaseExistsAsync(targetDatabase);
+                if (!exists)
+                {
+                    SetImportRunning(false);
+                    ModernMessageBox.Show($"Database '{targetDatabase}' was not found on the server. Create it first, then rerun the import.", "Database not found", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+            }
 
             try
             {
@@ -854,6 +1066,8 @@ namespace GitDeployPro.Pages
         {
             string workingFile = sourceFile;
             string? tempFileToDelete = null;
+            string recreateCharset = "utf8mb4";
+            string recreateCollation = "utf8mb4_unicode_ci";
 
             try
             {
@@ -869,11 +1083,23 @@ namespace GitDeployPro.Pages
                 if (dropDatabase)
                 {
                     AppendImportLog($"Dropping database '{targetDatabase}'...");
-                    await _client.DropAndCreateDatabaseAsync(targetDatabase, cancellationToken);
+                    var defaults = await _client.GetDatabaseDefaultsAsync(targetDatabase, cancellationToken);
+                    if (!defaults.Found)
+                    {
+                        AppendImportLog($"Existing database '{targetDatabase}' not found. Creating with UTF-8 defaults.");
+                    }
+                    recreateCharset = defaults.Charset;
+                    recreateCollation = defaults.Collation;
+                    await _client.DropAndCreateDatabaseAsync(targetDatabase, recreateCharset, recreateCollation, cancellationToken);
+                    AppendImportLog($"Recreated '{targetDatabase}' using {recreateCharset}/{recreateCollation}.");
                 }
                 else
                 {
-                    await _client.EnsureDatabaseExistsAsync(targetDatabase, cancellationToken);
+                    var exists = await _client.DatabaseExistsAsync(targetDatabase, cancellationToken);
+                    if (!exists)
+                    {
+                        throw new InvalidOperationException($"Database '{targetDatabase}' does not exist on the server.");
+                    }
                 }
 
                 var progress = new Progress<ImportProgressUpdate>(HandleImportProgress);
