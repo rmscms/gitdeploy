@@ -106,6 +106,7 @@
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="240"/>
                             <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
@@ -152,7 +153,19 @@
                             </Button.ContextMenu>
                         </Button>
 
-                        <ProgressBar x:Name="QueryProgress" Grid.Column="7" Width="150" Height="6" VerticalAlignment="Center" Visibility="Collapsed"/>
+                        <Button x:Name="ToolbarProcessButton"
+                                Grid.Column="6"
+                                Content="SHOW PROCESSLIST"
+                                Margin="12,0,0,0"
+                                Padding="16,4"
+                                Background="#3A3B40"
+                                Foreground="White"
+                                BorderThickness="0"
+                                Cursor="Hand"
+                                ToolTip="Open the server process monitor"
+                                Click="OpenProcessMonitorWindowFromToolbar_Click"/>
+
+                        <ProgressBar x:Name="QueryProgress" Grid.Column="8" Width="150" Height="6" VerticalAlignment="Center" Visibility="Collapsed"/>
                     </Grid>
                 </Border>
             </Grid>
@@ -203,14 +216,18 @@
             </Grid>
 
             <!-- Connected State: Database Content -->
-            <Grid x:Name="DatabaseContent" Visibility="Collapsed" Margin="16">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="140"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
+            <ScrollViewer x:Name="DatabaseScrollViewer"
+                          Visibility="Collapsed"
+                          Margin="16"
+                          VerticalScrollBarVisibility="Auto">
+                <Grid x:Name="DatabaseContent">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="140"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
 
                 <!-- Query Editor -->
                 <Border Grid.Row="0" Background="#1E1E1E" CornerRadius="8" Padding="6">
@@ -266,117 +283,191 @@
                     <DataGrid x:Name="ResultsGrid" AutoGenerateColumns="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal" Background="Transparent" Foreground="#FFFFFF" BorderThickness="0" RowBackground="#1F2023" AlternatingRowBackground="#2A2B30"/>
                 </Border>
 
-                <!-- Import card -->
-                <Border Grid.Row="3" Background="#1F2023" CornerRadius="12" Padding="18" Margin="0,18,0,0">
-                    <StackPanel>
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="Database import" FontSize="16" FontWeight="SemiBold" Foreground="#FFFFFF"/>
-                            <Border Background="#304FFE" CornerRadius="4" Padding="6,2" Margin="12,0,0,0">
-                                <TextBlock Text="Beta" Foreground="White" FontSize="11"/>
-                            </Border>
-                        </StackPanel>
-                        <TextBlock Text="Import .sql / .zip / .tar.gz backups directly into the active connection."
-                                   Margin="0,4,0,12"
-                                   Foreground="#A0A0A0"/>
+                <!-- Create + Import row -->
+                <Grid Grid.Row="3" Margin="0,18,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="1.05*"/>
+                        <ColumnDefinition Width="0.95*"/>
+                    </Grid.ColumnDefinitions>
 
-                        <StackPanel Orientation="Horizontal">
-                            <TextBox x:Name="ImportFilePathBox"
-                                     Width="420"
-                                     Height="32"
-                                     Margin="0,0,10,0"
-                                     VerticalContentAlignment="Center"/>
-                            <Button Content="Browse..."
-                                    Width="110"
-                                    Height="32"
-                                    Background="#3F8EF7"
-                                    Foreground="White"
-                                    BorderThickness="0"
-                                    Click="BrowseImportFile_Click"/>
-                        </StackPanel>
+                    <!-- Create database card -->
+                    <Border Grid.Column="0" Background="#1F2023" CornerRadius="12" Padding="18" Margin="0,0,12,0">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="Create database" FontSize="16" FontWeight="SemiBold" Foreground="#FFFFFF"/>
+                                <Border Background="#3F8EF7" CornerRadius="4" Padding="6,2" Margin="12,0,0,0">
+                                    <TextBlock Text="New" Foreground="White" FontSize="11"/>
+                                </Border>
+                            </StackPanel>
+                            <TextBlock Text="Provision a schema on the connected server with your preferred charset + collation."
+                                       Margin="0,4,0,12"
+                                       Foreground="#A0A0A0"/>
 
-                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                            <TextBlock Text="Target database"
-                                       Width="140"
-                                       VerticalAlignment="Center"
-                                       Foreground="#CFCFCF"/>
-                            <TextBox x:Name="ImportTargetBox"
-                                     Width="220"
-                                     Height="30"
-                                     VerticalContentAlignment="Center"/>
-                        </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                <TextBlock Text="Database name"
+                                           Width="140"
+                                           VerticalAlignment="Center"
+                                           Foreground="#CFCFCF"/>
+                                <TextBox x:Name="CreateDbNameBox"
+                                         Width="220"
+                                         Height="30"
+                                         VerticalContentAlignment="Center"
+                                         mah:TextBoxHelper.Watermark="e.g. project_live"/>
+                            </StackPanel>
 
-                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                            <TextBlock Text="Import mode"
-                                       Width="140"
-                                       VerticalAlignment="Center"
-                                       Foreground="#CFCFCF"/>
-                            <ComboBox x:Name="ImportModeCombo"
-                                      Width="220"
-                                      Height="30"
-                                      SelectedIndex="0">
-                                <ComboBoxItem Content="Standard" Tag="Standard"/>
-                                <ComboBoxItem Content="Fast (disable checks)" Tag="Fast"/>
-                            </ComboBox>
-                        </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,4,0,8">
+                                <TextBlock Text="Charset"
+                                           Width="140"
+                                           VerticalAlignment="Center"
+                                           Foreground="#CFCFCF"/>
+                                <ComboBox x:Name="CreateDbCharsetCombo"
+                                          Width="220"
+                                          Height="30"
+                                          DisplayMemberPath="DisplayLabel"
+                                          SelectionChanged="CreateDbCharsetCombo_SelectionChanged"/>
+                            </StackPanel>
 
-                        <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                            <CheckBox x:Name="ImportDropDatabaseCheck"
-                                      Content="Drop &amp; recreate database before import"
-                                      Foreground="#FFFFFF"/>
-                            <CheckBox x:Name="ImportDisableFkCheck"
-                                      Content="Disable foreign key checks"
-                                      Margin="20,0,0,0"
-                                      Foreground="#FFFFFF"
-                                      IsChecked="True"/>
-                            <CheckBox x:Name="ImportContinueOnErrorCheck"
-                                      Content="Continue on errors"
-                                      Margin="20,0,0,0"
-                                      Foreground="#FFFFFF"/>
-                        </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,4,0,12">
+                                <TextBlock Text="Collation"
+                                           Width="140"
+                                           VerticalAlignment="Center"
+                                           Foreground="#CFCFCF"/>
+                                <ComboBox x:Name="CreateDbCollationCombo"
+                                          Width="220"
+                                          Height="30"/>
+                            </StackPanel>
 
-                        <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
-                            <Button x:Name="StartImportButton"
-                                    Content="Start import"
-                                    Width="150"
-                                    Height="36"
-                                    Background="#12B36B"
-                                    Foreground="White"
-                                    BorderThickness="0"
-                                    FontWeight="SemiBold"
-                                    Click="StartImportButton_Click"/>
-                            <Button x:Name="CancelImportButton"
-                                    Content="Cancel"
-                                    Width="120"
-                                    Height="36"
-                                    Margin="10,0,0,0"
-                                    Background="#8A2C2C"
-                                    Foreground="White"
-                                    BorderThickness="0"
-                                    Click="CancelImportButton_Click"
-                                    IsEnabled="False"/>
+                            <StackPanel Orientation="Horizontal">
+                                <Button x:Name="CreateDatabaseButton"
+                                        Content="Create database"
+                                        Width="170"
+                                        Height="36"
+                                        Background="#3F8EF7"
+                                        Foreground="White"
+                                        BorderThickness="0"
+                                        FontWeight="SemiBold"
+                                        Click="CreateDatabaseButton_Click"/>
+                                <TextBlock x:Name="CreateDbStatusText"
+                                           Margin="12,0,0,0"
+                                           VerticalAlignment="Center"
+                                           Foreground="#9CD2FF"/>
+                            </StackPanel>
                         </StackPanel>
+                    </Border>
 
-                        <ProgressBar x:Name="ImportProgressBar"
-                                     Height="6"
-                                     Margin="0,14,0,0"
-                                     Visibility="Collapsed"/>
-                        <TextBlock x:Name="ImportProgressText"
-                                   Foreground="#CFCFCF"
-                                   Margin="0,6,0,0"/>
-                        <TextBox x:Name="ImportLogBox"
-                                 Margin="0,12,0,0"
-                                 Height="120"
-                                 Background="#1A1B1E"
-                                 Foreground="#D0D0D0"
-                                 BorderThickness="0"
-                                 IsReadOnly="True"
-                                 AcceptsReturn="True"
-                                 VerticalScrollBarVisibility="Auto"/>
-                    </StackPanel>
-                </Border>
+                    <!-- Import card -->
+                    <Border Grid.Column="1" Background="#1F2023" CornerRadius="12" Padding="18" Margin="12,0,0,0">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="Database import" FontSize="16" FontWeight="SemiBold" Foreground="#FFFFFF"/>
+                                <Border Background="#304FFE" CornerRadius="4" Padding="6,2" Margin="12,0,0,0">
+                                    <TextBlock Text="Beta" Foreground="White" FontSize="11"/>
+                                </Border>
+                            </StackPanel>
+                            <TextBlock Text="Import .sql / .zip / .tar.gz backups directly into the active connection."
+                                       Margin="0,4,0,12"
+                                       Foreground="#A0A0A0"/>
+
+                            <StackPanel Orientation="Horizontal">
+                                <TextBox x:Name="ImportFilePathBox"
+                                         Width="420"
+                                         Height="32"
+                                         Margin="0,0,10,0"
+                                         VerticalContentAlignment="Center"/>
+                                <Button Content="Browse..."
+                                        Width="110"
+                                        Height="32"
+                                        Background="#3F8EF7"
+                                        Foreground="White"
+                                        BorderThickness="0"
+                                        Click="BrowseImportFile_Click"/>
+                            </StackPanel>
+
+                            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                <TextBlock Text="Target database"
+                                           Width="140"
+                                           VerticalAlignment="Center"
+                                           Foreground="#CFCFCF"/>
+                                <ComboBox x:Name="ImportTargetCombo"
+                                          Width="220"
+                                          Height="30"
+                                          IsEditable="False"/>
+                            </StackPanel>
+
+                            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                <TextBlock Text="Import mode"
+                                           Width="140"
+                                           VerticalAlignment="Center"
+                                           Foreground="#CFCFCF"/>
+                                <ComboBox x:Name="ImportModeCombo"
+                                          Width="220"
+                                          Height="30"
+                                          SelectedIndex="1">
+                                    <ComboBoxItem Content="Standard" Tag="Standard"/>
+                                    <ComboBoxItem Content="Fast (disable checks)" Tag="Fast"/>
+                                </ComboBox>
+                            </StackPanel>
+
+                            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                                <CheckBox x:Name="ImportDropDatabaseCheck"
+                                          Content="Drop &amp; recreate database before import"
+                                          Foreground="#FFFFFF"/>
+                                <CheckBox x:Name="ImportDisableFkCheck"
+                                          Content="Disable foreign key checks"
+                                          Margin="20,0,0,0"
+                                          Foreground="#FFFFFF"
+                                          IsChecked="True"/>
+                                <CheckBox x:Name="ImportContinueOnErrorCheck"
+                                          Content="Continue on errors"
+                                          Margin="20,0,0,0"
+                                          Foreground="#FFFFFF"/>
+                            </StackPanel>
+
+                            <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                                <Button x:Name="StartImportButton"
+                                        Content="Start import"
+                                        Width="150"
+                                        Height="36"
+                                        Background="#12B36B"
+                                        Foreground="White"
+                                        BorderThickness="0"
+                                        FontWeight="SemiBold"
+                                        Click="StartImportButton_Click"/>
+                                <Button x:Name="CancelImportButton"
+                                        Content="Cancel"
+                                        Width="120"
+                                        Height="36"
+                                        Margin="10,0,0,0"
+                                        Background="#8A2C2C"
+                                        Foreground="White"
+                                        BorderThickness="0"
+                                        Click="CancelImportButton_Click"
+                                        IsEnabled="False"/>
+                            </StackPanel>
+
+                            <ProgressBar x:Name="ImportProgressBar"
+                                         Height="6"
+                                         Margin="0,14,0,0"
+                                         Visibility="Collapsed"/>
+                            <TextBlock x:Name="ImportProgressText"
+                                       Foreground="#CFCFCF"
+                                       Margin="0,6,0,0"/>
+                            <TextBox x:Name="ImportLogBox"
+                                     Margin="0,12,0,0"
+                                     Height="120"
+                                     Background="#1A1B1E"
+                                     Foreground="#D0D0D0"
+                                     BorderThickness="0"
+                                     IsReadOnly="True"
+                                     AcceptsReturn="True"
+                                     VerticalScrollBarVisibility="Auto"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
 
                 <TextBlock x:Name="ResultStatusText" Grid.Row="4" Margin="0,10,0,0" Foreground="#A0A0A0"/>
-            </Grid>
+                </Grid>
+            </ScrollViewer>
 
             <!-- Loading Overlay -->
             <Border x:Name="LoadingOverlay" Background="#CC000000" Visibility="Collapsed">

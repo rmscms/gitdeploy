@@ -19,6 +19,8 @@ using Renci.SshNet;
 using Renci.SshNet.Sftp;
 using ListViewItem = System.Windows.Controls.ListViewItem;
 using Forms = System.Windows.Forms;
+using MediaBrushes = System.Windows.Media.Brushes;
+using MediaColor = System.Windows.Media.Color;
 
 namespace GitDeployPro.Pages
 {
@@ -48,12 +50,19 @@ namespace GitDeployPro.Pages
         private const string DownloadSessionFileName = ".gitdeploy.download.session";
         private CancellationTokenSource? _downloadCts;
         private bool _isDownloadPaused;
+        private bool _isConnectionOperation;
+        private readonly SolidColorBrush _connectBrush = new(MediaColor.FromRgb(0x4B, 0x8F, 0xE2));
+        private readonly SolidColorBrush _disconnectBrush = new(MediaColor.FromRgb(0x8A, 0x2C, 0x2C));
+        private readonly SolidColorBrush _disabledBrush = new(MediaColor.FromRgb(0x3A, 0x3A, 0x3A));
 
         public FtpExplorerPage()
         {
             InitializeComponent();
             EntriesListView.ItemsSource = _entries;
             ConnectionsCombo.ItemsSource = _profiles;
+            _connectBrush.Freeze();
+            _disconnectBrush.Freeze();
+            _disabledBrush.Freeze();
 
             Loaded += FtpExplorerPage_Loaded;
             Unloaded += FtpExplorerPage_Unloaded;
@@ -172,6 +181,32 @@ namespace GitDeployPro.Pages
         {
             if (_isBusy) return;
 
+            _isBusy = true;
+            var disconnecting = HasActiveConnection();
+            if (disconnecting)
+            {
+                _isConnectionOperation = true;
+            }
+            UpdateConnectButtonState();
+            try
+            {
+                if (disconnecting)
+                {
+                    StatusText.Text = "Disconnecting current profile...";
+                    await DisconnectClientsAsync();
+                }
+                _entries.Clear();
+            }
+            finally
+            {
+                if (disconnecting)
+                {
+                    _isConnectionOperation = false;
+                }
+                _isBusy = false;
+                UpdateConnectButtonState();
+            }
+
             ApplyProfileSelection(profile);
 
             if (autoConnect)
@@ -181,6 +216,7 @@ namespace GitDeployPro.Pages
             else
             {
                 StatusText.Text = "Profile selected. Click Connect to browse.";
+                UpdateConnectButtonState();
             }
         }
 
@@ -194,6 +230,7 @@ namespace GitDeployPro.Pages
 
             try
             {
+                _isConnectionOperation = true;
                 _isBusy = true;
                 UpdateConnectButtonState();
                 StatusText.Text = "Connecting...";
@@ -220,6 +257,7 @@ namespace GitDeployPro.Pages
             }
             finally
             {
+                _isConnectionOperation = false;
                 _isBusy = false;
                 UpdateConnectButtonState();
             }
@@ -238,6 +276,7 @@ namespace GitDeployPro.Pages
                 }
             };
             await _ftpClient.Connect();
+            UpdateConnectButtonState();
         }
 
         private async Task ConnectSftpAsync(ConnectionProfile profile)
@@ -272,6 +311,8 @@ namespace GitDeployPro.Pages
                 _sftpClient = new SftpClient(info);
                 _sftpClient.Connect();
             });
+
+            UpdateConnectButtonState();
         }
 
         private async Task LoadDirectoryAsync(string path)
@@ -390,6 +431,7 @@ namespace GitDeployPro.Pages
                     _sftpClient = null;
                 }
             }
+            UpdateConnectButtonState();
         }
 
         private async void RefreshButton_Click(object sender, RoutedEventArgs e)
@@ -456,6 +498,31 @@ namespace GitDeployPro.Pages
 
         private async void ConnectButton_Click(object sender, RoutedEventArgs e)
         {
+            if (HasActiveConnection())
+            {
+                _isBusy = true;
+                _isConnectionOperation = true;
+                UpdateConnectButtonState();
+                StatusText.Text = "Disconnecting...";
+                try
+                {
+                    await DisconnectClientsAsync();
+                    _entries.Clear();
+                    StatusText.Text = "Disconnected.";
+                }
+                catch (Exception ex)
+                {
+                    StatusText.Text = $"Disconnect failed: {ex.Message}";
+                }
+                finally
+                {
+                    _isConnectionOperation = false;
+                    _isBusy = false;
+                    UpdateConnectButtonState();
+                }
+                return;
+            }
+
             if (_isBusy) return;
             if (_currentProfile == null)
             {
@@ -564,6 +631,11 @@ namespace GitDeployPro.Pages
             }
         }
 
+        private bool HasActiveConnection()
+        {
+            return (_ftpClient?.IsConnected ?? false) || (_sftpClient?.IsConnected ?? false);
+        }
+
         private void UpdateDownloadButtonsState()
         {
             if (DownloadSelectedButton == null || PauseDownloadButton == null) return;
@@ -576,7 +648,38 @@ namespace GitDeployPro.Pages
         private void UpdateConnectButtonState()
         {
             if (ConnectButton == null) return;
-            ConnectButton.IsEnabled = _currentProfile != null && !_isBusy;
+
+            bool hasProfile = _currentProfile != null;
+            bool isConnected = HasActiveConnection();
+            ConnectButton.Foreground = MediaBrushes.White;
+
+            if (!hasProfile)
+            {
+                ConnectButton.IsEnabled = false;
+                ConnectButton.Content = "🔗 Connect";
+                ConnectButton.Background = _disabledBrush;
+                return;
+            }
+
+            if (_isConnectionOperation)
+            {
+                ConnectButton.IsEnabled = false;
+                if (isConnected)
+                {
+                    ConnectButton.Content = "Disconnecting...";
+                    ConnectButton.Background = _disconnectBrush;
+                }
+                else
+                {
+                    ConnectButton.Content = "Connecting...";
+                    ConnectButton.Background = _connectBrush;
+                }
+                return;
+            }
+
+            ConnectButton.Content = isConnected ? "⏏ Disconnect" : "🔗 Connect";
+            ConnectButton.Background = isConnected ? _disconnectBrush : _connectBrush;
+            ConnectButton.IsEnabled = !_isBusy;
         }
 
         private async void PauseDownloadButton_Click(object sender, RoutedEventArgs e)
