@@ -676,7 +676,8 @@ namespace GitDeployPro.Pages
 
                     var profile = GetActiveConnectionProfile();
                     var mapping = GetPrimaryMapping(profile);
-                    var defaultRemoteBase = NormalizeRemoteBase(_projectConfig.RemotePath);
+                    // Use profile RemotePath, not legacy config.RemotePath
+                    var defaultRemoteBase = NormalizeRemoteBase(profile?.RemotePath ?? _projectConfig.RemotePath);
                     var mappedRemoteBase = mapping != null
                         ? CombineRemotePaths(defaultRemoteBase, mapping.RemotePath)
                         : defaultRemoteBase;
@@ -802,11 +803,8 @@ namespace GitDeployPro.Pages
             }
 
             var trimmed = mappingRemote.Trim();
-            if (trimmed.StartsWith("///"))
-            {
-                return NormalizeRemoteBase(trimmed.Substring(2));
-            }
-
+            
+            // Always append mapping path to base remote (no absolute override)
             var segment = trimmed.Trim('/');
             if (string.IsNullOrEmpty(segment))
             {

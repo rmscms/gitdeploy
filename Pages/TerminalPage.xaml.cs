@@ -15,6 +15,8 @@ namespace GitDeployPro.Pages
         private ConfigurationService _configService;
         private string _currentProjectPath;
         private ObservableCollection<TerminalCommandPreset> _commandPresets = new();
+        private List<ConnectionProfile> _allSshProfiles = new();
+        private List<ConnectionProfile> _filteredProfiles = new();
 
         public TerminalPage()
         {
@@ -51,11 +53,12 @@ namespace GitDeployPro.Pages
 
         private void LoadSshProfiles()
         {
-            var profiles = _configService.LoadConnections()
-                                         .Where(p => p.UseSSH)
+            // Only load SSH profiles (exclude FTP and database-only connections)
+            _allSshProfiles = _configService.LoadConnections()
+                                         .Where(p => p.UseSSH && p.DbType == DatabaseType.None)
                                          .ToList();
             
-            // Add current project config if valid
+            // Add current project config if valid SSH
             if (!string.IsNullOrEmpty(_currentProjectPath))
             {
                 var projectConfig = _configService.LoadProjectConfig(_currentProjectPath);
@@ -67,11 +70,11 @@ namespace GitDeployPro.Pages
                          Host = projectConfig.FtpHost,
                          Port = projectConfig.FtpPort,
                          Username = projectConfig.FtpUsername,
-                         Password = projectConfig.FtpPassword, // Already encrypted in config
+                         Password = projectConfig.FtpPassword,
                          UseSSH = true,
                          Id = "CurrentProject"
                      };
-                     profiles.Insert(0, currentProfile);
+                     _allSshProfiles.Insert(0, currentProfile);
                 }
             }
             
@@ -83,20 +86,54 @@ namespace GitDeployPro.Pages
                 UseSSH = false,
                 Id = "LocalCMD"
             };
-            profiles.Add(localProfileOption);
+            _allSshProfiles.Add(localProfileOption);
             
-            SshProfilesCombo.ItemsSource = profiles;
+            // Apply initial filter (show all)
+            ApplyFilter(string.Empty);
+        }
 
-            // Select Local Terminal by default if available, otherwise first item
-            var defaultProfile = profiles.FirstOrDefault(p => p.Id == "LocalCMD");
-            if (defaultProfile != null)
+        private void ApplyFilter(string searchText)
+        {
+            if (string.IsNullOrWhiteSpace(searchText))
             {
-                SshProfilesCombo.SelectedItem = defaultProfile;
+                _filteredProfiles = new List<ConnectionProfile>(_allSshProfiles);
             }
-            else if (profiles.Count > 0)
+            else
             {
-                SshProfilesCombo.SelectedIndex = 0;
+                var lower = searchText.ToLower();
+                _filteredProfiles = _allSshProfiles
+                    .Where(p => p.Name.ToLower().Contains(lower) || 
+                                p.Host.ToLower().Contains(lower) ||
+                                p.Username.ToLower().Contains(lower))
+                    .ToList();
             }
+
+            var currentSelection = SshProfilesCombo.SelectedItem as ConnectionProfile;
+            SshProfilesCombo.ItemsSource = _filteredProfiles;
+
+            // Try to keep selection if it's still in filtered list
+            if (currentSelection != null && _filteredProfiles.Contains(currentSelection))
+            {
+                SshProfilesCombo.SelectedItem = currentSelection;
+            }
+            else
+            {
+                // Select Local Terminal by default if available
+                var defaultProfile = _filteredProfiles.FirstOrDefault(p => p.Id == "LocalCMD");
+                if (defaultProfile != null)
+                {
+                    SshProfilesCombo.SelectedItem = defaultProfile;
+                }
+                else if (_filteredProfiles.Count > 0)
+                {
+                    SshProfilesCombo.SelectedIndex = 0;
+                }
+            }
+        }
+
+        private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            ApplyFilter(SearchBox?.Text ?? string.Empty);
         }
 
         private async void SshProfilesCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)

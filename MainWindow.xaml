@@ -230,6 +230,39 @@
                                 </ControlTemplate>
                             </Button.Template>
                         </Button>
+                        
+                        <!-- Open in Explorer Button -->
+                        <Button x:Name="OpenExplorerBtn"
+                                WindowChrome.IsHitTestVisibleInChrome="True"
+                                Width="32"
+                                Height="30"
+                                Margin="5,0,0,0"
+                                Background="Transparent"
+                                Foreground="#FFFFFF"
+                                BorderThickness="0"
+                                Cursor="Hand"
+                                Click="OpenExplorer_Click"
+                                ToolTip="Open in Explorer">
+                            <TextBlock Text="📁" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="bdr" Background="{TemplateBinding Background}" CornerRadius="4">
+                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="bdr" Property="Background" Value="#35373B"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </Button.Style>
+                        </Button>
                     </StackPanel>
 
                     <!-- Popup Menu for Projects -->
