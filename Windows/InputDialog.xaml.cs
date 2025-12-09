@@ -1,32 +1,42 @@
 using System.Windows;
+using System.Windows.Input;
 
 namespace GitDeployPro.Windows
 {
-    public partial class InputDialog : Window
+    public partial class InputDialog
     {
-        public string ResponseText { get; private set; } = "";
+        public string InputText { get; private set; } = "";
+        public string ResponseText => InputText; // Alias for compatibility
 
-        public InputDialog(string title, string message, string defaultValue = "")
+        public InputDialog(string prompt, string title, string defaultValue = "")
         {
             InitializeComponent();
-            TitleText.Text = title;
-            MessageText.Text = message;
+            Title = title;
+            PromptTextBlock.Text = prompt;
             InputTextBox.Text = defaultValue;
-            InputTextBox.Focus();
             InputTextBox.SelectAll();
+            InputTextBox.Focus();
         }
 
-        private void OK_Click(object sender, RoutedEventArgs e)
+        private void OkButton_Click(object sender, RoutedEventArgs e)
         {
-            ResponseText = InputTextBox.Text;
+            InputText = InputTextBox.Text;
             DialogResult = true;
             Close();
         }
 
-        private void Cancel_Click(object sender, RoutedEventArgs e)
+        private void CancelButton_Click(object sender, RoutedEventArgs e)
         {
             DialogResult = false;
             Close();
+        }
+
+        private void InputTextBox_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                OkButton_Click(sender, e);
+            }
         }
     }
 }

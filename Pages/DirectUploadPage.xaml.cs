@@ -168,12 +168,15 @@ namespace GitDeployPro.Pages
         {
             var items = new List<FileSystemItem>();
             
-            // Standard ignore list
+            // Standard ignore list (exact names)
             var ignoredNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
             {
                 ".git", ".vs", "bin", "obj", ".idea", ".vscode",
                 ".gitdeploy.config", ".gitdeploy.session", ".gitdeploy.history", "Desktop.ini", "Thumbs.db"
             };
+
+            // Pattern-based ignore list (for *.zip, *.log, etc.)
+            var ignorePatterns = new List<string>();
 
             // Load .gitignore patterns if exists in root
             try
@@ -187,16 +190,41 @@ namespace GitDeployPro.Pages
                         var trimmed = line.Trim();
                         if (string.IsNullOrWhiteSpace(trimmed) || trimmed.StartsWith("#")) continue;
                         
-                        // Simple cleanup for folder matching
-                        var clean = trimmed.TrimStart('/', '\\').TrimEnd('/', '\\');
-                        if (!string.IsNullOrWhiteSpace(clean))
+                        // Check if it's a pattern (contains * or ?)
+                        if (trimmed.Contains("*") || trimmed.Contains("?"))
                         {
-                            ignoredNames.Add(clean);
+                            var clean = trimmed.TrimStart('/', '\\');
+                            if (!string.IsNullOrWhiteSpace(clean))
+                            {
+                                ignorePatterns.Add(clean);
+                            }
+                        }
+                        else
+                        {
+                            // Simple cleanup for exact name matching
+                            var clean = trimmed.TrimStart('/', '\\').TrimEnd('/', '\\');
+                            if (!string.IsNullOrWhiteSpace(clean))
+                            {
+                                ignoredNames.Add(clean);
+                            }
                         }
                     }
                 }
             }
             catch { }
+
+            // Helper method to check if a name matches any pattern
+            bool IsIgnored(string name)
+            {
+                if (ignoredNames.Contains(name)) return true;
+                
+                foreach (var pattern in ignorePatterns)
+                {
+                    if (MatchesPattern(name, pattern)) return true;
+                }
+                
+                return false;
+            }
 
             try
             {
@@ -205,7 +233,7 @@ namespace GitDeployPro.Pages
                 // Directories
                 foreach (var dir in dirInfo.GetDirectories())
                 {
-                    if (ignoredNames.Contains(dir.Name) || dir.Attributes.HasFlag(FileAttributes.Hidden))
+                    if (IsIgnored(dir.Name) || dir.Attributes.HasFlag(FileAttributes.Hidden))
                         continue;
 
                     var item = new FileSystemItem
@@ -235,7 +263,7 @@ namespace GitDeployPro.Pages
                 // Files
                 foreach (var file in dirInfo.GetFiles())
                 {
-                    if (ignoredNames.Contains(file.Name) || file.Attributes.HasFlag(FileAttributes.Hidden))
+                    if (IsIgnored(file.Name) || file.Attributes.HasFlag(FileAttributes.Hidden))
                         continue;
 
                     var item = new FileSystemItem
@@ -254,6 +282,22 @@ namespace GitDeployPro.Pages
             catch (Exception) { }
 
             return items;
+        }
+
+        private bool MatchesPattern(string name, string pattern)
+        {
+            // Simple wildcard matching: * matches any sequence, ? matches single char
+            // Convert gitignore pattern to regex-like matching
+            pattern = pattern.Replace(".", "\\.").Replace("*", ".*").Replace("?", ".");
+            
+            try
+            {
+                return System.Text.RegularExpressions.Regex.IsMatch(name, "^" + pattern + "$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         private void RefreshButton_Click(object sender, RoutedEventArgs e)
@@ -399,10 +443,24 @@ namespace GitDeployPro.Pages
             UploadProgressBar.Value = 0;
             UploadProgressBar.Maximum = filesToUpload.Count;
             
+            // Clear and initialize upload log
+            if (UploadLogTextBox != null)
+            {
+                UploadLogTextBox.Text = $"=== Upload Started at {DateTime.Now:yyyy-MM-dd HH:mm:ss} ===" + Environment.NewLine;
+                UploadLogTextBox.Text += $"Total files to upload: {filesToUpload.Count}" + Environment.NewLine;
+                UploadLogTextBox.Text += Environment.NewLine;
+            }
+            
             try
             {
                 using (var client = new AsyncFtpClient(config.FtpHost, config.FtpUsername, EncryptionService.Decrypt(config.FtpPassword), config.FtpPort))
                 {
+                    // Configure timeout for large files (zip files)
+                    client.Config.DataConnectionType = FluentFTP.FtpDataConnectionType.AutoPassive;
+                    client.Config.ReadTimeout = 300000; // 5 minutes
+                    client.Config.DataConnectionReadTimeout = 300000; // 5 minutes
+                    client.Config.RetryAttempts = 3;
+                    
                     StatusText.Text = "Connecting...";
                     await client.AutoConnect(token);
 
@@ -435,10 +493,15 @@ namespace GitDeployPro.Pages
                             {
                                 skipped++;
                                 StatusText.Text = $"Skipped (Session): {file.Name}";
+                                string skippedRemotePath = CombineRemotePaths(remoteBasePath, relativePath);
                                 Dispatcher.Invoke(() =>
                                 {
                                     file.UploadState = UploadState.Uploaded;
                                     UpdateUploadDetailText(file.Name, 100, file.Size, file.Size, "Already uploaded (session)");
+                                    AddUploadLog($"[{DateTime.Now:HH:mm:ss}] Skipped (Session): {file.Name}");
+                                    AddUploadLog($"  → Remote Path: {skippedRemotePath}");
+                                    AddUploadLog($"  ↺ Already uploaded in previous session");
+                                    AddUploadLog("");
                                 });
                                 continue; 
                             }
@@ -446,7 +509,13 @@ namespace GitDeployPro.Pages
                             // Combine remote base with relative path properly
                             string remotePath = CombineRemotePaths(remoteBasePath, relativePath);
                             StatusText.Text = $"Uploading ({processed}/{filesToUpload.Count}): {file.Name}";
-                            Dispatcher.Invoke(() => file.UploadState = UploadState.InProgress);
+                            Dispatcher.Invoke(() => 
+                            {
+                                file.UploadState = UploadState.InProgress;
+                                // Log upload path to console
+                                AddUploadLog($"[{DateTime.Now:HH:mm:ss}] Uploading: {file.Name}");
+                                AddUploadLog($"  → Remote Path: {remotePath}");
+                            });
 
                             long fileSize = file.Size > 0 ? file.Size : GetFileSizeSafe(file.FullPath);
                             var progressHandler = new Progress<FtpProgress>(ftpProgress =>
@@ -479,6 +548,8 @@ namespace GitDeployPro.Pages
                             {
                                 file.UploadState = UploadState.Uploaded;
                                 UpdateUploadDetailText(file.Name, 100, fileSize, fileSize, "Completed");
+                                AddUploadLog($"  ✓ Uploaded successfully!");
+                                AddUploadLog("");
                             });
 
                             // Log to Session File
@@ -493,19 +564,35 @@ namespace GitDeployPro.Pages
                         }
                         catch (Exception fileEx)
                         {
-                            Dispatcher.Invoke(() =>
-                            {
-                                file.UploadState = UploadState.Failed;
-                                UpdateUploadDetailText(file.Name, 0, 0, 0, "Failed");
-                            });
-                            
                             // Calculate remote path same way as upload logic
                             string relativePath = Path.GetRelativePath(relativeSource, file.FullPath).Replace("\\", "/");
                             string remotePath = CombineRemotePaths(remoteBasePath, relativePath);
                             
+                            Dispatcher.Invoke(() =>
+                            {
+                                file.UploadState = UploadState.Failed;
+                                UpdateUploadDetailText(file.Name, 0, 0, 0, "Failed");
+                                AddUploadLog($"  ✗ Upload FAILED!");
+                                AddUploadLog($"  Error: {fileEx.Message}");
+                                AddUploadLog("");
+                            });
+                            
                             string errorMsg = "Failed to upload: " + file.Name + Environment.NewLine + Environment.NewLine +
                                             "Remote Path: " + remotePath + Environment.NewLine + Environment.NewLine +
-                                            "Error: " + fileEx.Message;
+                                            "Error Type: " + fileEx.GetType().Name + Environment.NewLine +
+                                            "Error Message: " + fileEx.Message;
+                            
+                            if (fileEx.InnerException != null)
+                            {
+                                errorMsg += Environment.NewLine + Environment.NewLine +
+                                           "Inner Error: " + fileEx.InnerException.Message;
+                            }
+                            
+                            if (!string.IsNullOrEmpty(fileEx.StackTrace))
+                            {
+                                errorMsg += Environment.NewLine + Environment.NewLine +
+                                           "Stack Trace:" + Environment.NewLine + fileEx.StackTrace;
+                            }
                             
                             ModernMessageBox.Show(errorMsg, "Upload Error", MessageBoxButton.OK, MessageBoxImage.Error);
                             break; // Stop upload on error
@@ -661,15 +748,23 @@ namespace GitDeployPro.Pages
         {
             var trimmed = (path ?? "/").Trim();
             trimmed = trimmed.Replace("\\", "/");
+            
+            // Keep host name if present (e.g., "gitdeploy.nitron.pro/public" -> "/gitdeploy.nitron.pro/public/")
+            // Don't remove hostname - it's part of the path structure
+            
             if (!trimmed.StartsWith("/"))
             {
                 trimmed = "/" + trimmed;
             }
+            
+            // Only add trailing slash if it's a directory path (not a file)
+            // For base paths, we want trailing slash
             trimmed = trimmed.TrimEnd('/');
             if (trimmed.Length == 0)
             {
                 trimmed = "/";
             }
+            // Add trailing slash for base directory paths
             if (!trimmed.EndsWith("/"))
             {
                 trimmed += "/";
@@ -698,8 +793,45 @@ namespace GitDeployPro.Pages
                 return normalizedBase;
             }
 
+            // Combine paths
             var combined = normalizedBase.TrimEnd('/') + "/" + segment;
-            return NormalizeRemoteBase(combined);
+            
+            // Normalize but preserve the structure
+            // Check if segment looks like a file (has extension and no trailing slash in original)
+            bool isFile = !trimmed.EndsWith("/") && trimmed.Contains(".") && 
+                         !string.IsNullOrEmpty(Path.GetExtension(trimmed));
+            
+            // Normalize the combined path
+            combined = combined.Replace("\\", "/");
+            if (!combined.StartsWith("/"))
+            {
+                combined = "/" + combined;
+            }
+            
+            if (isFile)
+            {
+                // For files, don't add trailing slash
+                return combined;
+            }
+            
+            // For directories, add trailing slash if mapping had trailing slash
+            if (trimmed.EndsWith("/"))
+            {
+                if (!combined.EndsWith("/"))
+                {
+                    combined += "/";
+                }
+            }
+            else
+            {
+                // If mapping didn't have trailing slash, add it for directory paths
+                if (!combined.EndsWith("/"))
+                {
+                    combined += "/";
+                }
+            }
+            
+            return combined;
         }
 
         private bool TryRefreshProjectPath()
@@ -762,6 +894,17 @@ namespace GitDeployPro.Pages
             }
         }
 
+        private void AddUploadLog(string message)
+        {
+            if (UploadLogTextBox == null) return;
+            
+            Dispatcher.Invoke(() =>
+            {
+                UploadLogTextBox.AppendText(message + Environment.NewLine);
+                UploadLogTextBox.ScrollToEnd();
+            });
+        }
+
         private void UpdateConnectionInfoBanner(
             ProjectConfig? config = null,
             bool skipProjectRefresh = false,
@@ -795,17 +938,18 @@ namespace GitDeployPro.Pages
             {
                 var protocol = profile.UseSSH ? "SFTP (SSH)" : "FTP";
                 var hostText = string.IsNullOrWhiteSpace(profile.Host) ? "Host missing" : $"{profile.Host}:{profile.Port}";
-                var remotePath = string.IsNullOrWhiteSpace(profile.RemotePath) ? "/" : profile.RemotePath;
+                var baseRemotePath = string.IsNullOrWhiteSpace(profile.RemotePath) ? "/" : profile.RemotePath;
                 var mapping = mappingOverride ?? GetPrimaryMapping(profile);
                 if (mapping != null)
                 {
                     var localLabel = string.IsNullOrWhiteSpace(mapping.LocalPath) ? "(project root)" : mapping.LocalPath;
-                    var remoteLabel = string.IsNullOrWhiteSpace(mapping.RemotePath) ? remotePath : mapping.RemotePath;
-                    ConnectionInfoText.Text = $"Active Connection: {profile.Name} · {protocol} · {hostText} · Local '{localLabel}' → Remote '{remoteLabel}'";
+                    // Combine profile.RemotePath + mapping.RemotePath (same logic as ResolveRoots)
+                    var combinedRemotePath = CombineRemotePaths(baseRemotePath, mapping.RemotePath);
+                    ConnectionInfoText.Text = $"Active Connection: {profile.Name} · {protocol} · {hostText} · Local '{localLabel}' → Remote '{combinedRemotePath}'";
                 }
                 else
                 {
-                    ConnectionInfoText.Text = $"Active Connection: {profile.Name} · {protocol} · {hostText} → {remotePath}";
+                    ConnectionInfoText.Text = $"Active Connection: {profile.Name} · {protocol} · {hostText} → {baseRemotePath}";
                 }
                 ConnectionInfoText.Foreground = accentBrush;
                 return;

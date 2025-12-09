@@ -668,6 +668,12 @@ namespace GitDeployPro.Pages
                 
                 using (var client = new AsyncFtpClient(_projectConfig.FtpHost, _projectConfig.FtpUsername, _projectConfig.FtpPasswordDecrypted, _projectConfig.FtpPort))
                 {
+                    // Configure timeout for large files (zip files)
+                    client.Config.DataConnectionType = FluentFTP.FtpDataConnectionType.AutoPassive;
+                    client.Config.ReadTimeout = 300000; // 5 minutes
+                    client.Config.DataConnectionReadTimeout = 300000; // 5 minutes
+                    client.Config.RetryAttempts = 3;
+                    
                     await client.Connect();
                     AddLog("✅ Connected!");
 
@@ -778,15 +784,23 @@ namespace GitDeployPro.Pages
         {
             var trimmed = (path ?? "/").Trim();
             trimmed = trimmed.Replace("\\", "/");
+            
+            // Keep host name if present (e.g., "gitdeploy.nitron.pro/public" -> "/gitdeploy.nitron.pro/public/")
+            // Don't remove hostname - it's part of the path structure
+            
             if (!trimmed.StartsWith("/"))
             {
                 trimmed = "/" + trimmed;
             }
+            
+            // Only add trailing slash if it's a directory path (not a file)
+            // For base paths, we want trailing slash
             trimmed = trimmed.TrimEnd('/');
             if (trimmed.Length == 0)
             {
                 trimmed = "/";
             }
+            // Add trailing slash for base directory paths
             if (!trimmed.EndsWith("/"))
             {
                 trimmed += "/";
@@ -803,7 +817,11 @@ namespace GitDeployPro.Pages
             }
 
             var trimmed = mappingRemote.Trim();
-            
+            if (trimmed.Equals("~", StringComparison.Ordinal))
+            {
+                return normalizedBase;
+            }
+
             // Always append mapping path to base remote (no absolute override)
             var segment = trimmed.Trim('/');
             if (string.IsNullOrEmpty(segment))
@@ -811,8 +829,45 @@ namespace GitDeployPro.Pages
                 return normalizedBase;
             }
 
+            // Combine paths
             var combined = normalizedBase.TrimEnd('/') + "/" + segment;
-            return NormalizeRemoteBase(combined);
+            
+            // Normalize but preserve the structure
+            // Check if segment looks like a file (has extension and no trailing slash in original)
+            bool isFile = !trimmed.EndsWith("/") && trimmed.Contains(".") && 
+                         !string.IsNullOrEmpty(Path.GetExtension(trimmed));
+            
+            // Normalize the combined path
+            combined = combined.Replace("\\", "/");
+            if (!combined.StartsWith("/"))
+            {
+                combined = "/" + combined;
+            }
+            
+            if (isFile)
+            {
+                // For files, don't add trailing slash
+                return combined;
+            }
+            
+            // For directories, add trailing slash if mapping had trailing slash
+            if (trimmed.EndsWith("/"))
+            {
+                if (!combined.EndsWith("/"))
+                {
+                    combined += "/";
+                }
+            }
+            else
+            {
+                // If mapping didn't have trailing slash, add it for directory paths
+                if (!combined.EndsWith("/"))
+                {
+                    combined += "/";
+                }
+            }
+            
+            return combined;
         }
 
         private async Task SimulateDeploy(List<FileChange> files)
