@@ -8,13 +8,21 @@ using GitDeployPro.Services;
 using GitDeployPro.Models;
 using GitDeployPro.Controls;
 using MahApps.Metro.Controls;
+using Forms = System.Windows.Forms;
 
 namespace GitDeployPro.Windows
 {
     public partial class TerminalWindow : MetroWindow
     {
+        private static readonly List<TerminalWindow> _openTerminalWindows = new List<TerminalWindow>();
+        private static readonly object _windowsLock = new object();
+        private const int TerminalWidth = 600;
+        private const int TerminalHeight = 500;
+        private const int HorizontalOffset = 30;
+
         private ConfigurationService _configService;
         private string _projectPath;
+        private ConnectionProfile? _connectionProfile;
         private ObservableCollection<TerminalCommandPreset> _commandPresets = new();
 
         public TerminalWindow(string projectPath)
@@ -24,17 +32,146 @@ namespace GitDeployPro.Windows
             _projectPath = projectPath;
             
             MyTerminal.SetProjectPath(projectPath);
-            MyTerminal.DetachButton.Visibility = Visibility.Collapsed; // Hide pop-out button in new window
+            MyTerminal.DetachButton.Visibility = Visibility.Collapsed;
 
             LoadSshProfiles();
             LoadCommandPresets();
             TerminalPresetStore.PresetsChanged += TerminalPresetStore_PresetsChanged;
             Closed += TerminalWindow_Closed;
+            Loaded += TerminalWindow_Loaded;
+
+            lock (_windowsLock)
+            {
+                _openTerminalWindows.Add(this);
+            }
+
+            PositionWindowHorizontally();
+        }
+        
+        public TerminalWindow(ConnectionProfile profile) : this("")
+        {
+            _connectionProfile = profile;
+            Title = $"Terminal - {profile.Name}";
+            
+            MyTerminal.DetachButton.Visibility = Visibility.Collapsed;
+            
+            Loaded += async (s, e) =>
+            {
+                try
+                {
+                    string password = EncryptionService.Decrypt(profile.Password);
+                    await MyTerminal.ConnectAsync(profile.Host, profile.Username, password, profile.Port);
+                    
+                    // Register active connection
+                    if (_connectionProfile != null)
+                    {
+                        SessionManagerControl.RegisterActiveConnection(_connectionProfile.Id, this);
+                    }
+                    
+                    // Re-arrange all windows after this one is loaded
+                    lock (_windowsLock)
+                    {
+                        foreach (var window in _openTerminalWindows)
+                        {
+                            window.PositionWindowHorizontally();
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    ModernMessageBox.Show($"Failed to connect: {ex.Message}", "Connection Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            };
+        }
+
+        private void TerminalWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            // Ensure window is positioned correctly after load
+            PositionWindowHorizontally();
+        }
+
+        private void PositionWindowHorizontally()
+        {
+            lock (_windowsLock)
+            {
+                int windowCount = _openTerminalWindows.Count;
+                if (windowCount == 0) return;
+                
+                // Get primary screen working area
+                var screen = Forms.Screen.PrimaryScreen?.WorkingArea;
+                if (!screen.HasValue) return;
+                
+                double screenWidth = screen.Value.Width;
+                double screenHeight = screen.Value.Height;
+                double screenLeft = screen.Value.Left;
+                double screenTop = screen.Value.Top;
+                
+                int rows, cols;
+                
+                // Determine layout based on window count
+                if (windowCount == 1)
+                {
+                    rows = 1; cols = 1;
+                }
+                else if (windowCount == 2)
+                {
+                    rows = 1; cols = 2;
+                }
+                else if (windowCount <= 4)
+                {
+                    rows = 2; cols = 2;
+                }
+                else if (windowCount <= 6)
+                {
+                    rows = 2; cols = 3;
+                }
+                else if (windowCount <= 9)
+                {
+                    rows = 3; cols = 3;
+                }
+                else
+                {
+                    rows = 3; cols = 4;
+                }
+                
+                double windowWidth = screenWidth / cols;
+                double windowHeight = screenHeight / rows;
+                
+                // Position all windows in grid layout
+                for (int i = 0; i < windowCount; i++)
+                {
+                    int row = i / cols;
+                    int col = i % cols;
+                    
+                    var window = _openTerminalWindows[i];
+                    window.Left = screenLeft + (col * windowWidth);
+                    window.Top = screenTop + (row * windowHeight);
+                    window.Width = windowWidth;
+                    window.Height = windowHeight;
+                }
+            }
         }
 
         private void TerminalWindow_Closed(object? sender, System.EventArgs e)
         {
             TerminalPresetStore.PresetsChanged -= TerminalPresetStore_PresetsChanged;
+            
+            // Unregister active connection
+            if (_connectionProfile != null)
+            {
+                SessionManagerControl.UnregisterActiveConnection(_connectionProfile.Id);
+            }
+            
+            lock (_windowsLock)
+            {
+                _openTerminalWindows.Remove(this);
+                
+                // Reposition remaining windows
+                foreach (var window in _openTerminalWindows)
+                {
+                    window.PositionWindowHorizontally();
+                }
+            }
         }
 
         private void TerminalPresetStore_PresetsChanged()

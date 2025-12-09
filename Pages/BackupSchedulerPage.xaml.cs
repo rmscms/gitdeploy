@@ -713,7 +713,9 @@ namespace GitDeployPro.Pages
             if (ModernMessageBox.ShowWithResult($"Delete '{SelectedSchedule.Name}'?", "Confirm delete", MessageBoxButton.YesNo, MessageBoxImage.Warning, "Delete", "Cancel") == MessageBoxResult.Yes)
             {
                 var toRemove = SelectedSchedule;
+                var scheduleId = toRemove.Id;
                 Schedules.Remove(toRemove);
+                BackupScheduleStore.SaveSchedules(Schedules);
                 if (Schedules.Count > 0)
                 {
                     SelectedSchedule = Schedules[0];

@@ -28,6 +28,7 @@ namespace GitDeployPro.Controls
         private ConfigurationService _configService;
         private bool _isConnected = false;
         private string? _projectPath;
+        private bool _typingEnabled = true; // Type toggle state
         private static readonly HashSet<TerminalControl> _activeTerminals = new HashSet<TerminalControl>();
 
         public TerminalControl()
@@ -409,7 +410,7 @@ namespace GitDeployPro.Controls
 
         protected override void OnPreviewTextInput(TextCompositionEventArgs e)
         {
-            if (_isConnected)
+            if (_isConnected && _typingEnabled)
             {
                 if (_isLocal && _localProcess != null)
                 {
@@ -423,7 +424,36 @@ namespace GitDeployPro.Controls
                 }
                 e.Handled = true;
             }
+            else if (!_typingEnabled)
+            {
+                // Typing is disabled - show visual feedback
+                e.Handled = true;
+            }
             base.OnPreviewTextInput(e);
+        }
+
+        // Routed from XAML to ensure caret stays visible and input is intercepted
+        private void TerminalOutput_PreviewTextInput(object sender, TextCompositionEventArgs e)
+        {
+            OnPreviewTextInput(e);
+        }
+
+        private void TypeToggleButton_Checked(object sender, RoutedEventArgs e)
+        {
+            _typingEnabled = true;
+            if (TypeToggleButton != null)
+            {
+                TypeToggleButton.ToolTip = "Type (Enabled)";
+            }
+        }
+
+        private void TypeToggleButton_Unchecked(object sender, RoutedEventArgs e)
+        {
+            _typingEnabled = false;
+            if (TypeToggleButton != null)
+            {
+                TypeToggleButton.ToolTip = "Type (Disabled)";
+            }
         }
 
         private void ProcessOutputSafe(string text)
@@ -437,6 +467,8 @@ namespace GitDeployPro.Controls
             {
                 TerminalOutput.EndChange();
                 TerminalScroller.ScrollToBottom();
+                TerminalOutput.CaretBrush = System.Windows.Media.Brushes.Lime;
+                TerminalOutput.CaretPosition = TerminalOutput.Document.ContentEnd;
             }
         }
 
@@ -496,6 +528,11 @@ namespace GitDeployPro.Controls
             {
                 AppendText(sb.ToString(), color);
             }
+
+            // Ensure caret visible and focused after output
+            TerminalOutput.CaretBrush = System.Windows.Media.Brushes.Lime;
+            TerminalOutput.CaretPosition = TerminalOutput.Document.ContentEnd;
+            TerminalOutput.Focus();
         }
 
         private void RemoveLastChar()

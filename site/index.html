@@ -408,8 +408,8 @@
       <div class="col-md-6 col-lg-5">
         <div class="download-card h-100">
           <strong>Windows 10/11 (x64)</strong>
-          <p class="text-muted mb-3">Self-contained build v1.1.2 with improved RemotePath handling, Terminal SSH filtering, enhanced upload error messages, and Explorer button for quick project access.</p>
-          <a class="btn btn-glow w-100" href="versions/GitDeployPro-v1.1.2-win-x64.zip">Download GitDeployPro 1.1.2</a>
+          <p class="text-muted mb-3">Self-contained build v1.1.5 with in-app multi-terminal grid, detach-per-panel, local terminal button, and active indicator in Session Manager.</p>
+          <a class="btn btn-glow w-100" href="versions/GitDeployPro-v1.1.5-win-x64.zip">Download GitDeployPro 1.1.5</a>
         </div>
       </div>
     </section>
@@ -419,6 +419,45 @@
       <h2>What’s new in each build</h2>
       <p class="text-muted" style="max-width:620px;">Quick snapshot of the releases we’ve shipped so you know exactly what changed before installing.</p>
       <div class="row g-3 mt-2">
+        <div class="col-lg-6">
+          <div class="changelog">
+            <h4>v1.1.5</h4>
+            <small>Released Dec 2025</small>
+            <ul>
+              <li>Terminal page now hosts multiple terminals inside the main grid (no more overlapping app windows), with auto layout (1x1, 1x2, 2x2, 2x3, 3x3) and per-panel resize thumb.</li>
+              <li>Each terminal panel has a “Detach” button to pop it out as a separate window while keeping the rest in the grid.</li>
+              <li>Active connection indicator (🟢) appears in Session Manager tree, and multiple terminals per connection are supported.</li>
+              <li>Local Terminal button added to the toolbar to open a PowerShell/CMD session in the current project folder inside the grid.</li>
+              <li>Terminal caret is now visible (green, blinking) and stays focused after output for smoother typing.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="changelog">
+            <h4>v1.1.4</h4>
+            <small>Released Dec 2025</small>
+            <ul>
+              <li>Unified path handling logic across Deploy, Direct Upload, and FTP Explorer pages to ensure consistent remote path construction.</li>
+              <li>All pages now correctly preserve hostnames in remote paths (e.g., gitdeploy.nitron.pro/public) and handle trailing slashes properly for files vs directories.</li>
+              <li>Increased timeout settings to 5 minutes for large file operations across all FTP/SFTP operations.</li>
+              <li>Path combination logic now consistently applied: base remote path is always prepended to mapping paths, ensuring correct file locations on server.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="changelog">
+            <h4>v1.1.3</h4>
+            <small>Released Dec 2025</small>
+            <ul>
+              <li>Fixed remote path construction to preserve host names (e.g., gitdeploy.nitron.pro/public) and correctly handle trailing slashes for files vs directories.</li>
+              <li>Added upload log console at the bottom of Direct Upload page showing real-time remote paths for each file being uploaded.</li>
+              <li>Direct Upload now supports .gitignore patterns (e.g., *.zip, *.log) for filtering files during scan.</li>
+              <li>Increased timeout settings for large file uploads (5 minutes) with improved error handling and retry logic.</li>
+              <li>Enhanced upload error messages to include full error details, remote path, error type, and stack trace for better debugging.</li>
+              <li>Fixed path combination logic to support all root path and mapping path combinations correctly (e.g., root="/", map="api" or root="host/path/", map="/" or "api").</li>
+            </ul>
+          </div>
+        </div>
         <div class="col-lg-6">
           <div class="changelog">
             <h4>v1.1.2</h4>

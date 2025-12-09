@@ -446,33 +446,5 @@
                   NavigationUIVisibility="Hidden"/>
         </Grid>
 
-        <!-- Reveal Handle (Sidebar collapsed trigger) -->
-        <Border x:Name="SidebarTriggerZone"
-                Grid.Column="1"
-                Grid.RowSpan="2"
-                Width="30"
-                HorizontalAlignment="Left"
-                VerticalAlignment="Stretch"
-                Background="Transparent"
-                BorderThickness="0"
-                Panel.ZIndex="5000"
-                Visibility="Collapsed"
-                MouseLeftButtonDown="SidebarTriggerZone_OnClick"
-                MouseEnter="SidebarTriggerZone_MouseEnter"
-                MouseLeave="SidebarTriggerZone_MouseLeave"
-                Cursor="Hand">
-            <Border x:Name="SidebarTriggerZoneVisual" 
-                    Width="30" Height="120" 
-                    CornerRadius="0,6,6,0" 
-                    Background="#553A3D43"
-                    HorizontalAlignment="Center" 
-                    VerticalAlignment="Center"
-                    IsHitTestVisible="False">
-                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,6,0,6">
-                    <TextBlock Text="▶" FontSize="18" Foreground="White" HorizontalAlignment="Center" IsHitTestVisible="False"/>
-                    <TextBlock Text="Menu" FontSize="10" Foreground="#EEEEEE" HorizontalAlignment="Center" Margin="0,4,0,0" IsHitTestVisible="False"/>
-                </StackPanel>
-            </Border>
-        </Border>
     </Grid>
 </Window>

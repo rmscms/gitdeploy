@@ -9,7 +9,7 @@
         GlowBrush="{DynamicResource MahApps.Brushes.Accent}"
         BorderThickness="1"
         BorderBrush="#3E3E42"
-        WindowStartupLocation="CenterScreen">
+        WindowStartupLocation="Manual">
     
     <Window.Resources>
         <Style x:Key="ModernButtonStyle" TargetType="Button">

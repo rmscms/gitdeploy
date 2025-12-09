@@ -272,7 +272,10 @@ namespace GitDeployPro.Pages
                 {
                     DataConnectionType = profile.PassiveMode ? FtpDataConnectionType.AutoPassive : FtpDataConnectionType.AutoActive,
                     SocketKeepAlive = true,
-                    EncryptionMode = FtpEncryptionMode.Auto
+                    EncryptionMode = FtpEncryptionMode.Auto,
+                    ReadTimeout = 300000, // 5 minutes for large files
+                    DataConnectionReadTimeout = 300000, // 5 minutes
+                    RetryAttempts = 3
                 }
             };
             await _ftpClient.Connect();
@@ -1062,11 +1065,25 @@ namespace GitDeployPro.Pages
 
         private string NormalizeRemoteBase(string? path)
         {
-            var trimmed = (path ?? "/").Replace("\\", "/").Trim();
+            var trimmed = (path ?? "/").Trim();
+            trimmed = trimmed.Replace("\\", "/");
+            
+            // Keep host name if present (e.g., "gitdeploy.nitron.pro/public" -> "/gitdeploy.nitron.pro/public/")
+            // Don't remove hostname - it's part of the path structure
+            
             if (!trimmed.StartsWith("/"))
             {
                 trimmed = "/" + trimmed;
             }
+            
+            // Only add trailing slash if it's a directory path (not a file)
+            // For base paths, we want trailing slash
+            trimmed = trimmed.TrimEnd('/');
+            if (trimmed.Length == 0)
+            {
+                trimmed = "/";
+            }
+            // Add trailing slash for base directory paths
             if (!trimmed.EndsWith("/"))
             {
                 trimmed += "/";
@@ -1110,19 +1127,63 @@ namespace GitDeployPro.Pages
         private string CombineRemotePaths(string baseRemote, string? mappingRemote)
         {
             var normalizedBase = NormalizeRemoteBase(baseRemote);
-            if (string.IsNullOrWhiteSpace(mappingRemote))
+            if (string.IsNullOrWhiteSpace(mappingRemote) || mappingRemote.Trim() == "/")
             {
                 return normalizedBase;
             }
 
-            var trimmed = mappingRemote.Replace("\\", "/").Trim('/');
-            if (string.IsNullOrEmpty(trimmed))
+            var trimmed = mappingRemote.Trim();
+            if (trimmed.Equals("~", StringComparison.Ordinal))
             {
                 return normalizedBase;
             }
 
-            var combined = normalizedBase.TrimEnd('/') + "/" + trimmed;
-            return NormalizeRemoteBase(combined);
+            // Always append mapping path to base remote (no absolute override)
+            var segment = trimmed.Trim('/');
+            if (string.IsNullOrEmpty(segment))
+            {
+                return normalizedBase;
+            }
+
+            // Combine paths
+            var combined = normalizedBase.TrimEnd('/') + "/" + segment;
+            
+            // Normalize but preserve the structure
+            // Check if segment looks like a file (has extension and no trailing slash in original)
+            bool isFile = !trimmed.EndsWith("/") && trimmed.Contains(".") && 
+                         !string.IsNullOrEmpty(Path.GetExtension(trimmed));
+            
+            // Normalize the combined path
+            combined = combined.Replace("\\", "/");
+            if (!combined.StartsWith("/"))
+            {
+                combined = "/" + combined;
+            }
+            
+            if (isFile)
+            {
+                // For files, don't add trailing slash
+                return combined;
+            }
+            
+            // For directories, add trailing slash if mapping had trailing slash
+            if (trimmed.EndsWith("/"))
+            {
+                if (!combined.EndsWith("/"))
+                {
+                    combined += "/";
+                }
+            }
+            else
+            {
+                // If mapping didn't have trailing slash, add it for directory paths
+                if (!combined.EndsWith("/"))
+                {
+                    combined += "/";
+                }
+            }
+            
+            return combined;
         }
 
         private bool IsRootPath(string path)

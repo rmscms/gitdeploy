@@ -1,0 +1,134 @@
+<mah:MetroWindow x:Class="GitDeployPro.Windows.SessionManagerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
+        xmlns:local="clr-namespace:GitDeployPro.Models"
+        mc:Ignorable="d"
+        Title="Session Manager" Height="700" Width="900"
+        WindowStartupLocation="CenterScreen"
+        Background="#252526" Foreground="#F1F1F1"
+        ResizeMode="CanResizeWithGrip"
+        GlowBrush="{DynamicResource MahApps.Brushes.Accent}"
+        WindowTitleBrush="#252526"
+        NonActiveWindowTitleBrush="#2D2D30"
+        BorderThickness="1"
+        BorderBrush="#3E3E42">
+
+    <Window.Resources>
+        <Style TargetType="TreeViewItem">
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Padding" Value="4,3"/>
+            <Setter Property="Margin" Value="0,1"/>
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#007ACC"/>
+                    <Setter Property="Foreground" Value="White"/>
+                </Trigger>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#3E3E42"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Toolbar -->
+        <Border Grid.Row="0" Background="#2D2D30" Padding="10" BorderThickness="0,0,0,1" BorderBrush="#3E3E42">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Filter -->
+                <TextBox x:Name="FilterTextBox" 
+                         Grid.Column="0"
+                         mah:TextBoxHelper.Watermark="Filter by folder/session name..."
+                         Background="#333337" 
+                         Foreground="White"
+                         BorderBrush="#434346"
+                         Margin="0,0,10,0"
+                         TextChanged="FilterTextBox_TextChanged"/>
+
+                <!-- Toolbar Buttons -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button Content="🔗" ToolTip="Link" Width="32" Height="32" Margin="2" Background="#3E3E42" Foreground="White" BorderThickness="0" Click="LinkButton_Click"/>
+                    <Button Content="📎" ToolTip="Attach" Width="32" Height="32" Margin="2" Background="#3E3E42" Foreground="White" BorderThickness="0"/>
+                    <Button Content="+" ToolTip="Add Folder" Width="32" Height="32" Margin="2" Background="#0FB981" Foreground="White" BorderThickness="0" Click="AddFolderButton_Click"/>
+                    <Button Content="–" ToolTip="Remove" Width="32" Height="32" Margin="2" Background="#E74444" Foreground="White" BorderThickness="0" Click="RemoveButton_Click"/>
+                    <Button Content="📁" ToolTip="New Folder" Width="32" Height="32" Margin="2" Background="#8E43FF" Foreground="White" BorderThickness="0" Click="NewFolderButton_Click"/>
+                    <Button Content="❌" ToolTip="Delete" Width="32" Height="32" Margin="2" Background="#E74444" Foreground="White" BorderThickness="0" Click="DeleteButton_Click"/>
+                    <Button Content="⚙️" ToolTip="Settings" Width="32" Height="32" Margin="2" Background="#3E3E42" Foreground="White" BorderThickness="0"/>
+                    <Button Content="◀" ToolTip="Back" Width="32" Height="32" Margin="2" Background="#3E3E42" Foreground="White" BorderThickness="0"/>
+                    <Button Content="▶" ToolTip="Forward" Width="32" Height="32" Margin="2" Background="#3E3E42" Foreground="White" BorderThickness="0"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- TreeView -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <Border Background="#252526" CornerRadius="8" BorderBrush="#3F3F3F" BorderThickness="1" Padding="10">
+                <TreeView x:Name="SessionsTreeView" 
+                          Background="Transparent" 
+                          BorderThickness="0"
+                          SelectedItemChanged="SessionsTreeView_SelectedItemChanged"
+                          AllowDrop="True"
+                          DragOver="SessionsTreeView_DragOver"
+                          Drop="SessionsTreeView_Drop">
+                    <TreeView.ItemContainerStyle>
+                        <Style TargetType="{x:Type TreeViewItem}">
+                            <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+                            <Setter Property="AllowDrop" Value="True"/>
+                            <Setter Property="Padding" Value="18,2,4,2"/>
+                            <EventSetter Event="PreviewMouseLeftButtonDown" Handler="TreeViewItem_PreviewMouseLeftButtonDown"/>
+                            <EventSetter Event="PreviewMouseMove" Handler="TreeViewItem_PreviewMouseMove"/>
+                            <EventSetter Event="DragOver" Handler="TreeViewItem_DragOver"/>
+                            <EventSetter Event="Drop" Handler="TreeViewItem_Drop"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsFolder}" Value="True">
+                                    <Setter Property="IsExpanded" Value="True"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TreeView.ItemContainerStyle>
+                    <TreeView.ItemTemplate>
+                        <HierarchicalDataTemplate ItemsSource="{Binding Children}">
+                            <StackPanel Orientation="Horizontal" Margin="2">
+                                <TextBlock Text="{Binding Icon}" 
+                                          Foreground="{Binding IconColor}"
+                                          Margin="0,0,8,0" 
+                                          FontSize="16"
+                                          FontFamily="Segoe UI Emoji"
+                                          VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding DisplayNameWithCount}" 
+                                          VerticalAlignment="Center"
+                                          FontSize="14"
+                                          Foreground="#E0E0E0"/>
+                                <TextBlock Text="{Binding ConnectionType}" 
+                                          FontSize="11" 
+                                          Foreground="#808080" 
+                                          Margin="8,0,0,0" 
+                                          VerticalAlignment="Center"
+                                          Visibility="{Binding ConnectionTypeVisibility}"/>
+                            </StackPanel>
+                        </HierarchicalDataTemplate>
+                    </TreeView.ItemTemplate>
+                </TreeView>
+            </Border>
+        </Grid>
+    </Grid>
+</mah:MetroWindow>
+

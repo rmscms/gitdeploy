@@ -11,53 +11,64 @@
       Title="TerminalPage">
 
     <Grid Background="#1E1E1E">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition x:Name="SessionManagerColumn" Width="300"/>
+            <ColumnDefinition Width="5"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/> <!-- Toolbar -->
             <RowDefinition Height="Auto"/> <!-- Presets -->
             <RowDefinition Height="*"/>    <!-- Terminal -->
         </Grid.RowDefinitions>
 
-        <!-- SSH Connection Toolbar -->
-        <Border Grid.Row="0" Background="#252526" Padding="10" BorderThickness="0,0,0,1" BorderBrush="#3E3E42">
-            <StackPanel Orientation="Horizontal">
-                <TextBlock Text="SSH Connection:" Foreground="#CCCCCC" VerticalAlignment="Center" Margin="0,0,10,0"/>
+        <!-- Session Manager Panel (Left Side) -->
+        <Border Grid.Column="0" Grid.Row="0" Grid.RowSpan="3" 
+                Background="#252526" BorderThickness="0,0,1,0" BorderBrush="#3E3E42">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
                 
-                <TextBox x:Name="SearchBox" Width="120" Height="28" Margin="0,0,8,0"
-                         mah:TextBoxHelper.Watermark="🔍 Search..."
-                         Background="#333337" Foreground="White"
-                         TextChanged="SearchBox_TextChanged"/>
+                <!-- Session Manager Header -->
+                <Border Grid.Row="0" Background="#2D2D30" Padding="10" BorderThickness="0,0,0,1" BorderBrush="#3E3E42">
+                    <TextBlock Text="📁 Session Manager" FontSize="16" FontWeight="Bold" Foreground="White"/>
+                </Border>
                 
-                <ComboBox x:Name="SshProfilesCombo" Width="250" Height="28" 
-                          DisplayMemberPath="DisplayName"
-                          Background="#333337" Foreground="White"
-                          SelectionChanged="SshProfilesCombo_SelectionChanged"
-                          IsEditable="False">
-                    <ComboBox.Resources>
-                        <Style TargetType="ComboBoxItem">
-                            <Setter Property="Background" Value="#333337"/>
-                            <Setter Property="Foreground" Value="White"/>
-                        </Style>
-                    </ComboBox.Resources>
-                </ComboBox>
-
-                <Button Content="🔌 Quick Connect" Margin="10,0,0,0" Height="28" Padding="10,0"
-                        Style="{StaticResource ModernButtonStyle}" Background="#007ACC"
-                        Click="QuickConnect_Click"/>
+                <!-- Session Manager Content -->
+                <controls:SessionManagerControl x:Name="SessionManagerContent" Grid.Row="1"/>
+            </Grid>
+        </Border>
+        
+        <!-- Resizer -->
+        <Border Grid.Column="1" Grid.Row="0" Grid.RowSpan="3" 
+                Background="#3E3E42" Cursor="SizeWE"
+                MouseLeftButtonDown="Resizer_MouseLeftButtonDown"
+                MouseLeftButtonUp="Resizer_MouseLeftButtonUp"
+                MouseMove="Resizer_MouseMove"/>
+        
+        <!-- Toolbar -->
+        <Border Grid.Column="2" Grid.Row="0" Background="#252526" Padding="10" BorderThickness="0,0,0,1" BorderBrush="#3E3E42">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0" >
+                <TextBlock Text="Active Terminals:" Foreground="#CCCCCC" VerticalAlignment="Center"/>
+                <TextBlock x:Name="ActiveTerminalsCount" Text="0" Foreground="#4EC9B0" FontWeight="Bold" VerticalAlignment="Center" Margin="6,0,12,0"/>
                 
-                <Button Content="⚙️ Manage Profiles" Margin="10,0,0,0" Height="28" Padding="10,0"
-                        Style="{StaticResource ModernButtonStyle}" Background="#3E3E42"
-                        Click="ManageProfiles_Click"/>
-
-                <Button Content="🗖 Pop-out" Margin="10,0,0,0" Height="28" Padding="10,0"
-                        Background="#333333" Foreground="#F0F0F0"
+                <Button x:Name="OpenLocalTerminalButton"
+                        Content="🖥 Local Terminal"
+                        Height="28"
+                        Padding="10,0"
+                        Background="#3F8EF7"
+                        Foreground="White"
                         BorderThickness="0"
                         Cursor="Hand"
-                        Click="DetachTerminalPage_Click"/>
+                        Click="OpenLocalTerminalButton_Click"/>
             </StackPanel>
         </Border>
 
         <!-- Command Presets -->
-        <Border Grid.Row="1" Background="#222326" Padding="12" BorderBrush="#1F1F1F" BorderThickness="0,0,0,1">
+        <Border Grid.Column="2" Grid.Row="1" Background="#222326" Padding="12" BorderBrush="#1F1F1F" BorderThickness="0,0,0,1">
             <StackPanel>
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -125,6 +136,7 @@
             </StackPanel>
         </Border>
 
-        <controls:TerminalControl x:Name="Terminal" Grid.Row="2"/>
+        <!-- Dynamic terminals grid -->
+        <Grid x:Name="TerminalsGrid" Grid.Column="2" Grid.Row="2" Background="#1E1E1E"/>
     </Grid>
 </Page>

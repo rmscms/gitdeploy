@@ -12,6 +12,7 @@ namespace GitDeployPro.Services
     {
         private const string GlobalConfigFile = "global_config.json";
         private const string ConnectionsFile = "connections.json"; // New file for stored connections
+        private const string SessionFoldersFile = "session_folders.json"; // Session Manager folder structure
         private const string ProjectConfigFile = ".gitdeploy.config";
 
         private string GetAppDataPath()
@@ -98,6 +99,74 @@ namespace GitDeployPro.Services
             {
                 connections.Remove(existing);
                 SaveConnections(connections);
+            }
+        }
+
+        // --- Session Folders Management (Tree Structure) ---
+
+        public List<SessionFolder> LoadSessionFolders()
+        {
+            try
+            {
+                var path = Path.Combine(GetAppDataPath(), SessionFoldersFile);
+                if (File.Exists(path))
+                {
+                    var json = File.ReadAllText(path);
+                    var list = JsonConvert.DeserializeObject<List<SessionFolder>>(json);
+                    return list ?? new List<SessionFolder>();
+                }
+            }
+            catch { }
+            return new List<SessionFolder>();
+        }
+
+        public void SaveSessionFolders(List<SessionFolder> folders)
+        {
+            try
+            {
+                var path = Path.Combine(GetAppDataPath(), SessionFoldersFile);
+                File.WriteAllText(path, JsonConvert.SerializeObject(folders, Formatting.Indented));
+            }
+            catch { }
+        }
+
+        public void AddOrUpdateSessionFolder(SessionFolder folder)
+        {
+            var folders = LoadSessionFolders();
+            var existing = folders.FirstOrDefault(x => x.Id == folder.Id);
+            
+            if (existing != null)
+            {
+                folders.Remove(existing);
+            }
+            folders.Add(folder);
+            SaveSessionFolders(folders);
+        }
+
+        public void DeleteSessionFolder(string id)
+        {
+            var folders = LoadSessionFolders();
+            var existing = folders.FirstOrDefault(x => x.Id == id);
+            if (existing != null)
+            {
+                // Move all connections from this folder to root (null folder)
+                var connections = LoadConnections();
+                foreach (var conn in connections.Where(c => c.FolderId == id))
+                {
+                    conn.FolderId = null;
+                }
+                SaveConnections(connections);
+
+                // Delete child folders (move them to parent or root)
+                var childFolders = folders.Where(f => f.ParentFolderId == id).ToList();
+                foreach (var child in childFolders)
+                {
+                    child.ParentFolderId = existing.ParentFolderId;
+                }
+                SaveSessionFolders(folders);
+
+                folders.Remove(existing);
+                SaveSessionFolders(folders);
             }
         }
 

@@ -22,6 +22,9 @@ namespace GitDeployPro.Models
 
         public string Id { get; set; } = Guid.NewGuid().ToString();
         
+        // Session Manager: Folder organization
+        public string? FolderId { get; set; } // null = no folder assigned
+        
         public string Name 
         { 
             get => _name;

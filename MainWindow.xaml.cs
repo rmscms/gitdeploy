@@ -239,22 +239,6 @@ namespace GitDeployPro
             SidebarToggleButton.Background = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#2B2D30"));
         }
 
-        private void SidebarTriggerZone_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
-        {
-            if (SidebarTriggerZone.FindName("SidebarTriggerZoneVisual") is Border visual)
-            {
-                visual.Background = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#773A3D43"));
-            }
-        }
-
-        private void SidebarTriggerZone_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
-        {
-            if (SidebarTriggerZone.FindName("SidebarTriggerZoneVisual") is Border visual)
-            {
-                visual.Background = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#553A3D43"));
-            }
-        }
-
         public void SetSidebarCollapsed(bool collapsed)
         {
             _isSidebarCollapsed = collapsed;
@@ -262,20 +246,6 @@ namespace GitDeployPro
             SidebarPanel.Visibility = collapsed ? Visibility.Collapsed : Visibility.Visible;
             SidebarToggleIcon.Text = collapsed ? "☰" : "⮜";
             SidebarToggleButton.ToolTip = collapsed ? "Show Sidebar" : "Hide Sidebar";
-            SidebarTriggerZone.Visibility = collapsed ? Visibility.Visible : Visibility.Collapsed;
-        }
-
-        private void SidebarRevealButton_Click(object sender, RoutedEventArgs e)
-        {
-            SetSidebarCollapsed(false);
-            LogSidebarAction("RevealButton");
-        }
-
-        private void SidebarTriggerZone_OnClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
-        {
-            e.Handled = true; // Mark as handled
-            SetSidebarCollapsed(false);
-            LogSidebarAction("TriggerZone");
         }
 
         private void LogSidebarAction(string source)

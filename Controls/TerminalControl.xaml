@@ -56,6 +56,34 @@
                         </Button.Resources>
                     </Button>
 
+                    <ToggleButton x:Name="TypeToggleButton" Content="|" ToolTip="Type (Enable/Disable typing)"
+                                  Width="32" Height="28" Margin="0,0,10,0"
+                                  Background="#333333" Foreground="#DDDDDD" BorderThickness="0" Cursor="Hand"
+                                  Checked="TypeToggleButton_Checked" Unchecked="TypeToggleButton_Unchecked"
+                                  IsChecked="True">
+                        <ToggleButton.Resources>
+                            <Style TargetType="Border">
+                                <Setter Property="CornerRadius" Value="3"/>
+                            </Style>
+                        </ToggleButton.Resources>
+                        <ToggleButton.Style>
+                            <Style TargetType="ToggleButton">
+                                <Setter Property="Background" Value="#333333"/>
+                                <Setter Property="Foreground" Value="#DDDDDD"/>
+                                <Style.Triggers>
+                                    <Trigger Property="IsChecked" Value="True">
+                                        <Setter Property="Background" Value="#0FB981"/>
+                                        <Setter Property="Foreground" Value="White"/>
+                                    </Trigger>
+                                    <Trigger Property="IsChecked" Value="False">
+                                        <Setter Property="Background" Value="#E74444"/>
+                                        <Setter Property="Foreground" Value="White"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ToggleButton.Style>
+                    </ToggleButton>
+
                     <ComboBox x:Name="FontSizeCombo" Width="50" SelectedIndex="2" SelectionChanged="FontSizeCombo_SelectionChanged" VerticalContentAlignment="Center">
                         <ComboBoxItem Content="10"/>
                         <ComboBoxItem Content="12"/>
@@ -89,9 +117,11 @@
                          FontFamily="Consolas, Courier New, Monospace"
                          FontSize="14"
                          BorderThickness="0"
-                         IsReadOnly="True"
+                         IsReadOnly="False"
                          IsDocumentEnabled="True"
+                         CaretBrush="#00FF00"
                          PreviewKeyDown="TerminalOutput_PreviewKeyDown"
+                         PreviewTextInput="TerminalOutput_PreviewTextInput"
                          Padding="10,10,10,60"
                          Margin="0,0,0,40">
                 <RichTextBox.Resources>
