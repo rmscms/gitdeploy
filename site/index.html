@@ -408,8 +408,8 @@
       <div class="col-md-6 col-lg-5">
         <div class="download-card h-100">
           <strong>Windows 10/11 (x64)</strong>
-          <p class="text-muted mb-3">Self-contained build v1.1.5 with in-app multi-terminal grid, detach-per-panel, local terminal button, and active indicator in Session Manager.</p>
-          <a class="btn btn-glow w-100" href="versions/GitDeployPro-v1.1.5-win-x64.zip">Download GitDeployPro 1.1.5</a>
+          <p class="text-muted mb-3">Self-contained build v1.1.6 with terminal improvements: Ctrl+V paste, carriage return handling, blinking cursor, and .NET runtime included (no install required).</p>
+          <a class="btn btn-glow w-100" href="versions/GitDeployPro-v1.1.6-win-x64.zip">Download GitDeployPro 1.1.6</a>
         </div>
       </div>
     </section>
@@ -421,11 +421,24 @@
       <div class="row g-3 mt-2">
         <div class="col-lg-6">
           <div class="changelog">
+            <h4>v1.1.6</h4>
+            <small>Released Dec 2025</small>
+            <ul>
+              <li>Terminal now supports Ctrl+V for pasting commands from clipboard in both SSH and local terminals.</li>
+              <li>Fixed carriage return (\r) handling so command history navigation (arrow keys) properly replaces the current line instead of appending.</li>
+              <li>Terminal cursor (caret) is now always visible and blinking, even when switching between terminal panels.</li>
+              <li>Improved terminal PTY settings (ICANON, ECHO, IXON/IXOFF) for better compatibility with remote shells.</li>
+              <li>Escape sequences (cursor movement, line clearing) are now properly filtered to prevent visual artifacts.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="changelog">
             <h4>v1.1.5</h4>
             <small>Released Dec 2025</small>
             <ul>
               <li>Terminal page now hosts multiple terminals inside the main grid (no more overlapping app windows), with auto layout (1x1, 1x2, 2x2, 2x3, 3x3) and per-panel resize thumb.</li>
-              <li>Each terminal panel has a “Detach” button to pop it out as a separate window while keeping the rest in the grid.</li>
+              <li>Each terminal panel has a "Detach" button to pop it out as a separate window while keeping the rest in the grid.</li>
               <li>Active connection indicator (🟢) appears in Session Manager tree, and multiple terminals per connection are supported.</li>
               <li>Local Terminal button added to the toolbar to open a PowerShell/CMD session in the current project folder inside the grid.</li>
               <li>Terminal caret is now visible (green, blinking) and stays focused after output for smoother typing.</li>

@@ -148,7 +148,20 @@ namespace GitDeployPro.Controls
                         _sshClient = new SshClient(connectionInfo);
                         _sshClient.Connect();
 
-                        _shellStream = _sshClient.CreateShellStream("xterm", 80, 24, 800, 600, 1024);
+                        // Create shell stream with proper terminal settings
+                        var terminalModes = new Dictionary<Renci.SshNet.Common.TerminalModes, uint>
+                        {
+                            { Renci.SshNet.Common.TerminalModes.ECHO, 1 },      // Enable echo
+                            { Renci.SshNet.Common.TerminalModes.ISIG, 1 },      // Enable signals (Ctrl+C)
+                            { Renci.SshNet.Common.TerminalModes.ICANON, 1 },    // Enable canonical mode (line editing)
+                            { Renci.SshNet.Common.TerminalModes.OPOST, 1 },     // Enable output processing
+                            { Renci.SshNet.Common.TerminalModes.ONLCR, 1 },     // Map NL to CR-NL on output
+                            { Renci.SshNet.Common.TerminalModes.ICRNL, 1 },     // Map CR to NL on input
+                            { Renci.SshNet.Common.TerminalModes.IXON, 0 },      // Disable XON/XOFF flow control
+                            { Renci.SshNet.Common.TerminalModes.IXOFF, 0 }      // Disable XON/XOFF flow control
+                        };
+
+                        _shellStream = _sshClient.CreateShellStream("xterm-256color", 120, 40, 800, 600, 1024, terminalModes);
                         
                         _isConnected = true;
                         _isLocal = false;
@@ -327,6 +340,27 @@ namespace GitDeployPro.Controls
             if (!_isConnected) return;
             if (!_isLocal && _shellStream == null) return;
 
+            // Handle Ctrl+V (Paste)
+            if (e.Key == Key.V && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+            {
+                if (System.Windows.Clipboard.ContainsText())
+                {
+                    string text = System.Windows.Clipboard.GetText();
+                    if (_isLocal && _localProcess != null)
+                    {
+                        _localProcess.StandardInput.Write(text);
+                        AppendText(text, null);
+                        TerminalScroller.ScrollToBottom();
+                    }
+                    else if (_shellStream != null)
+                    {
+                        _shellStream.Write(text);
+                    }
+                }
+                e.Handled = true;
+                return;
+            }
+
             // Handle Ctrl+C
             if (e.Key == Key.C && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
             {
@@ -474,8 +508,20 @@ namespace GitDeployPro.Controls
 
         private void ProcessOutput(string text)
         {
-            // 1. Strip known noise
-            text = text.Replace("\x1b[?2004h", "").Replace("\x1b[?2004l", "").Replace("\x1b[K", "");
+            // 1. Strip known noise and cursor movement sequences
+            text = text.Replace("\x1b[?2004h", "").Replace("\x1b[?2004l", "");
+            
+            // Remove cursor movement and line clearing sequences
+            text = Regex.Replace(text, @"\x1b\[K", "");           // Clear to end of line
+            text = Regex.Replace(text, @"\x1b\[\d*[ABCD]", "");   // Cursor up/down/left/right
+            text = Regex.Replace(text, @"\x1b\[\d+G", "");        // Cursor to column
+            text = Regex.Replace(text, @"\x1b\[\d*;\d*[Hf]", ""); // Cursor position
+            text = Regex.Replace(text, @"\x1b\[J", "");           // Clear screen
+            text = Regex.Replace(text, @"\x1b\[s", "");           // Save cursor position
+            text = Regex.Replace(text, @"\x1b\[u", "");           // Restore cursor position
+            text = Regex.Replace(text, @"\x1b\[2K", "");          // Clear entire line
+            text = Regex.Replace(text, @"\x1b\[1K", "");          // Clear line from beginning
+            text = Regex.Replace(text, @"\x1b\[\d+P", "");        // Delete characters
 
             // 2. Split by ANSI Color Codes
             string pattern = @"\x1b\[([0-9;]*)m";
@@ -492,7 +538,6 @@ namespace GitDeployPro.Controls
                 {
                     if (!string.IsNullOrEmpty(part))
                     {
-                        part = part.Replace("\r", ""); 
                         HandleTextWithControls(part, currentColor);
                     }
                 }
@@ -509,7 +554,17 @@ namespace GitDeployPro.Controls
             
             foreach (char c in text)
             {
-                if (c == '\b')
+                if (c == '\r')
+                {
+                    // Carriage return - clear current line and start over
+                    if (sb.Length > 0)
+                    {
+                        AppendText(sb.ToString(), color);
+                        sb.Clear();
+                    }
+                    ClearCurrentLine();
+                }
+                else if (c == '\b')
                 {
                     if (sb.Length > 0)
                     {
@@ -533,6 +588,15 @@ namespace GitDeployPro.Controls
             TerminalOutput.CaretBrush = System.Windows.Media.Brushes.Lime;
             TerminalOutput.CaretPosition = TerminalOutput.Document.ContentEnd;
             TerminalOutput.Focus();
+        }
+
+        private void ClearCurrentLine()
+        {
+            // Remove all text from the current line (last paragraph)
+            if (TerminalOutput.Document.Blocks.LastBlock is Paragraph lastP)
+            {
+                lastP.Inlines.Clear();
+            }
         }
 
         private void RemoveLastChar()
