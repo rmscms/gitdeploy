@@ -556,13 +556,8 @@ namespace GitDeployPro.Controls
             {
                 if (c == '\r')
                 {
-                    // Carriage return - clear current line and start over
-                    if (sb.Length > 0)
-                    {
-                        AppendText(sb.ToString(), color);
-                        sb.Clear();
-                    }
-                    ClearCurrentLine();
+                    // Carriage return - just ignore it, newline (\n) will handle line breaks
+                    continue;
                 }
                 else if (c == '\b')
                 {
@@ -588,15 +583,6 @@ namespace GitDeployPro.Controls
             TerminalOutput.CaretBrush = System.Windows.Media.Brushes.Lime;
             TerminalOutput.CaretPosition = TerminalOutput.Document.ContentEnd;
             TerminalOutput.Focus();
-        }
-
-        private void ClearCurrentLine()
-        {
-            // Remove all text from the current line (last paragraph)
-            if (TerminalOutput.Document.Blocks.LastBlock is Paragraph lastP)
-            {
-                lastP.Inlines.Clear();
-            }
         }
 
         private void RemoveLastChar()

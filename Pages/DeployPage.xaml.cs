@@ -289,19 +289,6 @@ namespace GitDeployPro.Pages
                 }
                 else
                 {
-                    // No commits to push -> Check for Synced State from ActionButton Tag or assume synced
-                    // BUT we just confirmed uncommittedCount == 0.
-                    
-                    // If we previously set it to "synced" because of deployment success, keep it?
-                    // Or revert to "NOTHING TO PUSH"? 
-                    // User wants "Synced" if synced.
-                    // But here source==target, so they are definitionally synced locally.
-                    // The question is sync with REMOTE.
-                    
-                    // Let's stick to "NOTHING TO PUSH" for same branch, unless user prefers "Synced".
-                    // "Synced" usually implies source vs target branches.
-                    // Here source == target, so "Nothing to Push" is more accurate for remote sync.
-                    
                     SetActionButton("push", "✅ NOTHING TO PUSH", "#2E7D32", false); 
                     StatusText.Text = "Branch is up to date with remote.";
                     StatusText.Foreground = System.Windows.Media.Brushes.LightGray;
@@ -310,17 +297,6 @@ namespace GitDeployPro.Pages
             else
             {
                 // Different branches (Source != Target)
-                // We rely on the explicit check in LoadGitData to set "synced" state initially.
-                // If we are here, it means LoadGitData hasn't set it OR we need to determine state.
-                
-                // CRITICAL FIX: Do NOT block updates if tag was "synced" but now we have changes.
-                // We already checked uncommitted > 0 at the top. If we are here, uncommitted == 0.
-                // So if tag is "synced", it means we are likely still synced.
-                // UNLESS a push happened on source that made them diverge?
-                // Re-checking Diff here is expensive.
-                // We will trust the "synced" tag if set by LoadGitData/Deploy success, 
-                // UNLESS uncommitted changes appeared (handled above).
-                
                 if (ActionButton.Tag?.ToString() == "synced")
                 {
                      return;
@@ -408,10 +384,22 @@ namespace GitDeployPro.Pages
 
         private async Task HandleCommit()
         {
+            await HandleCommit("update");
+        }
+
+        private async Task HandleCommit(string defaultMessage)
+        {
             try
             {
                 var changes = await _gitService.GetUncommittedChangesAsync();
                 var commitWindow = new CommitWindow(changes);
+                
+                // Set default message
+                if (!string.IsNullOrWhiteSpace(defaultMessage))
+                {
+                    commitWindow.CommitMessage = defaultMessage;
+                }
+                
                 commitWindow.ShowDialog();
 
                 if (commitWindow.Confirmed)
@@ -420,8 +408,43 @@ namespace GitDeployPro.Pages
                     await _gitService.CommitChangesAsync(commitWindow.CommitMessage);
                     AddLog("✅ Changes committed successfully!");
                     
-                    LoadGitData(); 
-                    ModernMessageBox.Show("Changes committed successfully!", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+                    LoadGitData();
+                    
+                    // Check if user wants to deploy immediately
+                    if (commitWindow.CommitAndDeployRequested)
+                    {
+                        AddLog("⚡ Starting deploy after commit...");
+                        await Task.Delay(500);
+                        
+                        // Auto-trigger compare & deploy
+                        if (SourceBranchComboBox.SelectedItem is ComboBoxItem sourceItem && 
+                            TargetBranchComboBox.SelectedItem is ComboBoxItem targetItem)
+                        {
+                            string? source = sourceItem.Content?.ToString();
+                            string? target = targetItem.Content?.ToString();
+
+                            var fileChanges = await _gitService.GetDiffAsync(source, target);
+                            
+                            if (fileChanges.Count == 0)
+                            {
+                                AddLog("ℹ️ No changes to deploy after commit.");
+                                StatusText.Text = "No changes to deploy.";
+                                StatusText.Foreground = System.Windows.Media.Brushes.LightGray;
+                            }
+                            else
+                            {
+                                AddLog($"🔍 Detected {fileChanges.Count} file(s) to deploy.");
+                                
+                                _fileViewModels = fileChanges.Select(c => new DeployFileViewModel(c) { IsSelected = true }).ToList();
+                                FilesListBox.ItemsSource = _fileViewModels;
+                                SelectAllCheckBox.IsChecked = true;
+                                FilesListBox.SelectedIndex = _fileViewModels.Count > 0 ? 0 : -1;
+                                UpdateDiffViewerFromSelection();
+
+                                await StartDeployProcess(fileChanges, isAutoFlow: true);
+                            }
+                        }
+                    }
                 }
             }
             catch (Exception ex)
@@ -447,7 +470,7 @@ namespace GitDeployPro.Pages
 
                     if (changes.Count == 0)
                     {
-                        ModernMessageBox.Show("No changes found between branches.", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
+                        // NO SUCCESS DIALOG - just info
                         StatusText.Text = "No changes to deploy.";
                         DeployButton.IsEnabled = false;
                         _fileViewModels.Clear();
@@ -505,7 +528,7 @@ namespace GitDeployPro.Pages
                 await _gitService.PushAsync();
                 
                 AddLog("✅ Successfully pushed to GitHub!");
-                ModernMessageBox.Show("Successfully pushed changes to GitHub! ✅", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+                // NO SUCCESS DIALOG
             }
             catch (Exception ex)
             {
@@ -533,7 +556,7 @@ namespace GitDeployPro.Pages
             await StartDeployProcess(selectedFiles);
         }
 
-        private async Task StartDeployProcess(List<FileChange> filesToDeploy)
+        private async Task StartDeployProcess(List<FileChange> filesToDeploy, bool isAutoFlow = false)
         {
             isDeploying = true;
             DeployButton.IsEnabled = false;
@@ -590,11 +613,6 @@ namespace GitDeployPro.Pages
                             
                             // Force button update to reflect synced state
                             _cachedUncommittedCount = 0; 
-                            // We assume sync worked, so diff is empty.
-                            // UpdateActionButtonState won't know this unless we refresh, 
-                            // but Refresh is called in finally block via LoadGitData().
-                            // However, LoadGitData might take a moment.
-                            // We can manually set button state here for better UX.
                             
                             Dispatcher.Invoke(() =>
                             {
@@ -628,7 +646,11 @@ namespace GitDeployPro.Pages
                 StatusText.Text = "Deployment finished successfully.";
                 StatusText.Foreground = System.Windows.Media.Brushes.LightGreen;
                 
-                ModernMessageBox.Show("Deployment completed successfully! ✅", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+                // NO SUCCESS DIALOG for auto flow
+                if (!isAutoFlow)
+                {
+                    ModernMessageBox.Show("Deployment completed successfully! ✅", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
             }
             catch (Exception ex)
             {
@@ -644,6 +666,7 @@ namespace GitDeployPro.Pages
                 {
                     // Clipboard might fail in some contexts; ignore.
                 }
+                // ALWAYS show error dialog
                 ModernMessageBox.Show($"Deployment Failed:\n\n{detailed}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally

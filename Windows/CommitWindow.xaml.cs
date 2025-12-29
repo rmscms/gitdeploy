@@ -15,7 +15,18 @@ namespace GitDeployPro.Windows
     public partial class CommitWindow : Window
     {
         public bool Confirmed { get; private set; } = false;
-        public string CommitMessage { get; private set; } = "";
+        public bool CommitAndDeployRequested { get; private set; } = false;
+        public string CommitMessage 
+        { 
+            get => CommitMessageTextBox?.Text ?? ""; 
+            set 
+            {
+                if (CommitMessageTextBox != null)
+                {
+                    CommitMessageTextBox.Text = value;
+                }
+            }
+        }
         private List<FileChange> _changes;
         private List<FileChangeViewModel> _viewModels = new List<FileChangeViewModel>();
 
@@ -46,6 +57,21 @@ namespace GitDeployPro.Windows
 
             CommitMessage = CommitMessageTextBox.Text;
             Confirmed = true;
+            CommitAndDeployRequested = false;
+            this.Close();
+        }
+
+        private void CommitAndDeploy_Click(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(CommitMessageTextBox.Text))
+            {
+                ModernMessageBox.Show("Please enter a commit message.", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            CommitMessage = CommitMessageTextBox.Text;
+            Confirmed = true;
+            CommitAndDeployRequested = true;
             this.Close();
         }
 
