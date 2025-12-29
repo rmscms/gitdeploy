@@ -205,6 +205,38 @@
                     </Button.Style>
                 </Button>
 
+                <Button x:Name="CommitAndDeployButton"
+                        Content="⚡ COMMIT &amp;&amp; DEPLOY" 
+                        Height="45" 
+                        Width="220"
+                        Margin="0,0,15,0"
+                        Background="#9C27B0"
+                        Foreground="White"
+                        BorderThickness="0"
+                        FontSize="14"
+                        FontWeight="Bold"
+                        Cursor="Hand"
+                        Click="CommitAndDeploy_Click">
+                    <Button.Style>
+                        <Style TargetType="Button">
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="6">
+                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="border" Property="Background" Value="#AB47BC"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </Button.Style>
+                </Button>
+
                 <Button Content="Commit &amp; Sync" 
                         Height="45" 
                         Width="150"
