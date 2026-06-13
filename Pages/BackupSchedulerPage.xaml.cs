@@ -2613,7 +2613,7 @@ namespace GitDeployPro.Pages
                     : "Local artifact";
                 var cleanupTag = result.RemoteArtifactDeleted ? " · remote cleaned" : string.Empty;
                 var validationTagMessage = validationResult.IsWarning
-                    ? " · Validation warning"
+                    ? $" · {validationResult.Message}"
                     : (validationResult.IsAttempted && validationResult.Passed ? " · Validation passed" : string.Empty);
                 historyEntry.Message = $"Manual run ({finalSizeLabel}) · {artifactLabel}{cleanupTag} · Health {healthLabel}{validationTagMessage}.";
                 BackupHistoryStore.AddEntry(historyEntry);

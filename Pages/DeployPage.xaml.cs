@@ -473,6 +473,26 @@ namespace GitDeployPro.Pages
 
                 if (commitWindow.Confirmed)
                 {
+                    if (commitWindow.SyncWithoutDeployRequested)
+                    {
+                        AddLog("🔄 Sync-only mode requested from review list (no FTP deploy).");
+                        await _gitService.CommitChangesAsync(commitWindow.CommitMessage);
+                        AddLog("✅ Commit completed.");
+                        await SyncLocalBranchesIfNeededAsync();
+                        bool pushSucceededSyncOnly = await PushToGithub();
+                        AddLog(pushSucceededSyncOnly
+                            ? "✅ Sync-only pipeline finished."
+                            : "⚠️ Sync-only pipeline finished with push error.");
+                        StatusText.Text = pushSucceededSyncOnly
+                            ? "Sync completed without deploy."
+                            : "Sync completed locally; push had issues.";
+                        StatusText.Foreground = GetThemeBrush(
+                            pushSucceededSyncOnly ? "Status.Success" : "Status.Warning",
+                            pushSucceededSyncOnly ? System.Windows.Media.Brushes.LightGreen : System.Windows.Media.Brushes.Orange);
+                        LoadGitData();
+                        return;
+                    }
+
                     var filesToDeploy = changes
                         .Select(c => new FileChange { Name = c.Name, Type = c.Type, DiffPatch = c.DiffPatch })
                         .ToList();

@@ -140,6 +140,31 @@
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
 
+                <DataGridTemplateColumn Header="Import" Width="110">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Content="Import/Validate"
+                                    Padding="10,4"
+                                    CommandParameter="{Binding}"
+                                    Click="ImportValidateFromHistory_Click">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource App.Button.Ghost}">
+                                        <Setter Property="IsEnabled" Value="True"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasLocalArtifact}" Value="False">
+                                                <Setter Property="IsEnabled" Value="False"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding OutputPath}" Value="">
+                                                <Setter Property="IsEnabled" Value="False"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
                 <DataGridTemplateColumn Header="Details" Width="*">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
