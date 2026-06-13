@@ -10,8 +10,8 @@
                  ResizeMode="NoResize"
                  ShowCloseButton="True"
                  BorderThickness="0"
-                 Background="#202020"
-                 Foreground="White"
+                 Background="{StaticResource Surface.Base}"
+                 Foreground="{StaticResource Text.Primary}"
                  Closing="FileConflictDialog_Closing">
     <Grid Margin="24">
         <Grid.RowDefinitions>
@@ -27,21 +27,21 @@
 
         <StackPanel Grid.Row="1" Margin="0,0,0,10">
             <TextBlock Text="Another file already exists at the destination. Decide how to proceed."
-                       Foreground="#B0B0B0"
+                       Foreground="{StaticResource Text.Muted}"
                        Margin="0,0,0,10"/>
-            <Border Background="#151515"
+            <Border Background="{StaticResource Surface.Shell}"
                     CornerRadius="6"
                     Padding="12"
-                    BorderBrush="#333333"
+                    BorderBrush="{StaticResource Border.Subtle}"
                     BorderThickness="1">
                 <StackPanel>
                     <TextBlock Text="Conflicting file:"
                                FontWeight="SemiBold"
-                               Foreground="#8DD1FF"/>
+                               Foreground="{StaticResource Status.Info}"/>
                     <TextBlock x:Name="FilePathText"
                                TextWrapping="Wrap"
                                Margin="0,4,0,0"
-                               Foreground="#E0E0E0"/>
+                               Foreground="{StaticResource Text.Secondary}"/>
                 </StackPanel>
             </Border>
         </StackPanel>
@@ -66,10 +66,8 @@
                     <Button Content="Overwrite file"
                             Margin="0,5,0,0"
                             Padding="14,8"
-                            Background="#1E88E5"
-                            Foreground="White"
-                            FontWeight="Bold"
-                            BorderThickness="0"
+                            Style="{StaticResource App.Button.Primary}"
+                            Foreground="{StaticResource Text.Primary}"
                             Click="Overwrite_Click"/>
                 </StackPanel>
                 <StackPanel Width="150" Margin="0,0,8,0">
@@ -79,10 +77,8 @@
                     <Button Content="Skip this file"
                             Margin="0,5,0,0"
                             Padding="14,8"
-                            Background="#546E7A"
-                            Foreground="White"
-                            FontWeight="Bold"
-                            BorderThickness="0"
+                            Style="{StaticResource App.Button.Ghost}"
+                            Foreground="{StaticResource Text.Secondary}"
                             Click="Skip_Click"/>
                 </StackPanel>
                 <StackPanel Width="150" Margin="0,0,8,0">
@@ -92,10 +88,8 @@
                     <Button Content="Overwrite all"
                             Margin="0,5,0,0"
                             Padding="14,8"
-                            Background="#0D47A1"
-                            Foreground="White"
-                            FontWeight="Bold"
-                            BorderThickness="0"
+                            Style="{StaticResource App.Button.Secondary}"
+                            Foreground="{StaticResource Text.Primary}"
                             Click="OverwriteAll_Click"/>
                 </StackPanel>
                 <StackPanel Width="150" Margin="0,0,8,0">
@@ -105,10 +99,8 @@
                     <Button Content="Skip all"
                             Margin="0,5,0,0"
                             Padding="14,8"
-                            Background="#37474F"
-                            Foreground="White"
-                            FontWeight="Bold"
-                            BorderThickness="0"
+                            Style="{StaticResource App.Button.Ghost}"
+                            Foreground="{StaticResource Text.Secondary}"
                             Click="SkipAll_Click"/>
                 </StackPanel>
                 <StackPanel Width="150" Margin="0,0,0,0">
@@ -118,10 +110,8 @@
                     <Button Content="Cancel"
                             Margin="0,5,0,0"
                             Padding="14,8"
-                            Background="#C62828"
-                            Foreground="White"
-                            FontWeight="Bold"
-                            BorderThickness="0"
+                            Style="{StaticResource App.Button.Danger}"
+                            Foreground="{StaticResource Text.Primary}"
                             Click="Cancel_Click"/>
                 </StackPanel>
             </StackPanel>

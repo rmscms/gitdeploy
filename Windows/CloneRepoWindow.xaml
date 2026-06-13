@@ -7,12 +7,12 @@
         AllowsTransparency="True"
         Background="Transparent">
 
-    <Border Background="#202020"
-            CornerRadius="10"
-            BorderBrush="#3F3F3F"
+    <Border Background="{StaticResource Surface.Raised}"
+            CornerRadius="14"
+            BorderBrush="{StaticResource Border.Strong}"
             BorderThickness="1">
         <Border.Effect>
-            <DropShadowEffect Color="Black" BlurRadius="30" ShadowDepth="10" Opacity="0.6"/>
+            <DropShadowEffect Color="Black" BlurRadius="30" ShadowDepth="8" Opacity="0.45"/>
         </Border.Effect>
 
         <Grid Margin="25">
@@ -34,9 +34,9 @@
                         <TextBlock Text="Clone or Connect Repository"
                                    FontSize="24"
                                    FontWeight="Bold"
-                                   Foreground="White"/>
+                                   Foreground="{StaticResource Text.Primary}"/>
                         <TextBlock Text="Build the remote URL automatically and pick a destination."
-                                   Foreground="#AAAAAA"
+                                   Foreground="{StaticResource Text.Muted}"
                                    FontSize="13"
                                    Margin="0,4,0,0"/>
                     </StackPanel>
@@ -46,7 +46,7 @@
                         Width="36"
                         Height="36"
                         Background="Transparent"
-                        Foreground="#CCCCCC"
+                        Foreground="{StaticResource Text.Muted}"
                         BorderThickness="0"
                         FontSize="16"
                         Cursor="Hand"
@@ -61,7 +61,7 @@
                                         </Border>
                                         <ControlTemplate.Triggers>
                                             <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="border" Property="Background" Value="#333333"/>
+                                                    <Setter TargetName="border" Property="Background" Value="{StaticResource State.Hover}"/>
                                             </Trigger>
                                         </ControlTemplate.Triggers>
                                     </ControlTemplate>
@@ -75,21 +75,18 @@
             <!-- Content -->
             <StackPanel Grid.Row="1" Margin="0,0,0,10">
                 <TextBlock Text="Repository (owner/name or full URL)"
-                           Foreground="#E0E0E0"
+                           Foreground="{StaticResource Text.Secondary}"
                            FontSize="14"
                            FontWeight="SemiBold"/>
                 <TextBox x:Name="RepoInputTextBox"
                          Height="40"
-                         Background="#3A3A3A"
-                         Foreground="#FFFFFF"
-                         BorderBrush="#555555"
-                         BorderThickness="1"
+                         Style="{StaticResource App.InputTextBox}"
                          Padding="10"
                          FontSize="13"
                          Margin="0,6,0,2"
                          TextChanged="RepoInputTextBox_TextChanged"/>
                 <TextBlock Text="Example: rmscms/gitdeploy or https://github.com/rmscms/gitdeploy.git"
-                           Foreground="#666666"
+                           Foreground="{StaticResource Text.Muted}"
                            FontSize="12"
                            Margin="0,0,0,16"/>
 
@@ -100,25 +97,19 @@
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
                     <StackPanel Grid.Column="0">
-                        <TextBlock Text="Host" Foreground="#E0E0E0" FontSize="13" FontWeight="SemiBold"/>
+                        <TextBlock Text="Host" Foreground="{StaticResource Text.Secondary}" FontSize="13" FontWeight="SemiBold"/>
                         <TextBox x:Name="HostTextBox"
                                  Height="36"
-                                 Background="#2F2F2F"
-                                 Foreground="#FFFFFF"
-                                 BorderBrush="#555555"
-                                 BorderThickness="1"
+                                 Style="{StaticResource App.InputTextBox}"
                                  Padding="10,0"
                                  FontSize="13"
                                  TextChanged="HostTextBox_TextChanged"/>
                     </StackPanel>
                     <StackPanel Grid.Column="2">
-                        <TextBlock Text="Protocol" Foreground="#E0E0E0" FontSize="13" FontWeight="SemiBold"/>
+                        <TextBlock Text="Protocol" Foreground="{StaticResource Text.Secondary}" FontSize="13" FontWeight="SemiBold"/>
                         <ComboBox x:Name="ProtocolComboBox"
                                   Height="36"
-                                  Background="#2F2F2F"
-                                  Foreground="White"
-                                  BorderBrush="#555555"
-                                  BorderThickness="1"
+                                  Style="{StaticResource App.InputComboBox}"
                                   SelectionChanged="ProtocolComboBox_SelectionChanged">
                             <ComboBoxItem Content="HTTPS" IsSelected="True"/>
                             <ComboBoxItem Content="SSH"/>
@@ -127,22 +118,20 @@
                 </Grid>
 
                 <TextBlock Text="Remote URL Preview"
-                           Foreground="#E0E0E0"
+                           Foreground="{StaticResource Text.Secondary}"
                            FontSize="14"
                            FontWeight="SemiBold"/>
                 <TextBox x:Name="PreviewUrlTextBox"
                          Height="40"
-                         Background="#1E1E1E"
-                         Foreground="#4FC3F7"
-                         BorderBrush="#333333"
-                         BorderThickness="1"
+                         Style="{StaticResource App.InputTextBox}"
+                         Foreground="{StaticResource Status.Info}"
                          Padding="10"
                          FontSize="13"
                          Margin="0,6,0,16"
                          IsReadOnly="True"/>
 
                 <TextBlock Text="Local Target Folder"
-                           Foreground="#E0E0E0"
+                           Foreground="{StaticResource Text.Secondary}"
                            FontSize="14"
                            FontWeight="SemiBold"/>
                 <Grid Margin="0,6,0,0">
@@ -154,10 +143,7 @@
                     <TextBox x:Name="LocalPathTextBox"
                              Grid.Column="0"
                              Height="40"
-                             Background="#3A3A3A"
-                             Foreground="#FFFFFF"
-                             BorderBrush="#555555"
-                             BorderThickness="1"
+                             Style="{StaticResource App.InputTextBox}"
                              Padding="10"
                              FontSize="13"
                              TextChanged="LocalPathTextBox_TextChanged"/>
@@ -166,9 +152,8 @@
                             Height="40"
                             Margin="10,0,0,0"
                             Padding="12,0"
-                            Background="#2B2B2B"
-                            Foreground="#FFFFFF"
-                            BorderThickness="0"
+                            Style="{StaticResource App.Button.Ghost}"
+                            Foreground="{StaticResource Text.Secondary}"
                             Cursor="Hand"
                             Click="UseDefaultPath_Click"/>
                     <Button Content="Browse"
@@ -176,14 +161,13 @@
                             Height="40"
                             Margin="10,0,0,0"
                             Padding="20,0"
-                            Background="#2E7D32"
-                            Foreground="White"
-                            BorderThickness="0"
+                            Style="{StaticResource App.Button.Success}"
+                            Foreground="{StaticResource Text.Inverse}"
                             Cursor="Hand"
                             Click="BrowseLocalButton_Click"/>
                 </Grid>
                 <TextBlock Text="We will create this folder if needed."
-                           Foreground="#666666"
+                           Foreground="{StaticResource Text.Muted}"
                            FontSize="12"
                            Margin="0,6,0,0"/>
             </StackPanel>
@@ -194,19 +178,16 @@
                         Height="42"
                         Width="110"
                         Margin="0,0,15,0"
-                        Background="Transparent"
-                        Foreground="#CCCCCC"
-                        BorderBrush="#555555"
-                        BorderThickness="1"
+                        Style="{StaticResource App.Button.Ghost}"
+                        Foreground="{StaticResource Text.Secondary}"
                         Cursor="Hand"
                         Click="Close_Click"/>
                 <Button x:Name="CloneButton"
                         Content="🚀 Clone Now"
                         Height="42"
                         Width="150"
-                        Background="#0078D4"
-                        Foreground="White"
-                        BorderThickness="0"
+                        Style="{StaticResource App.Button.Primary}"
+                        Foreground="{StaticResource Text.Primary}"
                         FontWeight="Bold"
                         Cursor="Hand"
                         Click="CloneButton_Click"/>

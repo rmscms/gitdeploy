@@ -9,8 +9,8 @@
         Height="520"
         Width="960"
         WindowStartupLocation="CenterOwner"
-        Background="#1E1E1E"
-        Foreground="#F0F0F0">
+        Background="{StaticResource Surface.Base}"
+        Foreground="{StaticResource Text.Primary}">
 
     <Grid Margin="16">
         <Grid.RowDefinitions>
@@ -21,15 +21,15 @@
 
         <!-- Connection controls -->
         <Border Grid.Row="0"
-                Background="#26272B"
+                Background="{StaticResource Surface.Card}"
                 CornerRadius="8"
                 Padding="14"
-                BorderBrush="#3A3B40"
+                BorderBrush="{StaticResource Border.Subtle}"
                 BorderThickness="1">
             <StackPanel>
                 <TextBlock Text="Select a database connection"
                            FontSize="13"
-                           Foreground="#BBBBBB"
+                           Foreground="{StaticResource Text.Muted}"
                            Margin="0,0,0,8"/>
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -54,9 +54,8 @@
                             Margin="8,0,0,0"
                             ToolTip="Reload saved connections"
                             Click="ReloadConnectionsButton_Click"
-                            Background="#3A3B40"
-                            Foreground="White"
-                            BorderThickness="0"/>
+                            Style="{StaticResource App.Button.Ghost}"
+                            Foreground="{StaticResource Text.Secondary}"/>
 
                     <Button x:Name="ConnectButton"
                             Grid.Column="2"
@@ -64,9 +63,8 @@
                             Height="32"
                             Margin="8,0,0,0"
                             Padding="18,0"
-                            Background="#3F8EF7"
-                            Foreground="White"
-                            BorderThickness="0"
+                            Style="{StaticResource App.Button.Primary}"
+                            Foreground="{StaticResource Text.Primary}"
                             Click="ConnectButton_Click"/>
 
                     <Button x:Name="RefreshButton"
@@ -75,9 +73,8 @@
                             Height="32"
                             Margin="8,0,0,0"
                             Padding="18,0"
-                            Background="#3A3B40"
-                            Foreground="White"
-                            BorderThickness="0"
+                            Style="{StaticResource App.Button.Toolbar}"
+                            Foreground="{StaticResource Text.Secondary}"
                             Click="RefreshButton_Click"/>
 
                     <StackPanel Grid.Column="4"
@@ -85,7 +82,7 @@
                                 Margin="12,0,0,0"
                                 VerticalAlignment="Center">
                         <TextBlock Text="Auto-refresh:"
-                                   Foreground="#BBBBBB"
+                                   Foreground="{StaticResource Text.Muted}"
                                    Margin="0,0,6,0"
                                    VerticalAlignment="Center"/>
                         <ComboBox x:Name="IntervalCombo"
@@ -106,19 +103,14 @@
         <!-- Process list -->
         <Border Grid.Row="1"
                 Margin="0,16,0,16"
-                Background="#1B1C1F"
+                Background="{StaticResource Surface.Shell}"
                 CornerRadius="10"
-                BorderBrush="#2F3034"
+                BorderBrush="{StaticResource Border.Subtle}"
                 BorderThickness="1">
             <DataGrid x:Name="ProcessGrid"
+                      Style="{StaticResource App.DataGrid}"
                       AutoGenerateColumns="False"
-                      HeadersVisibility="Column"
-                      GridLinesVisibility="Horizontal"
-                      Background="Transparent"
-                      Foreground="#FFFFFF"
                       BorderThickness="0"
-                      RowBackground="#1F2023"
-                      AlternatingRowBackground="#2A2B30"
                       IsReadOnly="True">
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="70"/>
@@ -142,7 +134,7 @@
                          IsIndeterminate="True"/>
             <TextBlock x:Name="StatusText"
                        Margin="12,0,0,0"
-                       Foreground="#CFCFCF"
+                       Foreground="{StaticResource Text.Secondary}"
                        VerticalAlignment="Center"
                        Text="Choose a connection to get started."/>
         </StackPanel>

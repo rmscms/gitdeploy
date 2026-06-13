@@ -44,6 +44,7 @@ namespace GitDeployPro.Services
                 ScheduleId = schedule.Id,
                 ScheduleName = schedule.Name,
                 DatabaseName = schedule.DatabaseName,
+                ConnectionProfileId = profile.Id,
                 ConnectionLabel = profile.DisplayName ?? profile.Name ?? profile.Host,
                 Mode = schedule.BackupMode.ToString(),
                 Origin = origin,
@@ -72,6 +73,33 @@ namespace GitDeployPro.Services
             TaskLogCreated?.Invoke($"Started backup '{status.ScheduleName}' ({status.Mode}).", false);
 
             return new BackupTaskHandle(status.TaskId, registration.Cancellation);
+        }
+
+        public bool IsScheduleRunning(string scheduleId, string? connectionProfileId = null)
+        {
+            if (string.IsNullOrWhiteSpace(scheduleId))
+            {
+                return false;
+            }
+
+            lock (_registrations)
+            {
+                return _registrations.Values.Any(reg =>
+                {
+                    if (!string.Equals(reg.Status.ScheduleId, scheduleId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return false;
+                    }
+
+                    if (string.IsNullOrWhiteSpace(connectionProfileId))
+                    {
+                        return reg.Status.State == BackupTaskState.Running;
+                    }
+
+                    return reg.Status.State == BackupTaskState.Running &&
+                           string.Equals(reg.Status.ConnectionProfileId, connectionProfileId, StringComparison.OrdinalIgnoreCase);
+                });
+            }
         }
 
         public void AttachPauseToken(Guid taskId, PauseTokenSource pauseSource)

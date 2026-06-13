@@ -7,12 +7,12 @@
         AllowsTransparency="True"
         Background="Transparent">
 
-    <Border Background="#202020" 
-            CornerRadius="10" 
-            BorderBrush="#3F3F3F" 
+    <Border Background="{StaticResource Surface.Raised}" 
+            CornerRadius="14" 
+            BorderBrush="{StaticResource Border.Strong}" 
             BorderThickness="1">
         <Border.Effect>
-            <DropShadowEffect Color="Black" BlurRadius="30" ShadowDepth="10" Opacity="0.6"/>
+            <DropShadowEffect Color="Black" BlurRadius="30" ShadowDepth="8" Opacity="0.45"/>
         </Border.Effect>
 
         <Grid Margin="25">
@@ -29,11 +29,11 @@
                     <TextBlock Text="Initialize Git Repository" 
                               FontSize="24" 
                               FontWeight="Bold" 
-                              Foreground="White"
+                              Foreground="{StaticResource Text.Primary}"
                               VerticalAlignment="Center"/>
                 </StackPanel>
                 <TextBlock Text="Set up version control for this project." 
-                          Foreground="#AAAAAA" 
+                          Foreground="{StaticResource Text.Muted}" 
                           Margin="48,5,0,0" 
                           FontSize="14"/>
             </StackPanel>
@@ -41,27 +41,25 @@
             <!-- Content -->
             <StackPanel Grid.Row="1">
                 <!-- Branches -->
-                <TextBlock Text="Select Branches to Create:" Foreground="#E0E0E0" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,10"/>
-                <Border Background="#2B2B2B" CornerRadius="6" Padding="15">
+                <TextBlock Text="Select Branches to Create:" Foreground="{StaticResource Text.Secondary}" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                <Border Background="{StaticResource Surface.Card}" BorderBrush="{StaticResource Border.Subtle}" BorderThickness="1" CornerRadius="10" Padding="15">
                     <WrapPanel>
-                        <CheckBox x:Name="MainBranchCheck" Content="main" IsChecked="True" Foreground="#CCCCCC" Margin="0,0,20,10"/>
-                        <CheckBox x:Name="MasterBranchCheck" Content="master" Foreground="#CCCCCC" Margin="0,0,20,10"/>
-                        <CheckBox x:Name="BetaBranchCheck" Content="beta" Foreground="#CCCCCC" Margin="0,0,20,10"/>
-                        <CheckBox x:Name="DevBranchCheck" Content="development" Foreground="#CCCCCC" Margin="0,0,20,10"/>
+                        <CheckBox x:Name="MainBranchCheck" Content="main" IsChecked="True" Margin="0,0,20,10"/>
+                        <CheckBox x:Name="MasterBranchCheck" Content="master" Margin="0,0,20,10"/>
+                        <CheckBox x:Name="BetaBranchCheck" Content="beta" Margin="0,0,20,10"/>
+                        <CheckBox x:Name="DevBranchCheck" Content="development" Margin="0,0,20,10"/>
                     </WrapPanel>
                 </Border>
 
                 <!-- Remote -->
-                <TextBlock Text="Remote Repository URL (Optional):" Foreground="#E0E0E0" FontSize="14" FontWeight="SemiBold" Margin="0,20,0,10"/>
+                <TextBlock Text="Remote Repository URL (Optional):" Foreground="{StaticResource Text.Secondary}" FontSize="14" FontWeight="SemiBold" Margin="0,20,0,10"/>
                 <TextBox x:Name="RemoteUrlTextBox" 
-                        Height="40" 
-                        Background="#3A3A3A"
-                        Foreground="#4FC3F7"
-                        BorderBrush="#555555"
-                        BorderThickness="1"
+                        Style="{StaticResource App.InputTextBox}" 
+                        Height="40"
+                        Foreground="{StaticResource Status.Info}"
                         Padding="10"
                         FontSize="13"/>
-                <TextBlock Text="e.g. https://github.com/username/repo.git" Foreground="#666666" FontSize="12" Margin="0,5,0,0"/>
+                <TextBlock Text="e.g. https://github.com/username/repo.git" Foreground="{StaticResource Text.Muted}" FontSize="12" Margin="0,5,0,0"/>
             </StackPanel>
 
             <!-- Footer Buttons -->
@@ -70,63 +68,21 @@
                         Height="40" 
                         Width="100" 
                         Margin="0,0,15,0"
-                        Background="Transparent"
-                        Foreground="#CCCCCC"
-                        BorderThickness="1"
-                        BorderBrush="#555555"
+                        Style="{StaticResource App.Button.Ghost}"
                         FontSize="14"
                         Cursor="Hand"
-                        Click="Close_Click">
-                    <Button.Style>
-                        <Style TargetType="Button">
-                            <Setter Property="Template">
-                                <Setter.Value>
-                                    <ControlTemplate TargetType="Button">
-                                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="6" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1">
-                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        </Border>
-                                        <ControlTemplate.Triggers>
-                                            <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="border" Property="Background" Value="#333333"/>
-                                            </Trigger>
-                                        </ControlTemplate.Triggers>
-                                    </ControlTemplate>
-                                </Setter.Value>
-                            </Setter>
-                        </Style>
-                    </Button.Style>
-                </Button>
+                        Click="Close_Click"/>
 
                 <Button x:Name="InitButton"
                         Content="🚀 Initialize &amp; Create" 
                         Height="40" 
                         Padding="20,0"
-                        Background="#2E7D32"
-                        Foreground="White"
-                        BorderThickness="0"
+                        Style="{StaticResource App.Button.Success}"
+                        Foreground="{StaticResource Text.Inverse}"
                         FontSize="14"
                         FontWeight="Bold"
                         Cursor="Hand"
-                        Click="Init_Click">
-                    <Button.Style>
-                        <Style TargetType="Button">
-                            <Setter Property="Template">
-                                <Setter.Value>
-                                    <ControlTemplate TargetType="Button">
-                                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="6">
-                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        </Border>
-                                        <ControlTemplate.Triggers>
-                                            <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="border" Property="Background" Value="#388E3C"/>
-                                            </Trigger>
-                                        </ControlTemplate.Triggers>
-                                    </ControlTemplate>
-                                </Setter.Value>
-                            </Setter>
-                        </Style>
-                    </Button.Style>
-                </Button>
+                        Click="Init_Click"/>
             </StackPanel>
         </Grid>
     </Border>

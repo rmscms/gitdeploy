@@ -9,51 +9,61 @@
         MinHeight="420"
         ResizeMode="CanResize"
         WindowStartupLocation="CenterScreen"
-        Background="#1E1E1E">
-    <Border BorderBrush="#333333" BorderThickness="1" Padding="12" Background="#1E1E1E">
-        <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
+        Background="{StaticResource Surface.Base}">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
 
-            <StackPanel Grid.Row="0" Margin="0,0,0,10">
-                <TextBlock x:Name="TitleText"
-                           FontSize="16"
-                           FontWeight="SemiBold"
-                           Foreground="White"
-                           TextTrimming="CharacterEllipsis"/>
-                <TextBlock x:Name="StatusText"
-                           FontSize="12"
-                           Foreground="#B0B0B0"/>
-            </StackPanel>
+        <Border Margin="12"
+                BorderBrush="{StaticResource Border.Strong}"
+                BorderThickness="1"
+                Padding="14"
+                Background="{StaticResource Surface.Raised}"
+                CornerRadius="14">
+            <Border.Effect>
+                <DropShadowEffect Color="Black" BlurRadius="26" Opacity="0.35" ShadowDepth="6" />
+            </Border.Effect>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
 
-            <controls:DiffViewer x:Name="DiffHost"
-                                 Grid.Row="1"
-                                 Title="Selected file diff"
-                                 EmptyMessage="No diff text available for this file."/>
+                <StackPanel Grid.Row="0" Margin="0,0,0,10">
+                    <TextBlock x:Name="TitleText"
+                               FontSize="16"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource Text.Primary}"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock x:Name="StatusText"
+                               FontSize="12"
+                               Foreground="{StaticResource Text.Muted}" />
+                </StackPanel>
 
-            <StackPanel Grid.Row="2"
-                        Orientation="Horizontal"
-                        HorizontalAlignment="Right"
-                        Margin="0,12,0,0">
-                <Button Content="Copy Diff"
-                        Width="110"
-                        Height="34"
-                        Margin="0,0,10,0"
-                        Background="#2F3B52"
-                        Foreground="White"
-                        BorderBrush="#546E7A"
-                        Click="CopyDiff_Click"/>
-                <Button Content="Close"
-                        Width="90"
-                        Height="34"
-                        Background="#B71C1C"
-                        Foreground="White"
-                        BorderBrush="#FF5252"
-                        Click="Close_Click"/>
-            </StackPanel>
-        </Grid>
-    </Border>
+                <controls:DiffViewer x:Name="DiffHost"
+                                     Grid.Row="1"
+                                     Title="Selected file diff"
+                                     EmptyMessage="No diff text available for this file." />
+
+                <StackPanel Grid.Row="2"
+                            Orientation="Horizontal"
+                            HorizontalAlignment="Right"
+                            Margin="0,12,0,0">
+                    <Button Content="Copy Diff"
+                            Width="110"
+                            Height="34"
+                            Margin="0,0,10,0"
+                            Style="{StaticResource App.Button.Primary}"
+                            Click="CopyDiff_Click" />
+                    <Button Content="Close"
+                            Width="90"
+                            Height="34"
+                            Style="{StaticResource App.Button.Ghost}"
+                            Click="Close_Click" />
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
 </Window>

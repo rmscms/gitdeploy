@@ -74,7 +74,22 @@ namespace GitDeployPro.Services
                 CompressOutput = source.CompressOutput,
                 CompressionFormat = source.CompressionFormat,
                 RetentionCount = source.RetentionCount,
+                EncryptAtRest = source.EncryptAtRest,
                 BackupMode = source.BackupMode,
+                RemoteDownloadPolicy = source.RemoteDownloadPolicy,
+                RemoteOutputDirectory = source.RemoteOutputDirectory ?? "/tmp/gitdeploypro-backups",
+                DeleteRemoteArtifactAfterDownload = source.DeleteRemoteArtifactAfterDownload,
+                EnableLocalRestoreValidation = source.EnableLocalRestoreValidation,
+                LocalValidationProfileId = string.IsNullOrWhiteSpace(source.LocalValidationProfileId)
+                    ? BackupRestoreValidationDefaults.LocalhostDefaultProfileId
+                    : source.LocalValidationProfileId,
+                LocalValidationHost = string.IsNullOrWhiteSpace(source.LocalValidationHost) ? "127.0.0.1" : source.LocalValidationHost,
+                LocalValidationPort = source.LocalValidationPort <= 0 ? 3306 : source.LocalValidationPort,
+                LocalValidationDatabaseName = source.LocalValidationDatabaseName ?? string.Empty,
+                LocalValidationUsername = string.IsNullOrWhiteSpace(source.LocalValidationUsername) ? "root" : source.LocalValidationUsername,
+                LocalValidationPassword = source.LocalValidationPassword ?? string.Empty,
+                LocalValidationCharset = string.IsNullOrWhiteSpace(source.LocalValidationCharset) ? "auto" : source.LocalValidationCharset,
+                LocalValidationCollation = string.IsNullOrWhiteSpace(source.LocalValidationCollation) ? "auto" : source.LocalValidationCollation,
                 LastRunUtc = source.LastRunUtc,
                 NextRunUtc = source.NextRunUtc
             };

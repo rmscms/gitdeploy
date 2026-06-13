@@ -5,6 +5,11 @@ using System.Runtime.ExceptionServices;
 using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Media3D;
 using GitDeployPro.Services;
 
 namespace GitDeployPro
@@ -18,6 +23,7 @@ namespace GitDeployPro
         {
             ConfigureUnhandledExceptions();
             base.OnStartup(e);
+            RegisterGlobalMouseWheelScrolling();
             Log("Application started.");
             _schedulerRunner.Start();
         }
@@ -47,6 +53,134 @@ namespace GitDeployPro
                 HandleException(ex.Exception, "TaskScheduler.UnobservedTaskException");
                 ex.SetObserved();
             };
+        }
+
+        private static void RegisterGlobalMouseWheelScrolling()
+        {
+            EventManager.RegisterClassHandler(
+                typeof(Window),
+                UIElement.PreviewMouseWheelEvent,
+                new MouseWheelEventHandler(HandleGlobalPreviewMouseWheel),
+                handledEventsToo: true);
+        }
+
+        private static void HandleGlobalPreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            if (e.OriginalSource is not DependencyObject origin)
+            {
+                return;
+            }
+
+            if ((Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+            {
+                return;
+            }
+
+            var target = FindScrollableViewer(origin, e.Delta);
+            if (target == null)
+            {
+                return;
+            }
+
+            ScrollViewerByDelta(target, e.Delta);
+            e.Handled = true;
+        }
+
+        private static ScrollViewer? FindScrollableViewer(DependencyObject origin, int delta)
+        {
+            ScrollViewer? fallback = null;
+            DependencyObject? current = origin;
+
+            while (current != null)
+            {
+                if (current is ScrollViewer viewer && viewer.ScrollableHeight > 0)
+                {
+                    fallback ??= viewer;
+                    if (CanScrollInDirection(viewer, delta))
+                    {
+                        return viewer;
+                    }
+                }
+
+                current = GetParent(current);
+            }
+
+            return fallback;
+        }
+
+        private static bool CanScrollInDirection(ScrollViewer viewer, int delta)
+        {
+            if (delta > 0)
+            {
+                return viewer.VerticalOffset > 0;
+            }
+
+            if (delta < 0)
+            {
+                return viewer.VerticalOffset < viewer.ScrollableHeight;
+            }
+
+            return false;
+        }
+
+        private static void ScrollViewerByDelta(ScrollViewer viewer, int delta)
+        {
+            if (delta == 0)
+            {
+                return;
+            }
+
+            var notchCount = Math.Max(1, Math.Abs(delta) / Mouse.MouseWheelDeltaForOneLine);
+            var wheelLines = SystemParameters.WheelScrollLines;
+
+            if (wheelLines <= 0)
+            {
+                for (var i = 0; i < notchCount; i++)
+                {
+                    if (delta > 0)
+                    {
+                        viewer.PageUp();
+                    }
+                    else
+                    {
+                        viewer.PageDown();
+                    }
+                }
+
+                return;
+            }
+
+            var lineCount = wheelLines * notchCount;
+            for (var i = 0; i < lineCount; i++)
+            {
+                if (delta > 0)
+                {
+                    viewer.LineUp();
+                }
+                else
+                {
+                    viewer.LineDown();
+                }
+            }
+        }
+
+        private static DependencyObject? GetParent(DependencyObject child)
+        {
+            if (child is Popup popup)
+            {
+                return popup.PlacementTarget;
+            }
+
+            if (child is Visual || child is Visual3D)
+            {
+                var visualParent = VisualTreeHelper.GetParent(child);
+                if (visualParent != null)
+                {
+                    return visualParent;
+                }
+            }
+
+            return LogicalTreeHelper.GetParent(child);
         }
 
         private void HandleException(Exception? exception, string source)

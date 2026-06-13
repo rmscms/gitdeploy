@@ -11,3 +11,5 @@ vendor/
 .gitdeploy.history
 publish/
 site/versions
+.cursor/
+releases/

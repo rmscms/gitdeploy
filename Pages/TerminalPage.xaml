@@ -8,9 +8,9 @@
       xmlns:controls="clr-namespace:GitDeployPro.Controls"
       mc:Ignorable="d" 
       d:DesignHeight="450" d:DesignWidth="800"
-      Title="TerminalPage">
-
-    <Grid Background="#1E1E1E">
+      Title="TerminalPage"
+      Background="{StaticResource Surface.Base}">
+    <Grid Background="{StaticResource Surface.Base}">
         <Grid.ColumnDefinitions>
             <ColumnDefinition x:Name="SessionManagerColumn" Width="300"/>
             <ColumnDefinition Width="5"/>
@@ -25,7 +25,7 @@
 
         <!-- Session Manager Panel (Left Side) -->
         <Border Grid.Column="0" Grid.Row="0" Grid.RowSpan="3" 
-                Background="#252526" BorderThickness="0,0,1,0" BorderBrush="#3E3E42">
+                Background="{StaticResource Surface.Card}" BorderThickness="0,0,1,0" BorderBrush="{StaticResource Border.Subtle}">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -33,8 +33,8 @@
                 </Grid.RowDefinitions>
                 
                 <!-- Session Manager Header -->
-                <Border Grid.Row="0" Background="#2D2D30" Padding="10" BorderThickness="0,0,0,1" BorderBrush="#3E3E42">
-                    <TextBlock Text="📁 Session Manager" FontSize="16" FontWeight="Bold" Foreground="White"/>
+                <Border Grid.Row="0" Background="{StaticResource Surface.Shell}" Padding="10" BorderThickness="0,0,0,1" BorderBrush="{StaticResource Border.Subtle}">
+                    <TextBlock Text="📁 Session Manager" FontSize="16" FontWeight="Bold" Foreground="{StaticResource Text.Primary}"/>
                 </Border>
                 
                 <!-- Session Manager Content -->
@@ -44,13 +44,13 @@
         
         <!-- Resizer -->
         <Border Grid.Column="1" Grid.Row="0" Grid.RowSpan="3" 
-                Background="#3E3E42" Cursor="SizeWE"
+                Background="{StaticResource Border.Subtle}" Cursor="SizeWE"
                 MouseLeftButtonDown="Resizer_MouseLeftButtonDown"
                 MouseLeftButtonUp="Resizer_MouseLeftButtonUp"
                 MouseMove="Resizer_MouseMove"/>
         
         <!-- Toolbar -->
-        <Border Grid.Column="2" Grid.Row="0" Background="#252526" Padding="10" BorderThickness="0,0,0,1" BorderBrush="#3E3E42">
+        <Border Grid.Column="2" Grid.Row="0" Background="{StaticResource Surface.Card}" Padding="10" BorderThickness="0,0,0,1" BorderBrush="{StaticResource Border.Subtle}">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
@@ -58,16 +58,16 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0">
-                    <TextBlock Text="Active Terminals:" Foreground="#CCCCCC" VerticalAlignment="Center"/>
-                    <TextBlock x:Name="ActiveTerminalsCount" Text="0" Foreground="#4EC9B0" FontWeight="Bold" VerticalAlignment="Center" Margin="6,0,12,0"/>
+                    <TextBlock Text="Active Terminals:" Foreground="{StaticResource Text.Secondary}" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="ActiveTerminalsCount" Text="0" Foreground="{StaticResource Status.Success}" FontWeight="Bold" VerticalAlignment="Center" Margin="6,0,12,0"/>
 
                     <Button x:Name="OpenLocalTerminalButton"
                             Content="🖥 Local Terminal"
-                            Height="28"
-                            Padding="10,0"
-                            Background="#3F8EF7"
-                            Foreground="White"
-                            BorderThickness="0"
+                            Height="34"
+                            Style="{StaticResource App.Button.Toolbar}"
+                            Background="{StaticResource Accent.Primary}"
+                            BorderBrush="{StaticResource Accent.Primary}"
+                            Foreground="{StaticResource Text.Primary}"
                             Cursor="Hand"
                             Click="OpenLocalTerminalButton_Click"/>
                 </StackPanel>
@@ -82,7 +82,7 @@
         </Border>
 
         <!-- Command Presets -->
-        <Border Grid.Column="2" Grid.Row="1" Background="#222326" Padding="12" BorderBrush="#1F1F1F" BorderThickness="0,0,0,1">
+        <Border Grid.Column="2" Grid.Row="1" Background="{StaticResource Surface.Shell}" Padding="12" BorderBrush="{StaticResource Border.Subtle}" BorderThickness="0,0,0,1">
             <StackPanel>
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -93,9 +93,7 @@
                     </Grid.ColumnDefinitions>
                     <ComboBox x:Name="PresetComboBox"
                               Grid.Column="0"
-                              Height="32"
-                              Background="#2F3035"
-                              Foreground="White"
+                              Style="{StaticResource App.InputComboBox}"
                               DisplayMemberPath="Title"
                               SelectedValuePath="Id"
                               Margin="0,0,12,0"/>
@@ -103,24 +101,22 @@
                             Grid.Column="1"
                             Margin="0,0,8,0"
                             Padding="16,4"
-                            Background="#3F8EF7"
-                            Foreground="White"
-                            BorderThickness="0"
+                            Style="{StaticResource App.Button.Primary}"
+                            Foreground="{StaticResource Text.Primary}"
                             Cursor="Hand"
                             Click="UsePreset_Click"/>
                     <Button Content="Delete"
                             Grid.Column="2"
                             Margin="0,0,8,0"
                             Padding="16,4"
-                            Background="#3A3B40"
-                            Foreground="#FF8A80"
-                            BorderThickness="0"
+                            Style="{StaticResource App.Button.Danger}"
+                            Foreground="{StaticResource Text.Primary}"
                             Cursor="Hand"
                             Click="DeletePreset_Click"/>
                     <CheckBox x:Name="BroadcastAllCheckBox"
                               Grid.Column="3"
                               Content="Send to all open terminals"
-                              Foreground="#9FA8DA"
+                              Foreground="{StaticResource Text.Secondary}"
                               VerticalAlignment="Center"/>
                 </Grid>
 
@@ -133,17 +129,18 @@
                     <TextBox x:Name="PresetTitleBox"
                              mah:TextBoxHelper.Watermark="Title"
                              Grid.Column="0"
+                             Style="{StaticResource App.InputTextBox}"
                              Margin="0,0,12,0"/>
                     <TextBox x:Name="PresetCommandBox"
                              mah:TextBoxHelper.Watermark="Command"
                              Grid.Column="1"
+                             Style="{StaticResource App.InputTextBox}"
                              Margin="0,0,12,0"/>
                     <Button Content="Save Preset"
                             Grid.Column="2"
                             Padding="16,4"
-                            Background="#3F8EF7"
-                            Foreground="White"
-                            BorderThickness="0"
+                            Style="{StaticResource App.Button.Primary}"
+                            Foreground="{StaticResource Text.Primary}"
                             Cursor="Hand"
                             Click="AddPresetButton_Click"/>
                 </Grid>
@@ -151,6 +148,6 @@
         </Border>
 
         <!-- Dynamic terminals grid -->
-        <Grid x:Name="TerminalsGrid" Grid.Column="2" Grid.Row="2" Background="#1E1E1E"/>
+        <Grid x:Name="TerminalsGrid" Grid.Column="2" Grid.Row="2" Background="{StaticResource Surface.Base}"/>
     </Grid>
 </Page>

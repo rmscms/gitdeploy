@@ -3,21 +3,152 @@
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                  xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
                  Title="Backup history"
-                 Width="680"
-                 Height="420"
+                 Width="980"
+                 Height="460"
+                 Background="{StaticResource Surface.Base}"
                  WindowStartupLocation="CenterOwner">
-    <Grid Margin="20">
-        <DataGrid ItemsSource="{Binding History}"
+    <mah:MetroWindow.Resources>
+        <Style x:Key="HistoryStateTextStyle" TargetType="TextBlock">
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{StaticResource Text.Muted}"/>
+        </Style>
+    </mah:MetroWindow.Resources>
+
+    <Grid Margin="{StaticResource Spacing.CardPadding}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <DockPanel Grid.Row="0" Margin="0,0,0,10">
+            <TextBlock Text="Backup history"
+                       FontSize="16"
+                       FontWeight="SemiBold"
+                       Foreground="{StaticResource Text.Primary}"
+                       VerticalAlignment="Center"/>
+            <Button Content="🗑 Clear backup history"
+                    DockPanel.Dock="Right"
+                    HorizontalAlignment="Right"
+                    Style="{StaticResource App.Button.Ghost}"
+                    BorderBrush="{StaticResource Status.Error}"
+                    Foreground="{StaticResource Status.Error}"
+                    Padding="12,6"
+                    Click="ClearBackupHistory_Click"/>
+        </DockPanel>
+
+        <DataGrid Grid.Row="1"
+                  ItemsSource="{Binding History}"
                   AutoGenerateColumns="False"
-                  Background="#1A1A1A"
-                  Foreground="White"
+                  Style="{StaticResource App.DataGrid}"
                   BorderThickness="0"
                   CanUserAddRows="False">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Started" Binding="{Binding StartedUtc, StringFormat={}{0:G}}" Width="160"/>
-                <DataGridTextColumn Header="Schedule" Binding="{Binding ScheduleName}" Width="150"/>
+                <DataGridTextColumn Header="Started" Binding="{Binding StartedUtc, StringFormat={}{0:G}}" Width="150"/>
+                <DataGridTextColumn Header="Schedule" Binding="{Binding ScheduleName}" Width="145"/>
                 <DataGridTextColumn Header="Database" Binding="{Binding DatabaseName}" Width="120"/>
-                <DataGridTextColumn Header="Status" Binding="{Binding Message}" Width="*"/>
+
+                <DataGridTemplateColumn Header="Conn" Width="60">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock>
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource HistoryStateTextStyle}">
+                                        <Setter Property="Text" Value="✖"/>
+                                        <Setter Property="Foreground" Value="{StaticResource Status.Error}"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Success}" Value="True">
+                                                <Setter Property="Text" Value="✔"/>
+                                                <Setter Property="Foreground" Value="{StaticResource Status.Success}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <DataGridTemplateColumn Header="File" Width="60">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock>
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource HistoryStateTextStyle}">
+                                        <Setter Property="Text" Value="✖"/>
+                                        <Setter Property="Foreground" Value="{StaticResource Status.Error}"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasLocalArtifact}" Value="True">
+                                                <Setter Property="Text" Value="✔"/>
+                                                <Setter Property="Foreground" Value="{StaticResource Status.Success}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <DataGridTemplateColumn Header="Health" Width="70">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock>
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource HistoryStateTextStyle}">
+                                        <Setter Property="Text" Value="✖"/>
+                                        <Setter Property="Foreground" Value="{StaticResource Status.Error}"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HealthPassed}" Value="True">
+                                                <Setter Property="Text" Value="✔"/>
+                                                <Setter Property="Foreground" Value="{StaticResource Status.Success}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <DataGridTemplateColumn Header="Verify" Width="70">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock>
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource HistoryStateTextStyle}">
+                                        <Setter Property="Text" Value="—"/>
+                                        <Setter Property="Foreground" Value="{StaticResource Text.Muted}"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding RestoreValidationAttempted}" Value="True">
+                                                <Setter Property="Text" Value="✖"/>
+                                                <Setter Property="Foreground" Value="{StaticResource Status.Error}"/>
+                                            </DataTrigger>
+                                            <MultiDataTrigger>
+                                                <MultiDataTrigger.Conditions>
+                                                    <Condition Binding="{Binding RestoreValidationAttempted}" Value="True"/>
+                                                    <Condition Binding="{Binding RestoreValidationPassed}" Value="True"/>
+                                                </MultiDataTrigger.Conditions>
+                                                <Setter Property="Text" Value="✔"/>
+                                                <Setter Property="Foreground" Value="{StaticResource Status.Success}"/>
+                                            </MultiDataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <DataGridTemplateColumn Header="Details" Width="*">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Message}"
+                                       TextTrimming="CharacterEllipsis"
+                                       ToolTip="{Binding Message}" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
             </DataGrid.Columns>
         </DataGrid>
     </Grid>

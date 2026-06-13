@@ -7,13 +7,29 @@
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent">
+    <Window.Resources>
+        <Style x:Key="CommitListItemStyle" TargetType="ListBoxItem">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <ContentPresenter />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
 
-    <Border Background="#202020" 
-            CornerRadius="10" 
-            BorderBrush="#3F3F3F" 
+    <Border Background="{StaticResource Surface.Raised}"
+            CornerRadius="14"
+            BorderBrush="{StaticResource Border.Strong}"
             BorderThickness="1">
         <Border.Effect>
-            <DropShadowEffect Color="Black" BlurRadius="30" ShadowDepth="10" Opacity="0.6"/>
+            <DropShadowEffect Color="Black" BlurRadius="30" ShadowDepth="8" Opacity="0.45"/>
         </Border.Effect>
 
         <Grid Margin="25">
@@ -36,14 +52,14 @@
                     <TextBlock Text="Uncommitted Changes" 
                               FontSize="24" 
                               FontWeight="Bold" 
-                              Foreground="White"
+                              Foreground="{StaticResource Text.Primary}"
                               VerticalAlignment="Center"/>
                 </StackPanel>
 
                 <Button Grid.Column="1" Content="✕" 
                         Width="30" Height="30" 
                         Background="Transparent" 
-                        Foreground="#888888" 
+                        Foreground="{StaticResource Text.Muted}" 
                         BorderThickness="0"
                         FontSize="16"
                         Cursor="Hand"
@@ -51,7 +67,7 @@
             </Grid>
 
             <!-- File List -->
-            <Border Grid.Row="1" Background="#2B2B2B" CornerRadius="8" Padding="15" Margin="0,0,0,20">
+            <Border Grid.Row="1" Background="{StaticResource Surface.Card}" CornerRadius="10" Padding="15" Margin="0,0,0,20" BorderBrush="{StaticResource Border.Subtle}" BorderThickness="1">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -59,8 +75,8 @@
                     </Grid.RowDefinitions>
 
                     <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,15">
-                        <TextBlock Text="Pending Changes: " FontSize="14" Foreground="#CCCCCC"/>
-                        <TextBlock x:Name="TotalChangesText" Text="0 Files" FontSize="14" FontWeight="Bold" Foreground="White"/>
+                        <TextBlock Text="Pending Changes: " FontSize="14" Foreground="{StaticResource Text.Secondary}"/>
+                        <TextBlock x:Name="TotalChangesText" Text="0 Files" FontSize="14" FontWeight="Bold" Foreground="{StaticResource Text.Primary}"/>
                     </StackPanel>
 
                     <Grid Grid.Row="1">
@@ -74,16 +90,25 @@
                             <ListBox x:Name="FilesListBox"
                                      Background="Transparent"
                                      BorderThickness="0"
+                                     ItemContainerStyle="{StaticResource CommitListItemStyle}"
                                      SelectionMode="Single"
                                      SelectionChanged="FilesListBox_SelectionChanged"
+                                     PreviewMouseRightButtonDown="FilesListBox_PreviewMouseRightButtonDown"
                                      MouseDoubleClick="FilesListBox_MouseDoubleClick">
+                                <ListBox.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem Header="Add to .gitignore"
+                                                  Click="AddToGitIgnoreMenuItem_Click"/>
+                                    </ContextMenu>
+                                </ListBox.ContextMenu>
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Background="#1A1A1A" 
+                                        <Border x:Name="ItemCard"
+                                                Background="{StaticResource Surface.Input}" 
                                                 CornerRadius="4" 
                                                 Padding="10" 
                                                 Margin="0,0,0,8"
-                                                BorderBrush="#333333"
+                                                BorderBrush="{StaticResource Border.Subtle}"
                                                 BorderThickness="1">
                                             <Grid>
                                                 <Grid.ColumnDefinitions>
@@ -101,22 +126,24 @@
                                                     <TextBlock Text="{Binding StatusText}" 
                                                               FontSize="11" 
                                                               FontWeight="Bold" 
-                                                              Foreground="White"/>
+                                                              Foreground="{StaticResource Text.Primary}"/>
                                                 </Border>
 
                                                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                                                     <TextBlock Text="{Binding Name}" 
                                                               FontSize="13" 
-                                                              Foreground="#E0E0E0"
+                                                              Foreground="{StaticResource Text.Secondary}"
                                                               VerticalAlignment="Center"
                                                               TextTrimming="CharacterEllipsis"/>
                                                     <Button Content="VS"
                                                             Margin="10,0,0,0"
                                                             Padding="8,2"
+                                                            Height="26"
                                                             FontSize="11"
-                                                            Foreground="White"
-                                                            Background="#3A3F54"
-                                                            BorderBrush="#5C6BC0"
+                                                            Foreground="{StaticResource Text.Primary}"
+                                                            Background="{StaticResource Surface.Shell}"
+                                                            BorderBrush="{StaticResource Border.Strong}"
+                                                            BorderThickness="1"
                                                             Cursor="Hand"
                                                             Tag="{Binding}"
                                                             Click="OpenCodeButton_Click"/>
@@ -144,6 +171,12 @@
                                                 </StackPanel>
                                             </Grid>
                                         </Border>
+                                        <DataTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=ListBoxItem}, Path=IsSelected}" Value="True">
+                                                <Setter TargetName="ItemCard" Property="BorderBrush" Value="{StaticResource Accent.Primary}" />
+                                                <Setter TargetName="ItemCard" Property="Background" Value="{StaticResource Surface.Raised}" />
+                                            </DataTrigger>
+                                        </DataTemplate.Triggers>
                                     </DataTemplate>
                                 </ListBox.ItemTemplate>
                             </ListBox>
@@ -159,14 +192,14 @@
 
             <!-- Commit Message -->
             <StackPanel Grid.Row="2" Margin="0,0,0,20">
-                <TextBlock Text="Commit Message:" FontSize="13" Foreground="#CCCCCC" Margin="0,0,0,8"/>
+                <TextBlock Text="Commit Message:" FontSize="13" Foreground="{StaticResource Text.Secondary}" Margin="0,0,0,8"/>
                 <TextBox x:Name="CommitMessageTextBox" 
                         Height="80" 
                         TextWrapping="Wrap" 
                         AcceptsReturn="True"
-                        Background="#3A3A3A"
-                        Foreground="White"
-                        BorderBrush="#555555"
+                        Background="{StaticResource Surface.Input}"
+                        Foreground="{StaticResource Text.Primary}"
+                        BorderBrush="{StaticResource Border.Subtle}"
                         BorderThickness="1"
                         Padding="10"
                         FontSize="13"/>
@@ -175,66 +208,23 @@
             <!-- Footer Buttons -->
             <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Content="Cancel" 
-                        Height="45" 
+                        Height="40" 
                         Width="100" 
                         Margin="0,0,15,0"
-                        Background="Transparent"
-                        Foreground="#CCCCCC"
-                        BorderThickness="1"
-                        BorderBrush="#555555"
-                        FontSize="14"
+                        Style="{StaticResource App.Button.Ghost}"
+                        FontSize="13"
                         Cursor="Hand"
-                        Click="Close_Click">
-                    <Button.Style>
-                        <Style TargetType="Button">
-                            <Setter Property="Template">
-                                <Setter.Value>
-                                    <ControlTemplate TargetType="Button">
-                                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="6" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1">
-                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        </Border>
-                                        <ControlTemplate.Triggers>
-                                            <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="border" Property="Background" Value="#333333"/>
-                                            </Trigger>
-                                        </ControlTemplate.Triggers>
-                                    </ControlTemplate>
-                                </Setter.Value>
-                            </Setter>
-                        </Style>
-                    </Button.Style>
-                </Button>
+                        Click="Close_Click"/>
 
                 <Button x:Name="CommitAndDeployButton"
                         Content="⚡ DEPLOY → COMMIT + PUSH" 
-                        Height="45" 
+                        Height="40" 
                         Width="260"
-                        Background="#9C27B0"
-                        Foreground="White"
-                        BorderThickness="0"
-                        FontSize="14"
+                        Style="{StaticResource App.Button.Primary}"
+                        FontSize="13"
                         FontWeight="Bold"
                         Cursor="Hand"
-                        Click="CommitAndDeploy_Click">
-                    <Button.Style>
-                        <Style TargetType="Button">
-                            <Setter Property="Template">
-                                <Setter.Value>
-                                    <ControlTemplate TargetType="Button">
-                                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="6">
-                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        </Border>
-                                        <ControlTemplate.Triggers>
-                                            <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="border" Property="Background" Value="#AB47BC"/>
-                                            </Trigger>
-                                        </ControlTemplate.Triggers>
-                                    </ControlTemplate>
-                                </Setter.Value>
-                            </Setter>
-                        </Style>
-                    </Button.Style>
-                </Button>
+                        Click="CommitAndDeploy_Click"/>
 
             </StackPanel>
         </Grid>

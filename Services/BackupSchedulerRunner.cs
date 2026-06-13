@@ -12,10 +12,13 @@ namespace GitDeployPro.Services
         private readonly ConfigurationService _configService = new();
         private readonly DatabaseBackupService _backupService = new();
         private readonly BackupHealthService _healthService = new();
+        private readonly BackupRestoreValidationService _restoreValidationService = new();
         private readonly NotificationService _notificationService = new();
         private readonly BackupTaskMonitor _taskMonitor = BackupTaskMonitor.Instance;
         private readonly System.Threading.Timer _timer;
         private readonly object _gate = new();
+        private readonly Dictionary<string, int> _failureCounts = new(StringComparer.OrdinalIgnoreCase);
+        private readonly HashSet<string> _runningScheduleKeys = new(StringComparer.OrdinalIgnoreCase);
         private bool _disposed;
         private bool _checking;
 
@@ -56,7 +59,7 @@ namespace GitDeployPro.Services
                 {
                     if (schedule.NextRunUtc == null)
                     {
-                        BackupSchedulePlanner.RefreshNextRun(schedule);
+                        BackupScheduleTimelineService.RecalculateNextRun(schedule, DateTime.UtcNow);
                         continue;
                     }
 
@@ -65,8 +68,9 @@ namespace GitDeployPro.Services
                     await RunScheduleAsync(schedule);
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                System.Diagnostics.Debug.WriteLine($"[BackupSchedulerRunner] Check loop error: {ex}");
             }
             finally
             {
@@ -84,7 +88,21 @@ namespace GitDeployPro.Services
             if (profile == null)
             {
                 _notificationService.ShowToast("Backup skipped", $"Profile missing for {schedule.Name}.");
+                ApplyFailureBackoff(schedule, "Missing connection profile.");
+                BackupScheduleStore.AddOrUpdate(schedule);
                 return;
+            }
+
+            var runKey = BuildRunKey(schedule.Id, schedule.ConnectionProfileId);
+            lock (_gate)
+            {
+                if (_runningScheduleKeys.Contains(runKey) || _taskMonitor.IsScheduleRunning(schedule.Id, schedule.ConnectionProfileId))
+                {
+                    _notificationService.ShowToast("Backup skipped", $"{schedule.Name} is already running.");
+                    return;
+                }
+
+                _runningScheduleKeys.Add(runKey);
             }
 
             var history = new BackupHistoryEntry
@@ -105,28 +123,103 @@ namespace GitDeployPro.Services
                     _taskMonitor.UpdateProgress(taskHandle.TaskId, update);
                 });
                 var result = await _backupService.RunBackupAsync(profile, schedule, progress, taskHandle.Cancellation.Token);
-                var health = _healthService.Verify(result.OutputPath, schedule.CompressOutput);
+                var hasLocalArtifact = result.HasLocalArtifact &&
+                                       !string.IsNullOrWhiteSpace(result.OutputPath) &&
+                                       System.IO.File.Exists(result.OutputPath);
+                var health = hasLocalArtifact
+                    ? _healthService.Verify(result.OutputPath, result.IsCompressed)
+                    : new BackupHealthReport
+                    {
+                        IsHealthy = true,
+                        Details = "Remote artifact reference saved. Local health verification skipped."
+                    };
+
+                var validationResult = BackupRestoreValidationResult.Skipped("Local restore validation is disabled.");
+                if (schedule.EnableLocalRestoreValidation)
+                {
+                    if (!BackupRestoreValidationService.TryBuildLocalConnectionInfo(schedule, out _, out var validationConfigReason))
+                    {
+                        validationResult = BackupRestoreValidationResult.Warning($"Validation warning: {validationConfigReason}");
+                    }
+                    else if (!hasLocalArtifact)
+                    {
+                        validationResult = BackupRestoreValidationResult.Warning("Validation warning: no local artifact is available for localhost restore validation.");
+                    }
+                    else
+                    {
+                        validationResult = await _restoreValidationService.ValidateAsync(
+                            schedule,
+                            result.OutputPath,
+                            progress,
+                            taskHandle.Cancellation.Token);
+                    }
+                }
+
+                if (validationResult.IsAttempted && validationResult.Passed && hasLocalArtifact)
+                {
+                    if (BackupArtifactNaming.TryMarkAsVerified(result.OutputPath, out var verifiedPath, out _))
+                    {
+                        result.OutputPath = verifiedPath;
+                        if (System.IO.File.Exists(verifiedPath))
+                        {
+                            result.BytesWritten = new System.IO.FileInfo(verifiedPath).Length;
+                        }
+                    }
+                }
 
                 history.CompletedUtc = DateTime.UtcNow;
                 history.Success = true;
                 history.OutputPath = result.OutputPath;
                 history.FileSizeBytes = result.BytesWritten;
                 history.Sha256 = result.Sha256;
+                history.IsRemoteArtifact = result.IsRemoteArtifact;
+                history.HasLocalArtifact = result.HasLocalArtifact;
+                history.RemoteArtifactPath = result.RemoteArtifactPath;
+                history.RemoteArtifactSizeBytes = result.RemoteArtifactBytes;
+                history.RemoteArtifactSha256 = result.RemoteArtifactSha256;
+                history.DownloadPolicy = schedule.RemoteDownloadPolicy.ToString();
+                history.RemoteArtifactDeletedAfterDownload = result.RemoteArtifactDeleted;
+                history.RemoteCleanupMessage = result.RemoteCleanupMessage;
                 history.HealthPassed = health.IsHealthy;
                 history.HealthDetails = health.Details;
-                var artifactLabel = schedule.CompressOutput
-                    ? (schedule.CompressionFormat == BackupCompressionFormat.TarGz ? "tar.gz" : "zip")
-                    : "sql";
+                history.RestoreValidationEnabled = schedule.EnableLocalRestoreValidation;
+                history.RestoreValidationAttempted = validationResult.IsAttempted;
+                history.RestoreValidationPassed = validationResult.Passed;
+                history.RestoreValidationMessage = validationResult.Message;
+                history.RestoreValidationDatabase = validationResult.ValidationDatabaseName;
+                var artifactLabel = result.IsRemoteArtifact
+                    ? (result.HasLocalArtifact ? "remote+local" : "remote-reference")
+                    : (schedule.CompressOutput
+                        ? (schedule.CompressionFormat == BackupCompressionFormat.TarGz ? "tar.gz" : "zip")
+                        : "sql");
+                if (!result.IsRemoteArtifact && schedule.EncryptAtRest)
+                {
+                    artifactLabel += "+protected";
+                }
                 var healthLabel = health.IsHealthy ? "passed" : "FAILED";
-                history.Message = $"Created {artifactLabel} ({FormatBytes(result.BytesWritten)}) · Health {healthLabel}.";
+                var cleanupTag = result.RemoteArtifactDeleted ? " · remote cleaned" : string.Empty;
+                var validationTag = validationResult.IsWarning
+                    ? " · Validation warning"
+                    : (validationResult.IsAttempted && validationResult.Passed ? " · Validation passed" : string.Empty);
+                var finalSizeLabel = FormatBytes(result.BytesWritten);
+                history.Message = $"Created {artifactLabel} ({finalSizeLabel}){cleanupTag} · Health {healthLabel}{validationTag}.";
 
                 schedule.LastRunUtc = history.CompletedUtc;
-                BackupSchedulePlanner.RefreshNextRun(schedule);
+                ResetFailureBackoff(schedule);
+                BackupScheduleTimelineService.RecalculateNextRun(schedule, DateTime.UtcNow);
                 BackupScheduleStore.AddOrUpdate(schedule);
                 BackupHistoryStore.AddEntry(history);
-                _taskMonitor.CompleteTask(taskHandle.TaskId, $"[{schedule.Name}] Scheduled backup finished ({FormatBytes(result.BytesWritten)}).");
+                var validationTaskTag = validationResult.IsWarning ? " with validation warning" : string.Empty;
+                _taskMonitor.CompleteTask(taskHandle.TaskId, $"[{schedule.Name}] Scheduled backup finished ({finalSizeLabel}){validationTaskTag}.");
 
-                _notificationService.ShowToast("Backup completed", $"{schedule.Name} finished successfully.");
+                if (validationResult.IsWarning)
+                {
+                    _notificationService.ShowToast("Backup completed with validation warning", $"{schedule.Name}: {validationResult.Message}");
+                }
+                else
+                {
+                    _notificationService.ShowToast("Backup completed", $"{schedule.Name} finished successfully.");
+                }
             }
             catch (OperationCanceledException)
             {
@@ -134,6 +227,8 @@ namespace GitDeployPro.Services
                 history.Success = false;
                 history.Message = "Canceled by user.";
                 BackupHistoryStore.AddEntry(history);
+                ApplyFailureBackoff(schedule, "Canceled by user.");
+                BackupScheduleStore.AddOrUpdate(schedule);
                 if (taskHandle != null)
                 {
                     _taskMonitor.MarkCancelled(taskHandle.TaskId, $"[{schedule.Name}] Scheduled backup canceled.");
@@ -145,6 +240,8 @@ namespace GitDeployPro.Services
                 history.Success = false;
                 history.Message = ex.Message;
                 BackupHistoryStore.AddEntry(history);
+                ApplyFailureBackoff(schedule, ex.Message);
+                BackupScheduleStore.AddOrUpdate(schedule);
                 if (taskHandle != null)
                 {
                     _taskMonitor.FailTask(taskHandle.TaskId, $"[{schedule.Name}] Scheduled backup failed: {ex.Message}");
@@ -154,7 +251,49 @@ namespace GitDeployPro.Services
             finally
             {
                 taskHandle?.Dispose();
+                lock (_gate)
+                {
+                    _runningScheduleKeys.Remove(runKey);
+                }
             }
+        }
+
+        private void ApplyFailureBackoff(BackupSchedule schedule, string reason)
+        {
+            if (schedule == null || string.IsNullOrWhiteSpace(schedule.Id))
+            {
+                return;
+            }
+
+            var attempts = 1;
+            lock (_gate)
+            {
+                _failureCounts.TryGetValue(schedule.Id, out attempts);
+                attempts = Math.Min(attempts + 1, 8);
+                _failureCounts[schedule.Id] = attempts;
+            }
+
+            var delayMinutes = Math.Min(30, (int)Math.Pow(2, attempts - 1));
+            schedule.NextRunUtc = DateTime.UtcNow.AddMinutes(Math.Max(1, delayMinutes));
+            _notificationService.ShowToast("Backup retry scheduled", $"{schedule.Name}: retry in {delayMinutes} min ({reason}).");
+        }
+
+        private void ResetFailureBackoff(BackupSchedule schedule)
+        {
+            if (schedule == null || string.IsNullOrWhiteSpace(schedule.Id))
+            {
+                return;
+            }
+
+            lock (_gate)
+            {
+                _failureCounts.Remove(schedule.Id);
+            }
+        }
+
+        private static string BuildRunKey(string scheduleId, string? connectionProfileId)
+        {
+            return $"{scheduleId}|{connectionProfileId ?? string.Empty}";
         }
 
         private static string FormatBytes(long bytes)

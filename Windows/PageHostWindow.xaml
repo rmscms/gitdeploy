@@ -6,13 +6,13 @@
                  Height="800"
                  Width="1200"
                  WindowStartupLocation="CenterScreen"
-                 Background="#1F1F1F">
+                 Background="{StaticResource Surface.Base}">
     <Grid>
         <Frame x:Name="HostFrame"
                NavigationUIVisibility="Hidden"
-               Background="#1F1F1F"
+               Background="{StaticResource Surface.Base}"
                ScrollViewer.VerticalScrollBarVisibility="Auto"
-               ScrollViewer.HorizontalScrollBarVisibility="Auto" />
+               ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
     </Grid>
 </mah:MetroWindow>
 

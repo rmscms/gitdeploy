@@ -22,6 +22,7 @@ namespace GitDeployPro.Models
         public string ScheduleId { get; set; } = string.Empty;
         public string ScheduleName { get; set; } = string.Empty;
         public string DatabaseName { get; set; } = string.Empty;
+        public string ConnectionProfileId { get; set; } = string.Empty;
         public string ConnectionLabel { get; set; } = string.Empty;
         public string Mode { get; set; } = string.Empty;
         public string Origin { get; set; } = string.Empty;

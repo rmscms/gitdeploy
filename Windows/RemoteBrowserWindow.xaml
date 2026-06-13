@@ -7,12 +7,12 @@
         AllowsTransparency="True"
         Background="Transparent">
 
-    <Border Background="#202020" 
-            CornerRadius="10" 
-            BorderBrush="#3F3F3F" 
+    <Border Background="{StaticResource Surface.Raised}" 
+            CornerRadius="14" 
+            BorderBrush="{StaticResource Border.Strong}" 
             BorderThickness="1">
         <Border.Effect>
-            <DropShadowEffect Color="Black" BlurRadius="30" ShadowDepth="10" Opacity="0.6"/>
+            <DropShadowEffect Color="Black" BlurRadius="30" ShadowDepth="8" Opacity="0.45"/>
         </Border.Effect>
 
         <Grid Margin="20">
@@ -35,14 +35,14 @@
                     <TextBlock Text="Select Remote Folder" 
                               FontSize="20" 
                               FontWeight="Bold" 
-                              Foreground="White"
+                              Foreground="{StaticResource Text.Primary}"
                               VerticalAlignment="Center"/>
                 </StackPanel>
 
                 <Button Grid.Column="1" Content="✕" 
                         Width="30" Height="30" 
                         Background="Transparent" 
-                        Foreground="#888888" 
+                        Foreground="{StaticResource Text.Muted}" 
                         BorderThickness="0"
                         FontSize="16"
                         Cursor="Hand"
@@ -54,21 +54,17 @@
                      x:Name="PathTextBox"
                      Height="35" 
                      Text="/" 
-                     Background="#333333"
-                     Foreground="White"
-                     BorderBrush="#555555"
-                     BorderThickness="1"
+                     Style="{StaticResource App.InputTextBox}"
                      Padding="10,0"
                      VerticalContentAlignment="Center"
                      Margin="0,0,0,10"
                      IsReadOnly="True"/>
 
             <!-- File List -->
-            <Border Grid.Row="2" Background="#2B2B2B" CornerRadius="8" Padding="10">
+            <Border Grid.Row="2" Background="{StaticResource Surface.Card}" BorderBrush="{StaticResource Border.Subtle}" BorderThickness="1" CornerRadius="10" Padding="10">
                 <ListBox x:Name="FileListBox" 
-                         Background="Transparent" 
-                         BorderThickness="0"
-                         Foreground="White"
+                         Style="{StaticResource App.ListBox.Host}"
+                         Foreground="{StaticResource Text.Primary}"
                          MouseDoubleClick="FileListBox_MouseDoubleClick">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
@@ -87,62 +83,21 @@
                         Height="40" 
                         Width="100" 
                         Margin="0,0,10,0"
-                        Background="Transparent"
-                        Foreground="#CCCCCC"
-                        BorderThickness="1"
-                        BorderBrush="#555555"
+                        Style="{StaticResource App.Button.Ghost}"
+                        Foreground="{StaticResource Text.Secondary}"
                         FontSize="14"
                         Cursor="Hand"
-                        Click="Close_Click">
-                    <Button.Style>
-                        <Style TargetType="Button">
-                            <Setter Property="Template">
-                                <Setter.Value>
-                                    <ControlTemplate TargetType="Button">
-                                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="6" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1">
-                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        </Border>
-                                        <ControlTemplate.Triggers>
-                                            <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="border" Property="Background" Value="#333333"/>
-                                            </Trigger>
-                                        </ControlTemplate.Triggers>
-                                    </ControlTemplate>
-                                </Setter.Value>
-                            </Setter>
-                        </Style>
-                    </Button.Style>
-                </Button>
+                        Click="Close_Click"/>
 
                 <Button Content="Select" 
                         Height="40" 
                         Width="100"
-                        Background="#0078D4"
-                        Foreground="White"
-                        BorderThickness="0"
+                        Style="{StaticResource App.Button.Primary}"
+                        Foreground="{StaticResource Text.Primary}"
                         FontSize="14"
                         FontWeight="Bold"
                         Cursor="Hand"
-                        Click="Select_Click">
-                    <Button.Style>
-                        <Style TargetType="Button">
-                            <Setter Property="Template">
-                                <Setter.Value>
-                                    <ControlTemplate TargetType="Button">
-                                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="6">
-                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        </Border>
-                                        <ControlTemplate.Triggers>
-                                            <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="border" Property="Background" Value="#1084D8"/>
-                                            </Trigger>
-                                        </ControlTemplate.Triggers>
-                                    </ControlTemplate>
-                                </Setter.Value>
-                            </Setter>
-                        </Style>
-                    </Button.Style>
-                </Button>
+                        Click="Select_Click"/>
             </StackPanel>
         </Grid>
     </Border>

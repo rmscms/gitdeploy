@@ -24,10 +24,16 @@ namespace GitDeployPro.Windows
         private ConfigurationService _configService;
         private List<ConnectionProfile> _profiles = new List<ConnectionProfile>();
         private ConnectionProfile? _currentProfile;
+        private string _connectionSearchText = string.Empty;
         private readonly ObservableCollection<PathMapping> _pathMappings = new ObservableCollection<PathMapping>();
         private readonly NavicatImportService _navicatImportService = new NavicatImportService();
         private CancellationTokenSource? _remoteTestCts;
         private bool _isTestingRemote;
+        private CancellationTokenSource? _databaseTestCts;
+        private bool _isTestingDatabase;
+        private bool _isSyncingPasswordEditors;
+        private bool _isRemotePasswordVisible;
+        private bool _isDatabasePasswordVisible;
 
         public ConnectionProfile? SelectedProfile { get; private set; }
 
@@ -43,6 +49,7 @@ namespace GitDeployPro.Windows
                 DbTypeCombo.ItemsSource = Enum.GetValues(typeof(DatabaseType));
                 
                 LoadProfiles();
+                ResetPasswordEditorState();
                 UpdateEditPanelVisibility();
             }
             catch (Exception ex)
@@ -130,13 +137,73 @@ namespace GitDeployPro.Windows
             try 
             {
                 _profiles = _configService.LoadConnections();
-                ConnectionsList.ItemsSource = null;
-                ConnectionsList.ItemsSource = _profiles;
+                RefreshConnectionsList(selectFirstWhenMissing: false);
             }
             catch (Exception ex)
             {
                 ModernMessageBox.Show($"Error loading profiles: {ex.Message}", "Data Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 _profiles = new List<ConnectionProfile>();
+                RefreshConnectionsList(selectFirstWhenMissing: false);
+            }
+        }
+
+        private IEnumerable<ConnectionProfile> GetFilteredProfiles()
+        {
+            if (string.IsNullOrWhiteSpace(_connectionSearchText))
+            {
+                return _profiles;
+            }
+
+            var query = _connectionSearchText.Trim();
+            return _profiles.Where(profile =>
+                (!string.IsNullOrWhiteSpace(profile.Name) && profile.Name.Contains(query, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrWhiteSpace(profile.Host) && profile.Host.Contains(query, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrWhiteSpace(profile.DbName) && profile.DbName.Contains(query, StringComparison.OrdinalIgnoreCase)) ||
+                profile.DbType.ToString().Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                ((profile.UseSSH ? "sftp ssh" : "ftp").Contains(query, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        private void RefreshConnectionsList(string? preferredProfileId = null, bool selectFirstWhenMissing = true)
+        {
+            var keepSelectionId = preferredProfileId
+                                  ?? (ConnectionsList.SelectedItem as ConnectionProfile)?.Id
+                                  ?? _currentProfile?.Id;
+
+            var filtered = GetFilteredProfiles().ToList();
+
+            ConnectionsList.ItemsSource = null;
+            ConnectionsList.ItemsSource = filtered;
+
+            if (filtered.Count == 0)
+            {
+                ConnectionsList.SelectedItem = null;
+                _currentProfile = null;
+                EditPanel.IsEnabled = false;
+                _pathMappings.Clear();
+                UpdateEditPanelVisibility();
+                return;
+            }
+
+            var selected = !string.IsNullOrWhiteSpace(keepSelectionId)
+                ? filtered.FirstOrDefault(p => string.Equals(p.Id, keepSelectionId, StringComparison.OrdinalIgnoreCase))
+                : null;
+
+            if (selected != null)
+            {
+                ConnectionsList.SelectedItem = selected;
+                ConnectionsList.ScrollIntoView(selected);
+            }
+            else if (selectFirstWhenMissing)
+            {
+                ConnectionsList.SelectedIndex = 0;
+                if (ConnectionsList.SelectedItem != null)
+                {
+                    ConnectionsList.ScrollIntoView(ConnectionsList.SelectedItem);
+                }
+            }
+            else
+            {
+                ConnectionsList.SelectedItem = null;
             }
         }
 
@@ -189,6 +256,7 @@ namespace GitDeployPro.Windows
             DbUserBox.Text = profile.DbUsername;
             DbPassBox.Password = EncryptionService.Decrypt(profile.DbPassword);
             DbNameBox.Text = profile.DbName;
+            ResetPasswordEditorState();
 
             PopulatePathMappings(profile);
         }
@@ -216,7 +284,7 @@ namespace GitDeployPro.Windows
             var browser = new RemoteBrowserWindow(
                 HostBox.Text,
                 UserBox.Text,
-                PassBox.Password,
+                GetRemotePassword(),
                 int.Parse(PortBox.Text)
             );
 
@@ -230,13 +298,31 @@ namespace GitDeployPro.Windows
         {
             var newProfile = new ConnectionProfile
             {
-                Name = "New Connection",
+                Name = string.Empty,
                 Host = "",
                 Username = ""
             };
+
             _configService.AddOrUpdateConnection(newProfile);
             LoadProfiles();
-            ConnectionsList.SelectedItem = newProfile; // Select it
+
+            var selected = _profiles.FirstOrDefault(p => p.Id == newProfile.Id);
+            if (selected == null)
+            {
+                return;
+            }
+
+            // Keep newly created profiles at the top for immediate editing.
+            _profiles.Remove(selected);
+            _profiles.Insert(0, selected);
+            _configService.SaveConnections(_profiles);
+            RefreshConnectionsList(selected.Id);
+
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                NameBox.Focus();
+                NameBox.CaretIndex = NameBox.Text?.Length ?? 0;
+            }), System.Windows.Threading.DispatcherPriority.Background);
         }
 
         private void DeleteButton_Click(object sender, RoutedEventArgs e)
@@ -283,13 +369,7 @@ namespace GitDeployPro.Windows
                 
                 _configService.AddOrUpdateConnection(newProfile);
                 LoadProfiles();
-                
-                 foreach(var p in _profiles) {
-                    if(p.Id == newProfile.Id) {
-                         ConnectionsList.SelectedItem = p;
-                         break;
-                    }
-                 }
+                RefreshConnectionsList(newProfile.Id);
             }
         }
 
@@ -304,10 +384,18 @@ namespace GitDeployPro.Windows
             if (_currentProfile == null) return;
 
             // Update object
-            _currentProfile.Name = (NameBox.Text ?? string.Empty).Trim();
+            var connectionName = (NameBox.Text ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(connectionName))
+            {
+                ModernMessageBox.Show("Connection name is required.", "Validation", MessageBoxButton.OK, MessageBoxImage.Warning);
+                NameBox.Focus();
+                return;
+            }
+
+            _currentProfile.Name = connectionName;
             _currentProfile.Host = (HostBox.Text ?? string.Empty).Trim();
             _currentProfile.Username = (UserBox.Text ?? string.Empty).Trim();
-            _currentProfile.Password = EncryptionService.Encrypt(PassBox.Password);
+            _currentProfile.Password = EncryptionService.Encrypt(GetRemotePassword());
             _currentProfile.UseSSH = SftpRadio.IsChecked == true;
             
             if (int.TryParse(PortBox.Text, out int port)) _currentProfile.Port = port;
@@ -331,7 +419,7 @@ namespace GitDeployPro.Windows
             _currentProfile.DbHost = (DbHostBox.Text ?? string.Empty).Trim();
             if (int.TryParse(DbPortBox.Text, out int dbPort)) _currentProfile.DbPort = dbPort;
             _currentProfile.DbUsername = (DbUserBox.Text ?? string.Empty).Trim();
-            _currentProfile.DbPassword = EncryptionService.Encrypt(DbPassBox.Password);
+            _currentProfile.DbPassword = EncryptionService.Encrypt(GetDatabasePassword());
             _currentProfile.DbName = (DbNameBox.Text ?? string.Empty).Trim();
 
             // Save to disk
@@ -442,7 +530,7 @@ namespace GitDeployPro.Windows
 
             string host = (HostBox.Text ?? string.Empty).Trim();
             string user = (UserBox.Text ?? string.Empty).Trim();
-            string pass = PassBox.Password;
+            string pass = GetRemotePassword();
             int port = int.TryParse(PortBox.Text, out int p) ? p : 21;
             bool isSsh = SftpRadio.IsChecked == true;
 
@@ -578,11 +666,79 @@ namespace GitDeployPro.Windows
             }
         }
 
+        private void SetDatabaseTestUiState(bool isTesting, string statusMessage)
+        {
+            if (TestDatabaseButton != null)
+            {
+                TestDatabaseButton.IsEnabled = !isTesting;
+                TestDatabaseButton.Content = isTesting ? "Testing..." : "🔌 Test Database Connection";
+            }
+
+            if (DatabaseTestOverlay != null)
+            {
+                DatabaseTestOverlay.Visibility = isTesting ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            if (DatabaseTestOverlayStatusText != null)
+            {
+                DatabaseTestOverlayStatusText.Text = statusMessage ?? string.Empty;
+            }
+
+            if (DatabaseTestOverlayCancelButton != null)
+            {
+                DatabaseTestOverlayCancelButton.IsEnabled = isTesting;
+            }
+
+            if (DatabaseTestStatusText != null)
+            {
+                DatabaseTestStatusText.Text = statusMessage ?? string.Empty;
+            }
+        }
+
+        private void CancelDatabaseTestButton_Click(object sender, RoutedEventArgs e)
+        {
+            _databaseTestCts?.Cancel();
+            if (_isTestingDatabase)
+            {
+                SetDatabaseTestUiState(true, "Cancelling database test...");
+            }
+        }
+
+        private async Task TestDatabaseConnectionAsync(DatabaseConnectionEntry entry, CancellationToken cancellationToken)
+        {
+            var connectTask = Task.Run(async () =>
+            {
+                await using var client = new DatabaseClient();
+                await client.ConnectAsync(entry.ToConnectionInfo());
+                await client.DisconnectAsync();
+            }, cancellationToken);
+
+            var delayTask = Task.Delay(TimeSpan.FromSeconds(30), cancellationToken);
+            var completed = await Task.WhenAny(connectTask, delayTask).ConfigureAwait(true);
+            if (completed != connectTask)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                throw new TimeoutException("Database test timed out.");
+            }
+
+            await connectTask.ConfigureAwait(true);
+        }
+
         private async void TestDatabase_Click(object sender, RoutedEventArgs e)
         {
-            var dbType = DbTypeCombo.SelectedItem is DatabaseType selected && selected != DatabaseType.None
-                ? selected
-                : DatabaseType.MySQL;
+            if (_isTestingDatabase)
+            {
+                return;
+            }
+
+            if (DbTypeCombo.SelectedItem is not DatabaseType selectedType || selectedType == DatabaseType.None)
+            {
+                ModernMessageBox.Show("Please select a database type first.", "Validation", MessageBoxButton.OK, MessageBoxImage.Warning);
+                DbTypeCombo.Focus();
+                return;
+            }
+
+            var dbType = selectedType;
 
             if (dbType != DatabaseType.MySQL && dbType != DatabaseType.MariaDB)
             {
@@ -592,15 +748,13 @@ namespace GitDeployPro.Windows
 
             var host = string.IsNullOrWhiteSpace(DbHostBox.Text) ? "127.0.0.1" : DbHostBox.Text.Trim();
             var username = string.IsNullOrWhiteSpace(DbUserBox.Text) ? "root" : DbUserBox.Text.Trim();
-            var password = DbPassBox.Password ?? string.Empty;
+            var password = GetDatabasePassword();
             var database = DbNameBox.Text?.Trim() ?? string.Empty;
             var connectionName = string.IsNullOrWhiteSpace(NameBox.Text) ? "Database Test" : NameBox.Text.Trim();
-            var button = TestDatabaseButton;
-            var originalContent = button.Content;
             var useSshTunnel = SftpRadio.IsChecked == true;
             var sshHost = string.IsNullOrWhiteSpace(HostBox.Text) ? "127.0.0.1" : HostBox.Text.Trim();
             var sshUsername = string.IsNullOrWhiteSpace(UserBox.Text) ? "root" : UserBox.Text.Trim();
-            var sshPassword = PassBox.Password ?? string.Empty;
+            var sshPassword = GetRemotePassword();
             var sshPortText = string.IsNullOrWhiteSpace(PortBox.Text) ? string.Empty : PortBox.Text.Trim();
             var sshPort = int.TryParse(sshPortText, out var parsedSshPort) ? parsedSshPort : (useSshTunnel ? 22 : 21);
             if (sshPort <= 0)
@@ -630,27 +784,184 @@ namespace GitDeployPro.Windows
                 SshPassword = sshPassword,
                 SshPrivateKeyPath = privateKeyPath
             };
-
-            button.IsEnabled = false;
-            button.Content = "Testing...";
+            _isTestingDatabase = true;
+            _databaseTestCts = new CancellationTokenSource(TimeSpan.FromSeconds(35));
+            SetDatabaseTestUiState(true, "Testing database login and route...");
 
             try
             {
-                await using var client = new DatabaseClient();
-                await client.ConnectAsync(entry.ToConnectionInfo());
-                await client.DisconnectAsync();
-
+                await TestDatabaseConnectionAsync(entry, _databaseTestCts.Token);
+                SetDatabaseTestUiState(false, "Database connection successful.");
                 ModernMessageBox.Show("Database connection successful. ✅", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (OperationCanceledException)
+            {
+                SetDatabaseTestUiState(false, "Database test cancelled.");
             }
             catch (Exception ex)
             {
+                SetDatabaseTestUiState(false, $"Database test failed: {ex.Message}");
                 ModernMessageBox.Show($"Database test failed: {ex.Message}", "Database Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
             {
-                button.IsEnabled = true;
-                button.Content = originalContent;
+                _isTestingDatabase = false;
+                _databaseTestCts?.Dispose();
+                _databaseTestCts = null;
+                SetDatabaseTestUiState(false, DatabaseTestStatusText.Text);
             }
+        }
+
+        private void ConnectionSearchBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            _connectionSearchText = ConnectionSearchBox.Text ?? string.Empty;
+            RefreshConnectionsList();
+        }
+
+        private void ClearSearchButton_Click(object sender, RoutedEventArgs e)
+        {
+            ConnectionSearchBox.Text = string.Empty;
+            ConnectionSearchBox.Focus();
+        }
+
+        private static string NormalizePassword(string? value)
+        {
+            return (value ?? string.Empty).Trim();
+        }
+
+        private string GetRemotePassword()
+        {
+            return NormalizePassword(_isRemotePasswordVisible ? PassRevealTextBox.Text : PassBox.Password);
+        }
+
+        private string GetDatabasePassword()
+        {
+            return NormalizePassword(_isDatabasePasswordVisible ? DbPassRevealTextBox.Text : DbPassBox.Password);
+        }
+
+        private void ResetPasswordEditorState()
+        {
+            _isSyncingPasswordEditors = true;
+            try
+            {
+                _isRemotePasswordVisible = false;
+                _isDatabasePasswordVisible = false;
+
+                PassBox.Visibility = Visibility.Visible;
+                PassRevealTextBox.Visibility = Visibility.Collapsed;
+                PassRevealTextBox.Text = PassBox.Password;
+                PassRevealButton.Content = "👁";
+                PassRevealButton.ToolTip = "Show password";
+
+                DbPassBox.Visibility = Visibility.Visible;
+                DbPassRevealTextBox.Visibility = Visibility.Collapsed;
+                DbPassRevealTextBox.Text = DbPassBox.Password;
+                DbPassRevealButton.Content = "👁";
+                DbPassRevealButton.ToolTip = "Show password";
+            }
+            finally
+            {
+                _isSyncingPasswordEditors = false;
+            }
+        }
+
+        private void TogglePasswordVisibility(PasswordBox passwordBox, System.Windows.Controls.TextBox revealTextBox, System.Windows.Controls.Button revealButton, ref bool isVisible)
+        {
+            _isSyncingPasswordEditors = true;
+            try
+            {
+                isVisible = !isVisible;
+                if (isVisible)
+                {
+                    revealTextBox.Text = passwordBox.Password;
+                    passwordBox.Visibility = Visibility.Collapsed;
+                    revealTextBox.Visibility = Visibility.Visible;
+                    revealButton.Content = "🙈";
+                    revealButton.ToolTip = "Hide password";
+                    revealTextBox.Focus();
+                    revealTextBox.CaretIndex = revealTextBox.Text.Length;
+                }
+                else
+                {
+                    passwordBox.Password = revealTextBox.Text;
+                    revealTextBox.Visibility = Visibility.Collapsed;
+                    passwordBox.Visibility = Visibility.Visible;
+                    revealButton.Content = "👁";
+                    revealButton.ToolTip = "Show password";
+                    passwordBox.Focus();
+                }
+            }
+            finally
+            {
+                _isSyncingPasswordEditors = false;
+            }
+        }
+
+        private void SyncRevealTextFromPassword(PasswordBox passwordBox, System.Windows.Controls.TextBox revealTextBox)
+        {
+            if (_isSyncingPasswordEditors || revealTextBox.Visibility != Visibility.Visible)
+            {
+                return;
+            }
+
+            _isSyncingPasswordEditors = true;
+            try
+            {
+                revealTextBox.Text = passwordBox.Password;
+                revealTextBox.CaretIndex = revealTextBox.Text.Length;
+            }
+            finally
+            {
+                _isSyncingPasswordEditors = false;
+            }
+        }
+
+        private void SyncPasswordFromRevealText(PasswordBox passwordBox, System.Windows.Controls.TextBox revealTextBox)
+        {
+            if (_isSyncingPasswordEditors)
+            {
+                return;
+            }
+
+            _isSyncingPasswordEditors = true;
+            try
+            {
+                passwordBox.Password = revealTextBox.Text;
+            }
+            finally
+            {
+                _isSyncingPasswordEditors = false;
+            }
+        }
+
+        private void PassRevealButton_Click(object sender, RoutedEventArgs e)
+        {
+            TogglePasswordVisibility(PassBox, PassRevealTextBox, PassRevealButton, ref _isRemotePasswordVisible);
+        }
+
+        private void DbPassRevealButton_Click(object sender, RoutedEventArgs e)
+        {
+            TogglePasswordVisibility(DbPassBox, DbPassRevealTextBox, DbPassRevealButton, ref _isDatabasePasswordVisible);
+        }
+
+        private void PassBox_PasswordChanged(object sender, RoutedEventArgs e)
+        {
+            SyncRevealTextFromPassword(PassBox, PassRevealTextBox);
+        }
+
+        private void DbPassBox_PasswordChanged(object sender, RoutedEventArgs e)
+        {
+            SyncRevealTextFromPassword(DbPassBox, DbPassRevealTextBox);
+        }
+
+        private void PassRevealTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            SyncPasswordFromRevealText(PassBox, PassRevealTextBox);
+        }
+
+        private void DbPassRevealTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            SyncPasswordFromRevealText(DbPassBox, DbPassRevealTextBox);
         }
     }
 }

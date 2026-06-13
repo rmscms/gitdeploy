@@ -48,8 +48,61 @@ namespace GitDeployPro
                 ? $"Backup Plans ({_taskMonitor.ActiveCount})"
                 : $"Backup Plans • {_nextRunCountdownText}";
 
+        public string BackupMenuBadgeText =>
+            _taskMonitor.ActiveCount > 0
+                ? _taskMonitor.ActiveCount.ToString()
+                : _nextRunCountdownText;
+
+        public System.Windows.Media.Brush BackupMenuBadgeBackground
+        {
+            get
+            {
+                if (_taskMonitor.ActiveCount > 0)
+                {
+                    return ResolveThemeBrush("Accent.Primary", CreateSolidBrush("#2C5CC5", System.Windows.Media.Brushes.SteelBlue));
+                }
+
+                if (string.Equals(_nextRunCountdownText, "pending", StringComparison.OrdinalIgnoreCase))
+                {
+                    return ResolveThemeBrush("Status.Warning", CreateSolidBrush("#D08B16", System.Windows.Media.Brushes.Goldenrod));
+                }
+
+                return ResolveThemeBrush("Status.Info", CreateSolidBrush("#2F6FED", System.Windows.Media.Brushes.SteelBlue));
+            }
+        }
+
+        public System.Windows.Media.Brush BackupMenuBadgeForeground =>
+            ResolveThemeBrush("Text.Inverse", System.Windows.Media.Brushes.White);
+
         private void OnPropertyChanged(string propertyName) =>
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+
+        private static System.Windows.Media.Brush ResolveThemeBrush(string key, System.Windows.Media.Brush fallback)
+        {
+            return System.Windows.Application.Current?.TryFindResource(key) as System.Windows.Media.Brush ?? fallback;
+        }
+
+        private static System.Windows.Media.Brush CreateSolidBrush(string hexColor, System.Windows.Media.Brush fallback)
+        {
+            try
+            {
+                var converter = new System.Windows.Media.BrushConverter();
+                var brush = converter.ConvertFromString(hexColor) as System.Windows.Media.Brush;
+                return brush ?? fallback;
+            }
+            catch
+            {
+                return fallback;
+            }
+        }
+
+        private void NotifyBackupMenuChanged()
+        {
+            OnPropertyChanged(nameof(BackupMenuLabel));
+            OnPropertyChanged(nameof(BackupMenuBadgeText));
+            OnPropertyChanged(nameof(BackupMenuBadgeBackground));
+            OnPropertyChanged(nameof(BackupMenuBadgeForeground));
+        }
 
         private void TaskMonitorOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
@@ -57,7 +110,7 @@ namespace GitDeployPro
             {
                 Dispatcher.Invoke(() =>
                 {
-                    OnPropertyChanged(nameof(BackupMenuLabel));
+                    NotifyBackupMenuChanged();
                     UpdateCountdownLabel();
                 });
             }
@@ -82,54 +135,19 @@ namespace GitDeployPro
 
         private void RefreshNextRunTarget()
         {
-            var state = BackupStateStore.LoadState();
-            DateTime? soonest = null;
-            foreach (var schedule in state.BackupSchedules)
-            {
-                if (!schedule.Enabled) continue;
-                var next = schedule.NextRunUtc ?? BackupSchedulePlanner.CalculateNextRunUtc(schedule, DateTime.UtcNow);
-                if (next == null) continue;
-                if (soonest == null || next < soonest)
-                {
-                    soonest = next;
-                }
-            }
-            _nextRunUtc = soonest;
+            var schedules = BackupScheduleStore.LoadSchedules();
+            _nextRunUtc = BackupScheduleTimelineService.FindSoonestUpcomingRunUtc(schedules, DateTime.UtcNow);
             UpdateCountdownLabel();
         }
 
         private void UpdateCountdownLabel()
         {
-            string text;
-            if (_taskMonitor.ActiveCount > 0)
-            {
-                text = "running…";
-            }
-            else if (_nextRunUtc == null)
-            {
-                text = "no schedule";
-            }
-            else
-            {
-                var diff = _nextRunUtc.Value - DateTime.UtcNow;
-                if (diff <= TimeSpan.Zero)
-                {
-                    text = "pending";
-                }
-                else if (diff.TotalHours >= 1)
-                {
-                    text = $"{Math.Floor(diff.TotalHours)}h {diff.Minutes:D2}m";
-                }
-                else
-                {
-                    text = $"{diff.Minutes:D2}m {diff.Seconds:D2}s";
-                }
-            }
+            var text = BackupScheduleTimelineService.BuildCountdownText(_taskMonitor.ActiveCount, _nextRunUtc, DateTime.UtcNow);
 
             if (text != _nextRunCountdownText)
             {
                 _nextRunCountdownText = text;
-                OnPropertyChanged(nameof(BackupMenuLabel));
+                NotifyBackupMenuChanged();
             }
         }
 
@@ -231,12 +249,13 @@ namespace GitDeployPro
 
         private void SidebarToggleButton_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
         {
-            SidebarToggleButton.Background = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#35373B"));
+            SidebarToggleButton.Background = System.Windows.Application.Current?.TryFindResource("State.Hover") as System.Windows.Media.Brush
+                ?? new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#35373B"));
         }
 
         private void SidebarToggleButton_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
         {
-            SidebarToggleButton.Background = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#2B2D30"));
+            SidebarToggleButton.Background = System.Windows.Media.Brushes.Transparent;
         }
 
         public void SetSidebarCollapsed(bool collapsed)
