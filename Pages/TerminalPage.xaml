@@ -51,20 +51,34 @@
         
         <!-- Toolbar -->
         <Border Grid.Column="2" Grid.Row="0" Background="#252526" Padding="10" BorderThickness="0,0,0,1" BorderBrush="#3E3E42">
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0" >
-                <TextBlock Text="Active Terminals:" Foreground="#CCCCCC" VerticalAlignment="Center"/>
-                <TextBlock x:Name="ActiveTerminalsCount" Text="0" Foreground="#4EC9B0" FontWeight="Bold" VerticalAlignment="Center" Margin="6,0,12,0"/>
-                
-                <Button x:Name="OpenLocalTerminalButton"
-                        Content="🖥 Local Terminal"
-                        Height="28"
-                        Padding="10,0"
-                        Background="#3F8EF7"
-                        Foreground="White"
-                        BorderThickness="0"
-                        Cursor="Hand"
-                        Click="OpenLocalTerminalButton_Click"/>
-            </StackPanel>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0">
+                    <TextBlock Text="Active Terminals:" Foreground="#CCCCCC" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="ActiveTerminalsCount" Text="0" Foreground="#4EC9B0" FontWeight="Bold" VerticalAlignment="Center" Margin="6,0,12,0"/>
+
+                    <Button x:Name="OpenLocalTerminalButton"
+                            Content="🖥 Local Terminal"
+                            Height="28"
+                            Padding="10,0"
+                            Background="#3F8EF7"
+                            Foreground="White"
+                            BorderThickness="0"
+                            Cursor="Hand"
+                            Click="OpenLocalTerminalButton_Click"/>
+                </StackPanel>
+
+                <Button Grid.Column="1"
+                        Content="🗖"
+                        Style="{StaticResource DetachPageButtonStyle}"
+                        Margin="10,0,0,0"
+                        ToolTip="Open Terminal page in a new window"
+                        Click="DetachTerminalPage_Click"/>
+            </Grid>
         </Border>
 
         <!-- Command Presets -->

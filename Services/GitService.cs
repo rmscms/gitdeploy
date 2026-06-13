@@ -4,6 +4,8 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using GitDeployPro.Pages;
 using GitDeployPro.Models; // For ProjectConfig
@@ -15,6 +17,11 @@ namespace GitDeployPro.Services
     {
         private static string _workingDirectory = Directory.GetCurrentDirectory();
         private readonly SshAgentService _sshAgentService = new SshAgentService();
+        private static readonly HashSet<string> InternalMetadataFiles = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ".gitdeploy.history",
+            ".gitdeploy.config"
+        };
 
         public GitService()
         {
@@ -80,15 +87,9 @@ namespace GitDeployPro.Services
             {
                 await RunGitCommandAsync("commit -m \"Initial commit by GitDeploy Pro\"");
             }
-            catch 
+            catch (GitCommandException ex) when (IsNothingToCommitError(ex))
             {
-                try
-                {
-                    File.WriteAllText(Path.Combine(_workingDirectory, "README.md"), "# Project initialized by GitDeploy Pro");
-                    await RunGitCommandAsync("add README.md");
-                    await RunGitCommandAsync("commit -m \"Initial commit\"");
-                }
-                catch { }
+                await RunGitCommandAsync("commit --allow-empty -m \"Initial empty commit by GitDeploy Pro\"");
             }
 
             // 4. Create Branches
@@ -127,7 +128,10 @@ namespace GitDeployPro.Services
                         { 
                             await RunGitCommandAsync($"branch {branches[i]}"); 
                         } 
-                        catch { /* Ignore branch creation errors to prevent wizard failure */ }
+                        catch (GitCommandException ex) when (IsBranchAlreadyExistsError(ex))
+                        {
+                            // Ignore only "already exists" branch warnings.
+                        }
                     }
                 }
             }
@@ -138,13 +142,9 @@ namespace GitDeployPro.Services
                 await RunGitCommandAsync($"remote add origin {remoteUrl}");
                 
                 // Try push if remote is set
-                try 
-                {
-                    await EnsureSshKeyForRemoteAsync("origin", remoteUrl);
-                    string current = await GetCurrentBranchAsync();
-                    await RunGitCommandAsync($"push -u origin {current}");
-                } 
-                catch { /* Ignore push errors (e.g. no internet, auth fail) */ }
+                await EnsureSshKeyForRemoteAsync("origin", remoteUrl);
+                string current = await GetCurrentBranchAsync();
+                await RunGitCommandAsync($"push -u origin {current}");
             }
         }
 
@@ -256,7 +256,18 @@ namespace GitDeployPro.Services
             }
         }
 
-        public async Task<List<FileChange>> GetUncommittedChangesAsync()
+        public async Task<int> GetUncommittedCountAsync()
+        {
+            var changes = await GetUncommittedChangesAsync(includeDiff: false);
+            return changes.Count;
+        }
+
+        public async Task<bool> HasUncommittedChangesAsync()
+        {
+            return await GetUncommittedCountAsync() > 0;
+        }
+
+        public async Task<List<FileChange>> GetUncommittedChangesAsync(bool includeDiff = true)
         {
             var output = await RunGitCommandAsync("status --porcelain");
             var changes = new List<FileChange>();
@@ -268,6 +279,10 @@ namespace GitDeployPro.Services
 
                 var status = line.Substring(0, 2).Trim();
                 var path = NormalizeGitPath(line.Substring(3).Trim());
+                if (IsInternalMetadataPath(path))
+                {
+                    continue;
+                }
                 
                 var changeType = ChangeType.Modified;
                 if (status.Contains("?")) changeType = ChangeType.Added;
@@ -278,8 +293,13 @@ namespace GitDeployPro.Services
                 changes.Add(new FileChange { Name = path, Type = changeType });
             }
 
-            var diffMap = await GetUnifiedDiffMapAsync("diff --unified=200");
-            var stagedMap = await GetUnifiedDiffMapAsync("diff --cached --unified=200");
+            if (!includeDiff || changes.Count == 0)
+            {
+                return changes;
+            }
+
+            var diffMap = await GetUnifiedDiffMapAsync("diff --unified=80");
+            var stagedMap = await GetUnifiedDiffMapAsync("diff --cached --unified=80");
             foreach (var kvp in stagedMap)
             {
                 diffMap[kvp.Key] = kvp.Value;
@@ -298,7 +318,7 @@ namespace GitDeployPro.Services
                     var fullPath = Path.Combine(_workingDirectory, change.Name.Replace("/", Path.DirectorySeparatorChar.ToString()));
                     if (File.Exists(fullPath))
                     {
-                        var content = File.ReadAllText(fullPath);
+                        var content = SafeReadFileForDiff(fullPath);
                         change.DiffPatch = DiffParser.BuildAddedFileDiff(change.Name, content);
                     }
                 }
@@ -386,6 +406,18 @@ namespace GitDeployPro.Services
             {
                 EnsureGitFolderHidden();
             }
+        }
+
+        public async Task<PushExecutionResult> PushOrSkipAsync(string remote = "origin")
+        {
+            string remoteUrl = await GetRemoteUrlAsync(remote);
+            if (string.IsNullOrWhiteSpace(remoteUrl))
+            {
+                return PushExecutionResult.SkippedNoRemote;
+            }
+
+            await PushAsync(remote);
+            return PushExecutionResult.PushedToRemote;
         }
 
         public async Task PullAsync(string remote = "origin")
@@ -500,7 +532,7 @@ namespace GitDeployPro.Services
             var output = await RunGitCommandAsync($"diff --name-status {targetBranch}..{sourceBranch}");
             var changes = new List<FileChange>();
 
-            var diffMap = await GetUnifiedDiffMapAsync($"diff --unified=200 {targetBranch}..{sourceBranch}");
+            var diffMap = await GetUnifiedDiffMapAsync($"diff --unified=80 {targetBranch}..{sourceBranch}");
 
             var lines = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
             foreach (var line in lines)
@@ -510,6 +542,10 @@ namespace GitDeployPro.Services
                 {
                     var status = parts[0][0];
                     var path = NormalizeGitPath(parts[1]);
+                    if (IsInternalMetadataPath(path))
+                    {
+                        continue;
+                    }
                     
                     var changeType = ChangeType.Modified;
                     if (status == 'A') changeType = ChangeType.Added;
@@ -565,61 +601,134 @@ namespace GitDeployPro.Services
             }
         }
 
-        private async Task<string> RunGitCommandAsync(string arguments, string? workingDirectory = null)
+        private async Task<string> RunGitCommandAsync(string arguments, string? workingDirectory = null, TimeSpan? timeout = null)
         {
-            return await Task.Run(async () =>
+            var resolvedWorkingDirectory = workingDirectory ?? _workingDirectory;
+            using var process = new Process
             {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = "git",
+                    Arguments = arguments,
+                    WorkingDirectory = resolvedWorkingDirectory,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    StandardOutputEncoding = Encoding.UTF8,
+                    StandardErrorEncoding = Encoding.UTF8
+                }
+            };
+
+            process.StartInfo.EnvironmentVariables["GIT_TERMINAL_PROMPT"] = "0";
+            process.StartInfo.EnvironmentVariables["GIT_ASKPASS"] = "echo";
+            process.StartInfo.EnvironmentVariables["SSH_ASKPASS"] = "echo";
+
+            try
+            {
+                if (!process.Start())
+                {
+                    throw new GitCommandException("git", arguments, resolvedWorkingDirectory, -1, string.Empty, "Failed to start git process.");
+                }
+
+                var stdoutTask = process.StandardOutput.ReadToEndAsync();
+                var stderrTask = process.StandardError.ReadToEndAsync();
+
+                TimeSpan commandTimeout = timeout ?? GetDefaultTimeout(arguments);
+                using var timeoutCts = new CancellationTokenSource(commandTimeout);
+
                 try
                 {
-                    var process = new Process
-                    {
-                        StartInfo = new ProcessStartInfo
-                        {
-                            FileName = "git",
-                            Arguments = arguments,
-                            WorkingDirectory = workingDirectory ?? _workingDirectory,
-                            RedirectStandardOutput = true,
-                            RedirectStandardError = true,
-                            UseShellExecute = false,
-                            CreateNoWindow = true,
-                            StandardOutputEncoding = System.Text.Encoding.UTF8
-                        }
-                    };
-
-                    // Prevent Git from prompting for credentials (avoids infinite hang)
-                    process.StartInfo.EnvironmentVariables["GIT_TERMINAL_PROMPT"] = "0";
-                    process.StartInfo.EnvironmentVariables["GIT_ASKPASS"] = "echo"; 
-                    process.StartInfo.EnvironmentVariables["SSH_ASKPASS"] = "echo"; 
-
-                    process.Start();
-                    
-                    // Read streams asynchronously to avoid deadlocks
-                    var stdoutTask = process.StandardOutput.ReadToEndAsync();
-                    var stderrTask = process.StandardError.ReadToEndAsync();
-
-                    await Task.WhenAll(stdoutTask, stderrTask);
-                    process.WaitForExit();
-
-                    string output = stdoutTask.Result;
-                    string error = stderrTask.Result;
-
-                    // Allow non-zero exit for status, remote, init commands
-                    if (process.ExitCode != 0 && 
-                        !arguments.StartsWith("status") && 
-                        !arguments.StartsWith("remote") && 
-                        !arguments.StartsWith("push") &&
-                        !arguments.StartsWith("init")) 
-                    {
-                        throw new Exception($"Git Error: {error}");
-                    }
-
-                    return output;
+                    await process.WaitForExitAsync(timeoutCts.Token);
                 }
-                catch (Exception ex)
+                catch (OperationCanceledException)
                 {
-                    throw new Exception($"Failed to execute git command: {ex.Message}");
+                    TryTerminateProcess(process);
+                    string timedOutStdOut = await stdoutTask;
+                    string timedOutStdErr = await stderrTask;
+                    throw new GitCommandException(
+                        "git",
+                        arguments,
+                        resolvedWorkingDirectory,
+                        -1,
+                        timedOutStdOut,
+                        timedOutStdErr,
+                        $"Git command timed out after {commandTimeout.TotalSeconds:0} seconds.");
                 }
-            });
+
+                string output = await stdoutTask;
+                string error = await stderrTask;
+
+                if (process.ExitCode != 0)
+                {
+                    throw new GitCommandException("git", arguments, resolvedWorkingDirectory, process.ExitCode, output, error);
+                }
+
+                return output;
+            }
+            catch (GitCommandException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new GitCommandException("git", arguments, resolvedWorkingDirectory, -1, string.Empty, ex.Message, "Failed to execute git command.", ex);
+            }
+        }
+
+        private static TimeSpan GetDefaultTimeout(string arguments)
+        {
+            if (arguments.StartsWith("clone", StringComparison.OrdinalIgnoreCase))
+            {
+                return TimeSpan.FromMinutes(60);
+            }
+
+            if (arguments.StartsWith("add", StringComparison.OrdinalIgnoreCase) ||
+                arguments.StartsWith("diff", StringComparison.OrdinalIgnoreCase))
+            {
+                return TimeSpan.FromMinutes(30);
+            }
+
+            return TimeSpan.FromMinutes(10);
+        }
+
+        private static void TryTerminateProcess(Process process)
+        {
+            try
+            {
+                if (!process.HasExited)
+                {
+                    process.Kill(entireProcessTree: true);
+                }
+            }
+            catch
+            {
+                // Ignore process termination failures.
+            }
+        }
+
+        private static bool IsNothingToCommitError(GitCommandException ex)
+        {
+            string message = ex.GetDetailedMessage();
+            return message.Contains("nothing to commit", StringComparison.OrdinalIgnoreCase) ||
+                   message.Contains("no changes added to commit", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsBranchAlreadyExistsError(GitCommandException ex)
+        {
+            return ex.GetDetailedMessage().Contains("already exists", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string SafeReadFileForDiff(string fullPath)
+        {
+            const int maxBytes = 512 * 1024;
+            var fileInfo = new FileInfo(fullPath);
+            if (fileInfo.Length > maxBytes)
+            {
+                return $"[truncated file content: {fileInfo.Length} bytes]";
+            }
+
+            return File.ReadAllText(fullPath);
         }
 
         private async Task EnsureSshKeyForRemoteAsync(string remoteName, string remoteUrlOverride = "")
@@ -704,6 +813,13 @@ namespace GitDeployPro.Services
         {
             return path.Replace("\\", "/").Trim();
         }
+
+        private static bool IsInternalMetadataPath(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path)) return false;
+            string fileName = Path.GetFileName(path.Trim().Trim('"'));
+            return InternalMetadataFiles.Contains(fileName);
+        }
     }
 
     public class FileChange
@@ -736,5 +852,62 @@ namespace GitDeployPro.Services
         public int AheadCount { get; set; }
         public int BehindCount { get; set; }
         public bool HasRemote => !string.IsNullOrWhiteSpace(RemoteBranch);
+    }
+
+    public enum PushExecutionResult
+    {
+        PushedToRemote,
+        SkippedNoRemote
+    }
+
+    public class GitCommandException : Exception
+    {
+        public GitCommandException(
+            string command,
+            string arguments,
+            string workingDirectory,
+            int exitCode,
+            string standardOutput,
+            string standardError,
+            string? customMessage = null,
+            Exception? innerException = null)
+            : base(customMessage ?? BuildMessage(command, arguments, exitCode, standardOutput, standardError), innerException)
+        {
+            Command = command;
+            Arguments = arguments;
+            WorkingDirectory = workingDirectory;
+            ExitCode = exitCode;
+            StandardOutput = standardOutput ?? string.Empty;
+            StandardError = standardError ?? string.Empty;
+        }
+
+        public string Command { get; }
+        public string Arguments { get; }
+        public string WorkingDirectory { get; }
+        public int ExitCode { get; }
+        public string StandardOutput { get; }
+        public string StandardError { get; }
+
+        public string GetDetailedMessage()
+        {
+            var details = !string.IsNullOrWhiteSpace(StandardError) ? StandardError : StandardOutput;
+            if (string.IsNullOrWhiteSpace(details))
+            {
+                details = "No output was returned by git.";
+            }
+
+            return details.Trim();
+        }
+
+        private static string BuildMessage(string command, string arguments, int exitCode, string standardOutput, string standardError)
+        {
+            string details = !string.IsNullOrWhiteSpace(standardError) ? standardError : standardOutput;
+            if (string.IsNullOrWhiteSpace(details))
+            {
+                details = "No output was returned by git.";
+            }
+
+            return $"{command} {arguments} failed (exit {exitCode}): {details.Trim()}";
+        }
     }
 }

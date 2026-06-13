@@ -1,0 +1,59 @@
+<Window x:Class="GitDeployPro.Windows.ReadOnlyDiffWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:GitDeployPro.Controls"
+        Title="Diff Preview"
+        Width="900"
+        Height="560"
+        MinWidth="680"
+        MinHeight="420"
+        ResizeMode="CanResize"
+        WindowStartupLocation="CenterScreen"
+        Background="#1E1E1E">
+    <Border BorderBrush="#333333" BorderThickness="1" Padding="12" Background="#1E1E1E">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" Margin="0,0,0,10">
+                <TextBlock x:Name="TitleText"
+                           FontSize="16"
+                           FontWeight="SemiBold"
+                           Foreground="White"
+                           TextTrimming="CharacterEllipsis"/>
+                <TextBlock x:Name="StatusText"
+                           FontSize="12"
+                           Foreground="#B0B0B0"/>
+            </StackPanel>
+
+            <controls:DiffViewer x:Name="DiffHost"
+                                 Grid.Row="1"
+                                 Title="Selected file diff"
+                                 EmptyMessage="No diff text available for this file."/>
+
+            <StackPanel Grid.Row="2"
+                        Orientation="Horizontal"
+                        HorizontalAlignment="Right"
+                        Margin="0,12,0,0">
+                <Button Content="Copy Diff"
+                        Width="110"
+                        Height="34"
+                        Margin="0,0,10,0"
+                        Background="#2F3B52"
+                        Foreground="White"
+                        BorderBrush="#546E7A"
+                        Click="CopyDiff_Click"/>
+                <Button Content="Close"
+                        Width="90"
+                        Height="34"
+                        Background="#B71C1C"
+                        Foreground="White"
+                        BorderBrush="#FF5252"
+                        Click="Close_Click"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

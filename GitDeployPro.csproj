@@ -8,9 +8,9 @@
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationIcon>icon.ico</ApplicationIcon>
-    <Version>1.1.8</Version>
-    <AssemblyVersion>1.1.8.0</AssemblyVersion>
-    <FileVersion>1.1.8.0</FileVersion>
+    <Version>1.1.10</Version>
+    <AssemblyVersion>1.1.10.0</AssemblyVersion>
+    <FileVersion>1.1.10.0</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -29,6 +29,7 @@
   <ItemGroup>
     <EmbeddedResource Include="Resources\SqlSyntax.xshd" />
     <EmbeddedResource Include="Resources\CodeViewer.html" />
+    <EmbeddedResource Include="Resources\TerminalHost.html" />
   </ItemGroup>
 
 </Project>

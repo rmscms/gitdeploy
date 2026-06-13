@@ -18,32 +18,36 @@
         </Grid.RowDefinitions>
 
         <!-- Header -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,20">
-            <TextBlock Text="📤" FontSize="36" VerticalAlignment="Center" Margin="0,0,15,0" Foreground="White"/>
-            <StackPanel VerticalAlignment="Center">
-                <TextBlock Text="Direct Upload" 
-                          FontSize="32" 
-                          FontWeight="Bold" 
-                          Foreground="White"/>
-                <TextBlock Text="Select files and folders to upload directly via FTP" 
-                          FontSize="14" 
-                          Foreground="#AAAAAA" 
-                          Margin="2,4,0,0"/>
-                <TextBlock x:Name="ConnectionInfoText"
-                           Text="Detecting connection..."
-                           FontSize="13"
-                           Foreground="#64B5F6"
-                           Margin="0,6,0,0"/>
+        <Grid Grid.Row="0" Margin="0,0,0,20">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" Orientation="Horizontal">
+                <TextBlock Text="📤" FontSize="36" VerticalAlignment="Center" Margin="0,0,15,0" Foreground="White"/>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="Direct Upload" 
+                              FontSize="32" 
+                              FontWeight="Bold" 
+                              Foreground="White"/>
+                    <TextBlock Text="Select files and folders to upload directly via FTP" 
+                              FontSize="14" 
+                              Foreground="#AAAAAA" 
+                              Margin="2,4,0,0"/>
+                    <TextBlock x:Name="ConnectionInfoText"
+                               Text="Detecting connection..."
+                               FontSize="13"
+                               Foreground="#64B5F6"
+                               Margin="0,6,0,0"/>
+                </StackPanel>
             </StackPanel>
-            <Button Content="🗖 Pop-out"
-                    Margin="25,0,0,0"
-                    Padding="14,4"
-                    Background="#333333"
-                    Foreground="#EEEEEE"
-                    BorderThickness="0"
-                    Cursor="Hand"
+
+            <Button Grid.Column="1"
+                    Content="🗖 Pop-out"
+                    Style="{StaticResource DetachPageButtonStyle}"
                     Click="DetachDirectUploadPage_Click"/>
-        </StackPanel>
+        </Grid>
 
         <!-- Toolbar -->
         <Border Grid.Row="1" Background="#2B2B2B" CornerRadius="8" Padding="15" Margin="0,0,0,15">

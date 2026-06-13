@@ -1,63 +1,52 @@
+using GitDeployPro.Services;
+using GitDeployPro.Services.Terminal;
+using GitDeployPro.Windows;
+using Microsoft.Web.WebView2.Core;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text;
-using System.Text.RegularExpressions;
+using System.Linq;
+using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Documents;
-using System.Windows.Input;
 using System.Windows.Media;
-using System.Diagnostics;
-using System.Linq;
-using Renci.SshNet;
-using GitDeployPro.Services;
-using GitDeployPro.Windows;
 
 namespace GitDeployPro.Controls
 {
     public partial class TerminalControl : System.Windows.Controls.UserControl
     {
-        private SshClient? _sshClient;
-        private ShellStream? _shellStream;
-        
-        private Process? _localProcess;
-        private bool _isLocal = false;
+        private static readonly HashSet<TerminalControl> _activeTerminals = new();
+        private static string? _terminalHtmlTemplate;
 
-        private ConfigurationService _configService;
-        private bool _isConnected = false;
+        private readonly ConfigurationService _configService;
+        private readonly SemaphoreSlim _webInitLock = new(1, 1);
+        private readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
+
+        private ITerminalSession? _session;
+        private TaskCompletionSource<bool>? _webReadyTcs;
+        private bool _webReady;
+        private bool _webInitFailed;
+        private string _webInitFailureReason = string.Empty;
+        private bool _isConnected;
+        private bool _isLocal;
+        private bool _typingEnabled = true;
+        private bool _isDisconnecting;
+        private bool _welcomeWritten;
+        private int _currentColumns = 120;
+        private int _currentRows = 35;
         private string? _projectPath;
-        private bool _typingEnabled = true; // Type toggle state
-        private static readonly HashSet<TerminalControl> _activeTerminals = new HashSet<TerminalControl>();
+        private DateTime _lastInterruptSentAt = DateTime.MinValue;
+        private bool _remoteHistoryConfigured;
 
         public TerminalControl()
         {
             InitializeComponent();
             _configService = new ConfigurationService();
+
             Loaded += TerminalControl_Loaded;
             Unloaded += TerminalControl_Unloaded;
-            
-            // Header: keep explicit colors
-            AppendText("GitDeploy Pro Terminal [v1.0]\n", System.Windows.Media.Brushes.Cyan);
-            // Info: Use null to inherit default theme
-            AppendText("Ready to connect...\n\n", null);
-        }
-
-        private void TerminalControl_Loaded(object sender, RoutedEventArgs e)
-        {
-            lock (_activeTerminals)
-            {
-                _activeTerminals.Add(this);
-            }
-        }
-
-        private void TerminalControl_Unloaded(object sender, RoutedEventArgs e)
-        {
-            lock (_activeTerminals)
-            {
-                _activeTerminals.Remove(this);
-            }
         }
 
         public void SetProjectPath(string path)
@@ -65,214 +54,12 @@ namespace GitDeployPro.Controls
             _projectPath = path;
         }
 
-        private async void ConnectButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (_isConnected)
-            {
-                Disconnect();
-                return;
-            }
-
-            await ConnectAsync();
-        }
-
-        public async Task ConnectLocal(string shell = "cmd.exe")
-        {
-             if (_isConnected) Disconnect();
-
-             StatusText.Text = "Starting Local Terminal...";
-             StatusIndicator.Background = System.Windows.Media.Brushes.Orange;
-             ConnectButton.IsEnabled = false;
-             
-             try 
-             {
-                 _localProcess = new Process();
-                 _localProcess.StartInfo.FileName = shell;
-                 _localProcess.StartInfo.UseShellExecute = false;
-                 _localProcess.StartInfo.RedirectStandardInput = true;
-                 _localProcess.StartInfo.RedirectStandardOutput = true;
-                 _localProcess.StartInfo.RedirectStandardError = true;
-                 _localProcess.StartInfo.CreateNoWindow = true;
-                 _localProcess.StartInfo.WorkingDirectory = _projectPath ?? "C:\\";
-                 
-                 // Needed for some encoding handling
-                 _localProcess.StartInfo.StandardOutputEncoding = Encoding.UTF8;
-                 _localProcess.StartInfo.StandardErrorEncoding = Encoding.UTF8;
-                 // _localProcess.StartInfo.StandardInputEncoding = Encoding.UTF8; // Optional, might help
-
-                 _localProcess.Start();
-                 _localProcess.StandardInput.AutoFlush = true; // IMPORTANT: Ensure input is sent immediately
-                 
-                 _isLocal = true;
-                 _isConnected = true;
-
-                 // Start readers
-                 _ = ReadLocalStreamAsync(_localProcess.StandardOutput);
-                 _ = ReadLocalStreamAsync(_localProcess.StandardError);
-
-                 StatusText.Text = $"Local ({shell})";
-                 StatusIndicator.Background = System.Windows.Media.Brushes.LimeGreen;
-                 ConnectButton.Content = "❌ Disconnect";
-                 ConnectButton.Background = System.Windows.Media.Brushes.DarkRed;
-                 ConnectButton.IsEnabled = true;
-                 TerminalOutput.Focus();
-             }
-             catch (Exception ex)
-             {
-                 AppendText($"Failed to start local terminal: {ex.Message}\n", System.Windows.Media.Brushes.Red);
-                 Disconnect();
-             }
-        }
-
-        public async Task ConnectAsync(string host, string user, string password, int port)
-        {
-             try
-             {
-                if (_isConnected) Disconnect();
-
-                StatusText.Text = "Connecting...";
-                StatusIndicator.Background = System.Windows.Media.Brushes.Orange;
-                ConnectButton.IsEnabled = false;
-
-                await Task.Run(() =>
-                {
-                    try
-                    {
-                        var connectionInfo = new ConnectionInfo(
-                            host,
-                            port == 21 ? 22 : port,
-                            user,
-                            new PasswordAuthenticationMethod(user, password)
-                        );
-
-                        _sshClient = new SshClient(connectionInfo);
-                        _sshClient.Connect();
-
-                        // Create shell stream with proper terminal settings
-                        var terminalModes = new Dictionary<Renci.SshNet.Common.TerminalModes, uint>
-                        {
-                            { Renci.SshNet.Common.TerminalModes.ECHO, 1 },      // Enable echo
-                            { Renci.SshNet.Common.TerminalModes.ISIG, 1 },      // Enable signals (Ctrl+C)
-                            { Renci.SshNet.Common.TerminalModes.ICANON, 1 },    // Enable canonical mode (line editing)
-                            { Renci.SshNet.Common.TerminalModes.OPOST, 1 },     // Enable output processing
-                            { Renci.SshNet.Common.TerminalModes.ONLCR, 1 },     // Map NL to CR-NL on output
-                            { Renci.SshNet.Common.TerminalModes.ICRNL, 1 },     // Map CR to NL on input
-                            { Renci.SshNet.Common.TerminalModes.IXON, 0 },      // Disable XON/XOFF flow control
-                            { Renci.SshNet.Common.TerminalModes.IXOFF, 0 }      // Disable XON/XOFF flow control
-                        };
-
-                        _shellStream = _sshClient.CreateShellStream("xterm-256color", 120, 40, 800, 600, 1024, terminalModes);
-                        
-                        _isConnected = true;
-                        _isLocal = false;
-
-                        _ = ReadStreamAsync();
-                    }
-                    catch (Exception ex)
-                    {
-                        Dispatcher.Invoke(() =>
-                        {
-                            AppendText($"Connection Failed: {ex.Message}\n", System.Windows.Media.Brushes.Red);
-                            StatusText.Text = "Failed";
-                            StatusIndicator.Background = System.Windows.Media.Brushes.Red;
-                            ConnectButton.IsEnabled = true;
-                        });
-                    }
-                });
-
-                if (_isConnected)
-                {
-                    StatusText.Text = $"Connected to {host}";
-                    StatusIndicator.Background = System.Windows.Media.Brushes.LimeGreen;
-                    ConnectButton.Content = "❌ Disconnect";
-                    ConnectButton.Background = System.Windows.Media.Brushes.DarkRed;
-                    ConnectButton.IsEnabled = true;
-                    TerminalOutput.Focus();
-                }
-             }
-             catch (Exception ex)
-             {
-                 AppendText($"Error: {ex.Message}\n", System.Windows.Media.Brushes.Red);
-             }
-        }
-
-        private async Task ConnectAsync()
-        {
-            try
-            {
-                var config = _configService.LoadProjectConfig(_projectPath);
-                if (string.IsNullOrEmpty(config.FtpHost) || !config.UseSSH)
-                {
-                    AppendText("Error: SSH is not configured for this project. Please check Settings.\n", System.Windows.Media.Brushes.Red);
-                    return;
-                }
-                
-                await ConnectAsync(config.FtpHost, config.FtpUsername, EncryptionService.Decrypt(config.FtpPassword), config.FtpPort);
-            }
-            catch (Exception ex)
-            {
-                AppendText($"Error: {ex.Message}\n", System.Windows.Media.Brushes.Red);
-            }
-        }
-
-        private void Disconnect()
-        {
-            try
-            {
-                if (_isLocal && _localProcess != null)
-                {
-                     try { _localProcess.Kill(); _localProcess.Dispose(); } catch {}
-                     _localProcess = null;
-                }
-                else
-                {
-                    _shellStream?.Close();
-                    _sshClient?.Disconnect();
-                    _sshClient?.Dispose();
-                }
-            }
-            catch { }
-            finally
-            {
-                _isConnected = false;
-                _isLocal = false;
-                StatusText.Text = "Disconnected";
-                StatusIndicator.Background = System.Windows.Media.Brushes.Gray;
-                ConnectButton.Content = "🔌 Connect";
-                ConnectButton.Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 122, 204));
-                AppendText("\nSession closed.\n", null);
-            }
-        }
-
-        public void InjectCommandText(string command)
+        public static void BroadcastCommand(string command)
         {
             if (string.IsNullOrWhiteSpace(command))
             {
                 return;
             }
-
-            if (!_isConnected)
-            {
-                AppendText($"{command}\n", System.Windows.Media.Brushes.Gray);
-                TerminalScroller.ScrollToBottom();
-                return;
-            }
-
-            if (_isLocal && _localProcess != null)
-            {
-                AppendText(command, null);
-                TerminalScroller.ScrollToBottom();
-                _localProcess.StandardInput.Write(command);
-            }
-            else if (_shellStream != null)
-            {
-                _shellStream.Write(command);
-            }
-        }
-
-        public static void BroadcastCommand(string command)
-        {
-            if (string.IsNullOrWhiteSpace(command)) return;
 
             List<TerminalControl> snapshot;
             lock (_activeTerminals)
@@ -286,415 +73,713 @@ namespace GitDeployPro.Controls
             }
         }
 
-        private async Task ReadLocalStreamAsync(StreamReader reader)
+        public async Task ConnectLocal(string shell = "cmd.exe")
         {
-            char[] buffer = new char[1024];
-            while (_isConnected && _localProcess != null && !_localProcess.HasExited)
+            await EnsureWebViewReadyAsync();
+            if (_webInitFailed)
             {
+                return;
+            }
+            await DisconnectAsync(includeCloseMessage: false);
+
+            SetConnectingStatus("Starting local shell...");
+
+            var workingDirectory = ResolveWorkingDirectory();
+            var forceLegacy = IsLegacyBackendForced();
+            Exception? conPtyFailure = null;
+
+            if (!forceLegacy)
+            {
+                var conPtySession = new ConPtyTerminalSession(shell, workingDirectory, _currentColumns, _currentRows);
                 try
                 {
-                    // Peek or read async
-                    int read = await reader.ReadAsync(buffer, 0, buffer.Length);
-                    if (read > 0)
-                    {
-                        string text = new string(buffer, 0, read);
-                        await Dispatcher.InvokeAsync(() => ProcessOutputSafe(text));
-                    }
-                    else
-                    {
-                        await Task.Delay(100);
-                    }
+                    await StartSessionAsync(conPtySession, isLocal: true, statusText: $"Local ({shell})");
+                    return;
                 }
-                catch { break; }
+                catch (Exception ex)
+                {
+                    conPtyFailure = ex;
+                    await conPtySession.DisposeAsync();
+                }
+            }
+
+            var fallbackSession = new RedirectedProcessTerminalSession(shell, workingDirectory);
+            try
+            {
+                await StartSessionAsync(fallbackSession, isLocal: true, statusText: $"Local ({shell}) [fallback]");
+
+                var reasonText = forceLegacy
+                    ? "ConPTY disabled by feature flag (GDP_TERMINAL_LOCAL_BACKEND=legacy)."
+                    : $"ConPTY failed, fallback enabled: {conPtyFailure?.Message}";
+                await WriteToTerminalAsync($"\r\n[warn] {reasonText}\r\n");
+            }
+            catch (Exception ex)
+            {
+                await fallbackSession.DisposeAsync();
+                await HandleConnectionFailureAsync(ex, "Failed to start local terminal");
             }
         }
 
-        private async Task ReadStreamAsync()
+        public async Task ConnectAsync(string host, string user, string password, int port)
         {
-            while (_isConnected && _shellStream != null)
+            await EnsureWebViewReadyAsync();
+            if (_webInitFailed)
             {
+                return;
+            }
+            await DisconnectAsync(includeCloseMessage: false);
+
+            SetConnectingStatus($"Connecting to {host}...");
+
+            var session = new SshTerminalSession(host, user, password, port, _currentColumns, _currentRows);
+            try
+            {
+                await StartSessionAsync(session, isLocal: false, statusText: $"Connected to {host}");
+            }
+            catch (Exception ex)
+            {
+                await session.DisposeAsync();
+                await HandleConnectionFailureAsync(ex, "Connection failed");
+            }
+        }
+
+        public void InjectCommandText(string command)
+        {
+            _ = InjectCommandTextAsync(command);
+        }
+
+        private async void TerminalControl_Loaded(object sender, RoutedEventArgs e)
+        {
+            lock (_activeTerminals)
+            {
+                _activeTerminals.Add(this);
+            }
+
+            try
+            {
+                await EnsureWebViewReadyAsync();
+                if (_webInitFailed)
+                {
+                    return;
+                }
+                await ApplyTerminalSettingsAsync();
+                await WriteWelcomeAsync();
+            }
+            catch (Exception ex)
+            {
+                StatusText.Text = "Terminal init failed";
+                StatusIndicator.Background = System.Windows.Media.Brushes.Red;
+                MarkWebInitFailure($"Terminal load exception: {ex.Message}");
+            }
+        }
+
+        private async void TerminalControl_Unloaded(object sender, RoutedEventArgs e)
+        {
+            lock (_activeTerminals)
+            {
+                _activeTerminals.Remove(this);
+            }
+
+            await DisconnectAsync(includeCloseMessage: false);
+        }
+
+        private async void ConnectButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_isConnected)
+            {
+                await DisconnectAsync();
+                return;
+            }
+
+            await ConnectAsync();
+        }
+
+        private async Task ConnectAsync()
+        {
+            try
+            {
+                var config = _configService.LoadProjectConfig(_projectPath);
+                if (string.IsNullOrWhiteSpace(config.FtpHost) || !config.UseSSH)
+                {
+                    await WriteToTerminalAsync("\r\n[error] SSH is not configured for this project.\r\n");
+                    return;
+                }
+
+                await ConnectAsync(
+                    config.FtpHost,
+                    config.FtpUsername,
+                    EncryptionService.Decrypt(config.FtpPassword),
+                    config.FtpPort);
+            }
+            catch (Exception ex)
+            {
+                await HandleConnectionFailureAsync(ex, "Unable to load SSH configuration");
+            }
+        }
+
+        private async Task StartSessionAsync(ITerminalSession session, bool isLocal, string statusText)
+        {
+            AttachSession(session);
+            _session = session;
+            _isDisconnecting = false;
+            _remoteHistoryConfigured = false;
+
+            try
+            {
+                await session.StartAsync();
+                _isConnected = true;
+                _isLocal = isLocal;
+                SetConnectedStatus(statusText);
+                if (!isLocal)
+                {
+                    await ConfigureRemoteHistorySyncAsync();
+                }
+                await PostTerminalMessageAsync(new { type = "focus" });
+            }
+            catch
+            {
+                DetachSession(session);
+                _session = null;
+                throw;
+            }
+        }
+
+        private async Task DisconnectAsync(bool includeCloseMessage = true)
+        {
+            if (_isDisconnecting)
+            {
+                return;
+            }
+
+            _isDisconnecting = true;
+
+            var session = _session;
+            _session = null;
+
+            if (session != null)
+            {
+                DetachSession(session);
                 try
                 {
-                    if (_shellStream.DataAvailable)
-                    {
-                        string text = _shellStream.Read();
-                        if (!string.IsNullOrEmpty(text))
-                        {
-                            await Dispatcher.InvokeAsync(() => ProcessOutputSafe(text), System.Windows.Threading.DispatcherPriority.Background);
-                        }
-                    }
-                    else
-                    {
-                        await Task.Delay(50);
-                    }
+                    await session.StopAsync();
                 }
                 catch
                 {
-                    break;
+                    // Ignore shutdown errors.
                 }
+
+                try
+                {
+                    await session.DisposeAsync();
+                }
+                catch
+                {
+                    // Ignore shutdown errors.
+                }
+            }
+
+            _isConnected = false;
+            _isLocal = false;
+            SetDisconnectedStatus();
+            _isDisconnecting = false;
+
+            if (includeCloseMessage)
+            {
+                await WriteToTerminalAsync("\r\nSession closed.\r\n");
             }
         }
 
-        private void TerminalOutput_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        private async Task EnsureWebViewReadyAsync()
         {
-            if (!_isConnected) return;
-            if (!_isLocal && _shellStream == null) return;
-
-            // Handle Ctrl+V (Paste)
-            if (e.Key == Key.V && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+            if (_webInitFailed)
             {
-                if (System.Windows.Clipboard.ContainsText())
-                {
-                    string text = System.Windows.Clipboard.GetText();
-                    if (_isLocal && _localProcess != null)
-                    {
-                        _localProcess.StandardInput.Write(text);
-                        AppendText(text, null);
-                        TerminalScroller.ScrollToBottom();
-                    }
-                    else if (_shellStream != null)
-                    {
-                        _shellStream.Write(text);
-                    }
-                }
-                e.Handled = true;
                 return;
             }
 
-            // Handle Ctrl+C
-            if (e.Key == Key.C && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+            if (_webReady && TerminalWebView?.CoreWebView2 != null)
             {
-                if (_isLocal && _localProcess != null)
-                {
-                    // Writing \x03 to StandardInput is the best attempt for redirected process
-                    _localProcess.StandardInput.Write("\x03");
-                }
-                else if (!_isLocal)
-                {
-                    _shellStream?.Write("\x03");
-                }
-                e.Handled = true;
                 return;
             }
 
-            if (e.Key == Key.Enter)
+            TaskCompletionSource<bool>? readyTcs = null;
+            await _webInitLock.WaitAsync();
+            try
             {
-                if (_isLocal) 
+                if (_webInitFailed)
                 {
-                     AppendText("\r\n", null); // Echo newline
-                     TerminalScroller.ScrollToBottom();
-                     _localProcess?.StandardInput.WriteLine();
+                    return;
                 }
-                else 
-                {
-                    _shellStream?.Write("\r"); 
-                }
-                e.Handled = true;
-            }
-            else if (e.Key == Key.Back)
-            {
-                if (!_isLocal) _shellStream?.Write("\b");
-                else
-                {
-                     RemoveLastChar();
-                }
-                e.Handled = true;
-            }
-            else if (e.Key == Key.Tab)
-            {
-                if (_isLocal) _localProcess?.StandardInput.Write("\t");
-                else _shellStream?.Write("\t");
-                e.Handled = true;
-            }
-            else if (e.Key == Key.Up)
-            {
-                 if (!_isLocal) _shellStream?.Write("\x1b[A");
-                 e.Handled = true;
-            }
-            else if (e.Key == Key.Down)
-            {
-                if (!_isLocal) _shellStream?.Write("\x1b[B");
-                e.Handled = true;
-            }
-            else if (e.Key == Key.Left)
-            {
-                if (!_isLocal) _shellStream?.Write("\x1b[D");
-                e.Handled = true;
-            }
-            else if (e.Key == Key.Right)
-            {
-                if (!_isLocal) _shellStream?.Write("\x1b[C");
-                e.Handled = true;
-            }
-            else if (e.Key == Key.Space)
-            {
-                if (_isLocal)
-                {
-                    AppendText(" ", null);
-                    TerminalScroller.ScrollToBottom();
-                    _localProcess?.StandardInput.Write(" ");
-                }
-                else
-                {
-                    _shellStream?.Write(" ");
-                }
-                e.Handled = true;
-            }
-        }
 
-        protected override void OnPreviewTextInput(TextCompositionEventArgs e)
-        {
-            if (_isConnected && _typingEnabled)
-            {
-                if (_isLocal && _localProcess != null)
+                if (_webReady && TerminalWebView?.CoreWebView2 != null)
                 {
-                    AppendText(e.Text, null); 
-                    TerminalScroller.ScrollToBottom();
-                    _localProcess.StandardInput.Write(e.Text);
+                    return;
                 }
-                else if (_shellStream != null)
+
+                await EnsureTerminalTemplateAsync();
+
+                await TerminalWebView.EnsureCoreWebView2Async();
+
+                TerminalWebView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = true;
+                TerminalWebView.CoreWebView2.Settings.AreDefaultScriptDialogsEnabled = false;
+                TerminalWebView.CoreWebView2.Settings.IsStatusBarEnabled = false;
+                TerminalWebView.CoreWebView2.Settings.IsZoomControlEnabled = false;
+
+                TerminalWebView.CoreWebView2.WebMessageReceived -= CoreWebView2_WebMessageReceived;
+                TerminalWebView.CoreWebView2.NavigationCompleted -= CoreWebView2_NavigationCompleted;
+                TerminalWebView.CoreWebView2.WebMessageReceived += CoreWebView2_WebMessageReceived;
+                TerminalWebView.CoreWebView2.NavigationCompleted += CoreWebView2_NavigationCompleted;
+
+                if (_webReadyTcs == null || _webReadyTcs.Task.IsCompleted)
                 {
-                    _shellStream.Write(e.Text);
+                    _webReady = false;
+                    _webReadyTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                    TerminalWebView.CoreWebView2.NavigateToString(_terminalHtmlTemplate ?? "<html><body>Terminal template missing.</body></html>");
                 }
-                e.Handled = true;
-            }
-            else if (!_typingEnabled)
-            {
-                // Typing is disabled - show visual feedback
-                e.Handled = true;
-            }
-            base.OnPreviewTextInput(e);
-        }
 
-        // Routed from XAML to ensure caret stays visible and input is intercepted
-        private void TerminalOutput_PreviewTextInput(object sender, TextCompositionEventArgs e)
-        {
-            OnPreviewTextInput(e);
-        }
-
-        private void TypeToggleButton_Checked(object sender, RoutedEventArgs e)
-        {
-            _typingEnabled = true;
-            if (TypeToggleButton != null)
-            {
-                TypeToggleButton.ToolTip = "Type (Enabled)";
+                readyTcs = _webReadyTcs;
             }
-        }
-
-        private void TypeToggleButton_Unchecked(object sender, RoutedEventArgs e)
-        {
-            _typingEnabled = false;
-            if (TypeToggleButton != null)
+            catch (Exception ex)
             {
-                TypeToggleButton.ToolTip = "Type (Disabled)";
-            }
-        }
-
-        private void ProcessOutputSafe(string text)
-        {
-            TerminalOutput.BeginChange();
-            try 
-            {
-                ProcessOutput(text);
+                MarkWebInitFailure($"WebView init failed: {ex.Message}");
+                return;
             }
             finally
             {
-                TerminalOutput.EndChange();
-                TerminalScroller.ScrollToBottom();
-                TerminalOutput.CaretBrush = System.Windows.Media.Brushes.Lime;
-                TerminalOutput.CaretPosition = TerminalOutput.Document.ContentEnd;
+                _webInitLock.Release();
             }
-        }
 
-        private void ProcessOutput(string text)
-        {
-            // 1. Strip known noise and cursor movement sequences
-            text = text.Replace("\x1b[?2004h", "").Replace("\x1b[?2004l", "");
-            
-            // Remove cursor movement and line clearing sequences
-            text = Regex.Replace(text, @"\x1b\[K", "");           // Clear to end of line
-            text = Regex.Replace(text, @"\x1b\[\d*[ABCD]", "");   // Cursor up/down/left/right
-            text = Regex.Replace(text, @"\x1b\[\d+G", "");        // Cursor to column
-            text = Regex.Replace(text, @"\x1b\[\d*;\d*[Hf]", ""); // Cursor position
-            text = Regex.Replace(text, @"\x1b\[J", "");           // Clear screen
-            text = Regex.Replace(text, @"\x1b\[s", "");           // Save cursor position
-            text = Regex.Replace(text, @"\x1b\[u", "");           // Restore cursor position
-            text = Regex.Replace(text, @"\x1b\[2K", "");          // Clear entire line
-            text = Regex.Replace(text, @"\x1b\[1K", "");          // Clear line from beginning
-            text = Regex.Replace(text, @"\x1b\[\d+P", "");        // Delete characters
-
-            // 2. Split by ANSI Color Codes
-            string pattern = @"\x1b\[([0-9;]*)m";
-            var parts = Regex.Split(text, pattern);
-
-            // Default starts as null (inherit from theme)
-            System.Windows.Media.Brush? currentColor = null;
-
-            for (int i = 0; i < parts.Length; i++)
+            if (readyTcs != null)
             {
-                string part = parts[i];
-
-                if (i % 2 == 0) 
+                try
                 {
-                    if (!string.IsNullOrEmpty(part))
+                    var isReady = await readyTcs.Task.WaitAsync(TimeSpan.FromSeconds(15));
+                    if (!isReady)
                     {
-                        HandleTextWithControls(part, currentColor);
+                        MarkWebInitFailure("Terminal renderer navigation failed.");
                     }
                 }
-                else 
+                catch (TimeoutException)
                 {
-                    currentColor = ParseAnsiColor(part, currentColor);
+                    MarkWebInitFailure("Terminal renderer handshake timed out.");
+                }
+                catch (Exception ex)
+                {
+                    MarkWebInitFailure($"Terminal renderer failed: {ex.Message}");
                 }
             }
         }
 
-        private void HandleTextWithControls(string text, System.Windows.Media.Brush? color)
+        private async Task WriteWelcomeAsync()
         {
-            StringBuilder sb = new StringBuilder();
-            
-            foreach (char c in text)
+            if (_welcomeWritten)
             {
-                if (c == '\r')
+                return;
+            }
+
+            await WriteToTerminalAsync("GitDeploy Pro Terminal [xterm.js + ConPTY]\r\nReady to connect...\r\n\r\n");
+            _welcomeWritten = true;
+        }
+
+        private void AttachSession(ITerminalSession session)
+        {
+            session.OutputReceived += Session_OutputReceived;
+            session.SessionClosed += Session_SessionClosed;
+        }
+
+        private void DetachSession(ITerminalSession session)
+        {
+            session.OutputReceived -= Session_OutputReceived;
+            session.SessionClosed -= Session_SessionClosed;
+        }
+
+        private void Session_OutputReceived(string output)
+        {
+            var normalized = NormalizeOutput(output);
+            _ = Dispatcher.InvokeAsync(async () =>
+            {
+                await WriteToTerminalAsync(normalized);
+            });
+        }
+
+        private void Session_SessionClosed()
+        {
+            _ = Dispatcher.InvokeAsync(async () =>
+            {
+                if (_isDisconnecting || !_isConnected)
                 {
-                    // Carriage return - just ignore it, newline (\n) will handle line breaks
-                    continue;
+                    return;
                 }
-                else if (c == '\b')
-                {
-                    if (sb.Length > 0)
+
+                await DisconnectAsync();
+            });
+        }
+
+        private async void CoreWebView2_WebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
+        {
+            if (_session == null && !_webReady && string.IsNullOrWhiteSpace(e.WebMessageAsJson))
+            {
+                return;
+            }
+
+            try
+            {
+                using var message = JsonDocument.Parse(e.WebMessageAsJson);
+                await HandleWebMessageAsync(message.RootElement);
+            }
+            catch
+            {
+                // Ignore malformed bridge messages.
+            }
+        }
+
+        private void CoreWebView2_NavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
+        {
+            if (!e.IsSuccess)
+            {
+                _webReadyTcs?.TrySetResult(false);
+            }
+        }
+
+        private async Task HandleWebMessageAsync(JsonElement message)
+        {
+            if (!message.TryGetProperty("type", out var typeProperty))
+            {
+                return;
+            }
+
+            var messageType = typeProperty.GetString() ?? string.Empty;
+            switch (messageType)
+            {
+                case "ready":
+                    _webReady = true;
+                    _webReadyTcs?.TrySetResult(true);
+                    await ApplyTerminalSettingsAsync();
+                    await WriteWelcomeAsync();
+                    break;
+
+                case "input":
+                    if (_typingEnabled && _session != null && _isConnected && message.TryGetProperty("data", out var dataProperty))
                     {
-                        AppendText(sb.ToString(), color);
-                        sb.Clear();
+                        var input = dataProperty.GetString();
+                        if (!string.IsNullOrEmpty(input))
+                        {
+                            if (input == "\u0003")
+                            {
+                                await TrySendInterruptAsync();
+                            }
+                            else
+                            {
+                                await _session.WriteAsync(input);
+                            }
+                        }
                     }
-                    RemoveLastChar();
-                }
-                else 
-                {
-                    sb.Append(c);
-                }
-            }
-            
-            if (sb.Length > 0)
-            {
-                AppendText(sb.ToString(), color);
-            }
+                    break;
 
-            // Ensure caret visible and focused after output
-            TerminalOutput.CaretBrush = System.Windows.Media.Brushes.Lime;
-            TerminalOutput.CaretPosition = TerminalOutput.Document.ContentEnd;
-            TerminalOutput.Focus();
-        }
-
-        private void RemoveLastChar()
-        {
-            // Find the last Run in the last Paragraph
-            if (TerminalOutput.Document.Blocks.LastBlock is Paragraph lastP)
-            {
-                if (lastP.Inlines.LastInline is Run lastRun)
-                {
-                    if (lastRun.Text.Length > 0)
+                case "interrupt":
+                    if (_typingEnabled && _session != null && _isConnected)
                     {
-                        lastRun.Text = lastRun.Text.Substring(0, lastRun.Text.Length - 1);
+                        await TrySendInterruptAsync();
                     }
-                    
-                    // If Run is empty, remove it
-                    if (lastRun.Text.Length == 0)
+                    break;
+
+                case "resize":
+                    if (message.TryGetProperty("cols", out var colsProperty) &&
+                        message.TryGetProperty("rows", out var rowsProperty) &&
+                        colsProperty.TryGetInt32(out var cols) &&
+                        rowsProperty.TryGetInt32(out var rows))
                     {
-                        lastP.Inlines.Remove(lastRun);
+                        _currentColumns = Math.Max(20, cols);
+                        _currentRows = Math.Max(5, rows);
+                        if (_session != null && _isConnected)
+                        {
+                            await _session.ResizeAsync(_currentColumns, _currentRows);
+                        }
                     }
-                }
+                    break;
+
+                case "copy":
+                    if (message.TryGetProperty("text", out var textProperty))
+                    {
+                        var text = textProperty.GetString();
+                        if (!string.IsNullOrEmpty(text))
+                        {
+                            System.Windows.Clipboard.SetText(text);
+                        }
+                    }
+                    break;
+
+                case "pasteRequest":
+                    if (_typingEnabled && System.Windows.Clipboard.ContainsText())
+                    {
+                        var clipboardText = System.Windows.Clipboard.GetText();
+                        await PostTerminalMessageAsync(new { type = "paste", text = clipboardText });
+                    }
+                    break;
             }
         }
 
-        private System.Windows.Media.Brush? ParseAnsiColor(string code, System.Windows.Media.Brush? current)
+        private async Task WriteToTerminalAsync(string text)
         {
-            // Reset or empty -> null (default theme)
-            if (string.IsNullOrEmpty(code) || code == "0" || code == "39") return null;
-
-            var segments = code.Split(';');
-            foreach (var seg in segments)
+            if (string.IsNullOrEmpty(text))
             {
-                switch (seg)
-                {
-                    case "0": return null; // Reset inside complex code
-                    case "39": return null; // Default foreground
-                    case "30": return System.Windows.Media.Brushes.Black;
-                    case "31": return System.Windows.Media.Brushes.Red;
-                    case "32": return System.Windows.Media.Brushes.LimeGreen;
-                    case "33": return System.Windows.Media.Brushes.Yellow;
-                    case "34": return System.Windows.Media.Brushes.DodgerBlue;
-                    case "35": return System.Windows.Media.Brushes.Magenta;
-                    case "36": return System.Windows.Media.Brushes.Cyan;
-                    case "37": return System.Windows.Media.Brushes.White;
-                    case "1": return System.Windows.Media.Brushes.White; // Bold often implies bright white/intense
-                    case "90": return System.Windows.Media.Brushes.Gray;
-                    case "91": return System.Windows.Media.Brushes.LightCoral;
-                    case "92": return System.Windows.Media.Brushes.LightGreen;
-                    case "93": return System.Windows.Media.Brushes.LightYellow;
-                    case "94": return System.Windows.Media.Brushes.LightBlue;
-                }
+                return;
             }
-            return current;
+
+            await EnsureWebViewReadyAsync();
+            if (!_webReady || _webInitFailed)
+            {
+                return;
+            }
+            await PostTerminalMessageAsync(new { type = "write", data = text });
         }
 
-        private void AppendText(string text, System.Windows.Media.Brush? color)
+        private Task PostTerminalMessageAsync(object payload)
         {
-            var run = new Run(text);
-            if (color != null)
+            if (!_webReady || TerminalWebView?.CoreWebView2 == null)
             {
-                run.Foreground = color;
+                return Task.CompletedTask;
             }
-            // else inherit from parent/RichTextBox
-            
-            Paragraph p;
-            if (TerminalOutput.Document.Blocks.LastBlock is Paragraph lastP)
+
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
+            TerminalWebView.CoreWebView2.PostWebMessageAsJson(json);
+            return Task.CompletedTask;
+        }
+
+        private async Task ApplyTerminalSettingsAsync()
+        {
+            await PostTerminalMessageAsync(new { type = "setTypingEnabled", enabled = _typingEnabled });
+            await PostTerminalMessageAsync(new { type = "setFontSize", value = GetCurrentFontSize() });
+            await PostTerminalMessageAsync(new { type = "setForeground", value = GetCurrentTextColorHex() });
+            TypingOverlay.Visibility = _typingEnabled ? Visibility.Collapsed : Visibility.Visible;
+        }
+
+        private static async Task EnsureTerminalTemplateAsync()
+        {
+            if (!string.IsNullOrEmpty(_terminalHtmlTemplate))
             {
-                p = lastP;
+                return;
             }
-            else
+
+            var filePath = Path.Combine(AppContext.BaseDirectory, "Resources", "TerminalHost.html");
+            if (File.Exists(filePath))
             {
-                p = new Paragraph();
-                TerminalOutput.Document.Blocks.Add(p);
+                _terminalHtmlTemplate = await File.ReadAllTextAsync(filePath);
+                return;
             }
-            p.Inlines.Add(run);
+
+            var assembly = typeof(TerminalControl).Assembly;
+            const string embeddedResource = "GitDeployPro.Resources.TerminalHost.html";
+            await using var resourceStream = assembly.GetManifestResourceStream(embeddedResource);
+            if (resourceStream == null)
+            {
+                throw new FileNotFoundException("TerminalHost.html was not found in resources.", filePath);
+            }
+
+            using var reader = new StreamReader(resourceStream);
+            _terminalHtmlTemplate = await reader.ReadToEndAsync();
+        }
+
+        private static bool IsLegacyBackendForced()
+        {
+            var mode = Environment.GetEnvironmentVariable("GDP_TERMINAL_LOCAL_BACKEND");
+            return string.Equals(mode, "legacy", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private string ResolveWorkingDirectory()
+        {
+            if (!string.IsNullOrWhiteSpace(_projectPath) && Directory.Exists(_projectPath))
+            {
+                return _projectPath;
+            }
+
+            return "C:\\";
+        }
+
+        private double GetCurrentFontSize()
+        {
+            if (FontSizeCombo.SelectedItem is ComboBoxItem item &&
+                double.TryParse(item.Content?.ToString(), out var size))
+            {
+                return size;
+            }
+
+            return 14;
+        }
+
+        private string GetCurrentTextColorHex()
+        {
+            if (TextColorCombo.SelectedItem is ComboBoxItem item && item.Tag is string tag && !string.IsNullOrWhiteSpace(tag))
+            {
+                return tag;
+            }
+
+            return "#D4D4D4";
+        }
+
+        private static string NormalizeOutput(string output)
+        {
+            return output.Replace("\0", string.Empty);
+        }
+
+        private async Task TrySendInterruptAsync()
+        {
+            if (_session == null || !_isConnected)
+            {
+                return;
+            }
+
+            var now = DateTime.UtcNow;
+            if ((now - _lastInterruptSentAt).TotalMilliseconds < 220)
+            {
+                return;
+            }
+
+            _lastInterruptSentAt = now;
+            await _session.SendInterruptAsync();
+        }
+
+        private async Task ConfigureRemoteHistorySyncAsync()
+        {
+            if (_remoteHistoryConfigured || _session == null || !_isConnected || _isLocal)
+            {
+                return;
+            }
+
+            const string historySyncBootstrap =
+                "if [ -n \"$BASH_VERSION\" ]; then shopt -s histappend 2>/dev/null; export HISTCONTROL=ignoredups:erasedups; PROMPT_COMMAND=\"history -a; history -n; ${PROMPT_COMMAND:-}\"; history -n; fi; " +
+                "if [ -n \"$ZSH_VERSION\" ]; then setopt APPEND_HISTORY SHARE_HISTORY INC_APPEND_HISTORY 2>/dev/null; fi\r";
+
+            try
+            {
+                await _session.WriteAsync(historySyncBootstrap);
+                _remoteHistoryConfigured = true;
+            }
+            catch
+            {
+                // Keep terminal usable even when history bootstrap fails.
+            }
+        }
+
+        private async Task HandleConnectionFailureAsync(Exception exception, string caption)
+        {
+            SetDisconnectedStatus();
+            if (_webInitFailed)
+            {
+                StatusText.Text = "Terminal init failed";
+                return;
+            }
+
+            await WriteToTerminalAsync($"\r\n[error] {caption}: {exception.Message}\r\n");
+        }
+
+        private void SetConnectingStatus(string text)
+        {
+            StatusText.Text = text;
+            StatusIndicator.Background = System.Windows.Media.Brushes.Orange;
+            ConnectButton.IsEnabled = false;
+        }
+
+        private void SetConnectedStatus(string text)
+        {
+            StatusText.Text = text;
+            StatusIndicator.Background = System.Windows.Media.Brushes.LimeGreen;
+            ConnectButton.Content = "❌ Disconnect";
+            ConnectButton.Background = System.Windows.Media.Brushes.DarkRed;
+            ConnectButton.IsEnabled = true;
+        }
+
+        private void SetDisconnectedStatus()
+        {
+            StatusText.Text = "Disconnected";
+            StatusIndicator.Background = System.Windows.Media.Brushes.Gray;
+            ConnectButton.Content = "🔌 Connect";
+            ConnectButton.Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 122, 204));
+            ConnectButton.IsEnabled = true;
+        }
+
+        private async Task InjectCommandTextAsync(string command)
+        {
+            if (string.IsNullOrWhiteSpace(command))
+            {
+                return;
+            }
+
+            if (_session == null || !_isConnected)
+            {
+                await WriteToTerminalAsync($"\r\n> {command}\r\n");
+                await FocusTerminalAsync();
+                return;
+            }
+
+            await _session.WriteAsync(command);
+            await FocusTerminalAsync();
+        }
+
+        public Task FocusTerminalAsync()
+        {
+            return PostTerminalMessageAsync(new { type = "focus" });
         }
 
         private void DetachButton_Click(object sender, RoutedEventArgs e)
         {
-            var window = new TerminalWindow(_projectPath);
+            var window = new TerminalWindow(_projectPath ?? string.Empty);
             window.Show();
         }
 
-        private void ClearButton_Click(object sender, RoutedEventArgs e)
+        private async void ClearButton_Click(object sender, RoutedEventArgs e)
         {
-            TerminalOutput.Document.Blocks.Clear();
-            AppendText("Terminal Cleared.\n", System.Windows.Media.Brushes.Gray);
+            await PostTerminalMessageAsync(new { type = "clear" });
+            await WriteToTerminalAsync("Terminal cleared.\r\n");
         }
 
-        private void FontSizeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private async void FontSizeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (TerminalOutput == null) return;
-            if (FontSizeCombo.SelectedItem is ComboBoxItem item)
-            {
-                if (double.TryParse(item.Content.ToString(), out double size))
-                {
-                    TerminalOutput.FontSize = size;
-                }
-            }
+            await PostTerminalMessageAsync(new { type = "setFontSize", value = GetCurrentFontSize() });
         }
 
-        private void TextColorCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private async void TextColorCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (TerminalOutput == null) return;
-            if (TextColorCombo.SelectedItem is ComboBoxItem item && item.Tag is string colorHex)
+            await PostTerminalMessageAsync(new { type = "setForeground", value = GetCurrentTextColorHex() });
+        }
+
+        private async void TypeToggleButton_Checked(object sender, RoutedEventArgs e)
+        {
+            _typingEnabled = true;
+            if (TypeToggleButton != null)
             {
-                try
-                {
-                    var color = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(colorHex);
-                    TerminalOutput.Foreground = new SolidColorBrush(color);
-                }
-                catch { }
+                TypeToggleButton.ToolTip = "Focus/Type (Enabled)";
             }
+            if (TypingOverlay != null)
+            {
+                TypingOverlay.Visibility = Visibility.Collapsed;
+            }
+            await PostTerminalMessageAsync(new { type = "setTypingEnabled", enabled = true });
+            await FocusTerminalAsync();
+        }
+
+        private async void TypeToggleButton_Unchecked(object sender, RoutedEventArgs e)
+        {
+            _typingEnabled = false;
+            if (TypeToggleButton != null)
+            {
+                TypeToggleButton.ToolTip = "Focus/Type (Disabled)";
+            }
+            if (TypingOverlay != null)
+            {
+                TypingOverlay.Visibility = Visibility.Visible;
+            }
+            await PostTerminalMessageAsync(new { type = "setTypingEnabled", enabled = false });
+            await FocusTerminalAsync();
+        }
+
+        private void MarkWebInitFailure(string reason)
+        {
+            _webInitFailed = true;
+            _webReady = false;
+            _webInitFailureReason = reason;
+            StatusText.Text = "Terminal init failed";
+            StatusText.ToolTip = _webInitFailureReason;
+            StatusIndicator.Background = System.Windows.Media.Brushes.Red;
         }
     }
 }

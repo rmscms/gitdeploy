@@ -95,8 +95,8 @@ namespace GitDeployPro.Pages
                 var commits = await _gitService.GetTotalCommitsAsync();
                 CommitsCount.Text = commits.ToString();
 
-                var changes = await _gitService.GetUncommittedChangesAsync();
-                ChangedFilesCount.Text = changes.Count.ToString();
+                var changesCount = await _gitService.GetUncommittedCountAsync();
+                ChangedFilesCount.Text = changesCount.ToString();
 
                 var branchStatus = await _gitService.GetBranchStatusAsync();
                 UpdatePushStatusBadge(branchStatus);

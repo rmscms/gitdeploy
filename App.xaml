@@ -36,6 +36,46 @@
                     </Setter.Value>
                 </Setter>
             </Style>
+
+            <Style x:Key="DetachPageButtonStyle" TargetType="Button">
+                <Setter Property="MinWidth" Value="44"/>
+                <Setter Property="Height" Value="34"/>
+                <Setter Property="Padding" Value="12,0"/>
+                <Setter Property="Margin" Value="0"/>
+                <Setter Property="Background" Value="#2F3238"/>
+                <Setter Property="Foreground" Value="#E8EDF5"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="BorderBrush" Value="#4A505A"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="FontSize" Value="13"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="border"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="6">
+                                <ContentPresenter HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="border" Property="Background" Value="#3A404A"/>
+                                    <Setter TargetName="border" Property="BorderBrush" Value="#6A7382"/>
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="border" Property="Background" Value="#262B33"/>
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter TargetName="border" Property="Opacity" Value="0.55"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

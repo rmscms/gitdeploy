@@ -310,7 +310,20 @@ namespace GitDeployPro.Services
                 if (File.Exists(path))
                 {
                     var json = File.ReadAllText(path);
-                    return JsonConvert.DeserializeObject<ProjectConfig>(json) ?? new ProjectConfig();
+                    var config = JsonConvert.DeserializeObject<ProjectConfig>(json) ?? new ProjectConfig();
+                    config.LocalProjectPath = string.IsNullOrWhiteSpace(config.LocalProjectPath) ? projectPath : config.LocalProjectPath;
+                    if (string.IsNullOrWhiteSpace(config.DefaultSourceBranch))
+                    {
+                        config.DefaultSourceBranch = "master";
+                    }
+
+                    if (string.IsNullOrWhiteSpace(config.DefaultTargetBranch) ||
+                        string.Equals(config.DefaultSourceBranch, config.DefaultTargetBranch, StringComparison.OrdinalIgnoreCase))
+                    {
+                        config.DefaultTargetBranch = ResolveDefaultTargetBranch(config.DefaultSourceBranch);
+                    }
+
+                    return config;
                 }
             }
             catch { }
@@ -323,6 +336,17 @@ namespace GitDeployPro.Services
         {
             try
             {
+                if (string.IsNullOrWhiteSpace(config.DefaultSourceBranch))
+                {
+                    config.DefaultSourceBranch = "master";
+                }
+
+                if (string.IsNullOrWhiteSpace(config.DefaultTargetBranch) ||
+                    string.Equals(config.DefaultSourceBranch, config.DefaultTargetBranch, StringComparison.OrdinalIgnoreCase))
+                {
+                    config.DefaultTargetBranch = ResolveDefaultTargetBranch(config.DefaultSourceBranch);
+                }
+
                 if (string.IsNullOrEmpty(config.LocalProjectPath) || !Directory.Exists(config.LocalProjectPath))
                     return;
 
@@ -366,6 +390,19 @@ namespace GitDeployPro.Services
             {
                 System.Diagnostics.Debug.WriteLine($"Failed to save project config: {ex.Message}");
             }
+        }
+
+        private static string ResolveDefaultTargetBranch(string sourceBranch)
+        {
+            foreach (var candidate in new[] { "production", "master", "main", "release" })
+            {
+                if (!string.Equals(sourceBranch, candidate, StringComparison.OrdinalIgnoreCase))
+                {
+                    return candidate;
+                }
+            }
+
+            return string.IsNullOrWhiteSpace(sourceBranch) ? "production" : $"{sourceBranch}-deploy";
         }
     }
 }

@@ -18,7 +18,10 @@ namespace GitDeployPro.Windows
         private readonly string _projectPath;
         private readonly GitService _gitService;
         private readonly ConfigurationService _configService;
-        private List<ConnectionProfile> _connections;
+        private readonly ProjectSetupResetService _resetService;
+        private List<ConnectionProfile> _connections = new List<ConnectionProfile>();
+        private readonly bool _gitDetectedAtStartup;
+        private string _lastErrorDetails = string.Empty;
 
         public bool SetupCompleted { get; private set; }
 
@@ -28,11 +31,13 @@ namespace GitDeployPro.Windows
             _projectPath = projectPath;
             _gitService = new GitService();
             _configService = new ConfigurationService();
+            _resetService = new ProjectSetupResetService();
             
             GitService.SetWorkingDirectory(_projectPath);
             
             // Auto-detect if git exists
-            if (_gitService.IsGitRepository())
+            _gitDetectedAtStartup = _gitService.IsGitRepository();
+            if (_gitDetectedAtStartup)
             {
                 LocalGitRadio.Content = "Existing Local Repository (Detected)";
                 LocalGitPanel.Visibility = Visibility.Collapsed;
@@ -40,6 +45,7 @@ namespace GitDeployPro.Windows
             }
             
             LoadConnectionProfiles();
+            UpdateResetHint();
         }
 
         private void LoadConnectionProfiles()
@@ -91,9 +97,11 @@ namespace GitDeployPro.Windows
         {
             if (LocalGitPanel == null || RemoteGitPanel == null) return;
 
+            bool canReinitializeGit = !_gitDetectedAtStartup || ResetGitFolderCheckBox.IsChecked == true;
+
             if (LocalGitRadio.IsChecked == true)
             {
-                LocalGitPanel.Visibility = Visibility.Visible;
+                LocalGitPanel.Visibility = canReinitializeGit ? Visibility.Visible : Visibility.Collapsed;
                 RemoteGitPanel.Visibility = Visibility.Collapsed;
             }
             else
@@ -109,6 +117,86 @@ namespace GitDeployPro.Windows
             FtpConfigPanel.Visibility = (EnableFtpCheck.IsChecked == true) ? Visibility.Visible : Visibility.Collapsed;
         }
 
+        private void ResetOption_Checked(object sender, RoutedEventArgs e)
+        {
+            UpdateResetHint();
+
+            if (!_gitDetectedAtStartup)
+            {
+                return;
+            }
+
+            bool gitResetRequested = ResetGitFolderCheckBox.IsChecked == true;
+            RemoteGitRadio.IsEnabled = gitResetRequested;
+            if (!gitResetRequested)
+            {
+                LocalGitRadio.IsChecked = true;
+                LocalGitPanel.Visibility = Visibility.Collapsed;
+            }
+            else if (LocalGitRadio.IsChecked == true)
+            {
+                LocalGitPanel.Visibility = Visibility.Visible;
+            }
+        }
+
+        private void UpdateResetHint()
+        {
+            bool removeGit = ResetGitFolderCheckBox?.IsChecked == true;
+            bool removeConfig = ResetConfigFileCheckBox?.IsChecked == true;
+
+            if (!removeGit && !removeConfig)
+            {
+                ResetHintText.Text = "No reset selected.";
+                return;
+            }
+
+            var targets = new List<string>();
+            if (removeGit) targets.Add(".git");
+            if (removeConfig) targets.Add(".gitdeploy.config");
+
+            ResetHintText.Text = $"Selected for cleanup: {string.Join(", ", targets)}";
+        }
+
+        private bool ConfirmReinitializeReset()
+        {
+            bool removeGit = ResetGitFolderCheckBox.IsChecked == true;
+            bool removeConfig = ResetConfigFileCheckBox.IsChecked == true;
+            if (!removeGit && !removeConfig)
+            {
+                return true;
+            }
+
+            var preview = _resetService.BuildPreview(_projectPath, removeGit, removeConfig);
+            string items = string.Join(Environment.NewLine, preview.Targets.Select(path => $"- {path}"));
+            bool firstConfirm = ModernMessageBox.Show(
+                $"Project folder:{Environment.NewLine}{preview.ProjectPath}{Environment.NewLine}{Environment.NewLine}Items to remove:{Environment.NewLine}{items}{Environment.NewLine}{Environment.NewLine}Continue?",
+                "Reinitialize Project Setup",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning,
+                "Continue",
+                "Cancel");
+
+            if (!firstConfirm)
+            {
+                return false;
+            }
+
+            return ModernMessageBox.Show(
+                "This will remove selected setup artifacts from this project folder. Do you want to run it now?",
+                "Final Confirmation",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning,
+                "Reset Now",
+                "Cancel");
+        }
+
+        private void SetBusyState(bool isBusy)
+        {
+            OverlayGrid.Visibility = isBusy ? Visibility.Visible : Visibility.Collapsed;
+            CancelButton.IsEnabled = !isBusy;
+            FinishButton.IsEnabled = !isBusy;
+        }
+
         private void Cancel_Click(object sender, RoutedEventArgs e)
         {
             DialogResult = false;
@@ -119,7 +207,16 @@ namespace GitDeployPro.Windows
         {
             Dispatcher.Invoke(() =>
             {
-                LogText.Text = message;
+                if (string.IsNullOrWhiteSpace(LogText.Text) || LogText.Text == "Initializing...")
+                {
+                    LogText.Text = message;
+                }
+                else
+                {
+                    LogText.Text += Environment.NewLine + message;
+                }
+
+                OverlayLogScrollViewer?.ScrollToEnd();
             });
         }
 
@@ -127,18 +224,51 @@ namespace GitDeployPro.Windows
         {
             try
             {
-                // UI Busy State
-                OverlayGrid.Visibility = Visibility.Visible;
-                CancelButton.IsEnabled = false;
-                FinishButton.IsEnabled = false;
+                if (!ConfirmReinitializeReset())
+                {
+                    return;
+                }
+
+                SetBusyState(true);
+                _lastErrorDetails = string.Empty;
+                CopyErrorDetailsButton.Visibility = Visibility.Collapsed;
+                LogText.Text = "Initializing...";
+
+                bool removeGit = ResetGitFolderCheckBox.IsChecked == true;
+                bool removeConfig = ResetConfigFileCheckBox.IsChecked == true;
+                if (removeGit || removeConfig)
+                {
+                    AddLog("Applying project cleanup options...");
+                    var resetResult = _resetService.ResetProject(_projectPath, removeGit, removeConfig);
+
+                    if (resetResult.RemovedPaths.Count > 0)
+                    {
+                        AddLog($"Removed: {string.Join(", ", resetResult.RemovedPaths.Select(Path.GetFileName))}");
+                    }
+
+                    if (resetResult.SkippedPaths.Count > 0)
+                    {
+                        AddLog($"Skipped (not found): {string.Join(", ", resetResult.SkippedPaths.Select(Path.GetFileName))}");
+                    }
+
+                    GitService.SetWorkingDirectory(_projectPath);
+                    await Task.Delay(200);
+                }
+
+                string sourceBranch = NormalizeBranchName(SourceBranchCombo.Text, "master");
+                string targetBranch = ResolveDistinctTargetBranch(sourceBranch, TargetBranchCombo.Text);
+                if (!string.Equals(targetBranch, TargetBranchCombo.Text?.Trim(), StringComparison.OrdinalIgnoreCase))
+                {
+                    TargetBranchCombo.Text = targetBranch;
+                    AddLog($"Target branch adjusted to '{targetBranch}' to keep deploy flow stable.");
+                }
 
                 // 1. Git Setup
                 if (!_gitService.IsGitRepository())
                 {
                     if (LocalGitRadio.IsChecked == true)
                     {
-                        string branch = LocalBranchName.Text.Trim();
-                        if (string.IsNullOrEmpty(branch)) branch = "master";
+                        string branch = NormalizeBranchName(LocalBranchName.Text, sourceBranch);
                         
                         AddLog("Creating .gitignore...");
                         CreateGitIgnore(_projectPath);
@@ -147,10 +277,9 @@ namespace GitDeployPro.Windows
                         await Task.Delay(500); // UI Refresh
                         
                         var initBranches = new List<string> { branch };
-                        string targetBranch = TargetBranchCombo.Text.Trim();
-                        if (!string.IsNullOrEmpty(targetBranch) && targetBranch != branch)
+                        if (!string.IsNullOrEmpty(targetBranch) && !string.Equals(targetBranch, branch, StringComparison.OrdinalIgnoreCase))
                         {
-                             initBranches.Add(targetBranch);
+                            initBranches.Add(targetBranch);
                         }
                         
                         await _gitService.InitRepoAsync(initBranches, "");
@@ -161,9 +290,7 @@ namespace GitDeployPro.Windows
                         if (string.IsNullOrEmpty(remote))
                         {
                             ModernMessageBox.Show("Please enter Remote URL.", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
-                            OverlayGrid.Visibility = Visibility.Collapsed;
-                            CancelButton.IsEnabled = true;
-                            FinishButton.IsEnabled = true;
+                            SetBusyState(false);
                             return;
                         }
                         
@@ -171,17 +298,23 @@ namespace GitDeployPro.Windows
                         CreateGitIgnore(_projectPath);
 
                         AddLog("Initializing & Connecting to Remote...");
-                        var initBranches = new List<string> { "master" };
-                        string targetBranch = TargetBranchCombo.Text.Trim();
-                        if (!string.IsNullOrEmpty(targetBranch) && targetBranch != "master")
+                        var initBranches = new List<string> { sourceBranch };
+                        if (!string.IsNullOrEmpty(targetBranch) && !string.Equals(targetBranch, sourceBranch, StringComparison.OrdinalIgnoreCase))
                         {
-                             initBranches.Add(targetBranch);
+                            initBranches.Add(targetBranch);
                         }
                         
                         await _gitService.InitRepoAsync(initBranches, remote);
                         
                         AddLog("Pulling changes from remote...");
-                        try { await _gitService.PullAsync(); } catch { }
+                        try
+                        {
+                            await _gitService.PullAsync();
+                        }
+                        catch (Exception pullEx)
+                        {
+                            AddLog($"Remote pull warning: {pullEx.Message}");
+                        }
                     }
                 }
                 else
@@ -192,14 +325,31 @@ namespace GitDeployPro.Windows
 
                 // 2. Create Project Config
                 AddLog("Saving project configuration...");
+                string detectedRemoteUrl = string.Empty;
+                try
+                {
+                    detectedRemoteUrl = (await _gitService.GetRemoteUrlAsync()).Trim();
+                }
+                catch
+                {
+                    detectedRemoteUrl = string.Empty;
+                }
+
+                if (string.IsNullOrWhiteSpace(detectedRemoteUrl) && RemoteGitRadio.IsChecked == true)
+                {
+                    detectedRemoteUrl = RemoteUrlBox.Text?.Trim() ?? string.Empty;
+                }
+
                 var config = new ProjectConfig
                 {
                     LocalProjectPath = _projectPath,
-                    DefaultSourceBranch = SourceBranchCombo.Text,
-                    DefaultTargetBranch = TargetBranchCombo.Text,
+                    DefaultSourceBranch = sourceBranch,
+                    DefaultTargetBranch = targetBranch,
+                    GitRemoteUrl = detectedRemoteUrl,
                     
                     AutoInitGit = true,
-                    AutoCommit = true
+                    AutoCommit = true,
+                    DeployMode = EnableFtpCheck.IsChecked == true ? DeployMode.FtpDeploy : DeployMode.GitHubOnly
                 };
 
                 if (EnableFtpCheck.IsChecked == true)
@@ -208,9 +358,7 @@ namespace GitDeployPro.Windows
                     if (selectedProfile == null)
                     {
                          ModernMessageBox.Show("Please select a connection profile.", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
-                         OverlayGrid.Visibility = Visibility.Collapsed;
-                         CancelButton.IsEnabled = true;
-                         FinishButton.IsEnabled = true;
+                         SetBusyState(false);
                          return;
                     }
 
@@ -229,10 +377,10 @@ namespace GitDeployPro.Windows
 
                 // 3. Initial Commit (if needed)
                 AddLog("Checking for changes...");
-                var changes = await _gitService.GetUncommittedChangesAsync();
-                if (changes.Count > 0)
+                int pendingChanges = await _gitService.GetUncommittedCountAsync();
+                if (pendingChanges > 0)
                 {
-                    AddLog($"Committing {changes.Count} changes...");
+                    AddLog($"Committing {pendingChanges} changes...");
                     await _gitService.CommitChangesAsync("Initial setup by GitDeploy Pro");
                 }
 
@@ -245,11 +393,88 @@ namespace GitDeployPro.Windows
             }
             catch (Exception ex)
             {
-                OverlayGrid.Visibility = Visibility.Collapsed;
-                CancelButton.IsEnabled = true;
-                FinishButton.IsEnabled = true;
-                ModernMessageBox.Show($"Setup failed: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                SetBusyState(false);
+                _lastErrorDetails = BuildErrorDetails(ex);
+                CopyErrorDetailsButton.Visibility = Visibility.Visible;
+                AddLog($"Setup failed: {ex.Message}");
+                ModernMessageBox.Show($"Setup failed: {GetUserFacingError(ex)}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
+        }
+
+        private static string GetUserFacingError(Exception ex)
+        {
+            if (ex is GitCommandException gitEx)
+            {
+                return $"{gitEx.Command} {gitEx.Arguments} failed (exit {gitEx.ExitCode}). {gitEx.GetDetailedMessage()}";
+            }
+
+            return ex.Message;
+        }
+
+        private static string BuildErrorDetails(Exception ex)
+        {
+            if (ex is GitCommandException gitEx)
+            {
+                return
+                    $"Command: {gitEx.Command} {gitEx.Arguments}{Environment.NewLine}" +
+                    $"Working Directory: {gitEx.WorkingDirectory}{Environment.NewLine}" +
+                    $"Exit Code: {gitEx.ExitCode}{Environment.NewLine}{Environment.NewLine}" +
+                    $"STDERR:{Environment.NewLine}{gitEx.StandardError}{Environment.NewLine}{Environment.NewLine}" +
+                    $"STDOUT:{Environment.NewLine}{gitEx.StandardOutput}";
+            }
+
+            return ex.ToString();
+        }
+
+        private void CopyErrorDetailsButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(_lastErrorDetails))
+            {
+                ModernMessageBox.Show("No error details available yet.", "Copy Details", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            try
+            {
+                System.Windows.Clipboard.SetText(_lastErrorDetails);
+                ModernMessageBox.Show("Error details copied to clipboard.", "Copy Details", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show($"Unable to copy details: {ex.Message}", "Copy Details", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        private static string NormalizeBranchName(string? branchName, string fallback)
+        {
+            string normalized = (branchName ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(normalized))
+            {
+                normalized = fallback;
+            }
+
+            return string.IsNullOrWhiteSpace(normalized) ? "master" : normalized;
+        }
+
+        private static string ResolveDistinctTargetBranch(string sourceBranch, string? requestedTarget)
+        {
+            string source = NormalizeBranchName(sourceBranch, "master");
+            string candidate = NormalizeBranchName(requestedTarget, "production");
+
+            if (!string.Equals(source, candidate, StringComparison.OrdinalIgnoreCase))
+            {
+                return candidate;
+            }
+
+            foreach (var fallback in new[] { "production", "master", "main", "release" })
+            {
+                if (!string.Equals(source, fallback, StringComparison.OrdinalIgnoreCase))
+                {
+                    return fallback;
+                }
+            }
+
+            return source + "-deploy";
         }
 
         private void CreateGitIgnore(string path)
@@ -261,7 +486,7 @@ namespace GitDeployPro.Windows
                 {
                     var defaults = new[]
                     {
-                        "bin/", "obj/", ".vs/", ".gitdeploy.config", ".gitdeploy.history", "*.log", "node_modules/", "vendor/"
+                        "bin/", "obj/", ".vs/", ".idea/", ".vscode/", ".cursor/", "dist/", "build/", ".gitdeploy.config", ".gitdeploy.history", "*.log", "node_modules/", "vendor/"
                     };
                     File.WriteAllLines(ignoreFile, defaults);
                 }

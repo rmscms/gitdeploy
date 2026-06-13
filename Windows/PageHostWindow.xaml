@@ -10,7 +10,9 @@
     <Grid>
         <Frame x:Name="HostFrame"
                NavigationUIVisibility="Hidden"
-               Background="#1F1F1F" />
+               Background="#1F1F1F"
+               ScrollViewer.VerticalScrollBarVisibility="Auto"
+               ScrollViewer.HorizontalScrollBarVisibility="Auto" />
     </Grid>
 </mah:MetroWindow>
 
