@@ -9,6 +9,16 @@ namespace GitDeployPro.Windows
 {
     public partial class HistoryDetailsWindow : Window
     {
+        private static System.Windows.Media.Brush GetThemeBrush(string resourceKey, System.Windows.Media.Brush fallback)
+        {
+            if (System.Windows.Application.Current?.Resources[resourceKey] is System.Windows.Media.Brush brush)
+            {
+                return brush;
+            }
+
+            return fallback;
+        }
+
         public HistoryDetailsWindow(DeploymentRecord record)
         {
             InitializeComponent();
@@ -26,12 +36,12 @@ namespace GitDeployPro.Windows
             if (record.Status == "Failed" || record.Status.Contains("Fail"))
             {
                 StatusIcon.Text = "❌";
-                StatusText.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(229, 115, 115));
+                StatusText.Foreground = GetThemeBrush("Status.Error", new SolidColorBrush(System.Windows.Media.Color.FromRgb(229, 115, 115)));
             }
             else
             {
                 StatusIcon.Text = "✅";
-                StatusText.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(76, 175, 80));
+                StatusText.Foreground = GetThemeBrush("Status.Success", new SolidColorBrush(System.Windows.Media.Color.FromRgb(76, 175, 80)));
             }
 
             FilesListContainer.Children.Clear();
@@ -47,7 +57,7 @@ namespace GitDeployPro.Windows
                  var p = new TextBlock 
                  { 
                      Text = "No file details available for this record.", 
-                     Foreground = System.Windows.Media.Brushes.Gray,
+                     Foreground = GetThemeBrush("Text.Muted", System.Windows.Media.Brushes.Gray),
                      FontStyle = FontStyles.Italic,
                      Margin = new Thickness(5)
                  };
@@ -60,15 +70,24 @@ namespace GitDeployPro.Windows
                     var p = new Border
                     {
                         Padding = new Thickness(10),
-                        BorderBrush = new SolidColorBrush(System.Windows.Media.Color.FromArgb(30, 255, 255, 255)),
+                        BorderBrush = GetThemeBrush("Border.Subtle", new SolidColorBrush(System.Windows.Media.Color.FromArgb(30, 255, 255, 255))),
                         BorderThickness = new Thickness(0, 0, 0, 1),
                         Child = new StackPanel
                         {
                             Orientation = System.Windows.Controls.Orientation.Horizontal,
                             Children =
                             {
-                                new TextBlock { Text = "📄", Margin = new Thickness(0, 0, 10, 0), Foreground = System.Windows.Media.Brushes.Gray },
-                                new TextBlock { Text = file, Foreground = System.Windows.Media.Brushes.LightGray }
+                                new TextBlock
+                                {
+                                    Text = "📄",
+                                    Margin = new Thickness(0, 0, 10, 0),
+                                    Foreground = GetThemeBrush("Text.Muted", System.Windows.Media.Brushes.Gray)
+                                },
+                                new TextBlock
+                                {
+                                    Text = file,
+                                    Foreground = GetThemeBrush("Text.Secondary", System.Windows.Media.Brushes.LightGray)
+                                }
                             }
                         }
                     };

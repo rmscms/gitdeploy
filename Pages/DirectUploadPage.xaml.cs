@@ -38,6 +38,16 @@ namespace GitDeployPro.Pages
             Loaded += DirectUploadPage_Loaded;
         }
 
+        private System.Windows.Media.Brush GetThemeBrush(string resourceKey, System.Windows.Media.Brush fallback)
+        {
+            if (string.IsNullOrWhiteSpace(resourceKey))
+            {
+                return fallback;
+            }
+
+            return System.Windows.Application.Current?.TryFindResource(resourceKey) as System.Windows.Media.Brush ?? fallback;
+        }
+
         private void DetachDirectUploadPage_Click(object sender, RoutedEventArgs e)
         {
             var window = new PageHostWindow(new DirectUploadPage(), "Direct Upload • Detached");
@@ -242,7 +252,7 @@ namespace GitDeployPro.Pages
                         FullPath = dir.FullName,
                         IsFolder = true,
                         Icon = "📁",
-                        IconColor = System.Windows.Media.Brushes.Gold
+                        IconColor = GetThemeBrush("Status.Warning", System.Windows.Media.Brushes.Gold)
                     };
 
                     // Recursive call
@@ -272,7 +282,7 @@ namespace GitDeployPro.Pages
                         FullPath = file.FullName,
                         IsFolder = false,
                         Icon = "📄",
-                        IconColor = System.Windows.Media.Brushes.WhiteSmoke,
+                        IconColor = GetThemeBrush("Text.Secondary", System.Windows.Media.Brushes.WhiteSmoke),
                         Size = file.Length
                     };
                     items.Add(item);
@@ -919,19 +929,19 @@ namespace GitDeployPro.Pages
             if (!skipProjectRefresh && !TryRefreshProjectPath())
             {
                 ConnectionInfoText.Text = "No project selected. Choose a project in Settings.";
-                ConnectionInfoText.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 183, 77));
+                ConnectionInfoText.Foreground = GetThemeBrush("Status.Warning", new SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 183, 77)));
                 return;
             }
 
             if (string.IsNullOrWhiteSpace(_projectPath) || !Directory.Exists(_projectPath))
             {
                 ConnectionInfoText.Text = "No project selected. Choose a project in Settings.";
-                ConnectionInfoText.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 183, 77));
+                ConnectionInfoText.Foreground = GetThemeBrush("Status.Warning", new SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 183, 77)));
                 return;
             }
 
             var effectiveConfig = config ?? _configService.LoadProjectConfig(_projectPath);
-            var accentBrush = new SolidColorBrush(System.Windows.Media.Color.FromRgb(129, 212, 250));
+            var accentBrush = GetThemeBrush("Status.Info", new SolidColorBrush(System.Windows.Media.Color.FromRgb(129, 212, 250)));
 
             ConnectionProfile? profile = profileOverride ?? ResolveConnectionProfile(effectiveConfig.ConnectionProfileId);
             if (profile != null)
@@ -966,7 +976,7 @@ namespace GitDeployPro.Pages
             else
             {
                 ConnectionInfoText.Text = "No connection selected. Open Settings → Connection Manager to assign one.";
-                ConnectionInfoText.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 138, 101));
+                ConnectionInfoText.Foreground = GetThemeBrush("Status.Error", new SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 138, 101)));
             }
         }
     }
@@ -986,11 +996,21 @@ namespace GitDeployPro.Pages
         private bool _isExpanded;
         private UploadState _uploadState = UploadState.Pending;
 
+        private static System.Windows.Media.Brush GetThemeBrush(string resourceKey, System.Windows.Media.Brush fallback)
+        {
+            if (string.IsNullOrWhiteSpace(resourceKey))
+            {
+                return fallback;
+            }
+
+            return System.Windows.Application.Current?.TryFindResource(resourceKey) as System.Windows.Media.Brush ?? fallback;
+        }
+
         public string Name { get; set; } = "";
         public string FullPath { get; set; } = "";
         public bool IsFolder { get; set; }
         public string Icon { get; set; } = "";
-        public System.Windows.Media.Brush IconColor { get; set; } = System.Windows.Media.Brushes.White;
+        public System.Windows.Media.Brush IconColor { get; set; } = GetThemeBrush("Text.Primary", System.Windows.Media.Brushes.White);
         public long Size { get; set; }
         
         public string SizeDisplay => IsFolder ? "" : FormatSize(Size);
@@ -1105,9 +1125,9 @@ namespace GitDeployPro.Pages
 
         public System.Windows.Media.Brush UploadBadgeBrush => UploadState switch
         {
-            UploadState.InProgress => System.Windows.Media.Brushes.DeepSkyBlue,
-            UploadState.Uploaded => System.Windows.Media.Brushes.LightGreen,
-            UploadState.Skipped => System.Windows.Media.Brushes.Orange,
+            UploadState.InProgress => GetThemeBrush("Status.Info", System.Windows.Media.Brushes.DeepSkyBlue),
+            UploadState.Uploaded => GetThemeBrush("Status.Success", System.Windows.Media.Brushes.LightGreen),
+            UploadState.Skipped => GetThemeBrush("Status.Warning", System.Windows.Media.Brushes.Orange),
             _ => System.Windows.Media.Brushes.Transparent
         };
 

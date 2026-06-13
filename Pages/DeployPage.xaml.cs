@@ -63,7 +63,7 @@ namespace GitDeployPro.Pages
                 if (!_gitService.IsGitRepository())
                 {
                     StatusText.Text = "⚠️ Git repository not found (Initialize Git in Settings)";
-                    StatusText.Foreground = System.Windows.Media.Brushes.Orange;
+                    StatusText.Foreground = GetThemeBrush("Status.Warning", System.Windows.Media.Brushes.Orange);
                     DisableAllButtons();
                     return;
                 }
@@ -152,7 +152,7 @@ namespace GitDeployPro.Pages
                 if (!ShouldKeepCompareResultsVisible() && StatusText.Text != $"⚠️ You have {uncommitted.Count} uncommitted changes!")
                 {
                     StatusText.Text = "Ready...";
-                    StatusText.Foreground = System.Windows.Media.Brushes.LightGray;
+                    StatusText.Foreground = GetThemeBrush("Text.Muted", System.Windows.Media.Brushes.LightGray);
                 }
                 
                 // LOG UNCOMMITTED FOR DEBUG
@@ -171,9 +171,9 @@ namespace GitDeployPro.Pages
                         var diff = await _gitService.GetDiffAsync(s, t);
                         if (diff.Count == 0)
                         {
-                            SetActionButton("synced", "✅ SYNCED", "#2E7D32", false);
+                            SetActionButton("synced", "✅ SYNCED", "Status.Success", false);
                             StatusText.Text = "Branches are synchronized.";
-                            StatusText.Foreground = System.Windows.Media.Brushes.LightGreen;
+                            StatusText.Foreground = GetThemeBrush("Status.Success", System.Windows.Media.Brushes.LightGreen);
                         }
                     }
                 }
@@ -252,18 +252,18 @@ namespace GitDeployPro.Pages
             if (uncommittedCount > 0)
             {
                 // Primary action: review list first, then one-click send
-                SetActionButton("commit", "📝 COMMIT && REVIEW", "#9C27B0", true);
+                SetActionButton("commit", "📝 COMMIT && REVIEW", "Accent.Secondary", true);
                 string pendingText = uncommittedCount >= 0 ? uncommittedCount.ToString() : "some";
                 StatusText.Text = $"You have {pendingText} pending file(s). Review first, then deploy -> commit -> push.";
-                StatusText.Foreground = System.Windows.Media.Brushes.Orange;
+                StatusText.Foreground = GetThemeBrush("Status.Warning", System.Windows.Media.Brushes.Orange);
                 return;
             }
 
             if (totalCommits == 0)
             {
-                SetActionButton("idle", "⏸ NOTHING TO COMMIT", "#555555", false);
+                SetActionButton("idle", "⏸ NOTHING TO COMMIT", "Surface.Input", false);
                 StatusText.Text = "No commit available yet.";
-                StatusText.Foreground = System.Windows.Media.Brushes.Gray;
+                StatusText.Foreground = GetThemeBrush("Text.Muted", System.Windows.Media.Brushes.Gray);
                 return;
             }
 
@@ -296,15 +296,15 @@ namespace GitDeployPro.Pages
                     bool hasSavedRemote = !string.IsNullOrWhiteSpace(_projectConfig?.GitRemoteUrl);
                     if (hasSavedRemote)
                     {
-                        SetActionButton("push", "☁️ CONNECT + PUSH", "#24292E", true);
+                        SetActionButton("push", "☁️ CONNECT + PUSH", "Surface.Shell", true);
                         StatusText.Text = "Remote origin is missing in this repo. App will restore it from saved settings.";
-                        StatusText.Foreground = System.Windows.Media.Brushes.Orange;
+                        StatusText.Foreground = GetThemeBrush("Status.Warning", System.Windows.Media.Brushes.Orange);
                     }
                     else
                     {
-                        SetActionButton("push", "☁️ PUSH TO GITHUB", "#555555", false);
+                        SetActionButton("push", "☁️ PUSH TO GITHUB", "Surface.Input", false);
                         StatusText.Text = "No remote repository configured. Set Remote URL in Settings.";
-                        StatusText.Foreground = System.Windows.Media.Brushes.Gray;
+                        StatusText.Foreground = GetThemeBrush("Text.Muted", System.Windows.Media.Brushes.Gray);
                     }
                     return;
                 }
@@ -315,15 +315,15 @@ namespace GitDeployPro.Pages
                 if (ahead > 0)
                 {
                     string pushLabel = $"☁️ PUSH ({ahead})";
-                    SetActionButton("push", pushLabel, "#24292E", true);
+                    SetActionButton("push", pushLabel, "Surface.Shell", true);
                     StatusText.Text = "You have commits pending push.";
-                    StatusText.Foreground = System.Windows.Media.Brushes.Orange;
+                    StatusText.Foreground = GetThemeBrush("Status.Warning", System.Windows.Media.Brushes.Orange);
                 }
                 else
                 {
-                    SetActionButton("push", "✅ NOTHING TO PUSH", "#2E7D32", false); 
+                    SetActionButton("push", "✅ NOTHING TO PUSH", "Status.Success", false); 
                     StatusText.Text = "Branch is up to date with remote.";
-                    StatusText.Foreground = System.Windows.Media.Brushes.LightGray;
+                    StatusText.Foreground = GetThemeBrush("Text.Muted", System.Windows.Media.Brushes.LightGray);
                 }
             }
             else
@@ -334,9 +334,9 @@ namespace GitDeployPro.Pages
                      return;
                 }
 
-                SetActionButton("compare", "🔍 COMPARE", "#E65100");
+                SetActionButton("compare", "🔍 COMPARE", "Status.Warning");
                 StatusText.Text = "Ready to compare branches...";
-                StatusText.Foreground = System.Windows.Media.Brushes.LightGray;
+                StatusText.Foreground = GetThemeBrush("Text.Muted", System.Windows.Media.Brushes.LightGray);
             }
         }
 
@@ -347,14 +347,10 @@ namespace GitDeployPro.Pages
             ActionButton.Content = "Select Branches";
             ActionButton.Tag = null;
             ActionButton.IsEnabled = false;
-            try
-            {
-                ActionButton.Background = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#444444"));
-            }
-            catch { }
+            ActionButton.Background = ResolveBrush("Surface.Input", "#444444");
 
             StatusText.Text = "Select source and target branches to continue.";
-            StatusText.Foreground = System.Windows.Media.Brushes.Orange;
+            StatusText.Foreground = GetThemeBrush("Status.Warning", System.Windows.Media.Brushes.Orange);
         }
 
         private void UpdatePushBadgeUi()
@@ -383,15 +379,57 @@ namespace GitDeployPro.Pages
             this.Unloaded += (s, e) => _autoRefreshTimer?.Stop();
         }
 
-        private void SetActionButton(string tag, string content, string colorHex, bool isEnabled = true)
+        private System.Windows.Media.Brush GetThemeBrush(string resourceKey, System.Windows.Media.Brush fallback)
+        {
+            if (string.IsNullOrWhiteSpace(resourceKey))
+            {
+                return fallback;
+            }
+
+            return System.Windows.Application.Current?.TryFindResource(resourceKey) as System.Windows.Media.Brush ?? fallback;
+        }
+
+        private System.Windows.Media.Brush ResolveBrush(string resourceKeyOrHex, string fallbackHex)
+        {
+            if (!string.IsNullOrWhiteSpace(resourceKeyOrHex))
+            {
+                if (System.Windows.Application.Current?.TryFindResource(resourceKeyOrHex) is System.Windows.Media.Brush themedBrush)
+                {
+                    return themedBrush;
+                }
+
+                if (resourceKeyOrHex.StartsWith("#", StringComparison.Ordinal))
+                {
+                    try
+                    {
+                        var color = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(resourceKeyOrHex);
+                        return new SolidColorBrush(color);
+                    }
+                    catch
+                    {
+                        // Ignore and fallback.
+                    }
+                }
+            }
+
+            try
+            {
+                var fallbackColor = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(fallbackHex);
+                return new SolidColorBrush(fallbackColor);
+            }
+            catch
+            {
+                return System.Windows.Media.Brushes.Gray;
+            }
+        }
+
+        private void SetActionButton(string tag, string content, string colorResourceOrHex, bool isEnabled = true)
         {
             if (ActionButton == null) return;
             
             ActionButton.Content = content;
             ActionButton.Tag = tag;
-            try {
-                ActionButton.Background = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(colorHex));
-            } catch { }
+            ActionButton.Background = ResolveBrush(colorResourceOrHex, "#444444");
             ActionButton.IsEnabled = isEnabled;
         }
 
@@ -422,7 +460,7 @@ namespace GitDeployPro.Pages
                 if (changes.Count == 0)
                 {
                     StatusText.Text = "No pending files to send.";
-                    StatusText.Foreground = System.Windows.Media.Brushes.LightGray;
+                    StatusText.Foreground = GetThemeBrush("Text.Muted", System.Windows.Media.Brushes.LightGray);
                     DeployButton.IsEnabled = false;
                     DeployButton.Visibility = Visibility.Collapsed;
                     LoadGitData();
@@ -453,7 +491,7 @@ namespace GitDeployPro.Pages
                     {
                         AddLog("⛔ Deploy failed. Commit+Push skipped to protect server state.");
                         StatusText.Text = "Deploy failed. Commit was not created.";
-                        StatusText.Foreground = System.Windows.Media.Brushes.OrangeRed;
+                        StatusText.Foreground = GetThemeBrush("Status.Error", System.Windows.Media.Brushes.OrangeRed);
                         return;
                     }
 
@@ -507,7 +545,7 @@ namespace GitDeployPro.Pages
                         SetCompareContext(source, target);
 
                         StatusText.Text = $"Review {_fileViewModels.Count} file(s), then click SYNC.";
-                        StatusText.Foreground = System.Windows.Media.Brushes.LightGray;
+                        StatusText.Foreground = GetThemeBrush("Text.Muted", System.Windows.Media.Brushes.LightGray);
                         AddLog($"🔍 Compare ready: {_fileViewModels.Count} file(s) loaded in current page.");
                     }
                 }
@@ -535,7 +573,7 @@ namespace GitDeployPro.Pages
                 {
                     AddLog("ℹ️ No remote configured. Completed in local-sync mode.");
                     StatusText.Text = "Completed in local-sync mode (no remote).";
-                    StatusText.Foreground = System.Windows.Media.Brushes.LightGreen;
+                    StatusText.Foreground = GetThemeBrush("Status.Success", System.Windows.Media.Brushes.LightGreen);
                     return true;
                 }
 
@@ -546,7 +584,7 @@ namespace GitDeployPro.Pages
                 {
                     AddLog("ℹ️ No remote configured. Completed in local-sync mode.");
                     StatusText.Text = "Completed in local-sync mode (no remote).";
-                    StatusText.Foreground = System.Windows.Media.Brushes.LightGreen;
+                    StatusText.Foreground = GetThemeBrush("Status.Success", System.Windows.Media.Brushes.LightGreen);
                     return true;
                 }
                 
@@ -557,7 +595,7 @@ namespace GitDeployPro.Pages
             {
                 AddLog("ℹ️ Remote not found. Completed in local-sync mode.");
                 StatusText.Text = "Completed in local-sync mode (origin missing).";
-                StatusText.Foreground = System.Windows.Media.Brushes.LightGreen;
+                StatusText.Foreground = GetThemeBrush("Status.Success", System.Windows.Media.Brushes.LightGreen);
                 return true;
             }
             catch (Exception ex)
@@ -643,9 +681,9 @@ namespace GitDeployPro.Pages
                             
                             Dispatcher.Invoke(() =>
                             {
-                                SetActionButton("synced", "✅ SYNCED", "#2E7D32", false);
+                                SetActionButton("synced", "✅ SYNCED", "Status.Success", false);
                                 StatusText.Text = "Branches are synchronized.";
-                                StatusText.Foreground = System.Windows.Media.Brushes.LightGreen;
+                                StatusText.Foreground = GetThemeBrush("Status.Success", System.Windows.Media.Brushes.LightGreen);
                             });
                         }
                         catch (Exception syncEx)
@@ -685,7 +723,7 @@ namespace GitDeployPro.Pages
                 }
                 
                 StatusText.Text = "Deployment finished successfully.";
-                StatusText.Foreground = System.Windows.Media.Brushes.LightGreen;
+                StatusText.Foreground = GetThemeBrush("Status.Success", System.Windows.Media.Brushes.LightGreen);
 
                 if (runGitPostSteps)
                 {
@@ -704,7 +742,7 @@ namespace GitDeployPro.Pages
             {
                 AddLog($"❌ Error: {ex}");
                 StatusText.Text = "Deployment failed.";
-                StatusText.Foreground = System.Windows.Media.Brushes.Red;
+                StatusText.Foreground = GetThemeBrush("Status.Error", System.Windows.Media.Brushes.Red);
                 var detailed = ex.ToString();
                 try
                 {
@@ -1240,7 +1278,7 @@ namespace GitDeployPro.Pages
 
             AddLog("⚠️ Push skipped: no 'origin' remote configured.");
             StatusText.Text = "Deploy+Commit done. Push skipped (origin not configured).";
-            StatusText.Foreground = System.Windows.Media.Brushes.Orange;
+            StatusText.Foreground = GetThemeBrush("Status.Warning", System.Windows.Media.Brushes.Orange);
             return false;
         }
 

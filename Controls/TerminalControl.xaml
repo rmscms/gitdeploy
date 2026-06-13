@@ -6,14 +6,14 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              mc:Ignorable="d" 
              d:DesignHeight="450" d:DesignWidth="800">
-    <Grid Background="#1E1E1E">
+    <Grid Background="{StaticResource Surface.Base}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/> <!-- Toolbar -->
             <RowDefinition Height="*"/>    <!-- Terminal Output -->
         </Grid.RowDefinitions>
 
         <!-- Toolbar -->
-        <Border Grid.Row="0" Background="#252526" Padding="10,5" BorderBrush="#333333" BorderThickness="0,0,0,1">
+        <Border Grid.Row="0" Background="{StaticResource Surface.Card}" Padding="10,5" BorderBrush="{StaticResource Border.Subtle}" BorderThickness="0,0,0,1">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
@@ -23,43 +23,25 @@
 
                 <!-- Connection Info -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal">
-                    <TextBlock Text="SSH Terminal" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                    <Border x:Name="StatusIndicator" Width="10" Height="10" CornerRadius="5" Background="#555555" VerticalAlignment="Center" Margin="0,0,5,0"/>
-                    <TextBlock x:Name="StatusText" Text="Disconnected" Foreground="#AAAAAA" VerticalAlignment="Center" FontSize="12"/>
+                    <TextBlock Text="SSH Terminal" Foreground="{StaticResource Text.Primary}" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <Border x:Name="StatusIndicator" Width="10" Height="10" CornerRadius="5" Background="{StaticResource Text.Muted}" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                    <TextBlock x:Name="StatusText" Text="Disconnected" Foreground="{StaticResource Text.Muted}" VerticalAlignment="Center" FontSize="12"/>
                 </StackPanel>
 
                 <!-- Settings / Actions -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal">
                     <Button x:Name="ConnectButton" Content="🔌 Connect" Click="ConnectButton_Click" 
-                            Background="#007ACC" Foreground="White" BorderThickness="0" Padding="10,4" Margin="0,0,10,0" Cursor="Hand">
-                        <Button.Resources>
-                            <Style TargetType="Border">
-                                <Setter Property="CornerRadius" Value="3"/>
-                            </Style>
-                        </Button.Resources>
-                    </Button>
+                            Style="{StaticResource App.Button.Primary}" Foreground="{StaticResource Text.Primary}" Padding="10,4" Margin="0,0,10,0" Cursor="Hand"/>
                     
                     <Button x:Name="DetachButton" Content="🗖 Pop-out" Click="DetachButton_Click"
-                            Style="{StaticResource DetachPageButtonStyle}" Margin="0,0,10,0">
-                        <Button.Resources>
-                            <Style TargetType="Border">
-                                <Setter Property="CornerRadius" Value="3"/>
-                            </Style>
-                        </Button.Resources>
-                    </Button>
+                            Style="{StaticResource DetachPageButtonStyle}" Margin="0,0,10,0"/>
 
                     <Button x:Name="ClearButton" Content="🧹 Clear" Click="ClearButton_Click"
-                            Background="#333333" Foreground="#DDDDDD" BorderThickness="0" Padding="8,4" Margin="0,0,10,0" Cursor="Hand">
-                        <Button.Resources>
-                            <Style TargetType="Border">
-                                <Setter Property="CornerRadius" Value="3"/>
-                            </Style>
-                        </Button.Resources>
-                    </Button>
+                            Style="{StaticResource App.Button.Ghost}" Foreground="{StaticResource Text.Secondary}" Padding="8,4" Margin="0,0,10,0" Cursor="Hand"/>
 
                     <ToggleButton x:Name="TypeToggleButton" Content="⌶" ToolTip="Focus/Type (Enable/Disable typing)"
                                   Width="32" Height="28" Margin="0,0,10,0"
-                                  Background="#333333" Foreground="#DDDDDD" BorderThickness="0" Cursor="Hand"
+                                  Background="{StaticResource Surface.Input}" Foreground="{StaticResource Text.Secondary}" BorderBrush="{StaticResource Border.Subtle}" BorderThickness="1" Cursor="Hand"
                                   Checked="TypeToggleButton_Checked" Unchecked="TypeToggleButton_Unchecked"
                                   IsChecked="True">
                         <ToggleButton.Resources>
@@ -69,9 +51,9 @@
                         </ToggleButton.Resources>
                         <ToggleButton.Style>
                             <Style TargetType="ToggleButton">
-                                <Setter Property="Background" Value="#2B2E33"/>
-                                <Setter Property="Foreground" Value="#E0E0E0"/>
-                                <Setter Property="BorderBrush" Value="#464B53"/>
+                                <Setter Property="Background" Value="{StaticResource Surface.Input}"/>
+                                <Setter Property="Foreground" Value="{StaticResource Text.Secondary}"/>
+                                <Setter Property="BorderBrush" Value="{StaticResource Border.Subtle}"/>
                                 <Setter Property="BorderThickness" Value="1"/>
                                 <Setter Property="Template">
                                     <Setter.Value>
@@ -86,17 +68,17 @@
                                             </Border>
                                             <ControlTemplate.Triggers>
                                                 <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="Bg" Property="Background" Value="#353A42"/>
+                                                    <Setter TargetName="Bg" Property="Background" Value="{StaticResource State.Hover}"/>
                                                 </Trigger>
                                                 <Trigger Property="IsChecked" Value="True">
-                                                    <Setter TargetName="Bg" Property="Background" Value="#29323D"/>
-                                                    <Setter TargetName="Bg" Property="BorderBrush" Value="#51647B"/>
-                                                    <Setter Property="Foreground" Value="#D7ECFF"/>
+                                                    <Setter TargetName="Bg" Property="Background" Value="{StaticResource Surface.Raised}"/>
+                                                    <Setter TargetName="Bg" Property="BorderBrush" Value="{StaticResource Accent.Primary}"/>
+                                                    <Setter Property="Foreground" Value="{StaticResource Text.Primary}"/>
                                                 </Trigger>
                                                 <Trigger Property="IsChecked" Value="False">
-                                                    <Setter TargetName="Bg" Property="Background" Value="#352A2A"/>
-                                                    <Setter TargetName="Bg" Property="BorderBrush" Value="#6A4A4A"/>
-                                                    <Setter Property="Foreground" Value="#FFBDBD"/>
+                                                    <Setter TargetName="Bg" Property="Background" Value="{StaticResource Surface.Input}"/>
+                                                    <Setter TargetName="Bg" Property="BorderBrush" Value="{StaticResource Border.Subtle}"/>
+                                                    <Setter Property="Foreground" Value="{StaticResource Text.Secondary}"/>
                                                 </Trigger>
                                                 <Trigger Property="IsEnabled" Value="False">
                                                     <Setter TargetName="Bg" Property="Opacity" Value="0.6"/>
@@ -107,15 +89,15 @@
                                 </Setter>
                                 <Style.Triggers>
                                     <Trigger Property="IsChecked" Value="True">
-                                        <Setter Property="Background" Value="#29323D"/>
-                                        <Setter Property="Foreground" Value="#D7ECFF"/>
+                                        <Setter Property="Background" Value="{StaticResource Surface.Raised}"/>
+                                        <Setter Property="Foreground" Value="{StaticResource Text.Primary}"/>
                                     </Trigger>
                                     <Trigger Property="IsChecked" Value="False">
-                                        <Setter Property="Background" Value="#352A2A"/>
-                                        <Setter Property="Foreground" Value="#FFBDBD"/>
+                                        <Setter Property="Background" Value="{StaticResource Surface.Input}"/>
+                                        <Setter Property="Foreground" Value="{StaticResource Text.Secondary}"/>
                                     </Trigger>
                                     <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter Property="Background" Value="#353A42"/>
+                                        <Setter Property="Background" Value="{StaticResource State.Hover}"/>
                                     </Trigger>
                                 </Style.Triggers>
                             </Style>
@@ -143,7 +125,7 @@
         </Border>
 
         <!-- Terminal Screen -->
-        <Grid Grid.Row="1" Background="#1E1E1E">
+        <Grid Grid.Row="1" Background="{StaticResource Surface.Base}">
             <wv:WebView2 x:Name="TerminalWebView"/>
 
             <Border x:Name="TypingOverlay"

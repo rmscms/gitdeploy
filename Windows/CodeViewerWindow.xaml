@@ -6,24 +6,24 @@
         Height="720"
         Width="1200"
         WindowStartupLocation="CenterOwner"
-        Background="#1E1E1E"
+        Background="{StaticResource Surface.Base}"
         ResizeMode="CanResize"
         WindowStyle="None">
-    <Border BorderBrush="#333" BorderThickness="1" CornerRadius="8" Margin="10" Background="#1E1E1E">
+    <Border BorderBrush="{StaticResource Border.Subtle}" BorderThickness="1" CornerRadius="10" Margin="10" Background="{StaticResource Surface.Shell}">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="46" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
-            <Grid Grid.Row="0" Background="#252526">
+            <Grid Grid.Row="0" Background="{StaticResource Surface.Card}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <StackPanel Orientation="Vertical" Margin="16,6">
-                    <TextBlock x:Name="TitleText" FontSize="15" Foreground="White" FontWeight="Bold" />
-                    <TextBlock x:Name="SubTitleText" FontSize="12" Foreground="#BBBBBB" />
+                    <TextBlock x:Name="TitleText" FontSize="15" Foreground="{StaticResource Text.Primary}" FontWeight="Bold" />
+                    <TextBlock x:Name="SubTitleText" FontSize="12" Foreground="{StaticResource Text.Muted}" />
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0">
                     <Button x:Name="EditToggleButton"
@@ -31,35 +31,31 @@
                             Width="120"
                             Height="30"
                             Margin="0,0,8,0"
-                            Background="#3949AB"
-                            Foreground="White"
-                            BorderBrush="#5C6BC0"
+                            Style="{StaticResource App.Button.Secondary}"
+                            Foreground="{StaticResource Text.Primary}"
                             Click="EditToggleButton_Click"/>
                     <Button x:Name="SaveButton"
                             Content="Save"
                             Width="90"
                             Height="30"
                             Margin="0,0,8,0"
-                            Background="#455A64"
-                            Foreground="White"
-                            BorderBrush="#64B5F6"
+                            Style="{StaticResource App.Button.Primary}"
+                            Foreground="{StaticResource Text.Primary}"
                             Click="SaveButton_Click"/>
                     <Button x:Name="CopyButton"
                             Content="Copy"
                             Width="80"
                             Height="30"
                             Margin="0,0,8,0"
-                            Background="#2F3B52"
-                            Foreground="White"
-                            BorderBrush="#546E7A"
+                            Style="{StaticResource App.Button.Ghost}"
+                            Foreground="{StaticResource Text.Secondary}"
                             Click="CopyButton_Click"/>
                     <Button x:Name="CloseButton"
                             Content="Close"
                             Width="80"
                             Height="30"
-                            Background="#B71C1C"
-                            Foreground="White"
-                            BorderBrush="#FF5252"
+                            Style="{StaticResource App.Button.Danger}"
+                            Foreground="{StaticResource Text.Primary}"
                             Click="CloseButton_Click"/>
                 </StackPanel>
             </Grid>

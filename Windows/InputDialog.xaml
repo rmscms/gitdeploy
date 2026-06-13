@@ -5,9 +5,10 @@
         Title="NEW FOLDER" Height="175" Width="450"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
-        Background="#252526" Foreground="#F1F1F1"
-        WindowTitleBrush="#0FB981"
-        NonActiveWindowTitleBrush="#0FB981">
+        Background="{StaticResource Surface.Base}"
+        Foreground="{StaticResource Text.Primary}"
+        WindowTitleBrush="{StaticResource Surface.Card}"
+        NonActiveWindowTitleBrush="{StaticResource Surface.Card}">
     <Grid Margin="20,18,20,20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -15,39 +16,22 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         
-        <TextBlock x:Name="PromptTextBlock" Grid.Row="0" Foreground="White" FontSize="13" Margin="0,0,0,0" FontWeight="SemiBold"/>
+        <TextBlock x:Name="PromptTextBlock" Grid.Row="0" Foreground="{StaticResource Text.Primary}" FontSize="13" Margin="0,0,0,0" FontWeight="SemiBold"/>
         
-        <TextBox x:Name="InputTextBox" Grid.Row="1" Height="32" Margin="0,0,0,18" 
-                 Background="#333337" Foreground="White" BorderBrush="#434346" BorderThickness="1"
+        <TextBox x:Name="InputTextBox" Grid.Row="1" Height="32" Margin="0,0,0,18"
                  Padding="8,6"
                  FontSize="13"
                  KeyDown="InputTextBox_KeyDown"/>
         
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,5,0,0">
             <Button x:Name="OkButton" Content="OK" Width="90" Height="32" Margin="0,0,10,0"
-                    Background="#007ACC" Foreground="White" BorderThickness="0" Cursor="Hand"
+                    Style="{StaticResource App.Button.Primary}" Foreground="{StaticResource Text.Primary}" Cursor="Hand"
                     FontSize="13" FontWeight="SemiBold"
-                    Click="OkButton_Click" IsDefault="True">
-                <Button.Template>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}" CornerRadius="4">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                    </ControlTemplate>
-                </Button.Template>
-            </Button>
+                    Click="OkButton_Click" IsDefault="True"/>
             <Button x:Name="CancelButton" Content="Cancel" Width="90" Height="32"
-                    Background="#3E3E42" Foreground="White" BorderThickness="0" Cursor="Hand"
+                    Style="{StaticResource App.Button.Ghost}" Foreground="{StaticResource Text.Secondary}" Cursor="Hand"
                     FontSize="13" FontWeight="SemiBold"
-                    Click="CancelButton_Click" IsCancel="True">
-                <Button.Template>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}" CornerRadius="4">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                    </ControlTemplate>
-                </Button.Template>
-            </Button>
+                    Click="CancelButton_Click" IsCancel="True"/>
         </StackPanel>
     </Grid>
 </mah:MetroWindow>

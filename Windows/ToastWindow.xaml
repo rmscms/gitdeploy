@@ -11,23 +11,23 @@
         Topmost="True"
         Focusable="False">
     <Border CornerRadius="12"
-            Background="#FF1E1F23"
-            BorderBrush="#FF3D4147"
+            Background="{StaticResource Surface.Card}"
+            BorderBrush="{StaticResource Border.Subtle}"
             BorderThickness="1"
             Padding="18">
         <Border.Effect>
-            <DropShadowEffect BlurRadius="16" ShadowDepth="0" Color="#99000000"/>
+            <DropShadowEffect BlurRadius="16" ShadowDepth="0" Color="#66000000"/>
         </Border.Effect>
         <StackPanel>
             <TextBlock x:Name="TitleText"
                        Text="Backup completed"
                        FontSize="16"
                        FontWeight="SemiBold"
-                       Foreground="White"/>
+                       Foreground="{StaticResource Text.Primary}"/>
             <TextBlock x:Name="MessageText"
                        Text="digitalpart-backup finished successfully."
                        Margin="0,8,0,0"
-                       Foreground="#C7C7C7"
+                       Foreground="{StaticResource Text.Secondary}"
                        TextWrapping="Wrap"/>
         </StackPanel>
     </Border>

@@ -4,40 +4,15 @@
         xmlns:controls="clr-namespace:GitDeployPro.Controls"
         xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
         Title="Terminal" Height="600" Width="900"
-        Background="#1E1E1E"
-        Foreground="White"
+        Background="{StaticResource Surface.Base}"
+        Foreground="{StaticResource Text.Primary}"
         GlowBrush="{DynamicResource MahApps.Brushes.Accent}"
         BorderThickness="1"
-        BorderBrush="#3E3E42"
+        BorderBrush="{StaticResource Border.Subtle}"
         WindowStartupLocation="Manual">
     
     <Window.Resources>
-        <Style x:Key="ModernButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="#007ACC"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="10,5"/>
-            <Setter Property="FontSize" Value="13"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="4">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#1C97EA"/>
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="border" Property="Background" Value="#444444"/>
-                                <Setter Property="Foreground" Value="#888888"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+        <Style x:Key="ModernButtonStyle" TargetType="Button" BasedOn="{StaticResource App.Button.Toolbar}" />
     </Window.Resources>
 
     <Grid>
@@ -48,13 +23,12 @@
         </Grid.RowDefinitions>
 
         <!-- SSH Connection Toolbar -->
-        <Border Grid.Row="0" Background="#252526" Padding="10" BorderThickness="0,0,0,1" BorderBrush="#3E3E42">
+        <Border Grid.Row="0" Background="{StaticResource Surface.Card}" Padding="10" BorderThickness="0,0,0,1" BorderBrush="{StaticResource Border.Subtle}">
             <StackPanel Orientation="Horizontal">
-                <TextBlock Text="SSH Connection:" Foreground="#CCCCCC" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                <TextBlock Text="SSH Connection:" Foreground="{StaticResource Text.Secondary}" VerticalAlignment="Center" Margin="0,0,10,0"/>
 
                 <ComboBox x:Name="SshProfilesCombo" Width="250" Height="28" 
                           DisplayMemberPath="DisplayName"
-                          Background="#333337" Foreground="White"
                           SelectionChanged="SshProfilesCombo_SelectionChanged">
                     <ComboBox.Resources>
                         <Style TargetType="ComboBoxItem">
@@ -65,17 +39,17 @@
                 </ComboBox>
 
                 <Button Content="🔌 Quick Connect" Margin="10,0,0,0" Height="28" Padding="10,0"
-                        Style="{StaticResource ModernButtonStyle}" Background="#007ACC"
+                        Style="{StaticResource App.Button.Primary}" Foreground="{StaticResource Text.Primary}"
                         Click="QuickConnect_Click"/>
 
                 <Button Content="⚙️ Manage Profiles" Margin="10,0,0,0" Height="28" Padding="10,0"
-                        Style="{StaticResource ModernButtonStyle}" Background="#3E3E42"
+                        Style="{StaticResource App.Button.Ghost}" Foreground="{StaticResource Text.Secondary}"
                         Click="ManageProfiles_Click"/>
             </StackPanel>
         </Border>
 
         <!-- Command Presets -->
-        <Border Grid.Row="1" Background="#222326" Padding="10" BorderBrush="#1F1F1F" BorderThickness="0,0,0,1">
+        <Border Grid.Row="1" Background="{StaticResource Surface.Shell}" Padding="10" BorderBrush="{StaticResource Border.Subtle}" BorderThickness="0,0,0,1">
             <StackPanel>
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -87,8 +61,6 @@
                     <ComboBox x:Name="PresetComboBox"
                               Grid.Column="0"
                               Height="28"
-                              Background="#2F3035"
-                              Foreground="White"
                               DisplayMemberPath="Title"
                               SelectedValuePath="Id"
                               Margin="0,0,12,0"/>
@@ -96,24 +68,22 @@
                             Grid.Column="1"
                             Margin="0,0,8,0"
                             Padding="14,4"
-                            Background="#3F8EF7"
-                            Foreground="White"
-                            BorderThickness="0"
+                            Style="{StaticResource App.Button.Primary}"
+                            Foreground="{StaticResource Text.Primary}"
                             Cursor="Hand"
                             Click="UsePreset_Click"/>
                     <Button Content="Delete"
                             Grid.Column="2"
                             Margin="0,0,8,0"
                             Padding="14,4"
-                            Background="#3A3B40"
-                            Foreground="#FF8A80"
-                            BorderThickness="0"
+                            Style="{StaticResource App.Button.Danger}"
+                            Foreground="{StaticResource Text.Primary}"
                             Cursor="Hand"
                             Click="DeletePreset_Click"/>
                     <CheckBox x:Name="BroadcastAllCheckBox"
                               Grid.Column="3"
                               Content="Send to all open terminals"
-                              Foreground="#9FA8DA"
+                              Foreground="{StaticResource Text.Secondary}"
                               VerticalAlignment="Center"/>
                 </Grid>
 
@@ -134,9 +104,8 @@
                     <Button Content="Save"
                             Grid.Column="2"
                             Padding="14,4"
-                            Background="#3F8EF7"
-                            Foreground="White"
-                            BorderThickness="0"
+                            Style="{StaticResource App.Button.Primary}"
+                            Foreground="{StaticResource Text.Primary}"
                             Cursor="Hand"
                             Click="AddPresetButton_Click"/>
                 </Grid>

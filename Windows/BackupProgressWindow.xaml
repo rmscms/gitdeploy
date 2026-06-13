@@ -7,7 +7,9 @@
                  Height="340"
                  WindowStartupLocation="CenterOwner"
                  ResizeMode="NoResize"
-                 ShowCloseButton="True">
+                 ShowCloseButton="True"
+                 Background="{StaticResource Surface.Base}"
+                 Foreground="{StaticResource Text.Primary}">
     <Grid Margin="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -21,12 +23,12 @@
                    Text="Backup progress"
                    FontSize="14"
                    FontWeight="SemiBold"
-                   Foreground="#8BD7FF"/>
+                   Foreground="{StaticResource Status.Info}"/>
         <TextBlock Grid.Row="1"
                    Text="Overall progress"
                    FontSize="14"
                    FontWeight="SemiBold"
-                   Foreground="White"/>
+                   Foreground="{StaticResource Text.Primary}"/>
         <ProgressBar x:Name="OverallProgressBar"
                      Grid.Row="2"
                      Height="14"
@@ -37,22 +39,22 @@
         <TextBlock x:Name="OverallSummaryText"
                    Grid.Row="3"
                    Margin="0,6,0,0"
-                   Foreground="#B0FFCF"
+                   Foreground="{StaticResource Log.Success}"
                    FontSize="13"
                    Text="Waiting for backup …"/>
 
         <Border Grid.Row="4"
-                Background="#242424"
+                Background="{StaticResource Surface.Card}"
                 CornerRadius="10"
                 Padding="16"
                 Margin="0,16,0,0">
             <StackPanel>
                 <TextBlock Text="Current table"
                            FontWeight="SemiBold"
-                           Foreground="White"/>
+                           Foreground="{StaticResource Text.Primary}"/>
                 <TextBlock x:Name="CurrentTableName"
                            Margin="0,4,0,0"
-                           Foreground="#E0E0E0"
+                           Foreground="{StaticResource Text.Secondary}"
                            FontSize="13"
                            Text="(none)"/>
                 <ProgressBar x:Name="TableProgressBar"
@@ -63,7 +65,7 @@
                              Value="0"/>
                 <TextBlock x:Name="TableSummaryText"
                            Margin="0,6,0,0"
-                           Foreground="#CCCCCC"
+                           Foreground="{StaticResource Text.Secondary}"
                            FontSize="12"
                            Text="Awaiting table …"/>
                 <ScrollViewer Margin="0,12,0,0"
@@ -71,7 +73,7 @@
                               VerticalScrollBarVisibility="Auto">
                     <TextBlock x:Name="LogTextBlock"
                                TextWrapping="Wrap"
-                               Foreground="#9DD6FF"/>
+                               Foreground="{StaticResource Status.Info}"/>
                 </ScrollViewer>
             </StackPanel>
         </Border>

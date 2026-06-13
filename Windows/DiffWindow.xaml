@@ -8,12 +8,12 @@
         AllowsTransparency="True"
         Background="Transparent">
 
-    <Border Background="#202020" 
-            CornerRadius="10" 
-            BorderBrush="#3F3F3F" 
+    <Border Background="{StaticResource Surface.Raised}" 
+            CornerRadius="14" 
+            BorderBrush="{StaticResource Border.Strong}" 
             BorderThickness="1">
         <Border.Effect>
-            <DropShadowEffect Color="Black" BlurRadius="30" ShadowDepth="10" Opacity="0.6"/>
+            <DropShadowEffect Color="Black" BlurRadius="30" ShadowDepth="8" Opacity="0.45"/>
         </Border.Effect>
 
         <Grid Margin="25">
@@ -35,14 +35,14 @@
                     <TextBlock Text="Review Changes" 
                               FontSize="24" 
                               FontWeight="Bold" 
-                              Foreground="White"
+                              Foreground="{StaticResource Text.Primary}"
                               VerticalAlignment="Center"/>
                 </StackPanel>
 
                 <Button Grid.Column="1" Content="✕" 
                         Width="30" Height="30" 
                         Background="Transparent" 
-                        Foreground="#888888" 
+                        Foreground="{StaticResource Text.Muted}" 
                         BorderThickness="0"
                         FontSize="16" 
                         Cursor="Hand"
@@ -50,7 +50,7 @@
             </Grid>
 
             <!-- File List -->
-            <Border Grid.Row="1" Background="#2B2B2B" CornerRadius="8" Padding="15" Margin="0,0,0,20">
+            <Border Grid.Row="1" Background="{StaticResource Surface.Card}" BorderBrush="{StaticResource Border.Subtle}" BorderThickness="1" CornerRadius="10" Padding="15" Margin="0,0,0,20">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -79,6 +79,7 @@
 
                         <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto">
                             <ListBox x:Name="FilesListBox"
+                                     ItemContainerStyle="{StaticResource App.ListBoxItem.Transparent}"
                                      Background="Transparent"
                                      BorderThickness="0"
                                      SelectionMode="Single"
@@ -86,11 +87,11 @@
                                      MouseDoubleClick="FilesListBox_MouseDoubleClick">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Background="#1A1A1A" 
+                                        <Border Background="{StaticResource Surface.Input}" 
                                                 CornerRadius="4" 
                                                 Padding="10" 
                                                 Margin="0,0,0,8"
-                                                BorderBrush="#333333"
+                                                BorderBrush="{StaticResource Border.Subtle}"
                                                 BorderThickness="1">
                                             <Grid>
                                                 <Grid.ColumnDefinitions>
@@ -107,16 +108,14 @@
                                                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                                                     <TextBlock Text="{Binding Name}" 
                                                               FontSize="13" 
-                                                              Foreground="#E0E0E0"
+                                                              Foreground="{StaticResource Text.Secondary}"
                                                               VerticalAlignment="Center"
                                                               TextTrimming="CharacterEllipsis"/>
                                                     <Button Content="VS"
                                                             Margin="10,0,0,0"
                                                             Padding="8,2"
                                                             FontSize="11"
-                                                            Foreground="White"
-                                                            Background="#3A3F54"
-                                                            BorderBrush="#5C6BC0"
+                                                            Style="{StaticResource App.Button.Ghost}"
                                                             Cursor="Hand"
                                                             Tag="{Binding}"
                                                             Click="OpenCodeButton_Click"/>
@@ -150,65 +149,23 @@
             <!-- Footer Buttons -->
             <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Content="Cancel" 
-                        Height="45" 
+                        Height="40" 
                         Width="100" 
                         Margin="0,0,15,0"
-                        Background="Transparent"
-                        Foreground="#CCCCCC"
-                        BorderThickness="1"
-                        BorderBrush="#555555"
+                        Style="{StaticResource App.Button.Ghost}"
                         FontSize="14"
                         Cursor="Hand"
-                        Click="Close_Click">
-                    <Button.Style>
-                        <Style TargetType="Button">
-                            <Setter Property="Template">
-                                <Setter.Value>
-                                    <ControlTemplate TargetType="Button">
-                                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="6" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1">
-                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        </Border>
-                                        <ControlTemplate.Triggers>
-                                            <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="border" Property="Background" Value="#333333"/>
-                                            </Trigger>
-                                        </ControlTemplate.Triggers>
-                                    </ControlTemplate>
-                                </Setter.Value>
-                            </Setter>
-                        </Style>
-                    </Button.Style>
-                </Button>
+                        Click="Close_Click"/>
 
                 <Button Content="🚀 DEPLOY SELECTED" 
-                        Height="45" 
+                        Height="40" 
                         Padding="20,0"
-                        Background="#0078D4"
-                        Foreground="White"
-                        BorderThickness="0"
+                        Style="{StaticResource App.Button.Primary}"
+                        Foreground="{StaticResource Text.Primary}"
                         FontSize="14"
                         FontWeight="Bold"
                         Cursor="Hand"
-                        Click="Confirm_Click">
-                    <Button.Style>
-                        <Style TargetType="Button">
-                            <Setter Property="Template">
-                                <Setter.Value>
-                                    <ControlTemplate TargetType="Button">
-                                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="6">
-                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        </Border>
-                                        <ControlTemplate.Triggers>
-                                            <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="border" Property="Background" Value="#1084D8"/>
-                                            </Trigger>
-                                        </ControlTemplate.Triggers>
-                                    </ControlTemplate>
-                                </Setter.Value>
-                            </Setter>
-                        </Style>
-                    </Button.Style>
-                </Button>
+                        Click="Confirm_Click"/>
             </StackPanel>
         </Grid>
     </Border>

@@ -9,8 +9,8 @@
                  ResizeMode="CanResizeWithGrip"
                  BorderThickness="0"
                  WindowStartupLocation="CenterOwner"
-                 Background="#1C1C1C"
-                 Foreground="White">
+                 Background="{StaticResource Surface.Base}"
+                 Foreground="{StaticResource Text.Primary}">
     <Grid Margin="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -24,9 +24,8 @@
                    Margin="0,0,0,8"/>
         <ListView Grid.Row="1"
                   ItemsSource="{Binding ActiveTasks}"
-                  Background="#121212"
-                  BorderThickness="0"
-                  Foreground="White">
+                  Style="{StaticResource App.ListView.Host}"
+                  Foreground="{StaticResource Text.Primary}">
             <ListView.View>
                 <GridView>
                     <GridViewColumn Header="Schedule" Width="160" DisplayMemberBinding="{Binding ScheduleName}"/>
@@ -55,9 +54,8 @@
                             <DataTemplate>
                                 <Button Content="Stop"
                                         Padding="10,4"
-                                        Background="#E53935"
-                                        Foreground="White"
-                                        BorderThickness="0"
+                                        Style="{StaticResource App.Button.Danger}"
+                                        Foreground="{StaticResource Text.Primary}"
                                         IsEnabled="{Binding IsCancelable}"
                                         Click="StopTask_Click"/>
                             </DataTemplate>
@@ -75,9 +73,8 @@
 
         <ListView Grid.Row="3"
                   ItemsSource="{Binding RecentTasks}"
-                  Background="#121212"
-                  BorderThickness="0"
-                  Foreground="White">
+                  Style="{StaticResource App.ListView.Host}"
+                  Foreground="{StaticResource Text.Primary}">
             <ListView.View>
                 <GridView>
                     <GridViewColumn Header="When" Width="130" DisplayMemberBinding="{Binding FinishedLocal, StringFormat={}{0:G}}"/>
@@ -89,13 +86,13 @@
                                 <TextBlock Text="{Binding Message}">
                                     <TextBlock.Style>
                                         <Style TargetType="TextBlock">
-                                            <Setter Property="Foreground" Value="#9CFFCB"/>
+                                            <Setter Property="Foreground" Value="{StaticResource Log.Success}"/>
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding State}" Value="{x:Static models:BackupTaskState.Failed}">
-                                                    <Setter Property="Foreground" Value="#FF6B6B"/>
+                                                    <Setter Property="Foreground" Value="{StaticResource Status.Error}"/>
                                                 </DataTrigger>
                                                 <DataTrigger Binding="{Binding State}" Value="{x:Static models:BackupTaskState.Cancelled}">
-                                                    <Setter Property="Foreground" Value="#FFB347"/>
+                                                    <Setter Property="Foreground" Value="{StaticResource Status.Warning}"/>
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>

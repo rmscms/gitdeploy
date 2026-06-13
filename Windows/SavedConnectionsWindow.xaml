@@ -4,12 +4,12 @@
         Title="Saved Connections" 
         Height="500" Width="500"
         WindowStartupLocation="CenterOwner"
-        Background="#1E1F22"
+        Background="{StaticResource Surface.Base}"
         ResizeMode="NoResize"
         WindowStyle="None"
         AllowsTransparency="True">
     
-    <Border Background="#25262A" BorderBrush="#3A3B40" BorderThickness="1" CornerRadius="10">
+    <Border Background="{StaticResource Surface.Raised}" BorderBrush="{StaticResource Border.Subtle}" BorderThickness="1" CornerRadius="10">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="50"/>
@@ -18,14 +18,14 @@
             </Grid.RowDefinitions>
 
             <!-- Header -->
-            <Border Grid.Row="0" Background="#2B2D31" CornerRadius="10,10,0,0" MouseLeftButtonDown="Header_MouseLeftButtonDown">
+            <Border Grid.Row="0" Background="{StaticResource Surface.Card}" CornerRadius="10,10,0,0" MouseLeftButtonDown="Header_MouseLeftButtonDown">
                 <Grid>
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0">
                         <TextBlock Text="📁" FontSize="16" Margin="0,0,10,0"/>
-                        <TextBlock Text="Saved Connections" FontSize="16" FontWeight="SemiBold" Foreground="White"/>
+                        <TextBlock Text="Saved Connections" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource Text.Primary}"/>
                     </StackPanel>
                     <Button Content="✕" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0" 
-                            Width="30" Height="30" Background="Transparent" Foreground="#808080" BorderThickness="0"
+                            Width="30" Height="30" Style="{StaticResource App.IconButton.Close}"
                             Click="CloseButton_Click" Cursor="Hand"/>
                 </Grid>
             </Border>
@@ -35,7 +35,7 @@
                 <ListBox x:Name="ConnectionsList" Background="Transparent" BorderThickness="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
-                            <Border Background="#2B2D30" CornerRadius="8" Padding="14" Margin="0,0,0,8" Width="440">
+                            <Border Background="{StaticResource Surface.Card}" BorderBrush="{StaticResource Border.Subtle}" BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,0,8" Width="440">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
@@ -44,11 +44,11 @@
                                     <StackPanel Grid.Column="0">
                                         <StackPanel Orientation="Horizontal">
                                             <TextBlock Text="{Binding TypeIcon}" FontSize="14" Margin="0,0,8,0"/>
-                                            <TextBlock Text="{Binding Name}" Foreground="White" FontWeight="SemiBold" FontSize="14"/>
+                                            <TextBlock Text="{Binding Name}" Foreground="{StaticResource Text.Primary}" FontWeight="SemiBold" FontSize="14"/>
                                         </StackPanel>
-                                        <TextBlock Text="{Binding Description}" Foreground="#808080" FontSize="12" Margin="0,4,0,0"/>
+                                        <TextBlock Text="{Binding Description}" Foreground="{StaticResource Text.Muted}" FontSize="12" Margin="0,4,0,0"/>
                                     </StackPanel>
-                                    <Button Grid.Column="1" Content="Connect" Padding="16,8" Background="#3F8EF7" Foreground="White" BorderThickness="0" 
+                                    <Button Grid.Column="1" Content="Connect" Padding="16,8" Style="{StaticResource App.Button.Primary}" Foreground="{StaticResource Text.Primary}"
                                             Tag="{Binding}" Click="ConnectButton_Click" Cursor="Hand" VerticalAlignment="Center"/>
                                 </Grid>
                             </Border>
@@ -59,16 +59,16 @@
                 <!-- Empty State -->
                 <StackPanel x:Name="EmptyState" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed">
                     <TextBlock Text="📭" FontSize="48" HorizontalAlignment="Center" Margin="0,0,0,16"/>
-                    <TextBlock Text="No saved connections" Foreground="#808080" FontSize="16" HorizontalAlignment="Center"/>
-                    <TextBlock Text="Add database credentials in Connection Manager" Foreground="#606060" FontSize="12" HorizontalAlignment="Center" Margin="0,8,0,0"/>
+                    <TextBlock Text="No saved connections" Foreground="{StaticResource Text.Muted}" FontSize="16" HorizontalAlignment="Center"/>
+                    <TextBlock Text="Add database credentials in Connection Manager" Foreground="{StaticResource Text.Muted}" FontSize="12" HorizontalAlignment="Center" Margin="0,8,0,0"/>
                 </StackPanel>
             </Grid>
 
             <!-- Footer -->
-            <Border Grid.Row="2" Background="#2B2D31" CornerRadius="0,0,10,10">
+            <Border Grid.Row="2" Background="{StaticResource Surface.Card}" CornerRadius="0,0,10,10">
                 <Grid Margin="16,0">
-                    <Button Content="Manage Profiles" HorizontalAlignment="Left" Height="34" Padding="16,0" Background="#3A3B40" Foreground="White" BorderThickness="0" Click="ManageButton_Click" Cursor="Hand"/>
-                    <Button Content="Close" HorizontalAlignment="Right" Width="80" Height="34" Background="#3A3B40" Foreground="White" BorderThickness="0" Click="CloseButton_Click" Cursor="Hand"/>
+                    <Button Content="Manage Profiles" HorizontalAlignment="Left" Height="34" Padding="16,0" Style="{StaticResource App.Button.Ghost}" Foreground="{StaticResource Text.Secondary}" Click="ManageButton_Click" Cursor="Hand"/>
+                    <Button Content="Close" HorizontalAlignment="Right" Width="80" Height="34" Style="{StaticResource App.Button.Ghost}" Foreground="{StaticResource Text.Secondary}" Click="CloseButton_Click" Cursor="Hand"/>
                 </Grid>
             </Border>
         </Grid>

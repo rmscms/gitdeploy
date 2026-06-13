@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
              xmlns:local="clr-namespace:GitDeployPro.Models"
-             Background="#252526">
+             Background="{StaticResource Surface.Base}">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -11,7 +11,7 @@
         </Grid.RowDefinitions>
 
         <!-- Toolbar -->
-        <Border Grid.Row="0" Background="#2D2D30" Padding="10" BorderThickness="0,0,0,1" BorderBrush="#3E3E42">
+        <Border Grid.Row="0" Background="{StaticResource Surface.Card}" Padding="10" BorderThickness="0,0,0,1" BorderBrush="{StaticResource Border.Subtle}">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
@@ -22,24 +22,22 @@
                 <TextBox x:Name="FilterTextBox" 
                          Grid.Column="0"
                          mah:TextBoxHelper.Watermark="Filter by folder/session name..."
-                         Background="#333337" 
-                         Foreground="White"
-                         BorderBrush="#434346"
+                         Style="{StaticResource App.InputTextBox}"
                          Margin="0,0,10,0"
                          TextChanged="FilterTextBox_TextChanged"/>
 
                 <!-- Toolbar Buttons -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal">
-                    <Button Content="🔗" ToolTip="Link" Width="32" Height="32" Margin="2" Background="#3E3E42" Foreground="White" BorderThickness="0" Click="LinkButton_Click"/>
-                    <Button Content="+" ToolTip="Add Folder" Width="32" Height="32" Margin="2" Background="#0FB981" Foreground="White" BorderThickness="0" Click="AddFolderButton_Click"/>
-                    <Button Content="–" ToolTip="Remove" Width="32" Height="32" Margin="2" Background="#E74444" Foreground="White" BorderThickness="0" Click="RemoveButton_Click"/>
+                    <Button Content="🔗" ToolTip="Link" Width="32" Height="32" Margin="2" Style="{StaticResource App.IconButton}" Click="LinkButton_Click"/>
+                    <Button Content="+" ToolTip="Add Folder" Width="32" Height="32" Margin="2" Style="{StaticResource App.IconButton}" Background="{StaticResource Status.Success}" BorderBrush="{StaticResource Status.Success}" Foreground="{StaticResource Text.Inverse}" Click="AddFolderButton_Click"/>
+                    <Button Content="–" ToolTip="Remove" Width="32" Height="32" Margin="2" Style="{StaticResource App.IconButton}" Background="{StaticResource Status.Error}" BorderBrush="{StaticResource Status.Error}" Foreground="{StaticResource Text.Primary}" Click="RemoveButton_Click"/>
                 </StackPanel>
             </Grid>
         </Border>
 
         <!-- TreeView -->
         <Grid Grid.Row="1">
-            <Border Background="#252526" Padding="10">
+            <Border Background="{StaticResource Surface.Shell}" Padding="10">
                 <TreeView x:Name="SessionsTreeView" 
                           Background="Transparent" 
                           BorderThickness="0"
@@ -71,15 +69,15 @@
                                                 <Setter TargetName="ItemsHost" Property="Visibility" Value="Collapsed"/>
                                             </Trigger>
                                             <Trigger Property="IsSelected" Value="true">
-                                                <Setter TargetName="Bd" Property="Background" Value="#007ACC"/>
-                                                <Setter Property="Foreground" Value="White"/>
+                                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource Accent.Primary}"/>
+                                                <Setter Property="Foreground" Value="{StaticResource Text.Primary}"/>
                                             </Trigger>
                                             <MultiTrigger>
                                                 <MultiTrigger.Conditions>
                                                     <Condition Property="IsMouseOver" Value="true"/>
                                                     <Condition Property="IsSelected" Value="false"/>
                                                 </MultiTrigger.Conditions>
-                                                <Setter TargetName="Bd" Property="Background" Value="#3E3E42"/>
+                                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource State.Hover}"/>
                                             </MultiTrigger>
                                         </ControlTemplate.Triggers>
                                     </ControlTemplate>
@@ -125,10 +123,10 @@
                                     <TextBlock Text="{Binding DisplayNameWithIndicator}" 
                                               VerticalAlignment="Center"
                                               FontSize="14"
-                                              Foreground="#E0E0E0"/>
+                                              Foreground="{StaticResource Text.Secondary}"/>
                                     <TextBlock Text="{Binding ConnectionType}" 
                                               FontSize="11" 
-                                              Foreground="#808080" 
+                                              Foreground="{StaticResource Text.Muted}" 
                                               Margin="8,0,0,0" 
                                               VerticalAlignment="Center"
                                               Visibility="{Binding ConnectionTypeVisibility}"/>

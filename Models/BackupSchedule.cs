@@ -20,6 +20,12 @@ namespace GitDeployPro.Models
         TarGz
     }
 
+    public enum RemoteArtifactDownloadPolicy
+    {
+        ManualReference,
+        AutoDownload
+    }
+
     public class BackupSchedule : INotifyPropertyChanged
     {
         private string _id = Guid.NewGuid().ToString();
@@ -120,11 +126,102 @@ namespace GitDeployPro.Models
             set => SetProperty(ref _retentionCount, value);
         }
 
+        private bool _encryptAtRest;
+        public bool EncryptAtRest
+        {
+            get => _encryptAtRest;
+            set => SetProperty(ref _encryptAtRest, value);
+        }
+
         private BackupMode _backupMode = BackupMode.Standard;
         public BackupMode BackupMode
         {
             get => _backupMode;
             set => SetProperty(ref _backupMode, value);
+        }
+
+        private RemoteArtifactDownloadPolicy _remoteDownloadPolicy = RemoteArtifactDownloadPolicy.ManualReference;
+        public RemoteArtifactDownloadPolicy RemoteDownloadPolicy
+        {
+            get => _remoteDownloadPolicy;
+            set => SetProperty(ref _remoteDownloadPolicy, value);
+        }
+
+        private string _remoteOutputDirectory = "/tmp/gitdeploypro-backups";
+        public string RemoteOutputDirectory
+        {
+            get => _remoteOutputDirectory;
+            set => SetProperty(ref _remoteOutputDirectory, value);
+        }
+
+        private bool _deleteRemoteArtifactAfterDownload;
+        public bool DeleteRemoteArtifactAfterDownload
+        {
+            get => _deleteRemoteArtifactAfterDownload;
+            set => SetProperty(ref _deleteRemoteArtifactAfterDownload, value);
+        }
+
+        private bool _enableLocalRestoreValidation;
+        public bool EnableLocalRestoreValidation
+        {
+            get => _enableLocalRestoreValidation;
+            set => SetProperty(ref _enableLocalRestoreValidation, value);
+        }
+
+        private string _localValidationProfileId = BackupRestoreValidationDefaults.LocalhostDefaultProfileId;
+        public string LocalValidationProfileId
+        {
+            get => _localValidationProfileId;
+            set => SetProperty(ref _localValidationProfileId, value);
+        }
+
+        private string _localValidationHost = "127.0.0.1";
+        public string LocalValidationHost
+        {
+            get => _localValidationHost;
+            set => SetProperty(ref _localValidationHost, value);
+        }
+
+        private int _localValidationPort = 3306;
+        public int LocalValidationPort
+        {
+            get => _localValidationPort;
+            set => SetProperty(ref _localValidationPort, value);
+        }
+
+        private string _localValidationDatabaseName = string.Empty;
+        public string LocalValidationDatabaseName
+        {
+            get => _localValidationDatabaseName;
+            set => SetProperty(ref _localValidationDatabaseName, value);
+        }
+
+        private string _localValidationUsername = "root";
+        public string LocalValidationUsername
+        {
+            get => _localValidationUsername;
+            set => SetProperty(ref _localValidationUsername, value);
+        }
+
+        private string _localValidationPassword = string.Empty;
+        public string LocalValidationPassword
+        {
+            get => _localValidationPassword;
+            set => SetProperty(ref _localValidationPassword, value);
+        }
+
+        private string _localValidationCharset = "auto";
+        public string LocalValidationCharset
+        {
+            get => _localValidationCharset;
+            set => SetProperty(ref _localValidationCharset, value);
+        }
+
+        private string _localValidationCollation = "auto";
+        public string LocalValidationCollation
+        {
+            get => _localValidationCollation;
+            set => SetProperty(ref _localValidationCollation, value);
         }
 
         private DateTime? _lastRunUtc;
@@ -173,7 +270,14 @@ namespace GitDeployPro.Models
     {
         Standard,
         Fast,
-        ExternalTool
+        ExternalTool,
+        RemoteSshMysqldump,
+        RemoteSshFileBuild
+    }
+
+    public static class BackupRestoreValidationDefaults
+    {
+        public const string LocalhostDefaultProfileId = "__localhost_default_validation__";
     }
 }
 

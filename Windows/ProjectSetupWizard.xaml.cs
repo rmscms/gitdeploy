@@ -477,6 +477,67 @@ namespace GitDeployPro.Windows
             return source + "-deploy";
         }
 
+        private static readonly string[] DefaultLaravelNodeGitIgnore =
+        {
+            "# ------------------------------------------------------------",
+            "# GitDeploy Pro: default .gitignore for Laravel + Node.js",
+            "# ------------------------------------------------------------",
+            "",
+            "# OS / Editor",
+            ".DS_Store",
+            "Thumbs.db",
+            ".idea/",
+            ".vscode/",
+            ".cursor/",
+            ".vs/",
+            "",
+            "# Build artifacts",
+            "bin/",
+            "obj/",
+            "dist/",
+            "build/",
+            "coverage/",
+            "*.tsbuildinfo",
+            "",
+            "# Logs",
+            "*.log",
+            "npm-debug.log*",
+            "yarn-debug.log*",
+            "yarn-error.log*",
+            "pnpm-debug.log*",
+            "",
+            "# Node.js",
+            "node_modules/",
+            ".npm/",
+            ".pnpm-store/",
+            ".yarn/",
+            ".yarn/cache/",
+            ".next/",
+            ".nuxt/",
+            ".svelte-kit/",
+            "",
+            "# Laravel / PHP",
+            "vendor/",
+            ".env",
+            ".env.*",
+            "!.env.example",
+            ".phpunit.result.cache",
+            "public/hot",
+            "public/build/",
+            "public/storage",
+            "storage/*.key",
+            "storage/logs/",
+            "storage/framework/cache/",
+            "storage/framework/sessions/",
+            "storage/framework/testing/",
+            "storage/framework/views/",
+            "bootstrap/cache/*.php",
+            "",
+            "# GitDeploy Pro",
+            ".gitdeploy.config",
+            ".gitdeploy.history"
+        };
+
         private void CreateGitIgnore(string path)
         {
             try
@@ -484,11 +545,7 @@ namespace GitDeployPro.Windows
                 string ignoreFile = Path.Combine(path, ".gitignore");
                 if (!File.Exists(ignoreFile))
                 {
-                    var defaults = new[]
-                    {
-                        "bin/", "obj/", ".vs/", ".idea/", ".vscode/", ".cursor/", "dist/", "build/", ".gitdeploy.config", ".gitdeploy.history", "*.log", "node_modules/", "vendor/"
-                    };
-                    File.WriteAllLines(ignoreFile, defaults);
+                    File.WriteAllLines(ignoreFile, DefaultLaravelNodeGitIgnore);
                 }
             }
             catch { }

@@ -3,445 +3,367 @@
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
       Title="SettingsPage"
-      Background="#202020">
-    
-    <Grid Margin="30">
+      Background="{StaticResource Surface.Base}">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled"
+                  CanContentScroll="False">
+    <Grid Margin="{StaticResource Spacing.PageMargin}">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- Header -->
         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,20">
-            <TextBlock Text="⚙️" FontSize="40" VerticalAlignment="Center" Margin="0,0,15,0" Foreground="White"/>
-            <TextBlock Text="Settings" 
-                      FontSize="34" 
-                      FontWeight="Bold" 
-                      Foreground="White"
-                      VerticalAlignment="Center"/>
+            <TextBlock Text="⚙️" FontSize="36" VerticalAlignment="Center" Margin="0,0,12,0" />
+            <StackPanel>
+                <TextBlock Text="Settings" Style="{StaticResource App.PageTitleTextStyle}" />
+                <TextBlock Text="Project, FTP profiles, and Git defaults in one place."
+                           Style="{StaticResource App.PageSubtitleTextStyle}" />
+            </StackPanel>
         </StackPanel>
 
-        <!-- Tabs Content -->
-        <TabControl Grid.Row="1" 
-                    Background="Transparent" 
+        <TabControl Grid.Row="1"
+                    Background="Transparent"
                     BorderThickness="0"
-                    Margin="0,0,0,20">
+                    Margin="0,0,0,18">
             <TabControl.Resources>
-                <Style TargetType="TabItem">
-                    <Setter Property="FontSize" Value="16"/>
-                    <Setter Property="FontWeight" Value="SemiBold"/>
-                    <Setter Property="Foreground" Value="#CCCCCC"/>
-                    <Setter Property="Padding" Value="20,10"/>
-                    <Setter Property="Background" Value="Transparent"/>
-                    <Setter Property="Template">
-                        <Setter.Value>
-                            <ControlTemplate TargetType="TabItem">
-                                <Grid>
-                                    <Border x:Name="Border" 
-                                            Background="{TemplateBinding Background}" 
-                                            BorderThickness="0,0,0,3" 
-                                            BorderBrush="Transparent"
-                                            Padding="{TemplateBinding Padding}">
-                                        <ContentPresenter ContentSource="Header" HorizontalAlignment="Center"/>
-                                    </Border>
-                                </Grid>
-                                <ControlTemplate.Triggers>
-                                    <Trigger Property="IsSelected" Value="True">
-                                        <Setter TargetName="Border" Property="BorderBrush" Value="#0078D4"/>
-                                        <Setter Property="Foreground" Value="#0078D4"/>
-                                    </Trigger>
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter Property="Foreground" Value="White"/>
-                                    </Trigger>
-                                </ControlTemplate.Triggers>
-                            </ControlTemplate>
-                        </Setter.Value>
-                    </Setter>
-                </Style>
+                <Style TargetType="TabItem" BasedOn="{StaticResource App.TabItemStyle}" />
             </TabControl.Resources>
 
-            <!-- TAB 1: General & Local -->
             <TabItem Header="General &amp; Local">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,20,0,0">
-                    <StackPanel>
-                        <!-- Local Project Settings -->
-                        <Border Background="#2B2B2B" CornerRadius="10" Padding="20" Margin="0,0,0,15">
-                            <StackPanel>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
-                                    <TextBlock Text="📁" FontSize="24" VerticalAlignment="Center" Margin="0,0,10,0" Foreground="White"/>
-                                    <TextBlock Text="Local Project Path" FontSize="20" FontWeight="SemiBold" Foreground="White" VerticalAlignment="Center"/>
-                                </StackPanel>
+                <Grid Margin="0,18,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
 
-                                <TextBlock Text="Select Project Folder:" Margin="0,8,0,6" Foreground="#CCCCCC" FontSize="13"/>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBox x:Name="LocalPathTextBox" 
-                                            Grid.Column="0"
-                                            Height="38" 
-                                            Background="#3A3A3A"
-                                            Foreground="White"
-                                            BorderBrush="#555555"
-                                            BorderThickness="1"
-                                            Padding="10"
-                                            FontSize="13"/>
-                                    <Button x:Name="BrowseLocalButton"
-                                            Grid.Column="1"
-                                            Content="Browse"
-                                            Width="80"
-                                            Height="38"
-                                            Margin="10,0,0,0"
-                                            Background="#333333"
-                                            Foreground="White"
-                                            BorderThickness="0"
-                                            Click="BrowseLocalButton_Click"/>
-                                </Grid>
+                    <Border Grid.Row="0" Grid.ColumnSpan="2" Style="{StaticResource App.CardStyle}" Margin="0,0,0,14">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                                <TextBlock Text="📁" FontSize="22" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                <TextBlock Text="Local Project Path"
+                                           Style="{StaticResource App.SectionTitleTextStyle}"
+                                           VerticalAlignment="Center" />
                             </StackPanel>
-                        </Border>
 
-                        <!-- Config File Settings -->
-                        <Border Background="#2B2B2B" CornerRadius="10" Padding="20">
-                            <StackPanel>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
-                                    <TextBlock Text="🔧" FontSize="24" VerticalAlignment="Center" Margin="0,0,10,0" Foreground="White"/>
-                                    <TextBlock Text="Configuration File" FontSize="20" FontWeight="SemiBold" Foreground="White" VerticalAlignment="Center"/>
-                                </StackPanel>
+                            <TextBlock Text="Select Project Folder:" Margin="0,8,0,6" Style="{StaticResource App.MutedTextStyle}" />
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="LocalPathTextBox"
+                                         Grid.Column="0"
+                                         Style="{StaticResource App.InputTextBox}" />
+                                <Button x:Name="BrowseLocalButton"
+                                        Grid.Column="1"
+                                        Content="Browse"
+                                        Width="90"
+                                        Height="38"
+                                        Margin="10,0,0,0"
+                                        Style="{StaticResource App.Button.Ghost}"
+                                        Click="BrowseLocalButton_Click" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
 
-                                <StackPanel Orientation="Horizontal">
-                                    <CheckBox x:Name="AddToGitIgnoreCheckBox" 
-                                             Content="Add config file to .gitignore" 
-                                             IsChecked="True"
-                                             Foreground="#CCCCCC"
-                                             FontSize="13"
-                                             VerticalAlignment="Center"
-                                             Margin="0,6,10,6"/>
-                                    
-                                    <Button Content="Add Now" 
-                                            Height="26" 
-                                            FontSize="12" 
-                                            Padding="10,0"
-                                            Background="#333333" 
-                                            Foreground="White"
-                                            BorderThickness="0"
-                                            Click="AddGitIgnore_Click"/>
-                                </StackPanel>
+                    <Border Grid.Row="1" Grid.Column="0" Style="{StaticResource App.CardStyle}" Margin="0,0,10,0">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                                <TextBlock Text="🔧" FontSize="22" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                <TextBlock Text="Configuration File"
+                                           Style="{StaticResource App.SectionTitleTextStyle}"
+                                           VerticalAlignment="Center" />
                             </StackPanel>
-                        </Border>
 
-                        <Border Background="#2B2B2B" CornerRadius="10" Padding="20" Margin="0,15,0,0">
-                            <StackPanel>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
-                                    <TextBlock Text="🚀" FontSize="24" VerticalAlignment="Center" Margin="0,0,10,0" Foreground="White"/>
-                                    <TextBlock Text="Startup behavior" FontSize="20" FontWeight="SemiBold" Foreground="White" VerticalAlignment="Center"/>
-                                </StackPanel>
-                                <CheckBox x:Name="LaunchOnStartupCheckBox"
-                                          Content="Launch GitDeploy Pro when Windows starts"
-                                          Foreground="#CCCCCC"
-                                          FontSize="13"/>
+                            <TextBlock Text="Git ignore helper for project metadata."
+                                       Style="{StaticResource App.MutedTextStyle}"
+                                       Margin="0,0,0,10" />
+                            <StackPanel Orientation="Horizontal">
+                                <CheckBox x:Name="AddToGitIgnoreCheckBox"
+                                          Content="Add config file to .gitignore"
+                                          IsChecked="True"
+                                          Foreground="{StaticResource Text.Secondary}"
+                                          FontSize="13"
+                                          VerticalAlignment="Center"
+                                          Margin="0,6,10,6" />
+
+                                <Button Content="Add Now"
+                                        Height="28"
+                                        Padding="10,0"
+                                        Style="{StaticResource App.Button.Ghost}"
+                                        Click="AddGitIgnore_Click" />
                             </StackPanel>
-                        </Border>
-                    </StackPanel>
-                </ScrollViewer>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource App.CardStyle}" Margin="10,0,0,0">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                                <TextBlock Text="🚀" FontSize="22" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                <TextBlock Text="Startup behavior"
+                                           Style="{StaticResource App.SectionTitleTextStyle}"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                            <TextBlock Text="Control launch behavior for daily workflow."
+                                       Style="{StaticResource App.MutedTextStyle}"
+                                       Margin="0,0,0,10" />
+                            <CheckBox x:Name="LaunchOnStartupCheckBox"
+                                      Content="Launch GitDeploy Pro when Windows starts"
+                                      Foreground="{StaticResource Text.Secondary}"
+                                      FontSize="13" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
             </TabItem>
 
-            <!-- TAB 2: Server (FTP) -->
             <TabItem Header="Server (FTP/SFTP)">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,20,0,0">
-                    <Border Background="#2B2B2B" CornerRadius="10" Padding="20">
+                <Border Style="{StaticResource App.CardStyle}" Margin="0,18,0,0">
                         <StackPanel>
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
-                                <TextBlock Text="🌐" FontSize="24" VerticalAlignment="Center" Margin="0,0,10,0" Foreground="White"/>
-                                <TextBlock Text="Server Configuration" FontSize="20" FontWeight="SemiBold" Foreground="White" VerticalAlignment="Center"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                                <TextBlock Text="🌐" FontSize="22" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                <TextBlock Text="Server Configuration"
+                                           Style="{StaticResource App.SectionTitleTextStyle}"
+                                           VerticalAlignment="Center" />
                             </StackPanel>
 
-                            <TextBlock Text="This project uses a central connection profile. No need to enter FTP details manually." 
-                                     Foreground="#AAAAAA" Margin="0,0,0,15" TextWrapping="Wrap"/>
+                            <TextBlock Text="This project uses a central connection profile. No need to enter FTP details manually."
+                                       Foreground="{StaticResource Text.Muted}"
+                                       Margin="0,0,0,14"
+                                       TextWrapping="Wrap" />
 
-                            <!-- Connection Selector -->
-                            <Grid Margin="0,0,0,15">
+                            <Grid Margin="0,0,0,14">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                
-                                <ComboBox x:Name="ConnectionProfileComboBox" 
+
+                                <ComboBox x:Name="ConnectionProfileComboBox"
                                           Grid.Column="0"
-                                          Height="40"
-                                          Background="#3A3A3A"
-                                          Foreground="White"
-                                          BorderBrush="#555555"
+                                          Style="{StaticResource App.InputComboBox}"
                                           DisplayMemberPath="DisplayName"
-                                          SelectionChanged="ConnectionProfileComboBox_SelectionChanged"
-                                          FontSize="14"
-                                          Padding="10,5"/>
+                                          SelectionChanged="ConnectionProfileComboBox_SelectionChanged" />
 
                                 <Button x:Name="ManageConnectionsButton"
                                         Grid.Column="1"
-                                        Content="📂 Manage Profiles" 
-                                        Height="40" 
-                                        Width="140"
+                                        Content="📂 Manage Profiles"
+                                        Height="40"
+                                        Width="150"
                                         Margin="10,0,0,0"
-                                        Background="#007ACC"
-                                        Foreground="White"
-                                        BorderThickness="0"
-                                        FontSize="13"
-                                        FontWeight="SemiBold"
-                                        Cursor="Hand"
-                                        Click="ManageConnectionsButton_Click"/>
+                                        Style="{StaticResource App.Button.Primary}"
+                                        Click="ManageConnectionsButton_Click" />
                             </Grid>
 
-                            <!-- Selected Profile Info (Read Only) -->
-                            <Border Background="#1E1E1E" CornerRadius="6" Padding="15" Margin="0,10,0,0">
+                            <Border Style="{StaticResource App.PanelStyle}" Padding="14" Margin="0,10,0,0">
                                 <Grid>
                                     <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
                                     </Grid.RowDefinitions>
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
 
-                                    <TextBlock Text="Host:" Grid.Row="0" Grid.Column="0" Foreground="#888888" Margin="0,0,10,5"/>
-                                    <TextBlock x:Name="PreviewHostText" Grid.Row="0" Grid.Column="1" Foreground="White" FontWeight="Bold" Text="-"/>
+                                    <TextBlock Text="Host:" Grid.Row="0" Grid.Column="0" Foreground="{StaticResource Text.Muted}" Margin="0,0,10,5" />
+                                    <TextBlock x:Name="PreviewHostText" Grid.Row="0" Grid.Column="1" Foreground="{StaticResource Text.Primary}" FontWeight="SemiBold" Text="-" />
 
-                                    <TextBlock Text="Protocol:" Grid.Row="1" Grid.Column="0" Foreground="#888888" Margin="0,0,10,5"/>
-                                    <TextBlock x:Name="PreviewProtocolText" Grid.Row="1" Grid.Column="1" Foreground="White" Text="-"/>
+                                    <TextBlock Text="Protocol:" Grid.Row="1" Grid.Column="0" Foreground="{StaticResource Text.Muted}" Margin="0,0,10,5" />
+                                    <TextBlock x:Name="PreviewProtocolText" Grid.Row="1" Grid.Column="1" Foreground="{StaticResource Text.Secondary}" Text="-" />
 
-                                    <TextBlock Text="User:" Grid.Row="2" Grid.Column="0" Foreground="#888888" Margin="0,0,10,5"/>
-                                    <TextBlock x:Name="PreviewUserText" Grid.Row="2" Grid.Column="1" Foreground="White" Text="-"/>
+                                    <TextBlock Text="User:" Grid.Row="2" Grid.Column="0" Foreground="{StaticResource Text.Muted}" Margin="0,0,10,5" />
+                                    <TextBlock x:Name="PreviewUserText" Grid.Row="2" Grid.Column="1" Foreground="{StaticResource Text.Secondary}" Text="-" />
 
-                                    <TextBlock Text="Root Path:" Grid.Row="3" Grid.Column="0" Foreground="#888888" Margin="0,0,10,0"/>
-                                    <TextBlock x:Name="PreviewPathText" Grid.Row="3" Grid.Column="1" Foreground="#4EC9B0" Text="-"/>
+                                    <TextBlock Text="Root Path:" Grid.Row="3" Grid.Column="0" Foreground="{StaticResource Text.Muted}" Margin="0,0,10,0" />
+                                    <TextBlock x:Name="PreviewPathText" Grid.Row="3" Grid.Column="1" Foreground="{StaticResource Status.Success}" Text="-" />
                                 </Grid>
                             </Border>
-                            
-                            <!-- Actions -->
+
                             <StackPanel Margin="0,20,0,0">
                                 <StackPanel Orientation="Horizontal">
                                     <Button x:Name="ReSetupButton"
-                                            Content="🛠 Re-Run Setup Wizard" 
-                                            Height="40" 
-                                            Width="180"
-                                            Background="#333333"
-                                            Foreground="#FFD54F"
-                                            BorderThickness="0"
-                                            FontSize="14"
-                                            FontWeight="SemiBold"
-                                            Cursor="Hand"
-                                            Click="ReSetupButton_Click"/>
+                                            Content="🛠 Re-Run Setup Wizard"
+                                            Height="40"
+                                            Width="190"
+                                            Style="{StaticResource App.Button.Ghost}"
+                                            Click="ReSetupButton_Click" />
                                 </StackPanel>
 
-                                <Border Background="#1F2A35" CornerRadius="8" Padding="12" Margin="0,12,0,0">
+                                <Border Background="{StaticResource Status.InfoSurface}"
+                                        BorderBrush="{StaticResource Border.Subtle}"
+                                        BorderThickness="1"
+                                        CornerRadius="10"
+                                        Padding="14"
+                                        Margin="0,12,0,0">
                                     <StackPanel>
-                                        <TextBlock Text="Reinitialize Project Setup" Foreground="#90CAF9" FontWeight="SemiBold" FontSize="14"/>
+                                        <TextBlock Text="Reinitialize Project Setup"
+                                                   Foreground="{StaticResource Status.Info}"
+                                                   FontWeight="SemiBold"
+                                                   FontSize="14" />
                                         <TextBlock Text="For recovery: remove setup artifacts from this project folder, then run wizard cleanly."
-                                                   Foreground="#B0BEC5"
+                                                   Foreground="{StaticResource Text.Secondary}"
                                                    TextWrapping="Wrap"
-                                                   Margin="0,4,0,10"/>
+                                                   Margin="0,4,0,10" />
                                         <CheckBox x:Name="ResetGitInSettingsCheckBox"
                                                   Content="Remove .git folder"
-                                                  Foreground="White"
-                                                  Margin="0,0,0,6"/>
+                                                  Foreground="{StaticResource Text.Primary}"
+                                                  Margin="0,0,0,6" />
                                         <CheckBox x:Name="ResetConfigInSettingsCheckBox"
                                                   Content="Remove .gitdeploy.config"
-                                                  Foreground="White"
-                                                  Margin="0,0,0,10"/>
+                                                  Foreground="{StaticResource Text.Primary}"
+                                                  Margin="0,0,0,10" />
                                         <Button x:Name="ResetAndRunSetupButton"
                                                 Content="♻ Reset And Run Wizard"
                                                 Height="36"
-                                                Width="190"
+                                                Width="200"
                                                 HorizontalAlignment="Left"
-                                                Background="#C62828"
-                                                Foreground="White"
-                                                BorderThickness="0"
-                                                FontSize="13"
-                                                FontWeight="SemiBold"
-                                                Cursor="Hand"
-                                                Click="ResetAndRunSetupButton_Click"/>
+                                                Style="{StaticResource App.Button.Danger}"
+                                                Click="ResetAndRunSetupButton_Click" />
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
                         </StackPanel>
-                    </Border>
-                </ScrollViewer>
+                </Border>
             </TabItem>
 
-            <!-- TAB 3: Git & GitHub -->
             <TabItem Header="Git &amp; GitHub">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,20,0,0">
-                    <StackPanel>
-                        <Border Background="#2B2B2B" CornerRadius="10" Padding="20" Margin="0,0,0,15">
-                            <StackPanel>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
-                                    <TextBlock Text="📦" FontSize="24" VerticalAlignment="Center" Margin="0,0,10,0" Foreground="White"/>
-                                    <TextBlock Text="Git Configuration" FontSize="20" FontWeight="SemiBold" Foreground="White" VerticalAlignment="Center"/>
+                <Grid Margin="0,18,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="1.35*" />
+                        <ColumnDefinition Width="0.65*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0" Style="{StaticResource App.CardStyle}" Margin="0,0,14,0">
+                        <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                                    <TextBlock Text="📦" FontSize="22" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                    <TextBlock Text="Git Configuration"
+                                               Style="{StaticResource App.SectionTitleTextStyle}"
+                                               VerticalAlignment="Center" />
                                 </StackPanel>
 
-                                <TextBlock Text="Remote Repository URL (origin):" Margin="0,0,0,6" Foreground="#CCCCCC" FontSize="13"/>
-                                <TextBox x:Name="RemoteUrlTextBox" 
-                                        Height="38" 
-                                        Background="#3A3A3A"
-                                        Foreground="#4FC3F7"
-                                        BorderBrush="#555555"
-                                        BorderThickness="1"
-                                        Padding="10"
-                                        FontSize="13"
-                                        Margin="0,0,0,15"/>
+                                <TextBlock Text="Remote Repository URL (origin):" Margin="0,0,0,6" Style="{StaticResource App.MutedTextStyle}" />
+                                <TextBox x:Name="RemoteUrlTextBox"
+                                         Style="{StaticResource App.InputTextBox}"
+                                         Foreground="{StaticResource Status.Info}"
+                                         Margin="0,0,0,15" />
                                 <Border x:Name="GitPushStatusBadge"
-                                        Background="#2F2A1C"
-                                        CornerRadius="6"
-                                        Padding="10"
+                                        Style="{StaticResource App.StatusBadge.Warning}"
                                         Margin="0,0,0,15"
                                         Visibility="Collapsed">
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="☁️" FontSize="16" Margin="0,0,8,0" Foreground="#FFD54F"/>
+                                        <TextBlock Text="☁️" FontSize="16" Margin="0,0,8,0" Foreground="{StaticResource Status.Warning}" />
                                         <TextBlock x:Name="GitPushStatusText"
-                                                  Text="Pending push"
-                                                  FontSize="13"
-                                                  Foreground="#FFD54F"
-                                                  FontWeight="SemiBold"/>
+                                                   Text="Pending push"
+                                                   FontSize="13"
+                                                   Foreground="{StaticResource Status.Warning}"
+                                                   FontWeight="SemiBold" />
                                     </StackPanel>
                                 </Border>
 
                                 <Grid Margin="0,0,0,10">
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="15"/>
-                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="15" />
+                                        <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    
+
                                     <StackPanel Grid.Column="0">
-                                        <TextBlock Text="Default Source Branch:" Margin="0,0,0,6" Foreground="#CCCCCC" FontSize="13"/>
+                                        <TextBlock Text="Default Source Branch:" Margin="0,0,0,6" Style="{StaticResource App.MutedTextStyle}" />
                                         <ComboBox x:Name="DefaultSourceBranchComboBox"
-                                                 Height="38"
-                                                 Background="#3A3A3A"
-                                                 Foreground="White"
-                                                 BorderBrush="#555555"
-                                                 BorderThickness="1"
-                                                 Padding="10,0"
-                                                 FontSize="13"/>
+                                                  Style="{StaticResource App.InputComboBox}" />
                                     </StackPanel>
 
                                     <StackPanel Grid.Column="2">
-                                        <TextBlock Text="Default Target Branch:" Margin="0,0,0,6" Foreground="#CCCCCC" FontSize="13"/>
+                                        <TextBlock Text="Default Target Branch:" Margin="0,0,0,6" Style="{StaticResource App.MutedTextStyle}" />
                                         <ComboBox x:Name="DefaultTargetBranchComboBox"
-                                                 Height="38"
-                                                 Background="#3A3A3A"
-                                                 Foreground="White"
-                                                 BorderBrush="#555555"
-                                                 BorderThickness="1"
-                                                 Padding="10,0"
-                                                 FontSize="13"/>
+                                                  Style="{StaticResource App.InputComboBox}" />
                                     </StackPanel>
                                 </Grid>
-                                
+
                                 <Button x:Name="RefreshBranchesButton"
                                         Content="🔄 Refresh Branches"
-                                        Width="150"
-                                        Height="30"
+                                        Width="160"
+                                        Height="32"
                                         HorizontalAlignment="Left"
                                         Margin="0,0,0,15"
-                                        Background="#333333"
-                                        Foreground="White"
-                                        BorderThickness="0"
-                                        Click="RefreshBranchesButton_Click"/>
+                                        Style="{StaticResource App.Button.Ghost}"
+                                        Click="RefreshBranchesButton_Click" />
 
-                                <CheckBox x:Name="AutoInitGitCheckBox" 
-                                         Content="Auto-init Git if not exists" 
-                                         IsChecked="True"
-                                         Foreground="#CCCCCC"
-                                         FontSize="13"
-                                         Margin="0,6"/>
+                                <CheckBox x:Name="AutoInitGitCheckBox"
+                                          Content="Auto-init Git if not exists"
+                                          IsChecked="True"
+                                          Foreground="{StaticResource Text.Secondary}"
+                                          FontSize="13"
+                                          Margin="0,6" />
 
-                                <CheckBox x:Name="AutoCommitCheckBox" 
-                                         Content="Auto-commit before deploy" 
-                                         IsChecked="True"
-                                         Foreground="#CCCCCC"
-                                         FontSize="13"
-                                         Margin="0,6"/>
+                                <CheckBox x:Name="AutoCommitCheckBox"
+                                          Content="Auto-commit before deploy"
+                                          IsChecked="True"
+                                          Foreground="{StaticResource Text.Secondary}"
+                                          FontSize="13"
+                                          Margin="0,6" />
 
-                                <CheckBox x:Name="AutoPushCheckBox" 
-                                         Content="Auto-push after deploy" 
-                                         IsChecked="False"
-                                         Foreground="#CCCCCC"
-                                         FontSize="13"
-                                         Margin="0,6"/>
-                            </StackPanel>
-                        </Border>
+                                <CheckBox x:Name="AutoPushCheckBox"
+                                          Content="Auto-push after deploy"
+                                          IsChecked="False"
+                                          Foreground="{StaticResource Text.Secondary}"
+                                          FontSize="13"
+                                          Margin="0,6" />
+                        </StackPanel>
+                    </Border>
 
-                        <Border Background="#2B2B2B" CornerRadius="10" Padding="20" Margin="0,0,0,10">
-                            <StackPanel>
+                    <Border Grid.Column="1" Style="{StaticResource App.CardStyle}" Margin="0,0,0,10">
+                        <StackPanel>
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
-                                    <TextBlock Text="🚫" FontSize="24" VerticalAlignment="Center" Margin="0,0,10,0" Foreground="White"/>
-                                    <TextBlock Text="Ignored Files" FontSize="20" FontWeight="SemiBold" Foreground="White" VerticalAlignment="Center"/>
+                                    <TextBlock Text="🚫" FontSize="22" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                    <TextBlock Text="Ignored Files"
+                                               Style="{StaticResource App.SectionTitleTextStyle}"
+                                               VerticalAlignment="Center" />
                                 </StackPanel>
-                                
-                                <TextBlock Text="Exclude patterns (one per line):" Margin="0,0,0,8" Foreground="#AAAAAA" FontSize="13"/>
-                                <TextBox x:Name="ExcludePatternsTextBox" 
-                                        Height="120" 
-                                        TextWrapping="Wrap" 
-                                        AcceptsReturn="True"
-                                        VerticalScrollBarVisibility="Auto"
-                                        Background="#1A1A1A"
-                                        Foreground="#00FF88"
-                                        BorderBrush="#555555"
-                                        BorderThickness="1"
-                                        Padding="12"
-                                        FontFamily="Consolas"
-                                        FontSize="12"/>
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                </ScrollViewer>
+
+                                <TextBlock Text="Exclude patterns (one per line):" Margin="0,0,0,8" Style="{StaticResource App.MutedTextStyle}" />
+                                <TextBox x:Name="ExcludePatternsTextBox"
+                                         Style="{StaticResource App.InputTextBox.Multiline}"
+                                         MinHeight="260"
+                                         VerticalScrollBarVisibility="Auto"
+                                         Foreground="{StaticResource Log.Success}"
+                                         FontFamily="{StaticResource FontFamily.Mono}"
+                                         FontSize="12" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
             </TabItem>
         </TabControl>
 
-        <!-- Fixed Footer with Save Button -->
-        <Border Grid.Row="2" Background="#252525" Padding="20" BorderThickness="0,1,0,0" BorderBrush="#333333" Margin="-30,0,-30,-30">
-            <Button Height="50" 
-                   FontSize="16"
-                   FontWeight="Bold"
-                   Background="#0078D4"
-                   Foreground="White"
-                   BorderThickness="0"
-                   Cursor="Hand"
-                   Click="SaveSettings_Click">
-                <Button.Style>
-                    <Style TargetType="Button">
-                        <Setter Property="Template">
-                            <Setter.Value>
-                                <ControlTemplate TargetType="Button">
-                                    <Border x:Name="border" 
-                                           Background="{TemplateBinding Background}" 
-                                           CornerRadius="8">
-                                        <StackPanel Orientation="Horizontal" 
-                                                   HorizontalAlignment="Center" 
-                                                   VerticalAlignment="Center">
-                                            <TextBlock Text="💾" FontSize="24" VerticalAlignment="Center" Margin="0,0,12,0" Foreground="White"/>
-                                            <TextBlock Text="SAVE ALL SETTINGS" 
-                                                      FontSize="16" 
-                                                      FontWeight="Bold" 
-                                                      Foreground="White" 
-                                                      VerticalAlignment="Center"/>
-                                        </StackPanel>
-                                    </Border>
-                                    <ControlTemplate.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="border" Property="Background" Value="#1084D8"/>
-                                        </Trigger>
-                                    </ControlTemplate.Triggers>
-                                </ControlTemplate>
-                            </Setter.Value>
-                        </Setter>
-                    </Style>
-                </Button.Style>
+        <Border Grid.Row="2"
+                Background="{StaticResource Surface.Shell}"
+                Padding="20"
+                BorderThickness="0,1,0,0"
+                BorderBrush="{StaticResource Border.Subtle}"
+                Margin="0,0,0,0">
+            <Button Height="50"
+                    FontSize="16"
+                    FontWeight="Bold"
+                    Style="{StaticResource App.Button.Primary}"
+                    Click="SaveSettings_Click">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <TextBlock Text="💾" FontSize="22" VerticalAlignment="Center" Margin="0,0,12,0" />
+                    <TextBlock Text="SAVE ALL SETTINGS"
+                               FontSize="15"
+                               FontWeight="Bold"
+                               VerticalAlignment="Center" />
+                </StackPanel>
             </Button>
         </Border>
     </Grid>
+    </ScrollViewer>
 </Page>

@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:avalon="http://icsharpcode.net/sharpdevelop/avalonedit"
              x:Name="Root">
-    <Border Background="#1A1A1A" CornerRadius="8" Padding="15" BorderBrush="#2A2A2A" BorderThickness="1">
+    <Border Background="{StaticResource Surface.Shell}" CornerRadius="8" Padding="15" BorderBrush="{StaticResource Border.Subtle}" BorderThickness="1">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
@@ -15,21 +15,21 @@
                 <TextBlock Text="{Binding Title, ElementName=Root}" 
                            FontSize="16" 
                            FontWeight="SemiBold"
-                           Foreground="White"
+                           Foreground="{StaticResource Text.Primary}"
                            TextTrimming="CharacterEllipsis"/>
                 <TextBlock Text="{Binding Status, ElementName=Root}"
                            FontSize="12"
-                           Foreground="#999999"/>
+                           Foreground="{StaticResource Text.Muted}"/>
             </StackPanel>
 
-            <Border Grid.Row="1" Background="#2F2F2F" Height="1" Margin="0,5"/>
+            <Border Grid.Row="1" Background="{StaticResource Border.Subtle}" Height="1" Margin="0,5"/>
 
             <Grid Grid.Row="2" Margin="0,10,0,0">
                 <avalon:TextEditor x:Name="DiffEditor"
-                                   FontFamily="Consolas"
+                                   FontFamily="{StaticResource FontFamily.Mono}"
                                    FontSize="12"
-                                   Background="#101010"
-                                   Foreground="#E0E0E0"
+                                   Background="{StaticResource Surface.Input}"
+                                   Foreground="{StaticResource Text.Secondary}"
                                    ShowLineNumbers="True"
                                    IsReadOnly="True"
                                    HorizontalScrollBarVisibility="Auto"
@@ -43,7 +43,7 @@
                             HorizontalAlignment="Center">
                     <TextBlock Text="{Binding EmptyMessage, ElementName=Root}"
                                FontSize="13"
-                               Foreground="#888888"
+                               Foreground="{StaticResource Text.Muted}"
                                TextAlignment="Center"/>
                 </StackPanel>
             </Grid>

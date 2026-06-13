@@ -3,300 +3,224 @@
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
       Title="DeployPage"
-      Background="#202020">
-    <Grid Margin="30">
+      Background="{StaticResource Surface.Base}">
+    <Grid Margin="{StaticResource Spacing.PageMargin}">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*" MinHeight="220"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="8"/>
-            <RowDefinition Height="*" MinHeight="170"/>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" MinHeight="220" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="8" />
+            <RowDefinition Height="*" MinHeight="170" />
         </Grid.RowDefinitions>
 
-        <!-- Header -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,25">
-            <TextBlock Text="🚀" FontSize="40" VerticalAlignment="Center" Margin="0,0,15,0" Foreground="White"/>
-            <TextBlock Text="Deploy Project" 
-                      FontSize="34" 
-                      FontWeight="Bold" 
-                      Foreground="White"
-                      VerticalAlignment="Center"/>
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,24">
+            <TextBlock Text="🚀" FontSize="36" VerticalAlignment="Center" Margin="0,0,14,0" />
+            <StackPanel>
+                <TextBlock Text="Deploy Project" Style="{StaticResource App.PageTitleTextStyle}" />
+                <TextBlock Text="Compare changes, deploy, then sync workflow in one trusted flow."
+                           Style="{StaticResource App.PageSubtitleTextStyle}" />
+            </StackPanel>
             <Button Content="🗖"
                     Width="44"
                     Height="36"
                     Margin="18,0,0,0"
-                    Background="#3A3B40"
-                    Foreground="#FFFFFF"
-                    BorderThickness="0"
-                    Cursor="Hand"
+                    Style="{StaticResource DetachPageButtonStyle}"
                     ToolTip="Open Deploy page in a new window"
-                    Click="DetachDeployPage_Click"/>
+                    Click="DetachDeployPage_Click" />
         </StackPanel>
 
-        <!-- Branch Selection Area -->
-        <Grid Grid.Row="1" Margin="0,0,0,20">
+        <Grid Grid.Row="1" Margin="0,0,0,18">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="40"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="20"/>
-                <ColumnDefinition Width="180"/>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="36" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="210" />
             </Grid.ColumnDefinitions>
 
-            <!-- Source Branch -->
-            <Border Grid.Column="0" Background="#2B2B2B" CornerRadius="8" Padding="15">
+            <Border Grid.Column="0" Style="{StaticResource App.CardStyle}">
                 <StackPanel>
-                    <TextBlock Text="Source Branch (Local):" FontSize="13" Foreground="#CCCCCC" Margin="0,0,0,8"/>
+                    <TextBlock Text="Source Branch (Local):"
+                               Style="{StaticResource App.MutedTextStyle}"
+                               Margin="0,0,0,8" />
                     <Grid>
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <ComboBox x:Name="SourceBranchComboBox" 
-                                 Grid.Column="0"
-                                 Height="40" 
-                                 FontSize="14"
-                                 Background="#3A3A3A"
-                                 Foreground="White"
-                                 BorderBrush="#0078D4"
-                                 BorderThickness="1"
-                                 Padding="10,0"
-                                 SelectionChanged="BranchComboBox_SelectionChanged"/>
+                        <ComboBox x:Name="SourceBranchComboBox"
+                                  Grid.Column="0"
+                                  Style="{StaticResource App.InputComboBox}"
+                                  SelectionChanged="BranchComboBox_SelectionChanged" />
                         <Button x:Name="NewBranchButton"
                                 Grid.Column="1"
                                 Content="➕"
-                                ToolTip="Create New Branch"
-                                Width="30"
+                                Width="34"
                                 Height="40"
-                                Margin="5,0,0,0"
-                                Background="#333333"
-                                Foreground="White"
-                                BorderThickness="0"
-                                Click="NewBranchButton_Click"/>
+                                Margin="6,0,0,0"
+                                ToolTip="Create New Branch"
+                                Style="{StaticResource App.Button.Ghost}"
+                                Click="NewBranchButton_Click" />
                     </Grid>
                 </StackPanel>
             </Border>
 
-            <!-- Arrow Icon -->
-            <TextBlock Grid.Column="1" Text="➜" 
-                      FontSize="24" 
-                      Foreground="#888888" 
-                      HorizontalAlignment="Center" 
-                      VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="1"
+                       Text="➜"
+                       FontSize="22"
+                       Foreground="{StaticResource Text.Muted}"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center" />
 
-            <!-- Target Branch -->
-            <Border Grid.Column="2" Background="#2B2B2B" CornerRadius="8" Padding="15">
+            <Border Grid.Column="2" Style="{StaticResource App.CardStyle}">
                 <StackPanel>
-                    <TextBlock Text="Target Branch (Local):" FontSize="13" Foreground="#CCCCCC" Margin="0,0,0,8"/>
-                    <ComboBox x:Name="TargetBranchComboBox" 
-                             Height="40" 
-                             FontSize="14"
-                             Background="#3A3A3A"
-                             Foreground="White"
-                             BorderBrush="#E0E0E0"
-                             BorderThickness="1"
-                             Padding="10,0"
-                             SelectionChanged="BranchComboBox_SelectionChanged"/>
+                    <TextBlock Text="Target Branch (Local):"
+                               Style="{StaticResource App.MutedTextStyle}"
+                               Margin="0,0,0,8" />
+                    <ComboBox x:Name="TargetBranchComboBox"
+                              Style="{StaticResource App.InputComboBox}"
+                              SelectionChanged="BranchComboBox_SelectionChanged" />
                 </StackPanel>
             </Border>
 
-            <!-- Action Button (Commit / Compare / Push) -->
-            <Grid Grid.Column="4">
-                <StackPanel>
-                    <Button x:Name="ActionButton"
-                            Content="🔍 COMPARE" 
-                            Height="76" 
-                            FontSize="16"
-                            FontWeight="Bold"
-                            Background="#E65100"
-                            Foreground="White"
-                            BorderThickness="0"
-                            Cursor="Hand"
-                            Click="ActionButton_Click">
-                        <Button.Style>
-                            <Style TargetType="Button">
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="Button">
-                                            <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="8">
-                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                            </Border>
-                                            <ControlTemplate.Triggers>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="border" Property="Background" Value="#EF6C00"/>
-                                                </Trigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                            </Style>
-                        </Button.Style>
-                    </Button>
+            <StackPanel Grid.Column="4">
+                <Button x:Name="ActionButton"
+                        Content="🔍 COMPARE"
+                        Height="76"
+                        FontSize="16"
+                        FontWeight="Bold"
+                        Style="{StaticResource App.Button.Secondary}"
+                        Click="ActionButton_Click" />
 
-                    <Border x:Name="DeployPushBadge"
-                            Visibility="Collapsed"
-                            Background="#2F2A1C"
-                            CornerRadius="6"
-                            Padding="8"
-                            Margin="0,10,0,0">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="☁️" FontSize="14" Margin="0,0,6,0" Foreground="#FFD54F"/>
-                            <TextBlock x:Name="DeployPushBadgeText"
-                                      Text="Pending push"
-                                      FontSize="12"
-                                      Foreground="#FFD54F"
-                                      FontWeight="SemiBold"/>
-                        </StackPanel>
-                    </Border>
-                </StackPanel>
-            </Grid>
+                <Border x:Name="DeployPushBadge"
+                        Style="{StaticResource App.StatusBadge.Warning}"
+                        Margin="0,10,0,0"
+                        Visibility="Collapsed">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="☁️" FontSize="14" Margin="0,0,6,0" Foreground="{StaticResource Status.Warning}" />
+                        <TextBlock x:Name="DeployPushBadgeText"
+                                   Text="Pending push"
+                                   FontSize="12"
+                                   Foreground="{StaticResource Status.Warning}"
+                                   FontWeight="SemiBold" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
         </Grid>
 
-        <!-- Actions Bar (Deploy Button hidden initially) -->
-        <Border Grid.Row="2" 
-               Background="#2B2B2B" 
-               CornerRadius="8" 
-               Padding="15"
-               Margin="0,0,0,20">
+        <Border Grid.Row="2"
+                Style="{StaticResource App.CardStyle}"
+                Margin="0,0,0,20"
+                Padding="{StaticResource Spacing.CardPaddingDense}">
             <Grid>
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
-                <StackPanel Grid.Row="0" VerticalAlignment="Center" Margin="0,0,0,15">
+                <StackPanel Grid.Row="0" VerticalAlignment="Center" Margin="0,0,0,14">
                     <Grid>
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="10"/>
-                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="10" />
+                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        
+
                         <StackPanel Grid.Column="0" Orientation="Horizontal">
-                            <TextBlock Text="Changed Files" 
-                                      FontSize="18" 
-                                      FontWeight="SemiBold" 
-                                      Foreground="White"
-                                      VerticalAlignment="Center"
-                                      Margin="0,0,15,0"/>
-                            
+                            <TextBlock Text="Changed Files"
+                                       Style="{StaticResource App.SectionTitleTextStyle}"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,14,0" />
+
                             <CheckBox x:Name="SelectAllCheckBox"
-                                     Content="Select All"
-                                     FontSize="13"
-                                     Foreground="#AAAAAA"
-                                     VerticalAlignment="Center"
-                                     IsChecked="True"
-                                     Click="SelectAll_Click"/>
+                                      Content="Select All"
+                                      FontSize="13"
+                                      Foreground="{StaticResource Text.Muted}"
+                                      VerticalAlignment="Center"
+                                      IsChecked="True"
+                                      Click="SelectAll_Click" />
                         </StackPanel>
 
-                        <Button 
-                            Grid.Column="3"
-                            x:Name="DeployButton"
-                            Content="🔄 SYNC" 
-                            Width="220"
-                            Height="40"
-                            FontSize="14"
-                            FontWeight="Bold"
-                            Background="#0078D4"
-                            Foreground="White"
-                            BorderThickness="0"
-                            Cursor="Hand"
-                            Visibility="Collapsed"
-                            IsEnabled="False"
-                            Click="DeployButton_Click">
-                            <Button.Style>
-                                <Style TargetType="Button">
-                                    <Setter Property="Template">
-                                        <Setter.Value>
-                                            <ControlTemplate TargetType="Button">
-                                                <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="6">
-                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                </Border>
-                                                <ControlTemplate.Triggers>
-                                                    <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter TargetName="border" Property="Background" Value="#1084D8"/>
-                                                    </Trigger>
-                                                    <Trigger Property="IsEnabled" Value="False">
-                                                        <Setter TargetName="border" Property="Background" Value="#444444"/>
-                                                        <Setter Property="Foreground" Value="#888888"/>
-                                                    </Trigger>
-                                                </ControlTemplate.Triggers>
-                                            </ControlTemplate>
-                                        </Setter.Value>
-                                    </Setter>
-                                </Style>
-                            </Button.Style>
-                        </Button>
+                        <Button Grid.Column="3"
+                                x:Name="DeployButton"
+                                Content="🔄 SYNC"
+                                Width="230"
+                                Height="40"
+                                FontSize="14"
+                                FontWeight="Bold"
+                                Style="{StaticResource App.Button.Primary}"
+                                Visibility="Collapsed"
+                                IsEnabled="False"
+                                Click="DeployButton_Click" />
                     </Grid>
-                    
-                    <TextBlock x:Name="StatusText" 
-                              Text="Ready to compare changes..." 
-                              FontSize="14" 
-                              Foreground="#AAAAAA"
-                              Margin="0,5,0,0"/>
+
+                    <TextBlock x:Name="StatusText"
+                              Text="Ready to compare changes..."
+                              FontSize="14"
+                              Foreground="{StaticResource Text.Muted}"
+                              Margin="0,6,0,0" />
                 </StackPanel>
 
-                <!-- Files List -->
                 <Grid Grid.Row="1">
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <ListBox x:Name="FilesListBox"
+                                 ItemContainerStyle="{StaticResource App.ListBoxItem.Transparent}"
                                  Background="Transparent"
                                  BorderThickness="0"
                                  SelectionMode="Single"
                                  SelectionChanged="FilesListBox_SelectionChanged">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
-                                    <Border Background="#3A3A3A" 
-                                            CornerRadius="6" 
+                                    <Border Background="{StaticResource Surface.Raised}"
+                                            BorderBrush="{StaticResource Border.Subtle}"
+                                            BorderThickness="1"
+                                            CornerRadius="10"
                                             Padding="12,10"
-                                            Margin="0,4">
+                                            Margin="0,2">
                                         <Grid>
                                             <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto"/>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
 
-                                            <CheckBox Grid.Column="0" 
-                                                     IsChecked="{Binding IsSelected, Mode=TwoWay}"
-                                                     VerticalAlignment="Center"
-                                                     HorizontalAlignment="Center"
-                                                     Margin="0,0,15,0">
+                                            <CheckBox Grid.Column="0"
+                                                      IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                      VerticalAlignment="Center"
+                                                      HorizontalAlignment="Center"
+                                                      Margin="0,0,14,0">
                                                 <CheckBox.LayoutTransform>
-                                                    <ScaleTransform ScaleX="1.2" ScaleY="1.2"/>
+                                                    <ScaleTransform ScaleX="1.15" ScaleY="1.15" />
                                                 </CheckBox.LayoutTransform>
                                             </CheckBox>
 
                                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                                <TextBlock Text="📄" FontSize="18" VerticalAlignment="Center" Margin="0,0,10,0" Foreground="White"/>
-                                                <TextBlock Text="{Binding Name}" 
-                                                          FontSize="13" 
-                                                          Foreground="#E0E0E0"
-                                                          VerticalAlignment="Center"
-                                                          TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Text="📄" FontSize="17" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                                <TextBlock Text="{Binding Name}"
+                                                           FontSize="13"
+                                                           Foreground="{StaticResource Text.Secondary}"
+                                                           VerticalAlignment="Center"
+                                                           TextTrimming="CharacterEllipsis" />
                                                 <Button Content="VS"
                                                         Margin="10,0,0,0"
                                                         Padding="8,2"
                                                         FontSize="11"
-                                                        Foreground="White"
-                                                        Background="#3A3F54"
-                                                        BorderBrush="#5C6BC0"
-                                                        Cursor="Hand"
+                                                        Style="{StaticResource App.Button.Ghost}"
                                                         Tag="{Binding}"
-                                                        Click="OpenCodeButton_Click"/>
+                                                        Click="OpenCodeButton_Click" />
                                             </StackPanel>
 
-                                            <Border Grid.Column="2" 
-                                                    Background="{Binding StatusColor}" 
-                                                    CornerRadius="3" 
-                                                    Padding="6,2"
+                                            <Border Grid.Column="2"
+                                                    Background="{Binding StatusColor}"
+                                                    CornerRadius="4"
+                                                    Padding="8,3"
                                                     VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding StatusText}" 
-                                                          FontSize="11" 
-                                                          FontWeight="Bold" 
-                                                          Foreground="White"/>
+                                                <TextBlock Text="{Binding StatusText}"
+                                                           FontSize="11"
+                                                           FontWeight="Bold"
+                                                           Foreground="{StaticResource Text.Primary}" />
                                             </Border>
                                         </Grid>
                                     </Border>
@@ -308,72 +232,61 @@
             </Grid>
         </Border>
 
-        <!-- Progress Bar -->
-        <Border Grid.Row="3" 
-               Background="#2B2B2B" 
-               CornerRadius="8" 
-               Padding="15"
-               Margin="0,0,0,15">
+        <Border Grid.Row="3"
+                Style="{StaticResource App.CardStyle}"
+                Margin="0,0,0,14"
+                Padding="{StaticResource Spacing.CardPaddingDense}">
             <StackPanel>
-                <TextBlock x:Name="ProgressText" 
-                          Text="Waiting..." 
-                          FontSize="13" 
-                          Foreground="#CCCCCC"
-                          Margin="0,0,0,8"/>
-                <ProgressBar x:Name="DeployProgressBar" 
-                            Height="8" 
-                            Value="0" 
-                            Maximum="100"
-                            Background="#3A3A3A"
-                            Foreground="#0078D4"
-                            BorderThickness="0"/>
+                <TextBlock x:Name="ProgressText"
+                           Text="Waiting..."
+                           Style="{StaticResource App.MutedTextStyle}"
+                           Margin="0,0,0,8" />
+                <ProgressBar x:Name="DeployProgressBar"
+                             Height="9"
+                             Value="0"
+                             Maximum="100"
+                             Background="{StaticResource Surface.Input}"
+                             Foreground="{StaticResource Accent.Primary}"
+                             BorderThickness="0" />
             </StackPanel>
         </Border>
 
-        <!-- Logs -->
-        <Border Grid.Row="5" 
-               Background="#2B2B2B" 
-               CornerRadius="8" 
-               Padding="15">
+        <Border Grid.Row="5"
+                Style="{StaticResource App.CardStyle}"
+                Padding="{StaticResource Spacing.CardPaddingDense}">
             <Grid>
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
                 <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
-                    <TextBlock Text="📋" FontSize="18" VerticalAlignment="Center" Margin="0,0,10,0" Foreground="White"/>
-                    <TextBlock Text="Deployment Logs" 
-                              FontSize="16" 
-                              FontWeight="SemiBold" 
-                              Foreground="White"
-                              VerticalAlignment="Center"/>
-                    <Button Content="🗑️ Clear Logs" 
-                           Margin="15,0,0,0" 
-                           Height="28"
-                           Padding="12,0"
-                           Background="#3A3A3A"
-                           Foreground="#CCCCCC"
-                           FontSize="11"
-                           BorderThickness="0"
-                           Cursor="Hand"
-                           Click="ClearLogs_Click"/>
+                    <TextBlock Text="📋" FontSize="18" VerticalAlignment="Center" Margin="0,0,10,0" />
+                    <TextBlock Text="Deployment Logs"
+                               FontSize="16"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource Text.Primary}"
+                               VerticalAlignment="Center" />
+                    <Button Content="🗑️ Clear Logs"
+                            Margin="15,0,0,0"
+                            Height="30"
+                            Padding="12,0"
+                            FontSize="11"
+                            Style="{StaticResource App.Button.Ghost}"
+                            Click="ClearLogs_Click" />
                 </StackPanel>
 
-                <Border Grid.Row="1" 
-                       Background="#1A1A1A" 
-                       CornerRadius="6" 
-                       Padding="12">
+                <Border Grid.Row="1" Style="{StaticResource App.LogContainerStyle}">
                     <ScrollViewer VerticalScrollBarVisibility="Auto"
                                   x:Name="LogScrollViewer"
                                   Padding="0,0,0,40">
-                        <TextBlock x:Name="LogTextBlock" 
-                                  FontFamily="Consolas" 
-                                  FontSize="12" 
-                                  Foreground="#00FF88"
-                                  TextWrapping="Wrap"
-                                  Text="Waiting for deployment..."
-                                  Margin="0,0,0,30"/>
+                        <TextBlock x:Name="LogTextBlock"
+                                   FontFamily="{StaticResource FontFamily.Mono}"
+                                   FontSize="12"
+                                   Foreground="{StaticResource Log.Success}"
+                                   TextWrapping="Wrap"
+                                   Text="Waiting for deployment..."
+                                   Margin="0,0,0,30" />
                     </ScrollViewer>
                 </Border>
             </Grid>
@@ -384,7 +297,8 @@
                       HorizontalAlignment="Stretch"
                       VerticalAlignment="Stretch"
                       ResizeDirection="Rows"
-                      Background="#3A3A3A"
-                      ShowsPreview="True"/>
+                      Background="{StaticResource Border.Subtle}"
+                      ShowsPreview="True"
+                      Cursor="SizeNS" />
     </Grid>
 </Page>

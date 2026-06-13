@@ -36,6 +36,14 @@ namespace GitDeployPro.Services
 
             HistoryChanged?.Invoke();
         }
+
+        public static void ClearHistory()
+        {
+            var state = BackupStateStore.LoadState();
+            state.BackupHistory = new List<BackupHistoryEntry>();
+            BackupStateStore.SaveState(state);
+            HistoryChanged?.Invoke();
+        }
     }
 }
 

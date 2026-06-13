@@ -8,28 +8,28 @@
         mc:Ignorable="d"
         Title="Session Manager" Height="700" Width="900"
         WindowStartupLocation="CenterScreen"
-        Background="#252526" Foreground="#F1F1F1"
+        Background="{StaticResource Surface.Base}" Foreground="{StaticResource Text.Primary}"
         ResizeMode="CanResizeWithGrip"
         GlowBrush="{DynamicResource MahApps.Brushes.Accent}"
-        WindowTitleBrush="#252526"
-        NonActiveWindowTitleBrush="#2D2D30"
+        WindowTitleBrush="{StaticResource Surface.Card}"
+        NonActiveWindowTitleBrush="{StaticResource Surface.Card}"
         BorderThickness="1"
-        BorderBrush="#3E3E42">
+        BorderBrush="{StaticResource Border.Subtle}">
 
     <Window.Resources>
         <Style TargetType="TreeViewItem">
-            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="Foreground" Value="{StaticResource Text.Secondary}"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="FontSize" Value="14"/>
             <Setter Property="Padding" Value="4,3"/>
             <Setter Property="Margin" Value="0,1"/>
             <Style.Triggers>
                 <Trigger Property="IsSelected" Value="True">
-                    <Setter Property="Background" Value="#007ACC"/>
-                    <Setter Property="Foreground" Value="White"/>
+                    <Setter Property="Background" Value="{StaticResource Accent.Primary}"/>
+                    <Setter Property="Foreground" Value="{StaticResource Text.Primary}"/>
                 </Trigger>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#3E3E42"/>
+                    <Setter Property="Background" Value="{StaticResource State.Hover}"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -42,7 +42,7 @@
         </Grid.RowDefinitions>
 
         <!-- Toolbar -->
-        <Border Grid.Row="0" Background="#2D2D30" Padding="10" BorderThickness="0,0,0,1" BorderBrush="#3E3E42">
+        <Border Grid.Row="0" Background="{StaticResource Surface.Card}" Padding="10" BorderThickness="0,0,0,1" BorderBrush="{StaticResource Border.Subtle}">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
@@ -53,23 +53,21 @@
                 <TextBox x:Name="FilterTextBox" 
                          Grid.Column="0"
                          mah:TextBoxHelper.Watermark="Filter by folder/session name..."
-                         Background="#333337" 
-                         Foreground="White"
-                         BorderBrush="#434346"
+                         Style="{StaticResource App.InputTextBox}"
                          Margin="0,0,10,0"
                          TextChanged="FilterTextBox_TextChanged"/>
 
                 <!-- Toolbar Buttons -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal">
-                    <Button Content="🔗" ToolTip="Link" Width="32" Height="32" Margin="2" Background="#3E3E42" Foreground="White" BorderThickness="0" Click="LinkButton_Click"/>
-                    <Button Content="📎" ToolTip="Attach" Width="32" Height="32" Margin="2" Background="#3E3E42" Foreground="White" BorderThickness="0"/>
-                    <Button Content="+" ToolTip="Add Folder" Width="32" Height="32" Margin="2" Background="#0FB981" Foreground="White" BorderThickness="0" Click="AddFolderButton_Click"/>
-                    <Button Content="–" ToolTip="Remove" Width="32" Height="32" Margin="2" Background="#E74444" Foreground="White" BorderThickness="0" Click="RemoveButton_Click"/>
-                    <Button Content="📁" ToolTip="New Folder" Width="32" Height="32" Margin="2" Background="#8E43FF" Foreground="White" BorderThickness="0" Click="NewFolderButton_Click"/>
-                    <Button Content="❌" ToolTip="Delete" Width="32" Height="32" Margin="2" Background="#E74444" Foreground="White" BorderThickness="0" Click="DeleteButton_Click"/>
-                    <Button Content="⚙️" ToolTip="Settings" Width="32" Height="32" Margin="2" Background="#3E3E42" Foreground="White" BorderThickness="0"/>
-                    <Button Content="◀" ToolTip="Back" Width="32" Height="32" Margin="2" Background="#3E3E42" Foreground="White" BorderThickness="0"/>
-                    <Button Content="▶" ToolTip="Forward" Width="32" Height="32" Margin="2" Background="#3E3E42" Foreground="White" BorderThickness="0"/>
+                    <Button Content="🔗" ToolTip="Link" Width="32" Height="32" Margin="2" Style="{StaticResource App.IconButton}" Click="LinkButton_Click"/>
+                    <Button Content="📎" ToolTip="Attach" Width="32" Height="32" Margin="2" Style="{StaticResource App.IconButton}"/>
+                    <Button Content="+" ToolTip="Add Folder" Width="32" Height="32" Margin="2" Style="{StaticResource App.IconButton}" Background="{StaticResource Status.Success}" BorderBrush="{StaticResource Status.Success}" Foreground="{StaticResource Text.Inverse}" Click="AddFolderButton_Click"/>
+                    <Button Content="–" ToolTip="Remove" Width="32" Height="32" Margin="2" Style="{StaticResource App.IconButton}" Background="{StaticResource Status.Error}" BorderBrush="{StaticResource Status.Error}" Foreground="{StaticResource Text.Primary}" Click="RemoveButton_Click"/>
+                    <Button Content="📁" ToolTip="New Folder" Width="32" Height="32" Margin="2" Style="{StaticResource App.IconButton}" Background="{StaticResource Accent.Secondary}" BorderBrush="{StaticResource Accent.Secondary}" Foreground="{StaticResource Text.Primary}" Click="NewFolderButton_Click"/>
+                    <Button Content="❌" ToolTip="Delete" Width="32" Height="32" Margin="2" Style="{StaticResource App.IconButton}" Background="{StaticResource Status.Error}" BorderBrush="{StaticResource Status.Error}" Foreground="{StaticResource Text.Primary}" Click="DeleteButton_Click"/>
+                    <Button Content="⚙️" ToolTip="Settings" Width="32" Height="32" Margin="2" Style="{StaticResource App.IconButton}"/>
+                    <Button Content="◀" ToolTip="Back" Width="32" Height="32" Margin="2" Style="{StaticResource App.IconButton}"/>
+                    <Button Content="▶" ToolTip="Forward" Width="32" Height="32" Margin="2" Style="{StaticResource App.IconButton}"/>
                 </StackPanel>
             </Grid>
         </Border>
@@ -80,7 +78,7 @@
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <Border Background="#252526" CornerRadius="8" BorderBrush="#3F3F3F" BorderThickness="1" Padding="10">
+            <Border Background="{StaticResource Surface.Shell}" CornerRadius="10" BorderBrush="{StaticResource Border.Subtle}" BorderThickness="1" Padding="10">
                 <TreeView x:Name="SessionsTreeView" 
                           Background="Transparent" 
                           BorderThickness="0"
@@ -116,10 +114,10 @@
                                 <TextBlock Text="{Binding DisplayNameWithCount}" 
                                           VerticalAlignment="Center"
                                           FontSize="14"
-                                          Foreground="#E0E0E0"/>
+                                              Foreground="{StaticResource Text.Secondary}"/>
                                 <TextBlock Text="{Binding ConnectionType}" 
                                           FontSize="11" 
-                                          Foreground="#808080" 
+                                              Foreground="{StaticResource Text.Muted}" 
                                           Margin="8,0,0,0" 
                                           VerticalAlignment="Center"
                                           Visibility="{Binding ConnectionTypeVisibility}"/>

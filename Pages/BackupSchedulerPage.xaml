@@ -3,108 +3,117 @@
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
       Title="Backup Scheduler"
-      Background="#1F1F1F">
+      Background="{StaticResource Surface.Base}">
     <Page.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
         <LinearGradientBrush x:Key="EditorCardBrush" StartPoint="0,0" EndPoint="1,1">
-            <GradientStop Color="#2A2A2A" Offset="0"/>
-            <GradientStop Color="#1C1C1C" Offset="1"/>
+            <GradientStop Color="{StaticResource Color.Surface.Card}" Offset="0"/>
+            <GradientStop Color="{StaticResource Color.Surface.Raised}" Offset="1"/>
         </LinearGradientBrush>
-        <Style x:Key="WidgetCardStyle" TargetType="Border">
+        <Style x:Key="WidgetCardStyle" TargetType="Border" BasedOn="{StaticResource App.CardStyle}">
             <Setter Property="Background" Value="{StaticResource EditorCardBrush}"/>
-            <Setter Property="CornerRadius" Value="14"/>
-            <Setter Property="Padding" Value="16"/>
+            <Setter Property="CornerRadius" Value="{StaticResource Radius.Card}"/>
+            <Setter Property="Padding" Value="{StaticResource Spacing.CardPaddingDense}"/>
             <Setter Property="Margin" Value="0,0,0,15"/>
-            <Setter Property="BorderBrush" Value="#2F2F2F"/>
-            <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="HorizontalAlignment" Value="Stretch"/>
         </Style>
-        <Style x:Key="PrimaryPillButton" TargetType="Button">
+        <Style x:Key="PrimaryPillButton" TargetType="Button" BasedOn="{StaticResource App.Button.Pill}">
             <Setter Property="Width" Value="95"/>
-            <Setter Property="Padding" Value="12,6"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Background" Value="#1E88FF"/>
+            <Setter Property="Background" Value="{StaticResource Accent.Primary}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Accent.Primary}"/>
             <Setter Property="HorizontalAlignment" Value="Stretch"/>
             <Setter Property="Margin" Value="0,0,8,0"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}"
-                                CornerRadius="8">
-                            <ContentPresenter HorizontalAlignment="Center"
-                                              VerticalAlignment="Center"/>
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
         </Style>
         <Style x:Key="SecondaryPillButton" TargetType="Button" BasedOn="{StaticResource PrimaryPillButton}">
-            <Setter Property="Background" Value="#8E43FF"/>
+            <Setter Property="Background" Value="{StaticResource Accent.Secondary}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Accent.Secondary}"/>
         </Style>
         <Style x:Key="DangerPillButton" TargetType="Button" BasedOn="{StaticResource PrimaryPillButton}">
-            <Setter Property="Background" Value="#E74444"/>
+            <Setter Property="Background" Value="{StaticResource Status.Error}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Status.Error}"/>
         </Style>
-        <Style x:Key="SquareIconButton" TargetType="Button">
+        <Style x:Key="SquareIconButton" TargetType="Button" BasedOn="{StaticResource App.IconButton}">
             <Setter Property="Width" Value="46"/>
             <Setter Property="Height" Value="42"/>
             <Setter Property="Margin" Value="0,0,8,0"/>
             <Setter Property="Padding" Value="0"/>
             <Setter Property="FontSize" Value="20"/>
             <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}"
-                                CornerRadius="10">
-                            <ContentPresenter HorizontalAlignment="Center"
-                                              VerticalAlignment="Center"/>
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
+        </Style>
+        <Style x:Key="StepOneActionButtonStyle" TargetType="Button" BasedOn="{StaticResource App.Button.Toolbar}">
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Foreground" Value="{StaticResource Text.Primary}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="StepOneAddConnectionButtonStyle" TargetType="Button" BasedOn="{StaticResource StepOneActionButtonStyle}">
+            <Setter Property="Width" Value="34"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Background" Value="{StaticResource Accent.Primary}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Accent.Primary}"/>
+        </Style>
+        <Style x:Key="StepOneRefreshButtonStyle" TargetType="Button" BasedOn="{StaticResource StepOneActionButtonStyle}">
+            <Setter Property="MinWidth" Value="98"/>
+            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="Background" Value="{StaticResource Surface.Input}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Border.Strong}"/>
+        </Style>
+        <Style x:Key="SaveChangesButtonStyle" TargetType="Button" BasedOn="{StaticResource App.Button.Ghost}">
+            <Setter Property="MinWidth" Value="132"/>
+            <Setter Property="Padding" Value="16,0"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding HasUnsavedScheduleChanges}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource Status.Warning}"/>
+                    <Setter Property="BorderBrush" Value="{StaticResource Status.Warning}"/>
+                    <Setter Property="Foreground" Value="{StaticResource Text.Inverse}"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="StepFourActionButtonStyle" TargetType="Button" BasedOn="{StaticResource App.Button.Primary}">
+            <Setter Property="Height" Value="44"/>
+            <Setter Property="Padding" Value="20,0"/>
+            <Setter Property="MinWidth" Value="154"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
         </Style>
         <Style x:Key="ToggleChipStyle" TargetType="ToggleButton">
             <Setter Property="Margin" Value="4"/>
             <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Foreground" Value="#E5E5E5"/>
+            <Setter Property="Foreground" Value="{StaticResource Text.Secondary}"/>
             <Setter Property="Padding" Value="12,6"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ToggleButton">
                         <Border x:Name="Chip"
-                                Background="#2F2F2F"
+                                Background="{StaticResource Surface.Input}"
                                 CornerRadius="18"
-                                BorderBrush="#3C3C3C"
+                                BorderBrush="{StaticResource Border.Subtle}"
                                 BorderThickness="1">
                             <ContentPresenter HorizontalAlignment="Center"
                                               VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="Chip" Property="Background" Value="#0FB981"/>
-                                <Setter Property="Foreground" Value="#0D0D0D"/>
+                                <Setter TargetName="Chip" Property="Background" Value="{StaticResource Status.Success}"/>
+                                <Setter Property="Foreground" Value="{StaticResource Text.Inverse}"/>
                             </Trigger>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Chip" Property="BorderBrush" Value="#4B8FE2"/>
+                                <Setter TargetName="Chip" Property="BorderBrush" Value="{StaticResource Accent.Primary}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
+        <Style TargetType="TextBox" BasedOn="{StaticResource App.InputTextBox}" />
+        <Style TargetType="ComboBox" BasedOn="{StaticResource App.InputComboBox}" />
     </Page.Resources>
-    <Grid Margin="30">
+    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled"
+                  CanContentScroll="False">
+    <Grid Margin="{StaticResource Spacing.PageMargin}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <!-- Header -->
@@ -116,17 +125,22 @@
             <StackPanel Orientation="Horizontal">
                 <TextBlock Text="🗓️" FontSize="34" Margin="0,0,12,0" VerticalAlignment="Center"/>
                 <StackPanel>
-                    <TextBlock Text="Backup Scheduler" FontSize="32" FontWeight="Bold" Foreground="White"/>
+                    <TextBlock Text="Backup Scheduler" Style="{StaticResource App.PageTitleTextStyle}"/>
                     <TextBlock Text="Define multiple database export plans with independent cadences."
-                               FontSize="13"
-                               Foreground="#D0D0D0"/>
+                               Style="{StaticResource App.PageSubtitleTextStyle}"/>
                 </StackPanel>
             </StackPanel>
-            <Button Content="🗖 Pop-out"
-                    Grid.Column="1"
-                    Margin="12,0,0,0"
-                    Style="{StaticResource DetachPageButtonStyle}"
-                    Click="OpenInWindow_Click"/>
+            <StackPanel Grid.Column="1"
+                        Orientation="Horizontal"
+                        HorizontalAlignment="Right">
+                <Button Content="🗓 Open full history"
+                        Margin="0,0,12,0"
+                        Style="{StaticResource App.Button.Ghost}"
+                        Click="OpenHistoryButton_Click"/>
+                <Button Content="🗖 Pop-out"
+                        Style="{StaticResource DetachPageButtonStyle}"
+                        Click="OpenInWindow_Click"/>
+            </StackPanel>
         </Grid>
 
         <!-- Body -->
@@ -137,422 +151,824 @@
             </Grid.ColumnDefinitions>
 
             <!-- Schedule list -->
-            <Border Background="#252525" CornerRadius="10" Padding="15" Grid.Column="0" Margin="0,0,25,0">
+            <Border Background="{StaticResource Surface.Shell}" CornerRadius="10" Padding="15" Grid.Column="0" Margin="0,0,25,0">
                 <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Grid Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Orientation="Horizontal">
+                            <TextBlock Text="Schedules" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource Text.Primary}"/>
+                            <Border Background="{StaticResource Surface.Input}" CornerRadius="6" Padding="6,2" Margin="10,0,0,0">
+                                <TextBlock Text="{Binding Schedules.Count}" Foreground="{StaticResource Status.Success}" FontWeight="Bold"/>
+                            </Border>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button Content="+"
+                                    Style="{StaticResource SquareIconButton}"
+                                    Background="{StaticResource Status.Success}"
+                                    BorderBrush="{StaticResource Status.Success}"
+                                    Foreground="{StaticResource Text.Inverse}"
+                                    Click="AddSchedule_Click"/>
+                            <Button Content="⧉"
+                                    Style="{StaticResource SquareIconButton}"
+                                    Background="{StaticResource Accent.Secondary}"
+                                    BorderBrush="{StaticResource Accent.Secondary}"
+                                    Foreground="{StaticResource Text.Primary}"
+                                    Click="DuplicateSchedule_Click"/>
+                            <Button Content="–"
+                                    Style="{StaticResource SquareIconButton}"
+                                    Background="{StaticResource Status.Error}"
+                                    BorderBrush="{StaticResource Status.Error}"
+                                    Foreground="{StaticResource Text.Primary}"
+                                    Margin="0"
+                                    Click="DeleteSchedule_Click"/>
+                        </StackPanel>
+                    </Grid>
+                    <ListBox x:Name="SchedulesList"
+                             Grid.Row="1"
+                             ItemsSource="{Binding Schedules}"
+                             SelectedItem="{Binding SelectedSchedule, Mode=TwoWay}"
+                             Style="{StaticResource App.ListBox.Host}"
+                             ItemContainerStyle="{StaticResource App.ListBoxItem.Card}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Name}" FontSize="14" Foreground="{StaticResource Text.Primary}" FontWeight="SemiBold"/>
+                                        <TextBlock Text="{Binding Enabled, StringFormat= (Enabled: {0})}"
+                                                   FontSize="11"
+                                                   Foreground="{StaticResource Text.Muted}"
+                                                   Margin="10,0,0,0"/>
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding Frequency}"
+                                               FontSize="12"
+                                               Foreground="{StaticResource Text.Secondary}"/>
+                                    <TextBlock Text="{Binding NextRunLocal, StringFormat=Next: {0:G}}"
+                                               FontSize="11"
+                                               Foreground="{StaticResource Status.Info}"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </Border>
+
+            <!-- Editor -->
+            <Border Grid.Column="1" Background="{StaticResource Surface.Shell}" CornerRadius="10" Padding="20">
+                <Grid IsEnabled="{Binding IsEditorEnabled}">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                        <TextBlock Text="Schedules" FontSize="18" FontWeight="SemiBold" Foreground="White"/>
-                        <Border Background="#3A3A3A" CornerRadius="6" Padding="6,2" Margin="10,0,0,0">
-                            <TextBlock Text="{Binding Schedules.Count}" Foreground="#9CFFCB" FontWeight="Bold"/>
-                        </Border>
-                    </StackPanel>
-                    <ListBox x:Name="SchedulesList"
-                             Grid.Row="1"
-                             ItemsSource="{Binding Schedules}"
-                             SelectedItem="{Binding SelectedSchedule, Mode=TwoWay}"
-                             Background="Transparent"
-                             BorderThickness="0">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <Border Background="#2E2E2E"
-                                        CornerRadius="8"
-                                        Padding="12"
-                                        Margin="0,4">
-                                    <StackPanel>
-                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding Name}" FontSize="14" Foreground="White" FontWeight="SemiBold"/>
-                                            <TextBlock Text="{Binding Enabled, StringFormat= (Enabled: {0})}"
-                                                       FontSize="11"
-                                                       Foreground="#A0A0A0"
-                                                       Margin="10,0,0,0"/>
-                                        </StackPanel>
-                                        <TextBlock Text="{Binding Frequency}"
-                                                   FontSize="12"
-                                                   Foreground="#BBBBBB"/>
-                                        <TextBlock Text="{Binding NextRunLocal, StringFormat=Next: {0:G}}"
-                                                   FontSize="11"
-                                                   Foreground="#8DD1FF"/>
-                                    </StackPanel>
-                                </Border>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-                    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,12,0,0">
-                        <Button Content="+"
-                                Style="{StaticResource SquareIconButton}"
-                                Background="#0FB981"
-                                Click="AddSchedule_Click"/>
-                        <Button Content="⧉"
-                                Style="{StaticResource SquareIconButton}"
-                                Background="#8E43FF"
-                                Click="DuplicateSchedule_Click"/>
-                        <Button Content="–"
-                                Style="{StaticResource SquareIconButton}"
-                                Background="#E74444"
-                                Click="DeleteSchedule_Click"/>
-                    </StackPanel>
-                </Grid>
-            </Border>
 
-            <!-- Editor -->
-            <Border Grid.Column="1" Background="#252525" CornerRadius="10" Padding="20">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Width="Auto" x:Name="EditorPanel" IsEnabled="{Binding IsEditorEnabled}">
-                        <Border Style="{StaticResource WidgetCardStyle}">
-                            <StackPanel>
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border Grid.Row="0" Style="{StaticResource WidgetCardStyle}" Margin="0,0,0,12">
+                        <StackPanel>
+                            <TextBlock Text="{Binding WizardStepTitle}" Style="{StaticResource App.SectionTitleTextStyle}"/>
+                            <TextBlock Text="Step-by-step flow with readiness checks before execution."
+                                       Style="{StaticResource App.CaptionTextStyle}"/>
+                            <UniformGrid Columns="4" Margin="0,12,0,0">
+                                <Button x:Name="Step1Button"
+                                        Content="1) Connection"
+                                        Tag="1"
+                                        Style="{StaticResource App.Button.Ghost}"
+                                        Margin="0,0,8,0"
+                                        Click="StepButton_Click"/>
+                                <Button x:Name="Step2Button"
+                                        Content="2) Strategy"
+                                        Tag="2"
+                                        Style="{StaticResource App.Button.Ghost}"
+                                        Margin="0,0,8,0"
+                                        Click="StepButton_Click"/>
+                                <Button x:Name="Step3Button"
+                                        Content="3) Readiness"
+                                        Tag="3"
+                                        Style="{StaticResource App.Button.Ghost}"
+                                        Margin="0,0,8,0"
+                                        Click="StepButton_Click"/>
+                                <Button x:Name="Step4Button"
+                                        Content="4) Confirm"
+                                        Tag="4"
+                                        Style="{StaticResource App.Button.Ghost}"
+                                        Click="StepButton_Click"/>
+                            </UniformGrid>
+                        </StackPanel>
+                    </Border>
+
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                        <StackPanel Width="Auto">
+                            <Border x:Name="Step1Panel" Style="{StaticResource WidgetCardStyle}">
                                 <StackPanel>
-                                    <TextBlock Text="Schedule details"
-                                               FontSize="20"
-                                               FontWeight="SemiBold"
-                                               Foreground="White"/>
-                                    <TextBlock Text="Control cadence, connection and output."
-                                               FontSize="12"
-                                               Foreground="#B9B9B9"/>
-                                </StackPanel>
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="20,0,0,0">
-                                    <CheckBox Content="Enabled"
-                                              Margin="20,0,0,0"
-                                              Foreground="#D0D0D0"
-                                              IsChecked="{Binding SelectedSchedule.Enabled}"/>
-                                <Button x:Name="RunNowButton"
-                                        Content="▶ Run now"
-                                        Margin="15,0,0,0"
-                                        Padding="16,6"
-                                        Background="#0D74DA"
-                                        Foreground="White"
-                                        FontWeight="Bold"
-                                        BorderThickness="0"
-                                        HorizontalContentAlignment="Center"
-                                        VerticalContentAlignment="Center"
-                                        Cursor="Hand"
-                                        Click="RunNow_Click"/>
-                                    <Button x:Name="PauseButton"
-                                            Content="{Binding PauseButtonLabel}"
-                                            Margin="15,0,0,0"
-                                        Padding="16,6"
-                                        Background="#FFB300"
-                                        Foreground="#141414"
-                                        FontWeight="Bold"
-                                        BorderThickness="0"
-                                        Cursor="Hand"
-                                        Visibility="{Binding IsBackupRunning, Converter={StaticResource BoolToVisibility}}"
-                                        Click="PauseButton_Click"/>
-                                <Button x:Name="ActiveTasksButton"
-                                        Content="{Binding ActiveTasksLabel}"
-                                        Margin="15,0,0,0"
-                                        Padding="16,6"
-                                        Background="#0FB981"
-                                        Foreground="#0D0D0D"
-                                        FontWeight="SemiBold"
-                                        BorderThickness="0"
-                                        Cursor="Hand"
-                                        Click="OpenTasks_Click"/>
-                                </StackPanel>
-                            </StackPanel>
+                                    <TextBlock Text="Step 1 - Connection and database"
+                                               Style="{StaticResource App.SectionTitleTextStyle}"/>
+                                    <TextBlock Text="Choose profile and target database before moving forward."
+                                               Style="{StaticResource App.CaptionTextStyle}"/>
+                                    <Grid Margin="0,12,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Margin="0,0,20,0">
+                                            <TextBlock Text="Schedule name" Foreground="{StaticResource Text.Muted}" FontSize="12"/>
+                                            <TextBox Text="{Binding SelectedSchedule.Name}" Margin="0,6,0,0"/>
+                                            <CheckBox Content="Enabled"
+                                                      Margin="0,10,0,0"
+                                                      Foreground="{StaticResource Text.Secondary}"
+                                                      IsChecked="{Binding SelectedSchedule.Enabled}"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1">
+                                            <TextBlock Text="Connection profile" Foreground="{StaticResource Text.Muted}" FontSize="12"/>
+                                            <DockPanel Margin="0,6,0,0">
+                                                <Button Content="+"
+                                                        DockPanel.Dock="Right"
+                                                        Style="{StaticResource StepOneAddConnectionButtonStyle}"
+                                                        Margin="8,0,0,0"
+                                                        ToolTip="Create/manage profiles"
+                                                        Click="OpenConnectionManager_Click"/>
+                                                <ComboBox ItemsSource="{Binding ConnectionProfiles}"
+                                                          SelectedValuePath="Id"
+                                                          SelectedValue="{Binding SelectedSchedule.ConnectionProfileId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+                                                    <ComboBox.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <TextBlock Text="{Binding DisplayName}" />
+                                                        </DataTemplate>
+                                                    </ComboBox.ItemTemplate>
+                                                </ComboBox>
+                                            </DockPanel>
+                                            <TextBlock Text="Database name" Foreground="{StaticResource Text.Muted}" FontSize="12" Margin="0,10,0,0"/>
+                                            <DockPanel Margin="0,6,0,0">
+                                                <ComboBox ItemsSource="{Binding DatabaseNames}"
+                                                          Text="{Binding SelectedSchedule.DatabaseName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                          IsEditable="True"
+                                                          Margin="0,0,10,0"
+                                                          MinWidth="180"/>
+                                                <Button Content="⟳ Refresh"
+                                                        Style="{StaticResource StepOneRefreshButtonStyle}"
+                                                        Click="RefreshDatabases_Click"/>
+                                            </DockPanel>
+                                            <Border Background="{StaticResource Status.SuccessSurface}" CornerRadius="6" Padding="8" Margin="0,8,0,0">
+                                                <TextBlock Text="{Binding DatabaseStatus}"
+                                                           FontSize="11"
+                                                           Foreground="{Binding DatabaseStatusBrush}"/>
+                                            </Border>
+                                        </StackPanel>
+                                    </Grid>
 
-                                <Border Style="{StaticResource WidgetCardStyle}"
-                                        Visibility="{Binding ShowBackupProgress, Converter={StaticResource BoolToVisibility}}">
-                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <ProgressBar Width="240"
-                                                     Height="10"
-                                                     Minimum="0"
-                                                     Maximum="{Binding ProgressBarMaximum, Mode=OneWay}"
-                                                     Value="{Binding ProcessedTables, Mode=OneWay}"/>
-                                        <TextBlock Text="{Binding ProgressSummary}"
-                                                   Foreground="#B0FFCF"
-                                                   Margin="12,0,0,0"
-                                                   FontWeight="SemiBold"/>
-                                        <TextBlock Text="{Binding CurrentProgressText}"
-                                                   Foreground="#DDDDDD"
-                                                   Margin="12,0,0,0"/>
-                                    </StackPanel>
-                                </Border>
-                            </StackPanel>
-                        </Border>
-
-                        <Border Style="{StaticResource WidgetCardStyle}">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Margin="0,0,20,0">
-                                    <TextBlock Text="Schedule name" Foreground="#B0B0B0" FontSize="12"/>
-                                    <TextBox Text="{Binding SelectedSchedule.Name}" Margin="0,6,0,0"/>
-                                </StackPanel>
-                                <StackPanel Grid.Column="1">
-                                    <TextBlock Text="Connection profile" Foreground="#B0B0B0" FontSize="12"/>
-                                    <ComboBox ItemsSource="{Binding ConnectionProfiles}"
-                                              SelectedValuePath="Id"
-                                              DisplayMemberPath="DisplayName"
-                                              SelectedValue="{Binding SelectedSchedule.ConnectionProfileId}"
-                                              Margin="0,6,0,0"/>
-                                </StackPanel>
-                            </Grid>
-                        </Border>
-
-                        <Border Style="{StaticResource WidgetCardStyle}">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Margin="0,0,20,0">
-                                    <TextBlock Text="Database name" Foreground="#B0B0B0" FontSize="12"/>
-                                    <DockPanel Margin="0,6,0,0">
-                                        <ComboBox ItemsSource="{Binding DatabaseNames}"
-                                                  Text="{Binding SelectedSchedule.DatabaseName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                  IsEditable="True"
-                                                  Margin="0,0,10,0"
-                                                  MinWidth="180"/>
-                                        <Button Content="Refresh"
-                                                Width="90"
-                                                Style="{StaticResource SecondaryPillButton}"
-                                                Background="#2D9CDB"
-                                                Click="RefreshDatabases_Click"/>
-                                    </DockPanel>
-                                    <Border Background="#1B3A32" CornerRadius="6" Padding="8" Margin="0,8,0,0">
-                                        <TextBlock Text="{Binding DatabaseStatus}"
-                                                   FontSize="11"
-                                                   Foreground="{Binding DatabaseStatusBrush}"/>
+                                    <Border Style="{StaticResource WidgetCardStyle}" Margin="0,12,0,0">
+                                        <StackPanel>
+                                            <TextBlock Text="Localhost restore validation"
+                                                       Style="{StaticResource App.SectionTitleTextStyle}"/>
+                                            <TextBlock Text="Optional: after backup finishes, import artifact into a temporary localhost database to verify recoverability."
+                                                       Style="{StaticResource App.CaptionTextStyle}"/>
+                                            <CheckBox Content="Enable localhost restore validation (warning-only if it fails)"
+                                                      Margin="0,10,0,0"
+                                                      Foreground="{StaticResource Text.Secondary}"
+                                                      IsChecked="{Binding SelectedSchedule.EnableLocalRestoreValidation, Mode=TwoWay}"/>
+                                            <Grid Margin="0,10,0,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="120"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                                    <TextBlock Text="IP / Host"
+                                                               FontSize="11"
+                                                               Foreground="{StaticResource Text.Muted}"
+                                                               Margin="0,0,0,4"/>
+                                                    <TextBox ToolTip="Localhost only"
+                                                             Text="{Binding SelectedSchedule.LocalValidationHost, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                             IsEnabled="{Binding SelectedSchedule.EnableLocalRestoreValidation}"/>
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="1" Margin="0,0,8,0">
+                                                    <TextBlock Text="Port"
+                                                               FontSize="11"
+                                                               Foreground="{StaticResource Text.Muted}"
+                                                               Margin="0,0,0,4"/>
+                                                    <TextBox ToolTip="Example: 3306"
+                                                             Text="{Binding SelectedSchedule.LocalValidationPort, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                                                             IsEnabled="{Binding SelectedSchedule.EnableLocalRestoreValidation}"/>
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="2" Margin="0,0,8,0">
+                                                    <TextBlock Text="Database name"
+                                                               FontSize="11"
+                                                               Foreground="{StaticResource Text.Muted}"
+                                                               Margin="0,0,0,4"/>
+                                                    <TextBox ToolTip="Auto-created if missing"
+                                                             Text="{Binding SelectedSchedule.LocalValidationDatabaseName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                             IsEnabled="{Binding SelectedSchedule.EnableLocalRestoreValidation}"/>
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="3">
+                                                    <TextBlock Text="Username"
+                                                               FontSize="11"
+                                                               Foreground="{StaticResource Text.Muted}"
+                                                               Margin="0,0,0,4"/>
+                                                    <TextBox ToolTip="Database username"
+                                                             Text="{Binding SelectedSchedule.LocalValidationUsername, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                             IsEnabled="{Binding SelectedSchedule.EnableLocalRestoreValidation}"/>
+                                                </StackPanel>
+                                            </Grid>
+                                            <Grid Margin="0,8,0,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                                    <TextBlock Text="Password"
+                                                               FontSize="11"
+                                                               Foreground="{StaticResource Text.Muted}"
+                                                               Margin="0,0,0,4"/>
+                                                    <TextBox ToolTip="Database password"
+                                                             Text="{Binding SelectedSchedule.LocalValidationPassword, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                             IsEnabled="{Binding SelectedSchedule.EnableLocalRestoreValidation}"/>
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="1" Margin="0,0,8,0">
+                                                    <TextBlock Text="Charset"
+                                                               FontSize="11"
+                                                               Foreground="{StaticResource Text.Muted}"
+                                                               Margin="0,0,0,4"/>
+                                                    <TextBox ToolTip="Use auto for server-compatible utf8mb4"
+                                                             Text="{Binding SelectedSchedule.LocalValidationCharset, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                             IsEnabled="{Binding SelectedSchedule.EnableLocalRestoreValidation}"/>
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="2" Margin="0,0,8,0">
+                                                    <TextBlock Text="Collation"
+                                                               FontSize="11"
+                                                               Foreground="{StaticResource Text.Muted}"
+                                                               Margin="0,0,0,4"/>
+                                                    <TextBox ToolTip="Use auto for server-compatible collation"
+                                                             Text="{Binding SelectedSchedule.LocalValidationCollation, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                             IsEnabled="{Binding SelectedSchedule.EnableLocalRestoreValidation}"/>
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="3" VerticalAlignment="Bottom">
+                                                    <Button Content="Test + create DB"
+                                                            Style="{StaticResource App.Button.Toolbar}"
+                                                            IsEnabled="{Binding SelectedSchedule.EnableLocalRestoreValidation}"
+                                                            Click="TestLocalValidationProfile_Click"/>
+                                                </StackPanel>
+                                            </Grid>
+                                            <Border Background="{StaticResource Status.SuccessSurface}" CornerRadius="6" Padding="8" Margin="0,8,0,0">
+                                                <TextBlock Text="{Binding LocalValidationStatus}"
+                                                           FontSize="11"
+                                                           TextWrapping="Wrap"
+                                                           Foreground="{Binding LocalValidationStatusBrush}"/>
+                                            </Border>
+                                        </StackPanel>
                                     </Border>
                                 </StackPanel>
-                                <StackPanel Grid.Column="1" Margin="0,0,20,0">
-                                    <TextBlock Text="Frequency" Foreground="#B0B0B0" FontSize="12"/>
-                                    <ComboBox ItemsSource="{Binding FrequencyOptions}"
-                                              SelectedItem="{Binding SelectedSchedule.Frequency}"
-                                              Margin="0,6,0,0"/>
-                                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                        <TextBlock Text="Mode:"
-                                                   Foreground="#B0B0B0"
-                                                   FontSize="12"
-                                                   VerticalAlignment="Center"/>
-                                    <ComboBox Width="160"
-                                              Margin="10,0,0,0"
-                                              ItemsSource="{Binding BackupModes}"
-                                              DisplayMemberPath="Label"
-                                              SelectedValuePath="Mode"
-                                              SelectedValue="{Binding SelectedSchedule.BackupMode}"/>
+                            </Border>
+
+                            <Border x:Name="Step2Panel" Style="{StaticResource WidgetCardStyle}">
+                                <StackPanel>
+                                    <TextBlock Text="Step 2 - Strategy and output"
+                                               Style="{StaticResource App.SectionTitleTextStyle}"/>
+                                    <TextBlock Text="Define timing first, then backup strategy, then output and retention."
+                                               Style="{StaticResource App.CaptionTextStyle}"/>
+
+                                    <Border Style="{StaticResource WidgetCardStyle}" Margin="0,12,0,12">
+                                        <StackPanel>
+                                            <TextBlock Text="Schedule timing"
+                                                       Foreground="{StaticResource Text.Muted}"
+                                                       FontSize="12"/>
+                                            <Grid Margin="0,8,0,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Margin="0,0,20,0">
+                                                    <TextBlock Text="Frequency" Foreground="{StaticResource Text.Secondary}" FontSize="12"/>
+                                                    <ComboBox ItemsSource="{Binding FrequencyOptions}"
+                                                              SelectedItem="{Binding SelectedSchedule.Frequency}"
+                                                              Margin="0,6,0,0"/>
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="1">
+                                                    <TextBlock Text="Run time" Foreground="{StaticResource Text.Secondary}" FontSize="12"/>
+                                                    <mah:TimePicker SelectedDateTime="{Binding SelectedRunTime, Mode=TwoWay}"
+                                                                    Margin="0,6,0,0"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border x:Name="WeeklyPanelCard" Style="{StaticResource WidgetCardStyle}">
+                                        <StackPanel>
+                                            <TextBlock Text="Days of week" Foreground="{StaticResource Text.Muted}" FontSize="12"/>
+                                            <ItemsControl ItemsSource="{Binding WeekdaySelections}" Margin="0,8,0,0">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <UniformGrid Columns="4"/>
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <ToggleButton Content="{Binding Label}"
+                                                                      Style="{StaticResource ToggleChipStyle}"
+                                                                      IsChecked="{Binding IsSelected, Mode=TwoWay}"/>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border x:Name="MonthlyPanelCard" Style="{StaticResource WidgetCardStyle}">
+                                        <StackPanel>
+                                            <TextBlock Text="Day of month" Foreground="{StaticResource Text.Muted}" FontSize="12"/>
+                                            <mah:NumericUpDown Minimum="1"
+                                                               Maximum="31"
+                                                               Value="{Binding SelectedSchedule.DayOfMonth}"
+                                                               Margin="0,8,0,0"/>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border x:Name="CustomPanelCard" Style="{StaticResource WidgetCardStyle}">
+                                        <StackPanel>
+                                            <TextBlock Text="Custom interval" Foreground="{StaticResource Text.Muted}" FontSize="12"/>
+                                            <TextBlock Text="Use hour and minute inputs; value is converted to total minutes in background."
+                                                       Foreground="{StaticResource Text.Secondary}"
+                                                       FontSize="11"
+                                                       Margin="0,6,0,0"/>
+                                            <Border Background="{StaticResource Surface.Input}"
+                                                    BorderBrush="{StaticResource Border.Subtle}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="8"
+                                                    Padding="10"
+                                                    Margin="0,8,0,0">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="160"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="160"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel Margin="0,0,10,0">
+                                                        <TextBlock Text="Hour" Foreground="{StaticResource Text.Secondary}" FontSize="11"/>
+                                                        <TextBox Text="{Binding CustomIntervalHoursText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                 Margin="0,6,0,0"
+                                                                 HorizontalContentAlignment="Center"/>
+                                                    </StackPanel>
+                                                    <TextBlock Grid.Column="1"
+                                                               Text=":"
+                                                               FontSize="20"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="{StaticResource Text.Muted}"
+                                                               VerticalAlignment="Bottom"
+                                                               Margin="0,0,0,6"/>
+                                                    <StackPanel Grid.Column="2" Margin="10,0,0,0">
+                                                        <TextBlock Text="Minute" Foreground="{StaticResource Text.Secondary}" FontSize="11"/>
+                                                        <TextBox Text="{Binding CustomIntervalMinutesPartText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                 Margin="0,6,0,0"
+                                                                 HorizontalContentAlignment="Center"/>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Border>
+                                            <TextBlock Text="{Binding CustomIntervalNormalizedLabel}"
+                                                       Foreground="{StaticResource Status.Info}"
+                                                       FontSize="11"
+                                                       Margin="0,8,0,0"/>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border Style="{StaticResource WidgetCardStyle}" Margin="0,0,0,12">
+                                        <StackPanel>
+                                            <TextBlock Text="Backup strategy" Foreground="{StaticResource Text.Muted}" FontSize="12"/>
+                                            <TextBlock Text="Choose how backup should be produced."
+                                                       Foreground="{StaticResource Text.Secondary}"
+                                                       FontSize="11"
+                                                       Margin="0,6,0,0"/>
+                                            <TextBlock Text="Backup mode"
+                                                       Foreground="{StaticResource Text.Secondary}"
+                                                       FontSize="12"
+                                                       Margin="0,10,0,0"/>
+                                            <ComboBox ItemsSource="{Binding BackupModes}"
+                                                      DisplayMemberPath="Label"
+                                                      SelectedValuePath="Mode"
+                                                      SelectedValue="{Binding SelectedSchedule.BackupMode}"
+                                                      Margin="0,6,0,0"/>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border Style="{StaticResource WidgetCardStyle}"
+                                            Margin="0,0,0,12"
+                                            Visibility="{Binding IsRemoteFileMode, Converter={StaticResource BoolToVisibility}}">
+                                        <StackPanel>
+                                            <TextBlock Text="Remote file mode options"
+                                                       Foreground="{StaticResource Text.Muted}"
+                                                       FontSize="12"/>
+                                            <Grid Margin="0,8,0,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Margin="0,0,20,0">
+                                                    <TextBlock Text="Remote output directory (Linux)"
+                                                               Foreground="{StaticResource Text.Secondary}"
+                                                               FontSize="12"/>
+                                                    <TextBox Text="{Binding SelectedSchedule.RemoteOutputDirectory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                             Margin="0,6,0,0"/>
+                                                    <TextBlock Text="Example: /var/backups/gitdeploypro"
+                                                               Foreground="{StaticResource Text.Muted}"
+                                                               FontSize="11"
+                                                               Margin="0,6,0,0"/>
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="1">
+                                                    <TextBlock Text="Download policy"
+                                                               Foreground="{StaticResource Text.Secondary}"
+                                                               FontSize="12"/>
+                                                    <ComboBox ItemsSource="{Binding RemoteDownloadPolicies}"
+                                                              DisplayMemberPath="Label"
+                                                              SelectedValuePath="Policy"
+                                                              SelectedValue="{Binding SelectedSchedule.RemoteDownloadPolicy, Mode=TwoWay}"
+                                                              Margin="0,6,0,0"/>
+                                                    <TextBlock Text="Manual (default): only save remote artifact reference. Auto: download artifact after remote build."
+                                                               Foreground="{StaticResource Text.Muted}"
+                                                               FontSize="11"
+                                                               TextWrapping="Wrap"
+                                                               Margin="0,6,0,0"/>
+                                                    <CheckBox Content="After verified download, safely delete ONLY generated remote artifact file"
+                                                              Margin="0,8,0,0"
+                                                              IsChecked="{Binding SelectedSchedule.DeleteRemoteArtifactAfterDownload, Mode=TwoWay}"
+                                                              Foreground="{StaticResource Text.Secondary}"/>
+                                                    <TextBlock Text="Safety mode: no wildcard, no directory delete, no recursive delete. Only exact artifact file path is allowed."
+                                                               Foreground="{StaticResource Status.Warning}"
+                                                               FontSize="11"
+                                                               TextWrapping="Wrap"
+                                                               Margin="0,6,0,0"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border Style="{StaticResource WidgetCardStyle}">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Margin="0,0,20,0">
+                                                <TextBlock Text="Local output directory" Foreground="{StaticResource Text.Muted}" FontSize="12"/>
+                                                <DockPanel Margin="0,8,0,0">
+                                                    <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
+                                                        <Button Content="Browse"
+                                                                Style="{StaticResource SecondaryPillButton}"
+                                                                Background="{StaticResource Surface.Input}"
+                                                                Margin="0,0,8,0"
+                                                                Click="BrowseOutput_Click"/>
+                                                        <Button Content="Open"
+                                                                Style="{StaticResource SecondaryPillButton}"
+                                                                Background="{StaticResource Status.Success}"
+                                                                Click="OpenOutputFolder_Click"/>
+                                                    </StackPanel>
+                                                    <TextBox Text="{Binding SelectedSchedule.OutputDirectory}" Margin="0,0,10,0"/>
+                                                </DockPanel>
+                                                <TextBlock Text="Used for local artifacts and optional auto-download destination."
+                                                           FontSize="11"
+                                                           Foreground="{StaticResource Text.Muted}"
+                                                           Margin="0,6,0,0"/>
+                                                <TextBlock Text="{Binding BackupCountSummary}"
+                                                           FontSize="11"
+                                                           Foreground="{StaticResource Status.Success}"
+                                                           Margin="0,6,0,0"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1">
+                                                <TextBlock Text="Retention copies" Foreground="{StaticResource Text.Muted}" FontSize="12"/>
+                                                <mah:NumericUpDown Minimum="1"
+                                                                   Maximum="100"
+                                                                   Value="{Binding SelectedSchedule.RetentionCount}"
+                                                                   Margin="0,8,0,0"/>
+                                                <CheckBox Content="Compress backup"
+                                                          Margin="0,12,0,0"
+                                                          IsChecked="{Binding SelectedSchedule.CompressOutput}"
+                                                          Foreground="{StaticResource Text.Secondary}"/>
+                                                <CheckBox Content="Encrypt backup at rest (Windows user scope)"
+                                                          Margin="0,6,0,0"
+                                                          IsChecked="{Binding SelectedSchedule.EncryptAtRest}"
+                                                          Foreground="{StaticResource Text.Secondary}"/>
+                                                <ComboBox ItemsSource="{Binding CompressionFormatOptions}"
+                                                          DisplayMemberPath="Label"
+                                                          SelectedValuePath="Format"
+                                                          SelectedValue="{Binding SelectedSchedule.CompressionFormat}"
+                                                          Margin="0,6,0,0"
+                                                          IsEnabled="{Binding SelectedSchedule.CompressOutput}"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
+
+                            <Border x:Name="Step3Panel" Style="{StaticResource WidgetCardStyle}">
+                                <StackPanel>
+                                    <DockPanel>
+                                        <StackPanel DockPanel.Dock="Left">
+                                            <TextBlock Text="Step 3 - Server readiness and permissions"
+                                                       Style="{StaticResource App.SectionTitleTextStyle}"/>
+                                            <TextBlock Text="Checks must pass before backup starts."
+                                                       Style="{StaticResource App.CaptionTextStyle}"/>
+                                        </StackPanel>
+                                        <Button Content="Re-check now"
+                                                Style="{StaticResource App.Button.Toolbar}"
+                                                DockPanel.Dock="Right"
+                                                Click="RefreshReadiness_Click"/>
+                                    </DockPanel>
+                                    <ListView ItemsSource="{Binding ReadinessChecks}"
+                                              Margin="0,12,0,0"
+                                              Style="{StaticResource App.ListView.Host}"
+                                              ItemContainerStyle="{StaticResource App.ListViewItem.Row}">
+                                        <ListView.View>
+                                            <GridView>
+                                                <GridViewColumn Width="90" Header="Status">
+                                                    <GridViewColumn.CellTemplate>
+                                                        <DataTemplate>
+                                                            <TextBlock Text="{Binding StatusLabel}"
+                                                                       Foreground="{Binding StatusBrush}"
+                                                                       FontWeight="SemiBold"/>
+                                                        </DataTemplate>
+                                                    </GridViewColumn.CellTemplate>
+                                                </GridViewColumn>
+                                                <GridViewColumn Width="220" Header="Check">
+                                                    <GridViewColumn.CellTemplate>
+                                                        <DataTemplate>
+                                                            <TextBlock Text="{Binding Title}" Foreground="{StaticResource Text.Primary}"/>
+                                                        </DataTemplate>
+                                                    </GridViewColumn.CellTemplate>
+                                                </GridViewColumn>
+                                                <GridViewColumn Width="240" Header="Details">
+                                                    <GridViewColumn.CellTemplate>
+                                                        <DataTemplate>
+                                                            <TextBlock Text="{Binding Details}" Foreground="{StaticResource Text.Secondary}"/>
+                                                        </DataTemplate>
+                                                    </GridViewColumn.CellTemplate>
+                                                </GridViewColumn>
+                                                <GridViewColumn Width="260" Header="Fix hint">
+                                                    <GridViewColumn.CellTemplate>
+                                                        <DataTemplate>
+                                                            <TextBlock Text="{Binding Hint}" Foreground="{StaticResource Text.Muted}"/>
+                                                        </DataTemplate>
+                                                    </GridViewColumn.CellTemplate>
+                                                </GridViewColumn>
+                                            </GridView>
+                                        </ListView.View>
+                                    </ListView>
+                                </StackPanel>
+                            </Border>
+
+                            <Border x:Name="Step4Panel" Style="{StaticResource WidgetCardStyle}">
+                                <StackPanel>
+                                    <TextBlock Text="Step 4 - Confirm and run"
+                                               Style="{StaticResource App.SectionTitleTextStyle}"/>
+                                    <TextBlock Text="Review your final configuration before running backup."
+                                               Style="{StaticResource App.CaptionTextStyle}"/>
+                                    <Border Background="{StaticResource Surface.Input}"
+                                            CornerRadius="8"
+                                            Padding="10"
+                                            Margin="0,8,0,0">
+                                        <StackPanel>
+                                            <Grid Margin="0,0,0,6">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="170"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="Backup mode"
+                                                           Foreground="{StaticResource Text.Muted}"
+                                                           FontSize="11"/>
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding SelectedSchedule.BackupMode}"
+                                                           Foreground="{StaticResource Status.Success}"
+                                                           FontWeight="SemiBold"/>
+                                            </Grid>
+                                            <Grid Margin="0,0,0,6">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="170"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="Frequency"
+                                                           Foreground="{StaticResource Text.Muted}"
+                                                           FontSize="11"/>
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding SelectedSchedule.Frequency}"
+                                                           Foreground="{StaticResource Text.Primary}"/>
+                                            </Grid>
+                                            <Grid Margin="0,0,0,6">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="170"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="Run time"
+                                                           Foreground="{StaticResource Text.Muted}"
+                                                           FontSize="11"/>
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding SelectedSchedule.LocalRunTime, StringFormat={}{0:hh\\:mm}}"
+                                                           Foreground="{StaticResource Text.Primary}"/>
+                                            </Grid>
+                                            <Grid Margin="0,0,0,6">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="170"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="Retention"
+                                                           Foreground="{StaticResource Text.Muted}"
+                                                           FontSize="11"/>
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding SelectedSchedule.RetentionCount, StringFormat={}{0} copies}"
+                                                           Foreground="{StaticResource Text.Primary}"/>
+                                            </Grid>
+                                            <Grid Margin="0,0,0,6">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="170"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="Local output"
+                                                           Foreground="{StaticResource Text.Muted}"
+                                                           FontSize="11"/>
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding SelectedSchedule.OutputDirectory}"
+                                                           Foreground="{StaticResource Text.Primary}"
+                                                           TextWrapping="Wrap"/>
+                                            </Grid>
+                                            <Grid Margin="0,0,0,6"
+                                                  Visibility="{Binding IsRemoteFileMode, Converter={StaticResource BoolToVisibility}}">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="170"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="Remote path"
+                                                           Foreground="{StaticResource Text.Muted}"
+                                                           FontSize="11"/>
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding SelectedSchedule.RemoteOutputDirectory}"
+                                                           Foreground="{StaticResource Text.Primary}"
+                                                           TextWrapping="Wrap"/>
+                                            </Grid>
+                                            <Grid Margin="0,0,0,6"
+                                                  Visibility="{Binding IsRemoteFileMode, Converter={StaticResource BoolToVisibility}}">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="170"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="Remote download policy"
+                                                           Foreground="{StaticResource Text.Muted}"
+                                                           FontSize="11"/>
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding SelectedSchedule.RemoteDownloadPolicy}"
+                                                           Foreground="{StaticResource Text.Primary}"/>
+                                            </Grid>
+                                            <Grid Margin="0,0,0,6"
+                                                  Visibility="{Binding IsRemoteFileMode, Converter={StaticResource BoolToVisibility}}">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="170"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="Remote cleanup"
+                                                           Foreground="{StaticResource Text.Muted}"
+                                                           FontSize="11"/>
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding SelectedSchedule.DeleteRemoteArtifactAfterDownload, StringFormat=Enabled: {0}}"
+                                                           Foreground="{StaticResource Text.Primary}"/>
+                                            </Grid>
+                                            <Grid Visibility="{Binding SelectedSchedule.EnableLocalRestoreValidation, Converter={StaticResource BoolToVisibility}}">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="170"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="Localhost validation"
+                                                           Foreground="{StaticResource Text.Muted}"
+                                                           FontSize="11"/>
+                                                <TextBlock Grid.Column="1"
+                                                           Foreground="{StaticResource Text.Primary}"
+                                                           TextWrapping="Wrap">
+                                                    <Run Text="Host: "/>
+                                                    <Run Text="{Binding SelectedSchedule.LocalValidationHost}"/>
+                                                    <Run Text="  |  Port: "/>
+                                                    <Run Text="{Binding SelectedSchedule.LocalValidationPort}"/>
+                                                    <LineBreak/>
+                                                    <Run Text="Database: "/>
+                                                    <Run Text="{Binding SelectedSchedule.LocalValidationDatabaseName}"/>
+                                                    <LineBreak/>
+                                                    <Run Text="Charset: "/>
+                                                    <Run Text="{Binding SelectedSchedule.LocalValidationCharset}"/>
+                                                    <Run Text="  |  Collation: "/>
+                                                    <Run Text="{Binding SelectedSchedule.LocalValidationCollation}"/>
+                                                </TextBlock>
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border Style="{StaticResource WidgetCardStyle}"
+                                            Margin="0,12,0,0"
+                                            Visibility="{Binding ShowBackupProgress, Converter={StaticResource BoolToVisibility}}">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <ProgressBar Width="240"
+                                                         Height="10"
+                                                         Minimum="0"
+                                                         Maximum="{Binding ProgressBarMaximum, Mode=OneWay}"
+                                                         IsIndeterminate="{Binding IsProgressIndeterminate, Mode=OneWay}"
+                                                         Value="{Binding ProcessedTables, Mode=OneWay}"/>
+                                            <TextBlock Text="{Binding ProgressSummary}"
+                                                       Foreground="{StaticResource Status.Success}"
+                                                       Margin="12,0,0,0"
+                                                       FontWeight="SemiBold"/>
+                                            <TextBlock Text="{Binding CurrentProgressText}"
+                                                       Foreground="{StaticResource Text.Secondary}"
+                                                       Margin="12,0,0,0"
+                                                       TextWrapping="Wrap"
+                                                       MaxWidth="420"/>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border Style="{StaticResource WidgetCardStyle}" Margin="0,12,0,0">
+                                        <StackPanel>
+                                            <DockPanel>
+                                                <StackPanel DockPanel.Dock="Left">
+                                                    <TextBlock Text="Project backup artifacts"
+                                                               Style="{StaticResource App.SectionTitleTextStyle}"/>
+                                                    <TextBlock Text="{Binding ArtifactFilesPathLabel}"
+                                                               Style="{StaticResource App.CaptionTextStyle}"
+                                                               TextWrapping="Wrap"
+                                                               MaxWidth="560"/>
+                                                    <TextBlock Text="{Binding ArtifactFilesStatus}"
+                                                               Foreground="{StaticResource Text.Muted}"
+                                                               FontSize="11"/>
+                                                </StackPanel>
+                                                <Button Content="Open backup files window"
+                                                        DockPanel.Dock="Right"
+                                                        Margin="12,0,0,0"
+                                                        Style="{StaticResource App.Button.Primary}"
+                                                        Click="OpenArtifactsModal_Click"/>
+                                            </DockPanel>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                        <Button x:Name="ActiveTasksButton"
+                                                Content="{Binding ActiveTasksLabel}"
+                                                Margin="0,0,10,0"
+                                                Style="{StaticResource StepFourActionButtonStyle}"
+                                                Background="{StaticResource Status.Info}"
+                                                BorderBrush="{StaticResource Status.Info}"
+                                                Foreground="{StaticResource Text.Primary}"
+                                                Click="OpenTasks_Click"/>
+                                        <Button x:Name="PauseButton"
+                                                Content="{Binding PauseButtonLabel}"
+                                                Margin="0,0,10,0"
+                                                Padding="16,6"
+                                                Background="{StaticResource Status.Warning}"
+                                                Foreground="{StaticResource Text.Inverse}"
+                                                FontWeight="Bold"
+                                                BorderThickness="0"
+                                                Cursor="Hand"
+                                                Visibility="{Binding IsBackupRunning, Converter={StaticResource BoolToVisibility}}"
+                                                Click="PauseButton_Click"/>
+                                        <Button x:Name="RunNowButton"
+                                                Content="▶ Run now"
+                                                Style="{StaticResource StepFourActionButtonStyle}"
+                                                HorizontalContentAlignment="Center"
+                                                VerticalContentAlignment="Center"
+                                                Click="RunNow_Click"/>
                                     </StackPanel>
                                 </StackPanel>
-                                <StackPanel Grid.Column="2">
-                                    <TextBlock Text="Run time" Foreground="#B0B0B0" FontSize="12"/>
-                                    <mah:TimePicker SelectedDateTime="{Binding SelectedRunTime, Mode=TwoWay}"
-                                                    Margin="0,6,0,0"/>
-                                </StackPanel>
-                            </Grid>
-                        </Border>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
 
-                        <Border x:Name="WeeklyPanelCard" Style="{StaticResource WidgetCardStyle}">
-                            <StackPanel>
-                                <TextBlock Text="Days of week" Foreground="#B0B0B0" FontSize="12"/>
-                                <ItemsControl ItemsSource="{Binding WeekdaySelections}" Margin="0,8,0,0">
-                                    <ItemsControl.ItemsPanel>
-                                        <ItemsPanelTemplate>
-                                            <UniformGrid Columns="4"/>
-                                        </ItemsPanelTemplate>
-                                    </ItemsControl.ItemsPanel>
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <ToggleButton Content="{Binding Label}"
-                                                          Style="{StaticResource ToggleChipStyle}"
-                                                          IsChecked="{Binding IsSelected, Mode=TwoWay}"/>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </StackPanel>
-                        </Border>
-
-                        <Border x:Name="MonthlyPanelCard" Style="{StaticResource WidgetCardStyle}">
-                            <StackPanel>
-                                <TextBlock Text="Day of month" Foreground="#B0B0B0" FontSize="12"/>
-                                <mah:NumericUpDown Minimum="1"
-                                                   Maximum="31"
-                                                   Value="{Binding SelectedSchedule.DayOfMonth}"
-                                                   Margin="0,8,0,0"/>
-                            </StackPanel>
-                        </Border>
-
-                        <Border x:Name="CustomPanelCard" Style="{StaticResource WidgetCardStyle}">
-                            <StackPanel>
-                                <TextBlock Text="Interval (minutes)" Foreground="#B0B0B0" FontSize="12"/>
-                                <mah:NumericUpDown Minimum="5"
-                                                   Maximum="10080"
-                                                   Value="{Binding SelectedSchedule.CustomIntervalMinutes}"
-                                                   Margin="0,8,0,0"/>
-                            </StackPanel>
-                        </Border>
-
-                        <Border Style="{StaticResource WidgetCardStyle}">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Margin="0,0,20,0">
-                                    <TextBlock Text="Output directory" Foreground="#B0B0B0" FontSize="12"/>
-                                    <DockPanel Margin="0,8,0,0">
-                                        <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
-                                            <Button Content="Browse"
-                                                    Style="{StaticResource SecondaryPillButton}"
-                                                    Background="#475569"
-                                                    Margin="0,0,8,0"
-                                                    Click="BrowseOutput_Click"/>
-                                            <Button Content="Open"
-                                                    Style="{StaticResource SecondaryPillButton}"
-                                                    Background="#0FB981"
-                                                    Click="OpenOutputFolder_Click"/>
-                                        </StackPanel>
-                                        <TextBox Text="{Binding SelectedSchedule.OutputDirectory}" Margin="0,0,10,0"/>
-                                    </DockPanel>
-                                    <TextBlock Text="{Binding BackupCountSummary}"
-                                               FontSize="11"
-                                               Foreground="#9CFFCB"
-                                               Margin="0,6,0,0"/>
-                                </StackPanel>
-                                <StackPanel Grid.Column="1">
-                                    <TextBlock Text="Retention copies" Foreground="#B0B0B0" FontSize="12"/>
-                                    <mah:NumericUpDown Minimum="1"
-                                                       Maximum="100"
-                                                       Value="{Binding SelectedSchedule.RetentionCount}"
-                                                       Margin="0,8,0,0"/>
-                                    <CheckBox Content="Compress backup"
-                                              Margin="0,12,0,0"
-                                              IsChecked="{Binding SelectedSchedule.CompressOutput}"
-                                              Foreground="#D0D0D0"/>
-                                    <ComboBox ItemsSource="{Binding CompressionFormatOptions}"
-                                              DisplayMemberPath="Label"
-                                              SelectedValuePath="Format"
-                                              SelectedValue="{Binding SelectedSchedule.CompressionFormat}"
-                                              Margin="0,6,0,0"
-                                              IsEnabled="{Binding SelectedSchedule.CompressOutput}"/>
-                                </StackPanel>
-                            </Grid>
-                        </Border>
-
-                        <Border Style="{StaticResource WidgetCardStyle}">
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                <TextBlock Text="{Binding SelectedScheduleSummary}"
-                                           Foreground="#9CFFCB"
-                                           VerticalAlignment="Center"
-                                           Margin="0,0,20,0"/>
-                                <Button Content="💾 Save schedules"
-                                        Padding="24,8"
-                                        Background="#007ACC"
-                                        Foreground="White"
-                                        FontWeight="Bold"
-                                        BorderThickness="0"
-                                        Cursor="Hand"
-                                        Click="SaveSchedules_Click"/>
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                </ScrollViewer>
+                    <Grid Grid.Row="2" Margin="0,12,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Button x:Name="PreviousStepButton"
+                                Grid.Column="0"
+                                Content="← Previous"
+                                Style="{StaticResource App.Button.Ghost}"
+                                Click="PreviousStep_Click"/>
+                        <Button Grid.Column="1"
+                                Content="{Binding SaveChangesButtonText}"
+                                Margin="10,0,0,0"
+                                Style="{StaticResource SaveChangesButtonStyle}"
+                                Click="SaveSchedules_Click"/>
+                        <TextBlock Grid.Column="2"
+                                   Text="{Binding WizardStepHint}"
+                                   Foreground="{StaticResource Text.Muted}"
+                                   VerticalAlignment="Center"
+                                   HorizontalAlignment="Center"/>
+                        <Button x:Name="NextStepButton"
+                                Grid.Column="3"
+                                Content="Next →"
+                                Style="{StaticResource App.Button.Primary}"
+                                Click="NextStep_Click"/>
+                    </Grid>
+                </Grid>
             </Border>
         </Grid>
 
-        <Border Grid.Row="2"
-                Background="#252525"
-                CornerRadius="8"
-                Padding="15"
-                Margin="0,20,0,0">
-            <StackPanel>
-                <TextBlock Text="Activity log"
-                           FontSize="16"
-                           FontWeight="SemiBold"
-                           Foreground="White"/>
-                <ListBox ItemsSource="{Binding RunLog}"
-                         Margin="0,10,0,0"
-                         Height="140"
-                         Background="#1F1F1F"
-                         BorderThickness="0"
-                         ScrollViewer.VerticalScrollBarVisibility="Auto">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate>
-                            <StackPanel Orientation="Horizontal" Margin="0,2">
-                                <TextBlock Text="{Binding Timestamp, StringFormat={}{0:HH:mm:ss}}"
-                                           Foreground="#888888"
-                                           Width="70"/>
-                                <TextBlock Text="{Binding Message}" Margin="10,0,0,0">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="Foreground" Value="#DDDDDD"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsError}" Value="True">
-                                                    <Setter Property="Foreground" Value="#FF6B6B"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-                            </StackPanel>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
-                <TextBlock Text="Recent backups"
-                           FontSize="15"
-                           FontWeight="SemiBold"
-                           Foreground="White"
-                           Margin="0,20,0,6"/>
-                <ListView ItemsSource="{Binding BackupHistory}"
-                          Height="160"
-                          Background="#151515"
-                          BorderThickness="0"
-                          Foreground="#DDDDDD">
-                    <ListView.View>
-                        <GridView>
-                            <GridViewColumn Width="140" Header="When">
-                                <GridViewColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <TextBlock Text="{Binding CompletedUtc, StringFormat={}{0:G}}" />
-                                    </DataTemplate>
-                                </GridViewColumn.CellTemplate>
-                            </GridViewColumn>
-                            <GridViewColumn Width="180" Header="Schedule">
-                                <GridViewColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <TextBlock Text="{Binding ScheduleName}" />
-                                    </DataTemplate>
-                                </GridViewColumn.CellTemplate>
-                            </GridViewColumn>
-                            <GridViewColumn Width="160" Header="Result">
-                                <GridViewColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <TextBlock Text="{Binding Message}">
-                                            <TextBlock.Style>
-                                                <Style TargetType="TextBlock">
-                                                    <Setter Property="Foreground" Value="#9CFFCB"/>
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding Success}" Value="False">
-                                                            <Setter Property="Foreground" Value="#FF6B6B"/>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </TextBlock.Style>
-                                        </TextBlock>
-                                    </DataTemplate>
-                                </GridViewColumn.CellTemplate>
-                            </GridViewColumn>
-                        </GridView>
-                    </ListView.View>
-                </ListView>
-                <Button Content="Open full history"
-                        Margin="0,8,0,0"
-                        Height="34"
-                        HorizontalAlignment="Right"
-                        Background="#333333"
-                        Foreground="White"
-                        BorderThickness="0"
-                        Click="OpenHistoryButton_Click"/>
-            </StackPanel>
-        </Border>
-
     </Grid>
+    </ScrollViewer>
 </Page>
 

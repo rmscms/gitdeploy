@@ -1,0 +1,53 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+    <FontFamily x:Key="FontFamily.App">Segoe UI Variable Text, Segoe UI, Arial</FontFamily>
+    <FontFamily x:Key="FontFamily.Mono">Cascadia Code, Consolas, Courier New</FontFamily>
+
+    <sys:Double x:Key="FontSize.Caption">11</sys:Double>
+    <sys:Double x:Key="FontSize.Body">13</sys:Double>
+    <sys:Double x:Key="FontSize.BodyLarge">14</sys:Double>
+    <sys:Double x:Key="FontSize.SectionTitle">18</sys:Double>
+    <sys:Double x:Key="FontSize.PageTitle">32</sys:Double>
+
+    <Style x:Key="App.PageTitleTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource FontFamily.App}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.PageTitle}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource Text.Primary}" />
+    </Style>
+
+    <Style x:Key="App.PageSubtitleTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource FontFamily.App}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.BodyLarge}" />
+        <Setter Property="Foreground" Value="{StaticResource Text.Muted}" />
+    </Style>
+
+    <Style x:Key="App.SectionTitleTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource FontFamily.App}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.SectionTitle}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource Text.Primary}" />
+    </Style>
+
+    <Style x:Key="App.BodyTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource FontFamily.App}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Body}" />
+        <Setter Property="Foreground" Value="{StaticResource Text.Secondary}" />
+    </Style>
+
+    <Style x:Key="App.MutedTextStyle" TargetType="TextBlock" BasedOn="{StaticResource App.BodyTextStyle}">
+        <Setter Property="Foreground" Value="{StaticResource Text.Muted}" />
+    </Style>
+
+    <Style x:Key="App.CaptionTextStyle" TargetType="TextBlock" BasedOn="{StaticResource App.BodyTextStyle}">
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}" />
+        <Setter Property="Foreground" Value="{StaticResource Text.Muted}" />
+    </Style>
+
+    <Style x:Key="App.MonospaceTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource FontFamily.Mono}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Body}" />
+        <Setter Property="Foreground" Value="{StaticResource Text.Secondary}" />
+    </Style>
+</ResourceDictionary>
