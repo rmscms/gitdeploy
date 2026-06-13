@@ -1,6 +1,7 @@
 <UserControl x:Class="GitDeployPro.Controls.TerminalControl"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:wv="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              mc:Ignorable="d" 
@@ -39,7 +40,7 @@
                     </Button>
                     
                     <Button x:Name="DetachButton" Content="🗖 Pop-out" Click="DetachButton_Click"
-                            Background="#333333" Foreground="#DDDDDD" BorderThickness="0" Padding="8,4" Margin="0,0,10,0" Cursor="Hand">
+                            Style="{StaticResource DetachPageButtonStyle}" Margin="0,0,10,0">
                         <Button.Resources>
                             <Style TargetType="Border">
                                 <Setter Property="CornerRadius" Value="3"/>
@@ -56,7 +57,7 @@
                         </Button.Resources>
                     </Button>
 
-                    <ToggleButton x:Name="TypeToggleButton" Content="|" ToolTip="Type (Enable/Disable typing)"
+                    <ToggleButton x:Name="TypeToggleButton" Content="⌶" ToolTip="Focus/Type (Enable/Disable typing)"
                                   Width="32" Height="28" Margin="0,0,10,0"
                                   Background="#333333" Foreground="#DDDDDD" BorderThickness="0" Cursor="Hand"
                                   Checked="TypeToggleButton_Checked" Unchecked="TypeToggleButton_Unchecked"
@@ -68,16 +69,53 @@
                         </ToggleButton.Resources>
                         <ToggleButton.Style>
                             <Style TargetType="ToggleButton">
-                                <Setter Property="Background" Value="#333333"/>
-                                <Setter Property="Foreground" Value="#DDDDDD"/>
+                                <Setter Property="Background" Value="#2B2E33"/>
+                                <Setter Property="Foreground" Value="#E0E0E0"/>
+                                <Setter Property="BorderBrush" Value="#464B53"/>
+                                <Setter Property="BorderThickness" Value="1"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ToggleButton">
+                                            <Border x:Name="Bg"
+                                                    Background="{TemplateBinding Background}"
+                                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                                    CornerRadius="4">
+                                                <ContentPresenter HorizontalAlignment="Center"
+                                                                  VerticalAlignment="Center"/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="Bg" Property="Background" Value="#353A42"/>
+                                                </Trigger>
+                                                <Trigger Property="IsChecked" Value="True">
+                                                    <Setter TargetName="Bg" Property="Background" Value="#29323D"/>
+                                                    <Setter TargetName="Bg" Property="BorderBrush" Value="#51647B"/>
+                                                    <Setter Property="Foreground" Value="#D7ECFF"/>
+                                                </Trigger>
+                                                <Trigger Property="IsChecked" Value="False">
+                                                    <Setter TargetName="Bg" Property="Background" Value="#352A2A"/>
+                                                    <Setter TargetName="Bg" Property="BorderBrush" Value="#6A4A4A"/>
+                                                    <Setter Property="Foreground" Value="#FFBDBD"/>
+                                                </Trigger>
+                                                <Trigger Property="IsEnabled" Value="False">
+                                                    <Setter TargetName="Bg" Property="Opacity" Value="0.6"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
                                 <Style.Triggers>
                                     <Trigger Property="IsChecked" Value="True">
-                                        <Setter Property="Background" Value="#0FB981"/>
-                                        <Setter Property="Foreground" Value="White"/>
+                                        <Setter Property="Background" Value="#29323D"/>
+                                        <Setter Property="Foreground" Value="#D7ECFF"/>
                                     </Trigger>
                                     <Trigger Property="IsChecked" Value="False">
-                                        <Setter Property="Background" Value="#E74444"/>
-                                        <Setter Property="Foreground" Value="White"/>
+                                        <Setter Property="Background" Value="#352A2A"/>
+                                        <Setter Property="Foreground" Value="#FFBDBD"/>
+                                    </Trigger>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="#353A42"/>
                                     </Trigger>
                                 </Style.Triggers>
                             </Style>
@@ -105,31 +143,19 @@
         </Border>
 
         <!-- Terminal Screen -->
-        <ScrollViewer x:Name="TerminalScroller"
-                      Grid.Row="1"
-                      VerticalScrollBarVisibility="Auto"
-                      HorizontalScrollBarVisibility="Disabled"
-                      Background="#1E1E1E"
-                      Padding="0,0,0,50">
-            <RichTextBox x:Name="TerminalOutput" 
-                         Background="#1E1E1E" 
-                         Foreground="#D4D4D4" 
-                         FontFamily="Consolas, Courier New, Monospace"
-                         FontSize="14"
-                         BorderThickness="0"
-                         IsReadOnly="False"
-                         IsDocumentEnabled="True"
-                         CaretBrush="Lime"
-                         PreviewKeyDown="TerminalOutput_PreviewKeyDown"
-                         PreviewTextInput="TerminalOutput_PreviewTextInput"
-                         Padding="10,10,10,60"
-                         Margin="0,0,0,40">
-                <RichTextBox.Resources>
-                    <Style TargetType="{x:Type Paragraph}">
-                        <Setter Property="Margin" Value="0"/>
-                    </Style>
-                </RichTextBox.Resources>
-            </RichTextBox>
-        </ScrollViewer>
+        <Grid Grid.Row="1" Background="#1E1E1E">
+            <wv:WebView2 x:Name="TerminalWebView"/>
+
+            <Border x:Name="TypingOverlay"
+                    Background="#66000000"
+                    Visibility="Collapsed"
+                    IsHitTestVisible="False">
+                <TextBlock Text="Typing disabled"
+                           Foreground="#E0E0E0"
+                           FontSize="14"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"/>
+            </Border>
+        </Grid>
     </Grid>
 </UserControl>

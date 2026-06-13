@@ -19,9 +19,10 @@ namespace GitDeployPro.Pages
         private readonly ConfigurationService _configService;
         private readonly GitService _gitService;
         private readonly AutoStartService _autoStartService = new();
+        private readonly ProjectSetupResetService _setupResetService = new();
         private static readonly string[] DefaultIgnorePatterns = new[]
         {
-            "bin/", "obj/", ".vs/", "packages/", "node_modules/", ".env", "*.log", "vendor/", ".gitdeploy.config", ".gitdeploy.history"
+            "bin/", "obj/", ".vs/", ".idea/", ".vscode/", ".cursor/", "packages/", "dist/", "build/", "node_modules/", ".env", "*.log", "vendor/", ".gitdeploy.config", ".gitdeploy.history"
         };
 
         public SettingsPage()
@@ -92,6 +93,10 @@ namespace GitDeployPro.Pages
                 if (_gitService.IsGitRepository())
                 {
                     string remoteUrl = await _gitService.GetRemoteUrlAsync();
+                    if (string.IsNullOrWhiteSpace(remoteUrl))
+                    {
+                        remoteUrl = config.GitRemoteUrl?.Trim() ?? string.Empty;
+                    }
                     RemoteUrlTextBox.Text = remoteUrl;
 
                     var branches = await _gitService.GetBranchesAsync();
@@ -103,8 +108,17 @@ namespace GitDeployPro.Pages
                     else if (branches.Any())
                         DefaultSourceBranchComboBox.SelectedIndex = 0;
 
-                    if (branches.Contains(config.DefaultTargetBranch))
-                        DefaultTargetBranchComboBox.SelectedItem = config.DefaultTargetBranch;
+                    var selectedSource = DefaultSourceBranchComboBox.SelectedItem as string ?? config.DefaultSourceBranch;
+                    var targetCandidate = ResolveDistinctTargetBranch(selectedSource, config.DefaultTargetBranch, branches);
+                    if (branches.Contains(targetCandidate))
+                    {
+                        DefaultTargetBranchComboBox.SelectedItem = targetCandidate;
+                    }
+                    else
+                    {
+                        var firstDistinct = branches.FirstOrDefault(b => !string.Equals(b, selectedSource, StringComparison.OrdinalIgnoreCase));
+                        DefaultTargetBranchComboBox.SelectedItem = firstDistinct;
+                    }
 
                     var branchStatus = await _gitService.GetBranchStatusAsync();
                     UpdateGitPushStatusBadge(branchStatus);
@@ -113,7 +127,7 @@ namespace GitDeployPro.Pages
                 {
                     DefaultSourceBranchComboBox.ItemsSource = null;
                     DefaultTargetBranchComboBox.ItemsSource = null;
-                    RemoteUrlTextBox.Text = "";
+                    RemoteUrlTextBox.Text = config.GitRemoteUrl?.Trim() ?? string.Empty;
                     UpdateGitPushStatusBadge(new BranchStatusInfo());
                 }
             }
@@ -214,6 +228,15 @@ namespace GitDeployPro.Pages
 
                 var selectedProfile = ConnectionProfileComboBox.SelectedItem as ConnectionProfile;
                 var ignoreEntries = GetIgnoreEntriesFromTextBox();
+                string sourceBranch = DefaultSourceBranchComboBox.SelectedItem as string ?? "master";
+                var availableBranches = DefaultSourceBranchComboBox.Items.OfType<string>().ToList();
+                if (availableBranches.Count == 0)
+                {
+                    availableBranches = DefaultTargetBranchComboBox.Items.OfType<string>().ToList();
+                }
+
+                string requestedTarget = DefaultTargetBranchComboBox.SelectedItem as string ?? "";
+                string targetBranch = ResolveDistinctTargetBranch(sourceBranch, requestedTarget, availableBranches);
 
                 var projectConfig = new ProjectConfig
                 {
@@ -230,16 +253,28 @@ namespace GitDeployPro.Pages
                     UseSSH = selectedProfile?.UseSSH ?? false,
                     RemotePath = selectedProfile?.RemotePath ?? "/",
 
-                    DefaultSourceBranch = DefaultSourceBranchComboBox.SelectedItem as string ?? "master",
-                    DefaultTargetBranch = DefaultTargetBranchComboBox.SelectedItem as string ?? "",
+                    DefaultSourceBranch = sourceBranch,
+                    DefaultTargetBranch = targetBranch,
+                    GitRemoteUrl = RemoteUrlTextBox.Text?.Trim() ?? string.Empty,
                     
                     AutoInitGit = AutoInitGitCheckBox.IsChecked ?? true,
                     AutoCommit = AutoCommitCheckBox.IsChecked ?? true,
-                    AutoPush = AutoPushCheckBox.IsChecked ?? false
+                    AutoPush = AutoPushCheckBox.IsChecked ?? false,
+                    DeployMode = selectedProfile != null ? DeployMode.FtpDeploy : DeployMode.GitHubOnly
                 };
                 projectConfig.ExcludePatterns = ignoreEntries.ToArray();
 
                 _configService.SaveProjectConfig(projectConfig);
+
+                if (!string.Equals(requestedTarget, targetBranch, StringComparison.OrdinalIgnoreCase))
+                {
+                    DefaultTargetBranchComboBox.SelectedItem = targetBranch;
+                    ModernMessageBox.Show(
+                        $"Target branch was auto-adjusted to '{targetBranch}' because source and target cannot be the same.",
+                        "Branch Auto-Fix",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+                }
 
                 bool launchOnStartup = LaunchOnStartupCheckBox.IsChecked == true;
 
@@ -447,11 +482,133 @@ namespace GitDeployPro.Pages
                 GitPushStatusBadge.Visibility = Visibility.Collapsed;
             }
         }
+
+        private static string ResolveDistinctTargetBranch(string sourceBranch, string requestedTarget, List<string> availableBranches)
+        {
+            string source = (sourceBranch ?? string.Empty).Trim();
+            string target = (requestedTarget ?? string.Empty).Trim();
+            if (!string.IsNullOrWhiteSpace(target) && !string.Equals(source, target, StringComparison.OrdinalIgnoreCase))
+            {
+                return target;
+            }
+
+            foreach (var preferred in new[] { "production", "master", "main", "release" })
+            {
+                if (!string.Equals(source, preferred, StringComparison.OrdinalIgnoreCase) &&
+                    availableBranches.Any(branch => string.Equals(branch, preferred, StringComparison.OrdinalIgnoreCase)))
+                {
+                    return preferred;
+                }
+            }
+
+            var firstDistinct = availableBranches.FirstOrDefault(branch => !string.Equals(branch, source, StringComparison.OrdinalIgnoreCase));
+            if (!string.IsNullOrWhiteSpace(firstDistinct))
+            {
+                return firstDistinct;
+            }
+
+            return string.IsNullOrWhiteSpace(source) ? "production" : $"{source}-deploy";
+        }
+
         private async void ReSetupButton_Click(object sender, RoutedEventArgs e)
         {
             string path = LocalPathTextBox.Text;
             if (string.IsNullOrWhiteSpace(path)) return;
 
+            await RunSetupWizardAsync(path);
+        }
+
+        private async void ResetAndRunSetupButton_Click(object sender, RoutedEventArgs e)
+        {
+            string path = LocalPathTextBox.Text?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
+            {
+                ModernMessageBox.Show("Please select a valid project folder first.", "Reset Setup", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            bool removeGit = ResetGitInSettingsCheckBox.IsChecked == true;
+            bool removeConfig = ResetConfigInSettingsCheckBox.IsChecked == true;
+            if (!removeGit && !removeConfig)
+            {
+                ModernMessageBox.Show("Select at least one reset option before running cleanup.", "Reset Setup", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            ProjectSetupResetPreview preview;
+            try
+            {
+                preview = _setupResetService.BuildPreview(path, removeGit, removeConfig);
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show($"Unable to prepare reset preview: {ex.Message}", "Reset Setup", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            string targetsText = string.Join(Environment.NewLine, preview.Targets.Select(t => $"- {t}"));
+            bool firstConfirm = ModernMessageBox.Show(
+                $"Project folder:{Environment.NewLine}{preview.ProjectPath}{Environment.NewLine}{Environment.NewLine}Items to remove:{Environment.NewLine}{targetsText}{Environment.NewLine}{Environment.NewLine}Continue?",
+                "Reinitialize Setup",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning,
+                "Continue",
+                "Cancel");
+
+            if (!firstConfirm)
+            {
+                return;
+            }
+
+            bool secondConfirm = ModernMessageBox.Show(
+                "This operation can remove local git history (.git). Do you want to continue now?",
+                "Final Confirmation",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning,
+                "Reset Now",
+                "Cancel");
+
+            if (!secondConfirm)
+            {
+                return;
+            }
+
+            if (sender is System.Windows.Controls.Button button)
+            {
+                button.IsEnabled = false;
+                button.Content = "Resetting...";
+            }
+
+            try
+            {
+                var result = _setupResetService.ResetProject(path, removeGit, removeConfig);
+                string removedText = result.RemovedPaths.Count == 0
+                    ? "No files were removed."
+                    : $"Removed:{Environment.NewLine}{string.Join(Environment.NewLine, result.RemovedPaths.Select(p => $"- {p}"))}";
+                string skippedText = result.SkippedPaths.Count == 0
+                    ? string.Empty
+                    : $"{Environment.NewLine}{Environment.NewLine}Skipped (not found):{Environment.NewLine}{string.Join(Environment.NewLine, result.SkippedPaths.Select(p => $"- {p}"))}";
+
+                ModernMessageBox.Show($"{removedText}{skippedText}", "Reset Completed", MessageBoxButton.OK, MessageBoxImage.Information);
+                GitService.SetWorkingDirectory(path);
+                await RunSetupWizardAsync(path);
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show($"Reset failed: {ex.Message}", "Reset Setup", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                if (sender is System.Windows.Controls.Button restoreButton)
+                {
+                    restoreButton.IsEnabled = true;
+                    restoreButton.Content = "♻ Reset And Run Wizard";
+                }
+            }
+        }
+
+        private async Task RunSetupWizardAsync(string path)
+        {
             var wizard = new ProjectSetupWizard(path)
             {
                 Owner = System.Windows.Application.Current.MainWindow

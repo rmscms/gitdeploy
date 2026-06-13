@@ -25,6 +25,8 @@ namespace GitDeployPro.Controls
         
         // Track active connections and their windows
         private static Dictionary<string, TerminalWindow> _activeConnections = new();
+        private DateTime _lastConnectRequestAt = DateTime.MinValue;
+        private string? _lastConnectRequestConnectionId;
 
         // ViewModel for TreeView items
         public class SessionTreeNode : INotifyPropertyChanged
@@ -402,7 +404,7 @@ namespace GitDeployPro.Controls
                     _draggedItem = null;
                     _isDragging = false;
                     
-                    ConnectionConnectRequested?.Invoke(this, conn);
+                    RaiseConnectionConnectRequested(conn);
                 }
             }
         }
@@ -469,7 +471,7 @@ namespace GitDeployPro.Controls
                     _isDragging = false;
                     
                     // Invoke connection request
-                    ConnectionConnectRequested?.Invoke(this, conn);
+                    RaiseConnectionConnectRequested(conn);
                 }
             }
         }
@@ -516,7 +518,7 @@ namespace GitDeployPro.Controls
             connectItem.Click += (s, e) => 
             {
                 contextMenu.IsOpen = false;
-                ConnectionConnectRequested?.Invoke(this, conn);
+                RaiseConnectionConnectRequested(conn);
             };
             contextMenu.Items.Add(connectItem);
             
@@ -711,6 +713,25 @@ namespace GitDeployPro.Controls
         public static void UnregisterActiveConnection(string connectionId)
         {
             _activeConnections.Remove(connectionId);
+        }
+
+        private void RaiseConnectionConnectRequested(ConnectionProfile conn)
+        {
+            if (conn == null || string.IsNullOrWhiteSpace(conn.Id))
+            {
+                return;
+            }
+
+            var now = DateTime.UtcNow;
+            if (_lastConnectRequestConnectionId == conn.Id &&
+                (now - _lastConnectRequestAt).TotalMilliseconds < 500)
+            {
+                return;
+            }
+
+            _lastConnectRequestConnectionId = conn.Id;
+            _lastConnectRequestAt = now;
+            ConnectionConnectRequested?.Invoke(this, conn);
         }
     }
 }

@@ -443,7 +443,9 @@
             <!-- Page Content -->
             <Frame x:Name="ContentFrame" 
                   Grid.Row="1" 
-                  NavigationUIVisibility="Hidden"/>
+                  NavigationUIVisibility="Hidden"
+                  ScrollViewer.VerticalScrollBarVisibility="Auto"
+                  ScrollViewer.HorizontalScrollBarVisibility="Auto"/>
         </Grid>
 
     </Grid>

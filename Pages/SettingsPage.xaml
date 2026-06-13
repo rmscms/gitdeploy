@@ -222,18 +222,50 @@
                             </Border>
                             
                             <!-- Actions -->
-                            <StackPanel Orientation="Horizontal" Margin="0,20,0,0">
-                                <Button x:Name="ReSetupButton"
-                                        Content="🛠 Re-Run Setup Wizard" 
-                                        Height="40" 
-                                        Width="180"
-                                        Background="#333333"
-                                        Foreground="#FFD54F"
-                                        BorderThickness="0"
-                                        FontSize="14"
-                                        FontWeight="SemiBold"
-                                        Cursor="Hand"
-                                        Click="ReSetupButton_Click"/>
+                            <StackPanel Margin="0,20,0,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <Button x:Name="ReSetupButton"
+                                            Content="🛠 Re-Run Setup Wizard" 
+                                            Height="40" 
+                                            Width="180"
+                                            Background="#333333"
+                                            Foreground="#FFD54F"
+                                            BorderThickness="0"
+                                            FontSize="14"
+                                            FontWeight="SemiBold"
+                                            Cursor="Hand"
+                                            Click="ReSetupButton_Click"/>
+                                </StackPanel>
+
+                                <Border Background="#1F2A35" CornerRadius="8" Padding="12" Margin="0,12,0,0">
+                                    <StackPanel>
+                                        <TextBlock Text="Reinitialize Project Setup" Foreground="#90CAF9" FontWeight="SemiBold" FontSize="14"/>
+                                        <TextBlock Text="For recovery: remove setup artifacts from this project folder, then run wizard cleanly."
+                                                   Foreground="#B0BEC5"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,4,0,10"/>
+                                        <CheckBox x:Name="ResetGitInSettingsCheckBox"
+                                                  Content="Remove .git folder"
+                                                  Foreground="White"
+                                                  Margin="0,0,0,6"/>
+                                        <CheckBox x:Name="ResetConfigInSettingsCheckBox"
+                                                  Content="Remove .gitdeploy.config"
+                                                  Foreground="White"
+                                                  Margin="0,0,0,10"/>
+                                        <Button x:Name="ResetAndRunSetupButton"
+                                                Content="♻ Reset And Run Wizard"
+                                                Height="36"
+                                                Width="190"
+                                                HorizontalAlignment="Left"
+                                                Background="#C62828"
+                                                Foreground="White"
+                                                BorderThickness="0"
+                                                FontSize="13"
+                                                FontWeight="SemiBold"
+                                                Cursor="Hand"
+                                                Click="ResetAndRunSetupButton_Click"/>
+                                    </StackPanel>
+                                </Border>
                             </StackPanel>
                         </StackPanel>
                     </Border>

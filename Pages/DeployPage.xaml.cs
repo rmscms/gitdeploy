@@ -29,6 +29,10 @@ namespace GitDeployPro.Pages
         private bool _isRefreshingGit;
         private int _cachedUncommittedCount = -1;
         private int _cachedTotalCommits = -1;
+        private bool _compareResultActive;
+        private string _compareSourceBranch = string.Empty;
+        private string _compareTargetBranch = string.Empty;
+        private bool _suppressFileSelectionModal;
 
         public DeployPage()
         {
@@ -128,9 +132,24 @@ namespace GitDeployPro.Pages
 
                 SourceBranchComboBox.IsEnabled = true;
                 TargetBranchComboBox.IsEnabled = true;
-                DeployButton.IsEnabled = false; // Initially disabled
+                if (ShouldKeepCompareResultsVisible())
+                {
+                    FilesListBox.ItemsSource = _fileViewModels;
+                    ConfigureCompareSyncButton();
+                    DeployButton.Visibility = Visibility.Visible;
+                    DeployButton.IsEnabled = _fileViewModels.Any(x => x.IsSelected);
+                }
+                else
+                {
+                    DeployButton.IsEnabled = false; // Initially disabled
+                    DeployButton.Visibility = Visibility.Collapsed;
+                    if (_compareResultActive)
+                    {
+                        ClearCompareContext(clearList: true);
+                    }
+                }
 
-                if (StatusText.Text != $"⚠️ You have {uncommitted.Count} uncommitted changes!")
+                if (!ShouldKeepCompareResultsVisible() && StatusText.Text != $"⚠️ You have {uncommitted.Count} uncommitted changes!")
                 {
                     StatusText.Text = "Ready...";
                     StatusText.Foreground = System.Windows.Media.Brushes.LightGray;
@@ -177,7 +196,11 @@ namespace GitDeployPro.Pages
             SourceBranchComboBox.IsEnabled = false;
             TargetBranchComboBox.IsEnabled = false;
             if (ActionButton != null) ActionButton.IsEnabled = false;
-            if (DeployButton != null) DeployButton.IsEnabled = false;
+            if (DeployButton != null)
+            {
+                DeployButton.IsEnabled = false;
+                DeployButton.Visibility = Visibility.Collapsed;
+            }
             if (DeployPushBadge != null) DeployPushBadge.Visibility = Visibility.Collapsed;
         }
 
@@ -215,7 +238,7 @@ namespace GitDeployPro.Pages
         {
             if (!_isLoaded) return;
 
-            if (DeployButton != null) DeployButton.IsEnabled = false;
+            ClearCompareContext(clearList: true);
             UpdateActionButtonState();
         }
 
@@ -226,21 +249,21 @@ namespace GitDeployPro.Pages
             if (uncommittedCount == -1) uncommittedCount = _cachedUncommittedCount;
             if (totalCommits == -1) totalCommits = _cachedTotalCommits;
 
-            if (totalCommits == 0)
+            if (uncommittedCount > 0)
             {
-                SetActionButton("commit", "📝 REVIEW & COMMIT", "#E65100");
-                StatusText.Text = "⚠️ Create the initial commit before deploying.";
+                // Primary action: review list first, then one-click send
+                SetActionButton("commit", "📝 COMMIT && REVIEW", "#9C27B0", true);
+                string pendingText = uncommittedCount >= 0 ? uncommittedCount.ToString() : "some";
+                StatusText.Text = $"You have {pendingText} pending file(s). Review first, then deploy -> commit -> push.";
                 StatusText.Foreground = System.Windows.Media.Brushes.Orange;
                 return;
             }
 
-            if (uncommittedCount > 0)
+            if (totalCommits == 0)
             {
-                // Priority 1: If there are uncommitted changes, button MUST be "REVIEW & COMMIT"
-                SetActionButton("commit", "📝 REVIEW & COMMIT", "#E65100", true); // Force Enabled
-                string pendingText = uncommittedCount >= 0 ? uncommittedCount.ToString() : "some";
-                StatusText.Text = $"⚠️ You have {pendingText} uncommitted changes!";
-                StatusText.Foreground = System.Windows.Media.Brushes.Orange;
+                SetActionButton("idle", "⏸ NOTHING TO COMMIT", "#555555", false);
+                StatusText.Text = "No commit available yet.";
+                StatusText.Foreground = System.Windows.Media.Brushes.Gray;
                 return;
             }
 
@@ -270,10 +293,19 @@ namespace GitDeployPro.Pages
                 
                 if (!remoteReady)
                 {
-                    // Case 1: No Remote
-                    SetActionButton("push", "☁️ PUSH TO GITHUB", "#555555", false); // Disabled or Gray
-                    StatusText.Text = "No remote repository configured. Nothing to deploy/push.";
-                    StatusText.Foreground = System.Windows.Media.Brushes.Gray;
+                    bool hasSavedRemote = !string.IsNullOrWhiteSpace(_projectConfig?.GitRemoteUrl);
+                    if (hasSavedRemote)
+                    {
+                        SetActionButton("push", "☁️ CONNECT + PUSH", "#24292E", true);
+                        StatusText.Text = "Remote origin is missing in this repo. App will restore it from saved settings.";
+                        StatusText.Foreground = System.Windows.Media.Brushes.Orange;
+                    }
+                    else
+                    {
+                        SetActionButton("push", "☁️ PUSH TO GITHUB", "#555555", false);
+                        StatusText.Text = "No remote repository configured. Set Remote URL in Settings.";
+                        StatusText.Foreground = System.Windows.Media.Brushes.Gray;
+                    }
                     return;
                 }
 
@@ -384,72 +416,60 @@ namespace GitDeployPro.Pages
 
         private async Task HandleCommit()
         {
-            await HandleCommit("update");
-        }
-
-        private async Task HandleCommit(string defaultMessage)
-        {
             try
             {
                 var changes = await _gitService.GetUncommittedChangesAsync();
-                var commitWindow = new CommitWindow(changes);
-                
-                // Set default message
-                if (!string.IsNullOrWhiteSpace(defaultMessage))
+                if (changes.Count == 0)
                 {
-                    commitWindow.CommitMessage = defaultMessage;
+                    StatusText.Text = "No pending files to send.";
+                    StatusText.Foreground = System.Windows.Media.Brushes.LightGray;
+                    DeployButton.IsEnabled = false;
+                    DeployButton.Visibility = Visibility.Collapsed;
+                    LoadGitData();
+                    return;
                 }
-                
+
+                var commitWindow = new CommitWindow(changes);
+                commitWindow.CommitMessage = $"deploy update {DateTime.Now:yyyy-MM-dd HH:mm}";
                 commitWindow.ShowDialog();
 
                 if (commitWindow.Confirmed)
                 {
-                    AddLog("📝 Committing changes...");
-                    await _gitService.CommitChangesAsync(commitWindow.CommitMessage);
-                    AddLog("✅ Changes committed successfully!");
-                    
-                    LoadGitData();
-                    
-                    // Check if user wants to deploy immediately
-                    if (commitWindow.CommitAndDeployRequested)
+                    var filesToDeploy = changes
+                        .Select(c => new FileChange { Name = c.Name, Type = c.Type, DiffPatch = c.DiffPatch })
+                        .ToList();
+
+                    _fileViewModels = filesToDeploy.Select(c => new DeployFileViewModel(c) { IsSelected = true }).ToList();
+                    FilesListBox.ItemsSource = _fileViewModels;
+                    SelectAllCheckBox.IsChecked = true;
+                    SelectFileSilently(-1);
+                    DeployButton.IsEnabled = false;
+                    DeployButton.Visibility = Visibility.Collapsed;
+                    ClearCompareContext(clearList: false);
+
+                    AddLog($"🚀 Step 1/2: Deploying {filesToDeploy.Count} reviewed file(s)...");
+                    bool deploySucceeded = await StartDeployProcess(filesToDeploy, isAutoFlow: true, runGitPostSteps: false);
+                    if (!deploySucceeded)
                     {
-                        AddLog("⚡ Starting deploy after commit...");
-                        await Task.Delay(500);
-                        
-                        // Auto-trigger compare & deploy
-                        if (SourceBranchComboBox.SelectedItem is ComboBoxItem sourceItem && 
-                            TargetBranchComboBox.SelectedItem is ComboBoxItem targetItem)
-                        {
-                            string? source = sourceItem.Content?.ToString();
-                            string? target = targetItem.Content?.ToString();
-
-                            var fileChanges = await _gitService.GetDiffAsync(source, target);
-                            
-                            if (fileChanges.Count == 0)
-                            {
-                                AddLog("ℹ️ No changes to deploy after commit.");
-                                StatusText.Text = "No changes to deploy.";
-                                StatusText.Foreground = System.Windows.Media.Brushes.LightGray;
-                            }
-                            else
-                            {
-                                AddLog($"🔍 Detected {fileChanges.Count} file(s) to deploy.");
-                                
-                                _fileViewModels = fileChanges.Select(c => new DeployFileViewModel(c) { IsSelected = true }).ToList();
-                                FilesListBox.ItemsSource = _fileViewModels;
-                                SelectAllCheckBox.IsChecked = true;
-                                FilesListBox.SelectedIndex = _fileViewModels.Count > 0 ? 0 : -1;
-                                UpdateDiffViewerFromSelection();
-
-                                await StartDeployProcess(fileChanges, isAutoFlow: true);
-                            }
-                        }
+                        AddLog("⛔ Deploy failed. Commit+Push skipped to protect server state.");
+                        StatusText.Text = "Deploy failed. Commit was not created.";
+                        StatusText.Foreground = System.Windows.Media.Brushes.OrangeRed;
+                        return;
                     }
+
+                    AddLog("📝 Step 2/2: Deploy succeeded, committing and pushing...");
+                    await _gitService.CommitChangesAsync(commitWindow.CommitMessage);
+                    AddLog("✅ Commit completed.");
+                    await SyncLocalBranchesIfNeededAsync();
+                    bool pushSucceeded = await PushToGithub();
+                    AddLog(pushSucceeded ? "✅ Send pipeline finished." : "⚠️ Send pipeline finished with push error.");
+                    await AddDeploymentHistoryRecordAsync(filesToDeploy);
+                    LoadGitData();
                 }
             }
             catch (Exception ex)
             {
-                ModernMessageBox.Show($"Commit Failed: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                ModernMessageBox.Show($"Send failed: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -470,37 +490,25 @@ namespace GitDeployPro.Pages
 
                     if (changes.Count == 0)
                     {
-                        // NO SUCCESS DIALOG - just info
                         StatusText.Text = "No changes to deploy.";
                         DeployButton.IsEnabled = false;
-                        _fileViewModels.Clear();
-                        FilesListBox.ItemsSource = null;
-                        UpdateDiffViewerFromSelection();
+                        DeployButton.Visibility = Visibility.Collapsed;
+                        ClearCompareContext(clearList: true);
                     }
                     else
                     {
-                        var diffWindow = new DiffWindow(changes);
-                        diffWindow.ShowDialog();
+                        _fileViewModels = changes.Select(c => new DeployFileViewModel(c) { IsSelected = true }).ToList();
+                        FilesListBox.ItemsSource = _fileViewModels;
+                        SelectAllCheckBox.IsChecked = true;
+                        SelectFileSilently(-1);
+                        ConfigureCompareSyncButton();
+                        DeployButton.IsEnabled = _fileViewModels.Count > 0;
+                        DeployButton.Visibility = _fileViewModels.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+                        SetCompareContext(source, target);
 
-                        if (diffWindow.Confirmed)
-                        {
-                            var selectedFiles = diffWindow.SelectedFiles;
-                            AddLog($"✅ Selection confirmed. Starting deploy for {selectedFiles.Count} files.");
-                            
-                            _fileViewModels = selectedFiles.Select(c => new DeployFileViewModel(c) { IsSelected = true }).ToList();
-                            FilesListBox.ItemsSource = _fileViewModels;
-                            SelectAllCheckBox.IsChecked = true;
-                            FilesListBox.SelectedIndex = _fileViewModels.Count > 0 ? 0 : -1;
-                            UpdateDiffViewerFromSelection();
-
-                            await StartDeployProcess(selectedFiles);
-                        }
-                        else
-                        {
-                            StatusText.Text = "❌ Comparison/Deploy cancelled.";
-                            StatusText.Foreground = System.Windows.Media.Brushes.Orange;
-                            DeployButton.IsEnabled = false;
-                        }
+                        StatusText.Text = $"Review {_fileViewModels.Count} file(s), then click SYNC.";
+                        StatusText.Foreground = System.Windows.Media.Brushes.LightGray;
+                        AddLog($"🔍 Compare ready: {_fileViewModels.Count} file(s) loaded in current page.");
                     }
                 }
                 catch (Exception ex)
@@ -515,30 +523,55 @@ namespace GitDeployPro.Pages
             }
         }
 
-        private async Task PushToGithub()
+        private async Task<bool> PushToGithub()
         {
-            if (ActionButton == null) return;
+            if (ActionButton == null) return false;
 
             ActionButton.IsEnabled = false;
             ActionButton.Content = "⏳ Pushing...";
             try
             {
+                if (!await EnsureOriginRemoteReadyAsync())
+                {
+                    AddLog("ℹ️ No remote configured. Completed in local-sync mode.");
+                    StatusText.Text = "Completed in local-sync mode (no remote).";
+                    StatusText.Foreground = System.Windows.Media.Brushes.LightGreen;
+                    return true;
+                }
+
                 AddLog("☁️ Pushing changes to GitHub...");
 
-                await _gitService.PushAsync();
+                var pushResult = await _gitService.PushOrSkipAsync();
+                if (pushResult == PushExecutionResult.SkippedNoRemote)
+                {
+                    AddLog("ℹ️ No remote configured. Completed in local-sync mode.");
+                    StatusText.Text = "Completed in local-sync mode (no remote).";
+                    StatusText.Foreground = System.Windows.Media.Brushes.LightGreen;
+                    return true;
+                }
                 
                 AddLog("✅ Successfully pushed to GitHub!");
-                // NO SUCCESS DIALOG
+                return true;
+            }
+            catch (GitCommandException gitEx) when (IsMissingOriginError(gitEx))
+            {
+                AddLog("ℹ️ Remote not found. Completed in local-sync mode.");
+                StatusText.Text = "Completed in local-sync mode (origin missing).";
+                StatusText.Foreground = System.Windows.Media.Brushes.LightGreen;
+                return true;
             }
             catch (Exception ex)
             {
                 AddLog($"❌ Push failed: {ex.Message}");
                 ModernMessageBox.Show($"Push failed: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return false;
             }
-
-            await RefreshBranchStatusAsync();
-            ActionButton.IsEnabled = true;
-            UpdateActionButtonState();
+            finally
+            {
+                await RefreshBranchStatusAsync();
+                ActionButton.IsEnabled = true;
+                UpdateActionButtonState();
+            }
         }
 
         private async void DeployButton_Click(object sender, RoutedEventArgs e)
@@ -549,14 +582,14 @@ namespace GitDeployPro.Pages
             
             if (selectedFiles.Count == 0)
             {
-                ModernMessageBox.Show("Please select at least one file to deploy.", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
+                ModernMessageBox.Show("Please select at least one file to sync.", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
             await StartDeployProcess(selectedFiles);
         }
 
-        private async Task StartDeployProcess(List<FileChange> filesToDeploy, bool isAutoFlow = false)
+        private async Task<bool> StartDeployProcess(List<FileChange> filesToDeploy, bool isAutoFlow = false, bool runGitPostSteps = true)
         {
             isDeploying = true;
             DeployButton.IsEnabled = false;
@@ -566,11 +599,18 @@ namespace GitDeployPro.Pages
 
             try
             {
-                AddLog($"🚀 Starting deployment process ({filesToDeploy.Count} files)...");
+                AddLog($"🚀 Starting sync pipeline ({filesToDeploy.Count} files)...");
                 
-                // Use REAL Deploy if FTP is configured, otherwise Simulate
+                bool ftpRequired = IsFtpDeploymentMode();
+                bool hasFtpTarget = HasFtpTargetConfigured();
+                if (ftpRequired && !hasFtpTarget)
+                {
+                    throw new InvalidOperationException("Deployment mode is FTP but no FTP/SFTP connection is configured.");
+                }
+
+                // In FTP mode we must really deploy first; Git-only mode can simulate.
                 bool deployed = false;
-                if (!string.IsNullOrEmpty(_projectConfig.FtpHost))
+                if (hasFtpTarget)
                 {
                     deployed = await UploadFilesAsync(filesToDeploy);
                 }
@@ -582,22 +622,9 @@ namespace GitDeployPro.Pages
 
                 if (!deployed) throw new Exception("Upload failed.");
 
-                string commitHash = await _gitService.GetLastCommitHashAsync();
-                
-                var record = new DeploymentRecord
-                {
-                    Title = $"Deploy {SourceBranchComboBox.Text} to {TargetBranchComboBox.Text}",
-                    Date = DateTime.Now,
-                    FilesCount = filesToDeploy.Count,
-                    Branch = SourceBranchComboBox.Text,
-                    Status = "Success",
-                    Files = filesToDeploy.Select(x => x.Name).ToList(),
-                    CommitHash = commitHash
-                };
-                _historyService.AddRecord(record);
-
                 // Sync Branches
-                if (SourceBranchComboBox.SelectedItem is ComboBoxItem sourceItem && 
+                if (runGitPostSteps &&
+                    SourceBranchComboBox.SelectedItem is ComboBoxItem sourceItem && 
                     TargetBranchComboBox.SelectedItem is ComboBoxItem targetItem)
                 {
                     string? source = sourceItem.Content?.ToString();
@@ -629,28 +656,49 @@ namespace GitDeployPro.Pages
                 }
 
                 // Auto-Push
-                if (_projectConfig.AutoPush)
+                if (runGitPostSteps && _projectConfig.AutoPush)
                 {
-                    AddLog("☁️ Auto-pushing to GitHub...");
-                    try
+                    if (await EnsureOriginRemoteReadyAsync())
                     {
-                        await _gitService.PushAsync();
-                        AddLog("✅ Successfully pushed to GitHub!");
+                        try
+                        {
+                            AddLog("☁️ Auto-pushing to GitHub...");
+                            var pushResult = await _gitService.PushOrSkipAsync();
+                            if (pushResult == PushExecutionResult.PushedToRemote)
+                            {
+                                AddLog("✅ Successfully pushed to GitHub!");
+                            }
+                            else
+                            {
+                                AddLog("ℹ️ Auto-push skipped (no remote). Local sync already completed.");
+                            }
+                        }
+                        catch (Exception pushEx)
+                        {
+                            AddLog($"⚠️ Auto-push failed: {pushEx.Message}");
+                        }
                     }
-                    catch (Exception pushEx)
+                    else
                     {
-                        AddLog($"⚠️ Auto-push failed: {pushEx.Message}");
+                        AddLog("ℹ️ Auto-push skipped (no remote). Local sync already completed.");
                     }
                 }
                 
                 StatusText.Text = "Deployment finished successfully.";
                 StatusText.Foreground = System.Windows.Media.Brushes.LightGreen;
+
+                if (runGitPostSteps)
+                {
+                    ClearCompareContext(clearList: true);
+                }
                 
                 // NO SUCCESS DIALOG for auto flow
                 if (!isAutoFlow)
                 {
                     ModernMessageBox.Show("Deployment completed successfully! ✅", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
+
+                return true;
             }
             catch (Exception ex)
             {
@@ -668,12 +716,18 @@ namespace GitDeployPro.Pages
                 }
                 // ALWAYS show error dialog
                 ModernMessageBox.Show($"Deployment Failed:\n\n{detailed}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return false;
             }
             finally
             {
                 _gitService.EnsureGitFolderHidden();
                 isDeploying = false;
-                DeployButton.IsEnabled = true; 
+                if (_compareResultActive)
+                {
+                    ConfigureCompareSyncButton();
+                }
+                DeployButton.IsEnabled = _compareResultActive && _fileViewModels.Any(x => x.IsSelected);
+                DeployButton.Visibility = _compareResultActive ? Visibility.Visible : Visibility.Collapsed;
                 ActionButton.IsEnabled = true;
                 SourceBranchComboBox.IsEnabled = true;
                 TargetBranchComboBox.IsEnabled = true;
@@ -687,9 +741,15 @@ namespace GitDeployPro.Pages
         {
             try
             {
-                AddLog($"🔌 Connecting to {_projectConfig.FtpHost}...");
+                var profile = GetActiveConnectionProfile();
+                string ftpHost = profile?.Host ?? _projectConfig.FtpHost;
+                string ftpUser = profile?.Username ?? _projectConfig.FtpUsername;
+                int ftpPort = (profile?.Port ?? 0) > 0 ? profile!.Port : _projectConfig.FtpPort;
+                string ftpPassword = profile != null ? EncryptionService.Decrypt(profile.Password) : _projectConfig.FtpPasswordDecrypted;
+
+                AddLog($"🔌 Connecting to {ftpHost}...");
                 
-                using (var client = new AsyncFtpClient(_projectConfig.FtpHost, _projectConfig.FtpUsername, _projectConfig.FtpPasswordDecrypted, _projectConfig.FtpPort))
+                using (var client = new AsyncFtpClient(ftpHost, ftpUser, ftpPassword, ftpPort))
                 {
                     // Configure timeout for large files (zip files)
                     client.Config.DataConnectionType = FluentFTP.FtpDataConnectionType.AutoPassive;
@@ -703,7 +763,6 @@ namespace GitDeployPro.Pages
                     int total = files.Count;
                     int current = 0;
 
-                    var profile = GetActiveConnectionProfile();
                     var mapping = GetPrimaryMapping(profile);
                     // Use profile RemotePath, not legacy config.RemotePath
                     var defaultRemoteBase = NormalizeRemoteBase(profile?.RemotePath ?? _projectConfig.RemotePath);
@@ -922,39 +981,16 @@ namespace GitDeployPro.Pages
                 foreach (var file in _fileViewModels) file.IsSelected = false;
             }
             FilesListBox.Items.Refresh();
-            UpdateDiffViewerFromSelection();
+            DeployButton.IsEnabled = _compareResultActive && _fileViewModels.Any(x => x.IsSelected);
         }
 
         private void FilesListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            UpdateDiffViewerFromSelection();
-        }
-
-        private void UpdateDiffViewerFromSelection()
-        {
-            if (FileDiffViewer == null) return;
-
-            if (FilesListBox?.SelectedItem is DeployFileViewModel vm)
-            {
-                FileDiffViewer.Title = vm.Name;
-                FileDiffViewer.Status = vm.StatusText;
-                FileDiffViewer.FilePath = vm.Name;
-                FileDiffViewer.DiffText = vm.DiffText;
-            }
-            else
-            {
-                FileDiffViewer.Title = "Diff preview";
-                FileDiffViewer.Status = string.Empty;
-                FileDiffViewer.FilePath = string.Empty;
-                FileDiffViewer.DiffText = string.Empty;
-            }
-        }
-
-        private void FilesListBox_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
-        {
+            if (_suppressFileSelectionModal) return;
             if (FilesListBox?.SelectedItem is DeployFileViewModel vm)
             {
                 OpenCodeViewer(vm);
+                SelectFileSilently(-1);
             }
         }
 
@@ -962,12 +998,13 @@ namespace GitDeployPro.Pages
         {
             try
             {
-                var absolutePath = ResolveAbsolutePath(vm.Name);
-                var content = File.Exists(absolutePath) ? File.ReadAllText(absolutePath) : vm.DiffText ?? string.Empty;
-                var viewer = new CodeViewerWindow(vm.Name, content, absolutePath)
-                {
-                    Owner = Window.GetWindow(this)
-                };
+                var diffContent = string.IsNullOrWhiteSpace(vm.DiffText)
+                    ? $"No diff available for {vm.Name}."
+                    : vm.DiffText;
+                var owner = Window.GetWindow(this);
+                var viewer = new ReadOnlyDiffWindow(vm.Name, vm.StatusText, diffContent);
+                PositionPreviewWindow(viewer, owner);
+                if (owner != null) viewer.Owner = owner;
                 viewer.ShowDialog();
             }
             catch (Exception ex)
@@ -980,23 +1017,133 @@ namespace GitDeployPro.Pages
         {
             if ((sender as FrameworkElement)?.Tag is DeployFileViewModel vm)
             {
-                OpenCodeViewer(vm);
+                _suppressFileSelectionModal = true;
+                try
+                {
+                    OpenCodeViewer(vm);
+                }
+                finally
+                {
+                    _suppressFileSelectionModal = false;
+                }
+                SelectFileSilently(-1);
                 e.Handled = true;
             }
         }
 
-        private string ResolveAbsolutePath(string relativePath)
+        private void SetCompareContext(string? sourceBranch, string? targetBranch)
         {
-            var root = _projectConfig?.LocalProjectPath;
-            if (string.IsNullOrWhiteSpace(root))
+            _compareResultActive = true;
+            _compareSourceBranch = sourceBranch?.Trim() ?? string.Empty;
+            _compareTargetBranch = targetBranch?.Trim() ?? string.Empty;
+        }
+
+        private void ClearCompareContext(bool clearList)
+        {
+            _compareResultActive = false;
+            _compareSourceBranch = string.Empty;
+            _compareTargetBranch = string.Empty;
+
+            if (clearList)
             {
-                root = GitService.WorkingDirectoryPath;
+                _fileViewModels.Clear();
+                FilesListBox.ItemsSource = null;
             }
 
-            var normalized = relativePath.Replace('/', Path.DirectorySeparatorChar);
-            return string.IsNullOrWhiteSpace(root)
-                ? normalized
-                : Path.Combine(root, normalized);
+            DeployButton.IsEnabled = false;
+            DeployButton.Visibility = Visibility.Collapsed;
+        }
+
+        private bool ShouldKeepCompareResultsVisible()
+        {
+            if (!_compareResultActive || _fileViewModels.Count == 0)
+            {
+                return false;
+            }
+
+            string selectedSource = (SourceBranchComboBox.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? string.Empty;
+            string selectedTarget = (TargetBranchComboBox.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? string.Empty;
+
+            return string.Equals(selectedSource, _compareSourceBranch, StringComparison.OrdinalIgnoreCase) &&
+                   string.Equals(selectedTarget, _compareTargetBranch, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private void SelectFileSilently(int index)
+        {
+            _suppressFileSelectionModal = true;
+            try
+            {
+                FilesListBox.SelectedIndex = index;
+            }
+            finally
+            {
+                _suppressFileSelectionModal = false;
+            }
+        }
+
+        private void ConfigureCompareSyncButton()
+        {
+            if (DeployButton == null) return;
+
+            if (IsFtpDeploymentMode())
+            {
+                DeployButton.Content = "🔄 FTP DEPLOY + SYNC";
+                DeployButton.ToolTip = "Upload selected files to FTP/SFTP first, then sync branches.";
+            }
+            else
+            {
+                DeployButton.Content = "🔄 SYNC";
+                DeployButton.ToolTip = "Sync selected branch changes locally.";
+            }
+        }
+
+        private bool IsFtpDeploymentMode()
+        {
+            return _projectConfig != null &&
+                   (_projectConfig.DeployMode == DeployMode.FtpDeploy || _projectConfig.DeployMode == DeployMode.Hybrid);
+        }
+
+        private bool HasFtpTargetConfigured()
+        {
+            if (!string.IsNullOrWhiteSpace(_projectConfig?.FtpHost))
+            {
+                return true;
+            }
+
+            var profile = GetActiveConnectionProfile();
+            return profile != null && !string.IsNullOrWhiteSpace(profile.Host);
+        }
+
+        private static void PositionPreviewWindow(Window preview, Window? owner)
+        {
+            if (preview == null || owner == null) return;
+
+            preview.WindowStartupLocation = WindowStartupLocation.Manual;
+            var workArea = SystemParameters.WorkArea;
+
+            double desiredLeft = owner.Left + owner.Width + 14;
+            double left = desiredLeft;
+            if (left + preview.Width > workArea.Right)
+            {
+                left = owner.Left - preview.Width - 14;
+            }
+            if (left < workArea.Left)
+            {
+                left = Math.Max(workArea.Left, owner.Left + 24);
+            }
+
+            double top = owner.Top + 24;
+            if (top + preview.Height > workArea.Bottom)
+            {
+                top = Math.Max(workArea.Top, workArea.Bottom - preview.Height - 12);
+            }
+            if (top < workArea.Top)
+            {
+                top = workArea.Top + 8;
+            }
+
+            preview.Left = left;
+            preview.Top = top;
         }
 
         private void AddLog(string message)
@@ -1019,6 +1166,90 @@ namespace GitDeployPro.Pages
 
                 LogScrollViewer?.ScrollToEnd();
             });
+        }
+
+        private async Task AddDeploymentHistoryRecordAsync(List<FileChange> filesToDeploy)
+        {
+            string commitHash = await _gitService.GetLastCommitHashAsync();
+            var record = new DeploymentRecord
+            {
+                Title = $"Deploy {SourceBranchComboBox.Text} to {TargetBranchComboBox.Text}",
+                Date = DateTime.Now,
+                FilesCount = filesToDeploy.Count,
+                Branch = SourceBranchComboBox.Text,
+                Status = "Success",
+                Files = filesToDeploy.Select(x => x.Name).ToList(),
+                CommitHash = commitHash
+            };
+            _historyService.AddRecord(record);
+            AddLog("🗂 Deployment recorded in history (after commit).");
+        }
+
+        private async Task SyncLocalBranchesIfNeededAsync()
+        {
+            if (SourceBranchComboBox.SelectedItem is not ComboBoxItem sourceItem ||
+                TargetBranchComboBox.SelectedItem is not ComboBoxItem targetItem)
+            {
+                return;
+            }
+
+            string? source = sourceItem.Content?.ToString();
+            string? target = targetItem.Content?.ToString();
+            if (string.IsNullOrWhiteSpace(source) || string.IsNullOrWhiteSpace(target))
+            {
+                return;
+            }
+
+            if (string.Equals(source, target, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            AddLog($"🔄 Syncing local branches: {source} -> {target} ...");
+            try
+            {
+                await _gitService.SyncBranchesAsync(source, target);
+                AddLog("✅ Local branch sync completed.");
+            }
+            catch (Exception syncEx)
+            {
+                AddLog($"⚠️ Local branch sync failed: {syncEx.Message}");
+            }
+        }
+
+        private async Task<bool> EnsureOriginRemoteReadyAsync()
+        {
+            string remoteUrl = await _gitService.GetRemoteUrlAsync();
+            if (!string.IsNullOrWhiteSpace(remoteUrl))
+            {
+                return true;
+            }
+
+            string savedRemote = _projectConfig?.GitRemoteUrl?.Trim() ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(savedRemote))
+            {
+                AddLog($"🔧 Remote origin missing. Restoring from saved URL: {savedRemote}");
+                await _gitService.SetRemoteAsync(savedRemote);
+                remoteUrl = await _gitService.GetRemoteUrlAsync();
+                if (!string.IsNullOrWhiteSpace(remoteUrl))
+                {
+                    AddLog("✅ Remote origin restored automatically.");
+                    return true;
+                }
+            }
+
+            AddLog("⚠️ Push skipped: no 'origin' remote configured.");
+            StatusText.Text = "Deploy+Commit done. Push skipped (origin not configured).";
+            StatusText.Foreground = System.Windows.Media.Brushes.Orange;
+            return false;
+        }
+
+        private static bool IsMissingOriginError(GitCommandException ex)
+        {
+            string details = ex.GetDetailedMessage();
+            return details.Contains("'origin' does not appear to be a git repository", StringComparison.OrdinalIgnoreCase) ||
+                   details.Contains("No such remote", StringComparison.OrdinalIgnoreCase) ||
+                   details.Contains("No configured push destination", StringComparison.OrdinalIgnoreCase);
         }
 
         private void ClearLogs_Click(object sender, RoutedEventArgs e)

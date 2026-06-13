@@ -47,29 +47,15 @@ namespace GitDeployPro.Windows
             UpdateDiffPreview();
         }
 
-        private void Commit_Click(object sender, RoutedEventArgs e)
-        {
-            if (string.IsNullOrWhiteSpace(CommitMessageTextBox.Text))
-            {
-                ModernMessageBox.Show("Please enter a commit message.", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
-            CommitMessage = CommitMessageTextBox.Text;
-            Confirmed = true;
-            CommitAndDeployRequested = false;
-            this.Close();
-        }
-
         private void CommitAndDeploy_Click(object sender, RoutedEventArgs e)
         {
-            if (string.IsNullOrWhiteSpace(CommitMessageTextBox.Text))
+            string message = CommitMessageTextBox.Text?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(message))
             {
-                ModernMessageBox.Show("Please enter a commit message.", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
+                message = $"deploy update {DateTime.Now:yyyy-MM-dd HH:mm}";
             }
 
-            CommitMessage = CommitMessageTextBox.Text;
+            CommitMessage = message;
             Confirmed = true;
             CommitAndDeployRequested = true;
             this.Close();

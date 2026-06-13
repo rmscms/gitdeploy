@@ -124,12 +124,8 @@
             </StackPanel>
             <Button Content="🗖 Pop-out"
                     Grid.Column="1"
-                    Padding="16,8"
                     Margin="12,0,0,0"
-                    Background="#333333"
-                    Foreground="#FFFFFF"
-                    BorderThickness="0"
-                    Cursor="Hand"
+                    Style="{StaticResource DetachPageButtonStyle}"
                     Click="OpenInWindow_Click"/>
         </Grid>
 

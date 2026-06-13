@@ -26,14 +26,9 @@
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Content="🗖"
-                        Width="48"
-                        Height="42"
-                        Background="#333333"
-                        Foreground="#EEEEEE"
-                        BorderThickness="1"
-                        BorderBrush="#444444"
-                        Cursor="Hand"
+                        Style="{StaticResource DetachPageButtonStyle}"
                         Margin="0,0,8,0"
+                        ToolTip="Open in new window"
                         Click="DetachGitPage_Click"/>
 
                 <Button x:Name="CloneRepoButton"

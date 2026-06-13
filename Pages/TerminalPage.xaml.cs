@@ -40,6 +40,7 @@ namespace GitDeployPro.Pages
             _configService = new ConfigurationService();
             Loaded += TerminalPage_Loaded;
             Unloaded += TerminalPage_Unloaded;
+            PreviewKeyDown += TerminalPage_PreviewKeyDown;
         }
 
         private void TerminalPage_Loaded(object sender, RoutedEventArgs e)
@@ -531,6 +532,25 @@ namespace GitDeployPro.Pages
         {
             var window = new PageHostWindow(new TerminalPage(), "Terminal • Detached");
             window.Show();
+        }
+
+        private void TerminalPage_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (e.Key != System.Windows.Input.Key.Back || System.Windows.Input.Keyboard.Modifiers != System.Windows.Input.ModifierKeys.None)
+            {
+                return;
+            }
+
+            var focused = System.Windows.Input.Keyboard.FocusedElement;
+            if (focused is System.Windows.Controls.Primitives.TextBoxBase ||
+                focused is System.Windows.Controls.PasswordBox ||
+                focused is System.Windows.Controls.ComboBox)
+            {
+                return;
+            }
+
+            // Prevent WPF page navigation-on-backspace from closing active terminal views.
+            e.Handled = true;
         }
     }
 }

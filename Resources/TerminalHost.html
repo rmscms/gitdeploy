@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GitDeployPro Terminal</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css">
+  <style>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      background: #1e1e1e;
+      overflow: hidden;
+      font-family: Consolas, "Cascadia Mono", monospace;
+    }
+
+    #terminal {
+      width: 100%;
+      height: 100%;
+      padding: 8px 10px 58px 10px;
+      box-sizing: border-box;
+    }
+
+    .xterm-viewport::-webkit-scrollbar {
+      width: 10px;
+    }
+
+    .xterm-viewport::-webkit-scrollbar-thumb {
+      background: #4d4d4d;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div id="terminal"></div>
+
+  <script>
+    (() => {
+      const xtermJsUrl = 'https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js';
+      const xtermCssUrl = 'https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css';
+      const fitAddonUrl = 'https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js';
+      const host = window.chrome && window.chrome.webview ? window.chrome.webview : null;
+      const termElement = document.getElementById('terminal');
+      const post = (payload) => {
+        if (host) {
+          host.postMessage(payload);
+        }
+      };
+
+      if (!host) {
+        termElement.innerHTML = '<div style="color:#ff6b6b;padding:16px">WebView bridge is unavailable.</div>';
+        return;
+      }
+
+      const loadScriptWithTimeout = (src, timeoutMs) => new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        let settled = false;
+        const timer = setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          reject(new Error('timeout'));
+        }, timeoutMs);
+
+        script.src = src;
+        script.async = true;
+        script.onload = () => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          resolve();
+        };
+        script.onerror = () => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          reject(new Error('load-error'));
+        };
+
+        document.head.appendChild(script);
+      });
+
+      const ensureXtermCss = () => {
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = xtermCssUrl;
+        document.head.appendChild(link);
+      };
+
+      const initCompatibilityTerminal = () => {
+        termElement.innerHTML = '<div style="color:#ffb74d;padding:10px 12px;border-bottom:1px solid #333">xterm.js unavailable (offline/CDN blocked). Running compatibility mode.</div><pre id="compatOut" style="margin:0;padding:10px 10px 58px 10px;height:calc(100% - 42px);overflow:auto;white-space:pre-wrap;color:#d4d4d4;box-sizing:border-box"></pre>';
+        const compatOut = document.getElementById('compatOut');
+        termElement.tabIndex = 0;
+        termElement.focus();
+
+        let typingEnabled = true;
+        const writeCompat = (data) => {
+          if (!compatOut || typeof data !== 'string' || data.length === 0) {
+            return;
+          }
+          compatOut.textContent += data;
+          compatOut.scrollTop = compatOut.scrollHeight;
+        };
+
+        termElement.addEventListener('keydown', (ev) => {
+          const key = (ev.key || '').toLowerCase();
+          const ctrl = ev.ctrlKey || ev.metaKey;
+          const shift = ev.shiftKey;
+
+          if (ctrl && !shift && key === 'c') {
+            const selected = window.getSelection ? String(window.getSelection()) : '';
+            if (selected) {
+              post({ type: 'copy', text: selected });
+            } else if (typingEnabled) {
+              post({ type: 'interrupt' });
+            }
+            ev.preventDefault();
+            return;
+          }
+
+          if (ctrl && shift && key === 'v') {
+            post({ type: 'pasteRequest' });
+            ev.preventDefault();
+            return;
+          }
+
+          if (!typingEnabled) {
+            return;
+          }
+
+          if (ev.key === 'Enter') {
+            post({ type: 'input', data: '\r' });
+            ev.preventDefault();
+          } else if (ev.key === 'Backspace') {
+            post({ type: 'input', data: '\x7f' });
+            ev.preventDefault();
+          } else if (ev.key === 'Tab') {
+            post({ type: 'input', data: '\t' });
+            ev.preventDefault();
+          } else if (ev.key === 'ArrowUp') {
+            post({ type: 'input', data: '\x1b[A' });
+            ev.preventDefault();
+          } else if (ev.key === 'ArrowDown') {
+            post({ type: 'input', data: '\x1b[B' });
+            ev.preventDefault();
+          } else if (ev.key === 'ArrowLeft') {
+            post({ type: 'input', data: '\x1b[D' });
+            ev.preventDefault();
+          } else if (ev.key === 'ArrowRight') {
+            post({ type: 'input', data: '\x1b[C' });
+            ev.preventDefault();
+          } else if (ev.key && ev.key.length === 1 && !ctrl) {
+            post({ type: 'input', data: ev.key });
+            ev.preventDefault();
+          }
+        });
+
+        host.addEventListener('message', (event) => {
+          const message = event.data || {};
+          switch (message.type) {
+            case 'write':
+              if (message.data) {
+                writeCompat(message.data);
+              }
+              break;
+            case 'clear':
+              if (compatOut) {
+                compatOut.textContent = '';
+              }
+              break;
+            case 'focus':
+              termElement.focus();
+              break;
+            case 'setTypingEnabled':
+              typingEnabled = !!message.enabled;
+              break;
+            case 'paste':
+              if (typingEnabled && typeof message.text === 'string' && message.text.length > 0) {
+                post({ type: 'input', data: message.text });
+              }
+              break;
+          }
+        });
+
+        post({ type: 'ready' });
+        post({ type: 'resize', cols: 120, rows: 35 });
+      };
+
+      const initXtermTerminal = () => {
+        const term = new Terminal({
+          allowProposedApi: false,
+          convertEol: false,
+          cursorBlink: true,
+          cursorStyle: 'block',
+          disableStdin: false,
+          fontFamily: 'Consolas, Cascadia Mono, monospace',
+          fontSize: 14,
+          scrollback: 10000,
+          theme: {
+            background: '#1e1e1e',
+            foreground: '#d4d4d4',
+            cursor: '#00ff00',
+            selectionBackground: 'rgba(128, 128, 128, 0.35)'
+          }
+        });
+
+        const fitAddon = new FitAddon.FitAddon();
+        term.loadAddon(fitAddon);
+        term.open(termElement);
+        fitAddon.fit();
+
+        let typingEnabled = true;
+
+        const pushResize = () => {
+          fitAddon.fit();
+          post({ type: 'resize', cols: term.cols, rows: term.rows });
+        };
+
+        window.addEventListener('resize', pushResize);
+        term.onResize(({ cols, rows }) => post({ type: 'resize', cols, rows }));
+        term.onData((data) => {
+          if (!typingEnabled) {
+            return;
+          }
+          post({ type: 'input', data });
+        });
+
+        term.onTitleChange((title) => post({ type: 'title', title }));
+
+        term.attachCustomKeyEventHandler((ev) => {
+          if (ev.type !== 'keydown') {
+            return true;
+          }
+
+          const key = (ev.key || '').toLowerCase();
+          const ctrl = ev.ctrlKey || ev.metaKey;
+          const shift = ev.shiftKey;
+
+          if (ctrl && !shift && key === 'c') {
+            if (term.hasSelection()) {
+              post({ type: 'copy', text: term.getSelection() });
+              term.clearSelection();
+            } else {
+              post({ type: 'interrupt' });
+            }
+            ev.preventDefault();
+            return false;
+          }
+
+          if (ctrl && shift && key === 'c') {
+            if (term.hasSelection()) {
+              post({ type: 'copy', text: term.getSelection() });
+              term.clearSelection();
+            }
+            ev.preventDefault();
+            return false;
+          }
+
+          if (ctrl && shift && key === 'v') {
+            post({ type: 'pasteRequest' });
+            ev.preventDefault();
+            return false;
+          }
+
+          return true;
+        });
+
+        host.addEventListener('message', (event) => {
+          const message = event.data || {};
+          switch (message.type) {
+            case 'write':
+              if (message.data) {
+                term.write(message.data, () => term.scrollToBottom());
+              }
+              break;
+            case 'clear':
+              term.clear();
+              break;
+            case 'focus':
+              term.focus();
+              term.scrollToBottom();
+              break;
+            case 'setFontSize':
+              if (typeof message.value === 'number') {
+                term.options.fontSize = message.value;
+                fitAddon.fit();
+              }
+              break;
+            case 'setForeground':
+              if (typeof message.value === 'string') {
+                term.options.theme = {
+                  ...term.options.theme,
+                  foreground: message.value
+                };
+              }
+              break;
+            case 'setTypingEnabled':
+              typingEnabled = !!message.enabled;
+              term.options.disableStdin = !typingEnabled;
+              break;
+            case 'paste':
+              if (typeof message.text === 'string' && message.text.length > 0) {
+                if (typingEnabled) {
+                  post({ type: 'input', data: message.text });
+                }
+              }
+              break;
+          }
+        });
+
+        post({ type: 'ready' });
+        pushResize();
+        term.focus();
+      };
+
+      (async () => {
+        try {
+          ensureXtermCss();
+          await Promise.all([
+            loadScriptWithTimeout(xtermJsUrl, 2500),
+            loadScriptWithTimeout(fitAddonUrl, 2500)
+          ]);
+        } catch {
+          // Fallback mode is initialized below when xterm is unavailable.
+        }
+
+        if (window.Terminal && window.FitAddon) {
+          initXtermTerminal();
+        } else {
+          initCompatibilityTerminal();
+        }
+      })();
+    })();
+  </script>
+</body>
+</html>

@@ -339,12 +339,21 @@
                             </Expander>
                             
                             <!-- Test Connection Button -->
-                            <Button Content="⚡ Test Remote Connection" 
-                                    Margin="0,30,0,0" 
-                                    HorizontalAlignment="Left"
-                                    Style="{StaticResource ModernButtonStyle}"
-                                    Background="#333333"
-                                    Click="TestButton_Click"/>
+                            <StackPanel Margin="0,30,0,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <Button x:Name="TestRemoteButton"
+                                            Content="⚡ Test Remote Connection" 
+                                            HorizontalAlignment="Left"
+                                            Style="{StaticResource ModernButtonStyle}"
+                                            Background="#333333"
+                                            Click="TestButton_Click"/>
+                                </StackPanel>
+                                <TextBlock x:Name="RemoteTestStatusText"
+                                           Text=""
+                                           Margin="0,8,0,0"
+                                           Foreground="#B0BEC5"
+                                           FontSize="12"/>
+                            </StackPanel>
                         </StackPanel>
                     </ScrollViewer>
                 </TabItem>
@@ -496,6 +505,53 @@
                            FontSize="18"
                            HorizontalAlignment="Center"/>
             </StackPanel>
+        </Grid>
+
+        <!-- Remote test modal overlay (Wizard-like) -->
+        <Grid x:Name="RemoteTestOverlay"
+              Grid.ColumnSpan="2"
+              Background="#AA000000"
+              Visibility="Collapsed"
+              Panel.ZIndex="100">
+            <Border Width="460"
+                    Padding="18"
+                    Background="#1E1E1E"
+                    BorderBrush="#3A3A3A"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center">
+                <StackPanel>
+                    <ProgressBar IsIndeterminate="True"
+                                 Width="240"
+                                 Height="10"
+                                 Background="#333333"
+                                 Foreground="#4FC3F7"
+                                 BorderThickness="0"
+                                 HorizontalAlignment="Center"/>
+                    <TextBlock Text="Please wait, testing remote connection..."
+                               Foreground="White"
+                               FontSize="15"
+                               FontWeight="SemiBold"
+                               HorizontalAlignment="Center"
+                               Margin="0,16,0,8"/>
+                    <TextBlock x:Name="RemoteTestOverlayStatusText"
+                               Text="Initializing test..."
+                               Foreground="#C7D2D9"
+                               FontSize="12"
+                               TextAlignment="Center"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,14"/>
+                    <Button x:Name="RemoteTestOverlayCancelButton"
+                            Content="Cancel Test"
+                            Width="120"
+                            Height="32"
+                            HorizontalAlignment="Center"
+                            Style="{StaticResource ModernButtonStyle}"
+                            Background="#5A5A5A"
+                            Click="CancelRemoteTestButton_Click"/>
+                </StackPanel>
+            </Border>
         </Grid>
     </Grid>
 </mah:MetroWindow>

@@ -1,9 +1,18 @@
 using System;
 using System.IO;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
 
 namespace GitDeployPro.Models
 {
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum DeployMode
+    {
+        FtpDeploy,
+        GitHubOnly,
+        Hybrid
+    }
+
     public class ProjectConfig
     {
         // New Approach: Reference a Connection Profile
@@ -21,10 +30,12 @@ namespace GitDeployPro.Models
         
         public string DefaultSourceBranch { get; set; } = "master";
         public string DefaultTargetBranch { get; set; } = "";
+        public string GitRemoteUrl { get; set; } = "";
         
         public bool AutoInitGit { get; set; } = true;
         public bool AutoCommit { get; set; } = true;
         public bool AutoPush { get; set; }
+        public DeployMode DeployMode { get; set; } = DeployMode.FtpDeploy;
         public string[] ExcludePatterns { get; set; } = new string[0];
 
         [JsonIgnore]

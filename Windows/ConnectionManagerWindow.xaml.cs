@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Win32;
@@ -24,6 +26,8 @@ namespace GitDeployPro.Windows
         private ConnectionProfile? _currentProfile;
         private readonly ObservableCollection<PathMapping> _pathMappings = new ObservableCollection<PathMapping>();
         private readonly NavicatImportService _navicatImportService = new NavicatImportService();
+        private CancellationTokenSource? _remoteTestCts;
+        private bool _isTestingRemote;
 
         public ConnectionProfile? SelectedProfile { get; private set; }
 
@@ -431,40 +435,146 @@ namespace GitDeployPro.Windows
 
         private async void TestButton_Click(object sender, RoutedEventArgs e)
         {
-            string host = HostBox.Text;
-            string user = UserBox.Text;
+            if (_isTestingRemote)
+            {
+                return;
+            }
+
+            string host = (HostBox.Text ?? string.Empty).Trim();
+            string user = (UserBox.Text ?? string.Empty).Trim();
             string pass = PassBox.Password;
             int port = int.TryParse(PortBox.Text, out int p) ? p : 21;
             bool isSsh = SftpRadio.IsChecked == true;
+
+            if (string.IsNullOrWhiteSpace(host) || string.IsNullOrWhiteSpace(user))
+            {
+                ModernMessageBox.Show("Host and username are required for connection test.", "Validation", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            _isTestingRemote = true;
+            _remoteTestCts = new CancellationTokenSource(TimeSpan.FromSeconds(25));
+            SetRemoteTestUiState(true, isSsh ? "Testing SFTP connection..." : "Testing FTP connection...");
 
             try
             {
                 if (isSsh)
                 {
-                    await System.Threading.Tasks.Task.Run(() =>
-                    {
-                        var connectionInfo = new ConnectionInfo(host, port == 21 ? 22 : port, user,
-                            new PasswordAuthenticationMethod(user, pass));
-                        using (var client = new SshClient(connectionInfo))
-                        {
-                            client.Connect();
-                            client.Disconnect();
-                        }
-                    });
+                    await TestSftpConnectionAsync(host, user, pass, port, _remoteTestCts.Token);
                 }
                 else
                 {
-                    using (var client = new AsyncFtpClient(host, user, pass, port))
-                    {
-                        await client.AutoConnect();
-                        await client.Disconnect();
-                    }
+                    await TestFtpConnectionAsync(host, user, pass, port, _remoteTestCts.Token);
                 }
-                ModernMessageBox.Show("Connection Successful! ✅", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+
+                SetRemoteTestUiState(false, "Connection successful.");
+                ModernMessageBox.Show("Connection successful. ✅", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (OperationCanceledException)
+            {
+                SetRemoteTestUiState(false, "Connection test cancelled.");
             }
             catch (Exception ex)
             {
-                ModernMessageBox.Show($"Connection Failed: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                SetRemoteTestUiState(false, $"Connection failed: {ex.Message}");
+                ModernMessageBox.Show($"Connection failed: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                _isTestingRemote = false;
+                _remoteTestCts?.Dispose();
+                _remoteTestCts = null;
+                SetRemoteTestUiState(false, RemoteTestStatusText.Text);
+            }
+        }
+
+        private async Task TestFtpConnectionAsync(string host, string user, string pass, int port, CancellationToken token)
+        {
+            using var client = new AsyncFtpClient(host, user, pass, port <= 0 ? 21 : port);
+            client.Config.DataConnectionType = PassiveModeCheck.IsChecked == true
+                ? FtpDataConnectionType.AutoPassive
+                : FtpDataConnectionType.AutoActive;
+            client.Config.ReadTimeout = 15000;
+            client.Config.DataConnectionReadTimeout = 15000;
+            client.Config.SocketKeepAlive = true;
+            client.Config.RetryAttempts = 1;
+
+            await client.AutoConnect(token);
+        }
+
+        private async Task TestSftpConnectionAsync(string host, string user, string pass, int port, CancellationToken token)
+        {
+            var authMethods = new List<AuthenticationMethod>();
+            string keyPath = _currentProfile?.PrivateKeyPath ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(keyPath) && File.Exists(keyPath))
+            {
+                authMethods.Add(new PrivateKeyAuthenticationMethod(user, new PrivateKeyFile(keyPath)));
+            }
+
+            if (!string.IsNullOrWhiteSpace(pass))
+            {
+                authMethods.Add(new PasswordAuthenticationMethod(user, pass));
+            }
+
+            if (authMethods.Count == 0)
+            {
+                throw new InvalidOperationException("Provide a password or private key for SFTP test.");
+            }
+
+            int sftpPort = port <= 0 ? 22 : (port == 21 ? 22 : port);
+            var connectTask = Task.Run(() =>
+            {
+                var connectionInfo = new ConnectionInfo(host, sftpPort, user, authMethods.ToArray());
+                using var client = new SshClient(connectionInfo);
+                client.Connect();
+                client.Disconnect();
+            }, token);
+
+            var timeoutTask = Task.Delay(TimeSpan.FromSeconds(25), token);
+            var completedTask = await Task.WhenAny(connectTask, timeoutTask);
+            if (completedTask != connectTask)
+            {
+                throw new TimeoutException("SFTP test timed out.");
+            }
+
+            await connectTask;
+        }
+
+        private void SetRemoteTestUiState(bool isTesting, string statusMessage)
+        {
+            if (TestRemoteButton != null)
+            {
+                TestRemoteButton.IsEnabled = !isTesting;
+                TestRemoteButton.Content = isTesting ? "Testing..." : "⚡ Test Remote Connection";
+            }
+
+            if (RemoteTestOverlay != null)
+            {
+                RemoteTestOverlay.Visibility = isTesting ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            if (RemoteTestOverlayStatusText != null)
+            {
+                RemoteTestOverlayStatusText.Text = statusMessage ?? string.Empty;
+            }
+
+            if (RemoteTestOverlayCancelButton != null)
+            {
+                RemoteTestOverlayCancelButton.IsEnabled = isTesting;
+            }
+
+            if (RemoteTestStatusText != null)
+            {
+                RemoteTestStatusText.Text = statusMessage ?? string.Empty;
+            }
+        }
+
+        private void CancelRemoteTestButton_Click(object sender, RoutedEventArgs e)
+        {
+            _remoteTestCts?.Cancel();
+            if (_isTestingRemote)
+            {
+                SetRemoteTestUiState(true, "Cancelling connection test...");
             }
         }
 
