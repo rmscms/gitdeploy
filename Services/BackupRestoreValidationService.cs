@@ -301,16 +301,20 @@ namespace GitDeployPro.Services
             bool validationDbCreated = false;
             bool cleanupDropFailed = false;
             string cleanupDropError = string.Empty;
+            string validationStage = "prepare";
             var validationResult = BackupRestoreValidationResult.Warning("Validation warning: validation was not executed.")
                 .WithDatabase(validationDatabaseName);
             try
             {
+                validationStage = "connect";
                 await using var client = new DatabaseClient();
                 await client.ConnectAsync(info);
 
+                validationStage = "database-create";
                 await client.DropAndCreateDatabaseAsync(validationDatabaseName, cancellationToken: cancellationToken);
                 validationDbCreated = true;
 
+                validationStage = "artifact-extract";
                 var preparedSqlPath = await PrepareSqlFileAsync(localArtifactPath, tempFiles, cancellationToken).ConfigureAwait(false);
                 progress?.Report(new BackupProgressUpdate
                 {
@@ -343,6 +347,7 @@ namespace GitDeployPro.Services
                     commandTimeoutSeconds: 120,
                     continueOnError: false);
 
+                validationStage = "post-import-check";
                 progress?.Report(new BackupProgressUpdate
                 {
                     Stage = "ValidationCheck",
@@ -354,7 +359,8 @@ namespace GitDeployPro.Services
                 var dbExists = await client.DatabaseExistsAsync(validationDatabaseName, cancellationToken);
                 if (!dbExists)
                 {
-                    validationResult = BackupRestoreValidationResult.Warning("Validation warning: temporary validation database was not found after import.")
+                    validationResult = BackupRestoreValidationResult.Warning(
+                            BuildValidationWarningMessage(validationStage, "Temporary validation database was not found after import."))
                         .WithDatabase(validationDatabaseName);
                 }
                 else
@@ -362,7 +368,8 @@ namespace GitDeployPro.Services
                     var tables = await client.GetTablesAsync(validationDatabaseName);
                     if (tables.Count <= 0)
                     {
-                        validationResult = BackupRestoreValidationResult.Warning("Validation warning: import completed but no tables were found in validation database.")
+                        validationResult = BackupRestoreValidationResult.Warning(
+                                BuildValidationWarningMessage(validationStage, "Import completed but no tables were found in validation database."))
                             .WithDatabase(validationDatabaseName);
                     }
                     else
@@ -381,14 +388,15 @@ namespace GitDeployPro.Services
             }
             catch (Exception ex)
             {
+                var warningMessage = BuildValidationWarningMessage(validationStage, ex.Message);
                 progress?.Report(new BackupProgressUpdate
                 {
                     Stage = "ValidationWarning",
-                    Message = $"Local restore validation warning: {ex.Message}",
+                    Message = $"Local restore validation warning: {warningMessage}",
                     TotalTables = 0,
                     ProcessedTables = 0
                 });
-                validationResult = BackupRestoreValidationResult.Warning($"Validation warning: {ex.Message}")
+                validationResult = BackupRestoreValidationResult.Warning(warningMessage)
                     .WithDatabase(validationDatabaseName);
             }
             finally
@@ -444,7 +452,9 @@ namespace GitDeployPro.Services
             if (cleanupDropFailed)
             {
                 validationResult = BackupRestoreValidationResult.Warning(
-                        $"Validation warning: import flow ended but cleanup failed for `{validationDatabaseName}` ({cleanupDropError}).")
+                        BuildValidationWarningMessage(
+                            "cleanup",
+                            $"Import flow ended but cleanup failed for `{validationDatabaseName}` ({cleanupDropError})."))
                     .WithDatabase(validationDatabaseName);
             }
 
@@ -490,17 +500,22 @@ namespace GitDeployPro.Services
             bool validationDbCreated = false;
             bool cleanupDropFailed = false;
             string cleanupDropError = string.Empty;
+            string validationStage = "prepare";
             var validationResult = BackupRestoreValidationResult.Warning("Validation warning: validation was not executed.")
                 .WithDatabase(validationDatabaseName);
             try
             {
+                validationStage = "connect";
                 await using var client = new DatabaseClient();
                 await client.ConnectAsync(info);
+                validationStage = "configured-db-ensure";
                 await EnsureConfiguredLocalDatabaseAsync(client, schedule, cancellationToken).ConfigureAwait(false);
 
+                validationStage = "database-create";
                 await client.DropAndCreateDatabaseAsync(validationDatabaseName, cancellationToken: cancellationToken);
                 validationDbCreated = true;
 
+                validationStage = "artifact-extract";
                 var preparedSqlPath = await PrepareSqlFileAsync(localArtifactPath, tempFiles, cancellationToken).ConfigureAwait(false);
                 progress?.Report(new BackupProgressUpdate
                 {
@@ -533,6 +548,7 @@ namespace GitDeployPro.Services
                     commandTimeoutSeconds: 120,
                     continueOnError: false);
 
+                validationStage = "post-import-check";
                 progress?.Report(new BackupProgressUpdate
                 {
                     Stage = "ValidationCheck",
@@ -544,7 +560,8 @@ namespace GitDeployPro.Services
                 var dbExists = await client.DatabaseExistsAsync(validationDatabaseName, cancellationToken);
                 if (!dbExists)
                 {
-                    validationResult = BackupRestoreValidationResult.Warning("Validation warning: temporary validation database was not found after import.")
+                    validationResult = BackupRestoreValidationResult.Warning(
+                            BuildValidationWarningMessage(validationStage, "Temporary validation database was not found after import."))
                         .WithDatabase(validationDatabaseName);
                 }
                 else
@@ -552,7 +569,8 @@ namespace GitDeployPro.Services
                     var tables = await client.GetTablesAsync(validationDatabaseName);
                     if (tables.Count <= 0)
                     {
-                        validationResult = BackupRestoreValidationResult.Warning("Validation warning: import completed but no tables were found in validation database.")
+                        validationResult = BackupRestoreValidationResult.Warning(
+                                BuildValidationWarningMessage(validationStage, "Import completed but no tables were found in validation database."))
                             .WithDatabase(validationDatabaseName);
                     }
                     else
@@ -571,14 +589,15 @@ namespace GitDeployPro.Services
             }
             catch (Exception ex)
             {
+                var warningMessage = BuildValidationWarningMessage(validationStage, ex.Message);
                 progress?.Report(new BackupProgressUpdate
                 {
                     Stage = "ValidationWarning",
-                    Message = $"Local restore validation warning: {ex.Message}",
+                    Message = $"Local restore validation warning: {warningMessage}",
                     TotalTables = 0,
                     ProcessedTables = 0
                 });
-                validationResult = BackupRestoreValidationResult.Warning($"Validation warning: {ex.Message}")
+                validationResult = BackupRestoreValidationResult.Warning(warningMessage)
                     .WithDatabase(validationDatabaseName);
             }
             finally
@@ -634,7 +653,9 @@ namespace GitDeployPro.Services
             if (cleanupDropFailed)
             {
                 validationResult = BackupRestoreValidationResult.Warning(
-                        $"Validation warning: import flow ended but cleanup failed for `{validationDatabaseName}` ({cleanupDropError}).")
+                        BuildValidationWarningMessage(
+                            "cleanup",
+                            $"Import flow ended but cleanup failed for `{validationDatabaseName}` ({cleanupDropError})."))
                     .WithDatabase(validationDatabaseName);
             }
 
@@ -843,6 +864,16 @@ namespace GitDeployPro.Services
             return string.Equals(normalized, "localhost", StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(normalized, "127.0.0.1", StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(normalized, "::1", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string BuildValidationWarningMessage(string stage, string reason)
+        {
+            var safeStage = string.IsNullOrWhiteSpace(stage) ? "unknown" : stage.Trim();
+            var safeReason = string.IsNullOrWhiteSpace(reason)
+                ? "No additional details were provided by the validator."
+                : reason.Replace(Environment.NewLine, " ").Trim();
+
+            return $"Validation warning (stage: {safeStage}): {safeReason}";
         }
 
         private static string BuildValidationDatabaseName(string seed)

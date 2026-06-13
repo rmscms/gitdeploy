@@ -99,6 +99,8 @@
                                     <ContextMenu>
                                         <MenuItem Header="Add to .gitignore"
                                                   Click="AddToGitIgnoreMenuItem_Click"/>
+                                        <MenuItem Header="Sync (No Deploy)"
+                                                  Click="SyncWithoutDeployMenuItem_Click"/>
                                     </ContextMenu>
                                 </ListBox.ContextMenu>
                                 <ListBox.ItemTemplate>

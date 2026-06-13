@@ -199,7 +199,7 @@ namespace GitDeployPro.Services
                 var healthLabel = health.IsHealthy ? "passed" : "FAILED";
                 var cleanupTag = result.RemoteArtifactDeleted ? " · remote cleaned" : string.Empty;
                 var validationTag = validationResult.IsWarning
-                    ? " · Validation warning"
+                    ? $" · {validationResult.Message}"
                     : (validationResult.IsAttempted && validationResult.Passed ? " · Validation passed" : string.Empty);
                 var finalSizeLabel = FormatBytes(result.BytesWritten);
                 history.Message = $"Created {artifactLabel} ({finalSizeLabel}){cleanupTag} · Health {healthLabel}{validationTag}.";

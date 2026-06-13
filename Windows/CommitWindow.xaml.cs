@@ -18,6 +18,7 @@ namespace GitDeployPro.Windows
     {
         public bool Confirmed { get; private set; } = false;
         public bool CommitAndDeployRequested { get; private set; } = false;
+        public bool SyncWithoutDeployRequested { get; private set; } = false;
         public string CommitMessage 
         { 
             get => CommitMessageTextBox?.Text ?? ""; 
@@ -60,6 +61,7 @@ namespace GitDeployPro.Windows
             CommitMessage = message;
             Confirmed = true;
             CommitAndDeployRequested = true;
+            SyncWithoutDeployRequested = false;
             this.Close();
         }
 
@@ -219,6 +221,40 @@ namespace GitDeployPro.Windows
             {
                 ModernMessageBox.Show($"Failed to update .gitignore: {ex.Message}", "Git ignore", MessageBoxButton.OK, MessageBoxImage.Error);
             }
+        }
+
+        private void SyncWithoutDeployMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (FilesListBox?.SelectedItem is not FileChangeViewModel vm)
+            {
+                ModernMessageBox.Show("Select a file first.", "Sync", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var confirm = ModernMessageBox.ShowWithResult(
+                $"Sync branches without FTP deploy?\n\nSelected file: {vm.Name}\n\nThis will commit current reviewed changes locally, sync selected branches, and push if remote exists.",
+                "Sync (No Deploy)",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question,
+                "Sync",
+                "Cancel");
+
+            if (confirm != MessageBoxResult.Yes)
+            {
+                return;
+            }
+
+            string message = CommitMessageTextBox.Text?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(message))
+            {
+                message = $"sync update {DateTime.Now:yyyy-MM-dd HH:mm}";
+            }
+
+            CommitMessage = message;
+            Confirmed = true;
+            CommitAndDeployRequested = false;
+            SyncWithoutDeployRequested = true;
+            Close();
         }
 
         private void OpenCodeViewer(FileChangeViewModel vm)
