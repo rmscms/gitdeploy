@@ -2,6 +2,7 @@ using System;
 using System.ComponentModel;
 using System.IO;
 using FluentFTP;
+using GitDeployPro.Services;
 using Renci.SshNet.Sftp;
 
 namespace GitDeployPro.Models
@@ -54,7 +55,7 @@ namespace GitDeployPro.Models
                 SizeDisplay = item.Type == FtpObjectType.Directory ? "-" : FormatSize(item.Size),
                 ModifiedDisplay = item.Modified == DateTime.MinValue
                     ? string.Empty
-                    : item.Modified.ToLocalTime().ToString("yyyy-MM-dd HH:mm"),
+                    : AppTimeService.ToLocal(item.Modified).ToString("yyyy-MM-dd HH:mm"),
                 Owner = string.IsNullOrWhiteSpace(item.RawOwner) ? "?" : item.RawOwner,
                 Group = string.IsNullOrWhiteSpace(item.RawGroup) ? "?" : item.RawGroup,
                 Permissions = string.IsNullOrWhiteSpace(permissions) ? "?" : permissions,
@@ -82,7 +83,7 @@ namespace GitDeployPro.Models
                 SizeDisplay = file.IsDirectory ? "-" : FormatSize(file.Length),
                 ModifiedDisplay = file.LastWriteTime == DateTime.MinValue
                     ? string.Empty
-                    : file.LastWriteTime.ToLocalTime().ToString("yyyy-MM-dd HH:mm"),
+                    : AppTimeService.ToLocal(file.LastWriteTime).ToString("yyyy-MM-dd HH:mm"),
                 Owner = file.UserId.ToString(),
                 Group = file.GroupId.ToString(),
                 Permissions = string.IsNullOrWhiteSpace(perms) ? "?" : perms,

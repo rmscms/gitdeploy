@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using GitDeployPro.Services;
 
 namespace GitDeployPro.Models
 {
@@ -244,7 +245,7 @@ namespace GitDeployPro.Models
             }
         }
 
-        public DateTime? NextRunLocal => _nextRunUtc?.ToLocalTime();
+        public DateTime? NextRunLocal => AppTimeService.ToLocalFromUtc(_nextRunUtc);
 
         public event PropertyChangedEventHandler? PropertyChanged;
 

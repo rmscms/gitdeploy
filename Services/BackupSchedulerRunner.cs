@@ -59,11 +59,11 @@ namespace GitDeployPro.Services
                 {
                     if (schedule.NextRunUtc == null)
                     {
-                        BackupScheduleTimelineService.RecalculateNextRun(schedule, DateTime.UtcNow);
+                        BackupScheduleTimelineService.RecalculateNextRun(schedule, AppTimeService.UtcNow);
                         continue;
                     }
 
-                    if (DateTime.UtcNow < schedule.NextRunUtc) continue;
+                    if (AppTimeService.UtcNow < schedule.NextRunUtc) continue;
 
                     await RunScheduleAsync(schedule);
                 }
@@ -111,7 +111,7 @@ namespace GitDeployPro.Services
                 ScheduleName = schedule.Name,
                 ConnectionProfileId = schedule.ConnectionProfileId,
                 DatabaseName = schedule.DatabaseName,
-                StartedUtc = DateTime.UtcNow
+                StartedUtc = AppTimeService.UtcNow
             };
 
             BackupTaskHandle? taskHandle = null;
@@ -167,7 +167,7 @@ namespace GitDeployPro.Services
                     }
                 }
 
-                history.CompletedUtc = DateTime.UtcNow;
+                history.CompletedUtc = AppTimeService.UtcNow;
                 history.Success = true;
                 history.OutputPath = result.OutputPath;
                 history.FileSizeBytes = result.BytesWritten;
@@ -187,6 +187,9 @@ namespace GitDeployPro.Services
                 history.RestoreValidationPassed = validationResult.Passed;
                 history.RestoreValidationMessage = validationResult.Message;
                 history.RestoreValidationDatabase = validationResult.ValidationDatabaseName;
+                history.IntegritySampleCapturedUtc = validationResult.IntegritySampling?.CapturedUtc;
+                history.IntegritySampleMessage = validationResult.IntegritySampling?.Message ?? string.Empty;
+                history.IntegrityTableSamples = validationResult.IntegritySampling?.Tables ?? new List<BackupIntegrityTableSample>();
                 var artifactLabel = result.IsRemoteArtifact
                     ? (result.HasLocalArtifact ? "remote+local" : "remote-reference")
                     : (schedule.CompressOutput
@@ -206,7 +209,7 @@ namespace GitDeployPro.Services
 
                 schedule.LastRunUtc = history.CompletedUtc;
                 ResetFailureBackoff(schedule);
-                BackupScheduleTimelineService.RecalculateNextRun(schedule, DateTime.UtcNow);
+                BackupScheduleTimelineService.RecalculateNextRun(schedule, AppTimeService.UtcNow);
                 BackupScheduleStore.AddOrUpdate(schedule);
                 BackupHistoryStore.AddEntry(history);
                 var validationTaskTag = validationResult.IsWarning ? " with validation warning" : string.Empty;
@@ -223,7 +226,7 @@ namespace GitDeployPro.Services
             }
             catch (OperationCanceledException)
             {
-                history.CompletedUtc = DateTime.UtcNow;
+                history.CompletedUtc = AppTimeService.UtcNow;
                 history.Success = false;
                 history.Message = "Canceled by user.";
                 BackupHistoryStore.AddEntry(history);
@@ -236,7 +239,7 @@ namespace GitDeployPro.Services
             }
             catch (Exception ex)
             {
-                history.CompletedUtc = DateTime.UtcNow;
+                history.CompletedUtc = AppTimeService.UtcNow;
                 history.Success = false;
                 history.Message = ex.Message;
                 BackupHistoryStore.AddEntry(history);
@@ -274,7 +277,7 @@ namespace GitDeployPro.Services
             }
 
             var delayMinutes = Math.Min(30, (int)Math.Pow(2, attempts - 1));
-            schedule.NextRunUtc = DateTime.UtcNow.AddMinutes(Math.Max(1, delayMinutes));
+            schedule.NextRunUtc = AppTimeService.UtcNow.AddMinutes(Math.Max(1, delayMinutes));
             _notificationService.ShowToast("Backup retry scheduled", $"{schedule.Name}: retry in {delayMinutes} min ({reason}).");
         }
 

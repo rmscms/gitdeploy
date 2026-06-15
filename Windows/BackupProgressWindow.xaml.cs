@@ -2,6 +2,7 @@ using System;
 using System.Text;
 using System.Windows;
 using GitDeployPro.Models;
+using GitDeployPro.Services;
 using MahApps.Metro.Controls;
 
 namespace GitDeployPro.Windows
@@ -46,7 +47,7 @@ namespace GitDeployPro.Windows
 
                 if (!string.IsNullOrWhiteSpace(update.Message))
                 {
-                    _logBuilder.AppendLine($"[{DateTime.Now:HH:mm:ss}] {update.Message}");
+                    _logBuilder.AppendLine($"[{AppTimeService.LocalNow:HH:mm:ss}] {update.Message}");
                     LogTextBlock.Text = _logBuilder.ToString();
                 }
             });

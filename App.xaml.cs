@@ -192,7 +192,7 @@ namespace GitDeployPro
                 return;
             }
 
-            var message = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [{source}] {exception.Message}\n{exception.StackTrace}";
+            var message = $"[{AppTimeService.LocalNow:yyyy-MM-dd HH:mm:ss}] [{source}] {exception.Message}\n{exception.StackTrace}";
             Log(message);
 
             System.Windows.MessageBox.Show("An unexpected error occurred. Details saved to log file.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
@@ -202,7 +202,7 @@ namespace GitDeployPro
         {
             if (exception == null) return;
 
-            var message = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [FirstChance] {exception.GetType().Name}: {exception.Message}\n{exception.StackTrace}";
+            var message = $"[{AppTimeService.LocalNow:yyyy-MM-dd HH:mm:ss}] [FirstChance] {exception.GetType().Name}: {exception.Message}\n{exception.StackTrace}";
             Log(message);
         }
 

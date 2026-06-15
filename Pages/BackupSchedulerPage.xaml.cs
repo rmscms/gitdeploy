@@ -39,6 +39,7 @@ namespace GitDeployPro.Pages
         private readonly DatabaseBackupService _backupService = new();
         private readonly BackupHealthService _healthService = new();
         private readonly BackupRestoreValidationService _restoreValidationService = new();
+        private readonly BackupIntegritySamplingService _integritySamplingService = new();
         private readonly NotificationService _notificationService = new();
         private readonly BackupTaskMonitor _taskMonitor = BackupTaskMonitor.Instance;
         private string _localValidationStatus = "Local validation settings are not tested yet.";
@@ -2125,7 +2126,7 @@ namespace GitDeployPro.Pages
         {
             RunLog.Insert(0, new BackupRunLogEntry
             {
-                Timestamp = DateTime.Now,
+                Timestamp = AppTimeService.LocalNow,
                 Message = message,
                 IsError = isError
             });
@@ -2187,6 +2188,7 @@ namespace GitDeployPro.Pages
                 "ValidationPrepare" => "Preparing localhost validation …",
                 "ValidationImport" => "Importing into localhost validation DB …",
                 "ValidationCheck" => "Running localhost validation checks …",
+                "ValidationSampling" => "Collecting integrity sampling data …",
                 "ValidationCleanup" => "Cleaning localhost validation resources …",
                 "ValidationDone" => "Localhost validation passed …",
                 "ValidationWarning" => "Localhost validation warning …",
@@ -2203,7 +2205,7 @@ namespace GitDeployPro.Pages
         private void HandleBackupProgress(BackupProgressUpdate? update)
         {
             if (update == null) return;
-            var now = DateTime.UtcNow;
+            var now = AppTimeService.UtcNow;
             var isHeavyStage = string.IsNullOrWhiteSpace(update.Stage) ||
                                update.Stage == "TableStart" ||
                                update.Stage == "TableComplete" ||
@@ -2425,6 +2427,210 @@ namespace GitDeployPro.Pages
             window.ShowDialog();
         }
 
+        private async void OpenIntegritySampling_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var historyEntry = FindLatestImportedHistoryEntry();
+                if (historyEntry == null)
+                {
+                    ModernMessageBox.Show(
+                        "No successful imported backup was found in history for this project context.",
+                        "Backup integrity sampling",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+                    return;
+                }
+
+                var schedule = ResolveScheduleForHistoryEntry(historyEntry);
+                System.Windows.Input.Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
+                BackupIntegritySamplingSnapshot snapshot;
+                try
+                {
+                    snapshot = await LoadLiveIntegritySnapshotAsync(historyEntry, schedule);
+                }
+                finally
+                {
+                    System.Windows.Input.Mouse.OverrideCursor = null;
+                }
+
+                var window = new BackupIntegritySamplingWindow(historyEntry, snapshot)
+                {
+                    Owner = Window.GetWindow(this)
+                };
+                window.ShowDialog();
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show(
+                    $"Could not open integrity sampling panel:\n{ex.Message}",
+                    "Backup integrity sampling",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
+        }
+
+        private BackupHistoryEntry? FindLatestImportedHistoryEntry()
+        {
+            var items = BackupHistoryStore.LoadHistory();
+            if (items.Count == 0)
+            {
+                return null;
+            }
+
+            var imported = items.Where(x => x.Success && x.RestoreValidationAttempted);
+            if (SelectedSchedule != null)
+            {
+                var bySchedule = imported
+                    .FirstOrDefault(x => string.Equals(x.ScheduleId, SelectedSchedule.Id, StringComparison.OrdinalIgnoreCase));
+                if (bySchedule != null)
+                {
+                    return bySchedule;
+                }
+
+                if (!string.IsNullOrWhiteSpace(SelectedSchedule.ConnectionProfileId))
+                {
+                    var byProfile = imported.FirstOrDefault(x =>
+                        string.Equals(x.ConnectionProfileId, SelectedSchedule.ConnectionProfileId, StringComparison.OrdinalIgnoreCase));
+                    if (byProfile != null)
+                    {
+                        return byProfile;
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(SelectedSchedule.DatabaseName))
+                {
+                    var byDatabase = imported.FirstOrDefault(x =>
+                        string.Equals(x.DatabaseName, SelectedSchedule.DatabaseName, StringComparison.OrdinalIgnoreCase));
+                    if (byDatabase != null)
+                    {
+                        return byDatabase;
+                    }
+                }
+            }
+
+            return imported.FirstOrDefault() ?? items.FirstOrDefault(x => x.Success);
+        }
+
+        private BackupSchedule? ResolveScheduleForHistoryEntry(BackupHistoryEntry entry)
+        {
+            if (entry == null)
+            {
+                return null;
+            }
+
+            if (string.IsNullOrWhiteSpace(entry.ScheduleId))
+            {
+                if (SelectedSchedule == null)
+                {
+                    return null;
+                }
+
+                return string.Equals(entry.ConnectionProfileId, SelectedSchedule.ConnectionProfileId, StringComparison.OrdinalIgnoreCase) ||
+                       string.Equals(entry.DatabaseName, SelectedSchedule.DatabaseName, StringComparison.OrdinalIgnoreCase)
+                    ? SelectedSchedule
+                    : null;
+            }
+
+            if (SelectedSchedule != null)
+            {
+                var selectedMatches = string.Equals(entry.ScheduleId, SelectedSchedule.Id, StringComparison.OrdinalIgnoreCase) ||
+                                      string.Equals(entry.ConnectionProfileId, SelectedSchedule.ConnectionProfileId, StringComparison.OrdinalIgnoreCase) ||
+                                      string.Equals(entry.DatabaseName, SelectedSchedule.DatabaseName, StringComparison.OrdinalIgnoreCase);
+                if (selectedMatches)
+                {
+                    return SelectedSchedule;
+                }
+            }
+
+            var schedules = BackupScheduleStore.LoadSchedules();
+            var byId = schedules.FirstOrDefault(s => string.Equals(s.Id, entry.ScheduleId, StringComparison.OrdinalIgnoreCase));
+            if (byId != null)
+            {
+                return byId;
+            }
+
+            return schedules.FirstOrDefault(s =>
+                string.Equals(s.ConnectionProfileId, entry.ConnectionProfileId, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(s.DatabaseName, entry.DatabaseName, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private async Task<BackupIntegritySamplingSnapshot> LoadLiveIntegritySnapshotAsync(
+            BackupHistoryEntry historyEntry,
+            BackupSchedule? schedule)
+        {
+            if (schedule == null)
+            {
+                return new BackupIntegritySamplingSnapshot
+                {
+                    DatabaseName = historyEntry.DatabaseName,
+                    CapturedUtc = AppTimeService.UtcNow,
+                    Message = "Localhost sampling is unavailable: source schedule was not found."
+                };
+            }
+
+            if (!BackupRestoreValidationService.TryBuildLocalConnectionInfo(schedule, out var info, out var reason))
+            {
+                return new BackupIntegritySamplingSnapshot
+                {
+                    DatabaseName = historyEntry.DatabaseName,
+                    CapturedUtc = AppTimeService.UtcNow,
+                    Message = $"Localhost sampling is unavailable: {reason}"
+                };
+            }
+
+            var configuredDatabase = (schedule.LocalValidationDatabaseName ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(configuredDatabase))
+            {
+                return new BackupIntegritySamplingSnapshot
+                {
+                    DatabaseName = historyEntry.DatabaseName,
+                    CapturedUtc = AppTimeService.UtcNow,
+                    Message = "No localhost database was configured for this project."
+                };
+            }
+
+            try
+            {
+                await using var client = new DatabaseClient();
+                await client.ConnectAsync(info);
+
+                if (!await client.DatabaseExistsAsync(configuredDatabase))
+                {
+                    return new BackupIntegritySamplingSnapshot
+                    {
+                        DatabaseName = configuredDatabase,
+                        CapturedUtc = AppTimeService.UtcNow,
+                        Message = $"Configured localhost database `{configuredDatabase}` does not exist."
+                    };
+                }
+
+                var snapshot = await _integritySamplingService.CaptureAsync(client, configuredDatabase);
+                if (!snapshot.HasData)
+                {
+                    snapshot.Message = string.IsNullOrWhiteSpace(snapshot.Message)
+                        ? $"Configured localhost database `{configuredDatabase}` exists but has no base tables."
+                        : snapshot.Message;
+
+                    if (string.Equals(snapshot.Message, "No base tables were found for integrity sampling.", StringComparison.Ordinal))
+                    {
+                        snapshot.Message = $"Configured localhost database `{configuredDatabase}` exists but has no base tables.";
+                    }
+                }
+
+                return snapshot;
+            }
+            catch (Exception ex)
+            {
+                return new BackupIntegritySamplingSnapshot
+                {
+                    DatabaseName = historyEntry.DatabaseName,
+                    CapturedUtc = AppTimeService.UtcNow,
+                    Message = $"Localhost sampling failed: {ex.Message}"
+                };
+            }
+        }
+
         private async void RunNow_Click(object sender, RoutedEventArgs e)
         {
             if (SelectedSchedule == null)
@@ -2499,7 +2705,7 @@ namespace GitDeployPro.Pages
                 ScheduleName = SelectedSchedule.Name,
                 ConnectionProfileId = SelectedSchedule.ConnectionProfileId,
                 DatabaseName = SelectedSchedule.DatabaseName,
-                StartedUtc = DateTime.UtcNow
+                StartedUtc = AppTimeService.UtcNow
             };
 
             AddRunLog($"Starting backup '{SelectedSchedule.Name}' ({SelectedSchedule.DatabaseName}) …");
@@ -2587,7 +2793,7 @@ namespace GitDeployPro.Pages
                     var validationTag = validationResult.IsWarning ? " with validation warning" : string.Empty;
                     _taskMonitor.CompleteTask(_currentTaskHandle.TaskId, $"[{SelectedSchedule.Name}] Backup completed ({finalSizeLabel}){validationTag}.");
                 }
-                historyEntry.CompletedUtc = DateTime.UtcNow;
+                historyEntry.CompletedUtc = AppTimeService.UtcNow;
                 historyEntry.Success = true;
                 historyEntry.OutputPath = result.OutputPath;
                 historyEntry.FileSizeBytes = result.BytesWritten;
@@ -2607,6 +2813,9 @@ namespace GitDeployPro.Pages
                 historyEntry.RestoreValidationPassed = validationResult.Passed;
                 historyEntry.RestoreValidationMessage = validationResult.Message;
                 historyEntry.RestoreValidationDatabase = validationResult.ValidationDatabaseName;
+                historyEntry.IntegritySampleCapturedUtc = validationResult.IntegritySampling?.CapturedUtc;
+                historyEntry.IntegritySampleMessage = validationResult.IntegritySampling?.Message ?? string.Empty;
+                historyEntry.IntegrityTableSamples = validationResult.IntegritySampling?.Tables ?? new List<BackupIntegrityTableSample>();
                 var healthLabel = health.IsHealthy ? "passed" : "FAILED";
                 var artifactLabel = result.IsRemoteArtifact
                     ? (result.HasLocalArtifact ? "Remote build + local download" : "Remote build (manual reference)")
@@ -2626,7 +2835,7 @@ namespace GitDeployPro.Pages
                     _notificationService.ShowToast("Backup finished", $"{SelectedSchedule.Name} completed.");
                 }
                 ReloadHistory();
-                SelectedSchedule.LastRunUtc = DateTime.UtcNow;
+                SelectedSchedule.LastRunUtc = AppTimeService.UtcNow;
                 RefreshNextRunEstimate(SelectedSchedule);
                 BackupScheduleStore.SaveSchedules(Schedules);
                 OnPropertyChanged(nameof(SelectedScheduleSummary));
@@ -2636,7 +2845,7 @@ namespace GitDeployPro.Pages
                 AddRunLog("Backup canceled by user.", true);
                 _currentProgressStage = "Cancelled";
                 OnPropertyChanged(nameof(ProgressSummary));
-                historyEntry.CompletedUtc = DateTime.UtcNow;
+                historyEntry.CompletedUtc = AppTimeService.UtcNow;
                 historyEntry.Success = false;
                 historyEntry.Message = "Canceled by user.";
                 BackupHistoryStore.AddEntry(historyEntry);
@@ -2652,7 +2861,7 @@ namespace GitDeployPro.Pages
                 CurrentProgressText = "Backup failed.";
                 _currentProgressStage = "Failed";
                 OnPropertyChanged(nameof(ProgressSummary));
-                historyEntry.CompletedUtc = DateTime.UtcNow;
+                historyEntry.CompletedUtc = AppTimeService.UtcNow;
                 historyEntry.Success = false;
                 historyEntry.Message = ex.Message;
                 BackupHistoryStore.AddEntry(historyEntry);
@@ -3093,7 +3302,7 @@ namespace GitDeployPro.Pages
                 return;
             }
 
-            BackupScheduleTimelineService.RecalculateNextRun(schedule, DateTime.UtcNow);
+            BackupScheduleTimelineService.RecalculateNextRun(schedule, AppTimeService.UtcNow);
         }
 
         protected virtual void OnPropertyChanged(string? propertyName = null)

@@ -10,7 +10,7 @@ namespace GitDeployPro.Services
         public static string CreateArtifactBaseName(string databaseName, DateTime? timestamp = null)
         {
             var safeDbName = SanitizeToken(string.IsNullOrWhiteSpace(databaseName) ? "database" : databaseName);
-            var timeToken = (timestamp ?? DateTime.Now).ToString(TimestampFormat);
+            var timeToken = (timestamp ?? AppTimeService.LocalNow).ToString(TimestampFormat);
             return $"{safeDbName}_{timeToken}";
         }
 

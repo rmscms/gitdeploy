@@ -1045,7 +1045,7 @@ namespace GitDeployPro.Pages
 
         private void AddLog(string message)
         {
-            var ts = DateTime.Now.ToString("HH:mm:ss");
+            var ts = AppTimeService.LocalNow.ToString("HH:mm:ss");
             LogTextBox.AppendText($"[{ts}] {message}{Environment.NewLine}");
             LogTextBox.ScrollToEnd();
         }
@@ -1852,7 +1852,7 @@ namespace GitDeployPro.Pages
         {
             var buffer = new byte[64 * 1024];
             int read;
-            var lastSave = DateTime.UtcNow;
+            var lastSave = AppTimeService.UtcNow;
             UpdateFileDetail(file.RelativePath, entry.DownloadedBytes, file.SizeBytes);
 
             while ((read = await source.ReadAsync(buffer.AsMemory(0, buffer.Length), token)) > 0)
@@ -1863,10 +1863,10 @@ namespace GitDeployPro.Pages
                 AdvanceDownloadProgress(read);
                 UpdateFileDetail(file.RelativePath, entry.DownloadedBytes, file.SizeBytes);
 
-                if ((DateTime.UtcNow - lastSave).TotalSeconds >= 1)
+                if ((AppTimeService.UtcNow - lastSave).TotalSeconds >= 1)
                 {
                     SaveDownloadSession(session);
-                    lastSave = DateTime.UtcNow;
+                    lastSave = AppTimeService.UtcNow;
                 }
             }
 

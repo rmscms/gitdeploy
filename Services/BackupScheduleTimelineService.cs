@@ -13,7 +13,7 @@ namespace GitDeployPro.Services
                 return;
             }
 
-            schedule.NextRunUtc = BackupSchedulePlanner.CalculateNextRunUtc(schedule, referenceUtc ?? DateTime.UtcNow);
+            schedule.NextRunUtc = BackupSchedulePlanner.CalculateNextRunUtc(schedule, referenceUtc ?? AppTimeService.UtcNow);
         }
 
         public static DateTime? FindSoonestUpcomingRunUtc(IEnumerable<BackupSchedule>? schedules, DateTime? referenceUtc = null)
@@ -23,7 +23,7 @@ namespace GitDeployPro.Services
                 return null;
             }
 
-            var utcNow = referenceUtc ?? DateTime.UtcNow;
+            var utcNow = referenceUtc ?? AppTimeService.UtcNow;
             DateTime? soonest = null;
 
             foreach (var schedule in schedules)
@@ -60,7 +60,7 @@ namespace GitDeployPro.Services
                 return "no schedule";
             }
 
-            var utcNow = referenceUtc ?? DateTime.UtcNow;
+            var utcNow = referenceUtc ?? AppTimeService.UtcNow;
             var diff = nextRunUtc.Value - utcNow;
             if (diff <= TimeSpan.Zero)
             {

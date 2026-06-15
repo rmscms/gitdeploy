@@ -40,7 +40,7 @@ namespace GitDeployPro.Services
         public class RecentProjectEntry
         {
             public string Path { get; set; } = "";
-            public DateTime LastOpenedUtc { get; set; } = DateTime.UtcNow;
+            public DateTime LastOpenedUtc { get; set; } = AppTimeService.UtcNow;
         }
 
         // --- Connection Profiles Management ---
@@ -205,7 +205,7 @@ namespace GitDeployPro.Services
             if ((config.RecentProjects == null || config.RecentProjects.Count == 0) &&
                 token["RecentProjects"] is JArray legacyArray)
             {
-                var now = DateTime.UtcNow;
+                var now = AppTimeService.UtcNow;
                 int offset = 0;
                 var migrated = legacyArray
                     .Where(t => t.Type == JTokenType.String)
@@ -269,14 +269,14 @@ namespace GitDeployPro.Services
 
             if (existing != null)
             {
-                existing.LastOpenedUtc = DateTime.UtcNow;
+                existing.LastOpenedUtc = AppTimeService.UtcNow;
             }
             else
             {
                 config.RecentProjects.Add(new RecentProjectEntry
                 {
                     Path = normalizedPath,
-                    LastOpenedUtc = DateTime.UtcNow
+                    LastOpenedUtc = AppTimeService.UtcNow
                 });
             }
 

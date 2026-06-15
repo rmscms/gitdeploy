@@ -44,7 +44,7 @@
                   BorderThickness="0"
                   CanUserAddRows="False">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Started" Binding="{Binding StartedUtc, StringFormat={}{0:G}}" Width="150"/>
+                <DataGridTextColumn Header="Started" Binding="{Binding StartedLocalDisplay}" Width="170"/>
                 <DataGridTextColumn Header="Schedule" Binding="{Binding ScheduleName}" Width="145"/>
                 <DataGridTextColumn Header="Database" Binding="{Binding DatabaseName}" Width="120"/>
 

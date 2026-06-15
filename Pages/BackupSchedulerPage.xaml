@@ -68,6 +68,13 @@
                 </DataTrigger>
             </Style.Triggers>
         </Style>
+        <Style x:Key="HeaderSoftInfoButtonStyle" TargetType="Button" BasedOn="{StaticResource App.Button.Ghost}">
+            <Setter Property="Height" Value="40"/>
+            <Setter Property="Padding" Value="16,0"/>
+            <Setter Property="Background" Value="{StaticResource Status.InfoSurface}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Status.Info}"/>
+            <Setter Property="Foreground" Value="{StaticResource Text.Secondary}"/>
+        </Style>
         <Style x:Key="StepFourActionButtonStyle" TargetType="Button" BasedOn="{StaticResource App.Button.Primary}">
             <Setter Property="Height" Value="44"/>
             <Setter Property="Padding" Value="20,0"/>
@@ -137,6 +144,15 @@
                         Margin="0,0,12,0"
                         Style="{StaticResource App.Button.Ghost}"
                         Click="OpenHistoryButton_Click"/>
+                <Button x:Name="HeaderActiveTasksButton"
+                        Content="{Binding ActiveTasksLabel}"
+                        Margin="0,0,12,0"
+                        Style="{StaticResource HeaderSoftInfoButtonStyle}"
+                        Click="OpenTasks_Click"/>
+                <Button Content="🧪 Integrity sample"
+                        Margin="0,0,12,0"
+                        Style="{StaticResource App.Button.Ghost}"
+                        Click="OpenIntegritySampling_Click"/>
                 <Button Content="🗖 Pop-out"
                         Style="{StaticResource DetachPageButtonStyle}"
                         Click="OpenInWindow_Click"/>
@@ -905,14 +921,6 @@
                                     </Border>
 
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                        <Button x:Name="ActiveTasksButton"
-                                                Content="{Binding ActiveTasksLabel}"
-                                                Margin="0,0,10,0"
-                                                Style="{StaticResource StepFourActionButtonStyle}"
-                                                Background="{StaticResource Status.Info}"
-                                                BorderBrush="{StaticResource Status.Info}"
-                                                Foreground="{StaticResource Text.Primary}"
-                                                Click="OpenTasks_Click"/>
                                         <Button x:Name="PauseButton"
                                                 Content="{Binding PauseButtonLabel}"
                                                 Margin="0,0,10,0"

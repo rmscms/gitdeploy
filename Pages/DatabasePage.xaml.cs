@@ -42,7 +42,7 @@ namespace GitDeployPro.Pages
         private int _commandTimeoutSeconds = 60;
         private CancellationTokenSource? _importCts;
         private bool _isImporting;
-        private DateTime _lastImportLog = DateTime.UtcNow;
+        private DateTime _lastImportLog = AppTimeService.UtcNow;
 
         private DatabaseConnectionEntry? _activeConnection;
         private bool _isInitialized;
@@ -1173,7 +1173,7 @@ namespace GitDeployPro.Pages
 
                 if (!string.IsNullOrWhiteSpace(update.Message))
                 {
-                    var now = DateTime.UtcNow;
+                    var now = AppTimeService.UtcNow;
                     if ((now - _lastImportLog).TotalMilliseconds > 500)
                     {
                         AppendImportLog(update.Message);
@@ -1262,7 +1262,7 @@ namespace GitDeployPro.Pages
                 ImportLogBox.Clear();
             }
 
-            ImportLogBox.AppendText($"[{DateTime.Now:HH:mm:ss}] {message}{Environment.NewLine}");
+            ImportLogBox.AppendText($"[{AppTimeService.LocalNow:HH:mm:ss}] {message}{Environment.NewLine}");
             ImportLogBox.ScrollToEnd();
         }
 

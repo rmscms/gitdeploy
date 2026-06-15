@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using GitDeployPro.Services;
 
 namespace GitDeployPro.Models
 {
@@ -26,7 +27,7 @@ namespace GitDeployPro.Models
         public string ConnectionLabel { get; set; } = string.Empty;
         public string Mode { get; set; } = string.Empty;
         public string Origin { get; set; } = string.Empty;
-        public DateTime StartedLocal { get; set; } = DateTime.Now;
+        public DateTime StartedLocal { get; set; } = AppTimeService.LocalNow;
 
         public BackupTaskState State
         {

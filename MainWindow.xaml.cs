@@ -123,7 +123,7 @@ namespace GitDeployPro
 
         private void NextRunTimer_Tick(object? sender, EventArgs e)
         {
-            if (_taskMonitor.ActiveCount == 0 && _nextRunUtc.HasValue && _nextRunUtc <= DateTime.UtcNow)
+            if (_taskMonitor.ActiveCount == 0 && _nextRunUtc.HasValue && _nextRunUtc <= AppTimeService.UtcNow)
             {
                 RefreshNextRunTarget();
             }
@@ -136,13 +136,13 @@ namespace GitDeployPro
         private void RefreshNextRunTarget()
         {
             var schedules = BackupScheduleStore.LoadSchedules();
-            _nextRunUtc = BackupScheduleTimelineService.FindSoonestUpcomingRunUtc(schedules, DateTime.UtcNow);
+            _nextRunUtc = BackupScheduleTimelineService.FindSoonestUpcomingRunUtc(schedules, AppTimeService.UtcNow);
             UpdateCountdownLabel();
         }
 
         private void UpdateCountdownLabel()
         {
-            var text = BackupScheduleTimelineService.BuildCountdownText(_taskMonitor.ActiveCount, _nextRunUtc, DateTime.UtcNow);
+            var text = BackupScheduleTimelineService.BuildCountdownText(_taskMonitor.ActiveCount, _nextRunUtc, AppTimeService.UtcNow);
 
             if (text != _nextRunCountdownText)
             {
@@ -269,7 +269,7 @@ namespace GitDeployPro
 
         private void LogSidebarAction(string source)
         {
-            System.Diagnostics.Debug.WriteLine($"[Sidebar] action={source}, collapsed={_isSidebarCollapsed}, time={DateTime.Now:HH:mm:ss}");
+            System.Diagnostics.Debug.WriteLine($"[Sidebar] action={source}, collapsed={_isSidebarCollapsed}, time={AppTimeService.LocalNow:HH:mm:ss}");
         }
 
         private void RecentProject_Click(object sender, RoutedEventArgs e)

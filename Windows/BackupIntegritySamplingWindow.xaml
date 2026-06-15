@@ -1,0 +1,222 @@
+<mah:MetroWindow x:Class="GitDeployPro.Windows.BackupIntegritySamplingWindow"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
+                 Title="Backup integrity sampling"
+                 Width="1080"
+                 Height="640"
+                 MinWidth="940"
+                 MinHeight="520"
+                 WindowStartupLocation="CenterOwner"
+                 Background="{StaticResource Surface.Base}">
+    <mah:MetroWindow.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
+    </mah:MetroWindow.Resources>
+
+    <Grid Margin="{StaticResource Spacing.CardPadding}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0"
+                Style="{StaticResource App.CardStyle}"
+                Padding="18"
+                Margin="0,0,0,14">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Text="Backup integrity sampling"
+                               Style="{StaticResource App.PageTitleTextStyle}"/>
+                    <TextBlock Text="{Binding ContextLine}"
+                               Foreground="{StaticResource Text.Secondary}"
+                               Margin="0,4,0,0"/>
+                    <TextBlock Text="{Binding LastBackupLine}"
+                               Foreground="{StaticResource Text.Secondary}"
+                               Margin="0,2,0,0"/>
+                    <TextBlock Text="{Binding CapturedAtLine}"
+                               Foreground="{StaticResource Text.Muted}"
+                               Margin="0,2,0,0"/>
+                    <TextBlock Text="{Binding SummaryMessage}"
+                               Foreground="{StaticResource Text.Muted}"
+                               Margin="0,10,0,0"
+                               TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding LatestBackupFileLine}"
+                               Foreground="{StaticResource Text.Secondary}"
+                               Margin="0,12,0,0"
+                               TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding LatestBackupPathLine}"
+                               Foreground="{StaticResource Text.Muted}"
+                               FontSize="11"
+                               Margin="0,3,0,0"
+                               TextWrapping="Wrap"/>
+                    <ProgressBar Height="6"
+                                 Margin="0,10,0,0"
+                                 Maximum="{Binding ImportProgressMaximum, Mode=OneWay}"
+                                 Value="{Binding ImportProgressValue, Mode=OneWay}"
+                                 IsIndeterminate="{Binding IsImportProgressIndeterminate, Mode=OneWay}"
+                                 Visibility="{Binding ImportProgressVisible, Converter={StaticResource BoolToVisibility}}"/>
+                    <TextBlock Text="{Binding ImportStatusLine}"
+                               Foreground="{StaticResource Text.Muted}"
+                               FontSize="11"
+                               Margin="0,6,0,0"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1"
+                            Orientation="Vertical"
+                            VerticalAlignment="Top">
+                    <Button Content="{Binding ImportButtonText}"
+                            MinWidth="150"
+                            Style="{StaticResource App.Button.Primary}"
+                            IsEnabled="{Binding CanImportLatestBackup}"
+                            Click="ImportLatestBackup_Click"/>
+                    <Button Content="{Binding RefreshButtonText}"
+                            MinWidth="150"
+                            Margin="0,8,0,0"
+                            Style="{StaticResource App.Button.Ghost}"
+                            IsEnabled="{Binding CanRefreshSnapshot}"
+                            Click="RefreshSnapshot_Click"/>
+                    <Button Content="Close"
+                            MinWidth="150"
+                            Margin="0,8,0,0"
+                            Style="{StaticResource App.Button.Ghost}"
+                            Click="Close_Click"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="330"/>
+                <ColumnDefinition Width="14"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0"
+                    Style="{StaticResource App.CardStyle}"
+                    Padding="12">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <StackPanel Orientation="Horizontal"
+                                Margin="0,0,0,8">
+                        <TextBlock Text="All tables"
+                                   Style="{StaticResource App.SectionTitleTextStyle}"/>
+                        <Border Background="{StaticResource Surface.Input}"
+                                CornerRadius="8"
+                                Padding="7,2"
+                                Margin="8,0,0,0"
+                                VerticalAlignment="Center">
+                            <TextBlock Text="{Binding TableCountLabel}"
+                                       Foreground="{StaticResource Text.Secondary}"
+                                       FontSize="11"/>
+                        </Border>
+                    </StackPanel>
+
+                    <ListBox Grid.Row="1"
+                             ItemsSource="{Binding TableSamples}"
+                             SelectedItem="{Binding SelectedTableSample, Mode=TwoWay}"
+                             Style="{StaticResource App.ListBox.Host}">
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem"
+                                   BasedOn="{StaticResource App.ListBoxItem.Card}">
+                                <Setter Property="Padding"
+                                        Value="8,6"/>
+                                <Setter Property="Margin"
+                                        Value="0,1"/>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,0,0,1">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding TableName}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{StaticResource Text.Primary}"
+                                                   FontSize="12"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Text="{Binding ApproxRowCount, StringFormat={}{0:N0} rows}"
+                                                   Foreground="{StaticResource Text.Muted}"
+                                                   FontSize="10"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1"
+                                                HorizontalAlignment="Right"
+                                                Margin="10,0,0,0">
+                                        <TextBlock Text="{Binding TotalBytesLabel}"
+                                                   Foreground="{StaticResource Text.Secondary}"
+                                                   FontSize="11"
+                                                   FontWeight="SemiBold"
+                                                   HorizontalAlignment="Right"/>
+                                        <TextBlock Text="click to load row"
+                                                   Foreground="{StaticResource Text.Muted}"
+                                                   FontSize="9"
+                                                   HorizontalAlignment="Right"/>
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </Border>
+
+            <Border Grid.Column="2"
+                    Style="{StaticResource App.CardStyle}"
+                    Padding="14">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Text="{Binding SelectedTableTitle}"
+                               Style="{StaticResource App.SectionTitleTextStyle}"/>
+
+                    <StackPanel Grid.Row="1"
+                                Margin="0,8,0,10">
+                        <TextBlock Text="{Binding SelectedTableInfoLine}"
+                                   Foreground="{StaticResource Text.Secondary}"
+                                   TextWrapping="Wrap"/>
+                        <TextBlock Text="{Binding SelectedTablePkLine}"
+                                   Foreground="{StaticResource Text.Muted}"
+                                   Margin="0,4,0,0"
+                                   TextWrapping="Wrap"/>
+                    </StackPanel>
+
+                    <DataGrid Grid.Row="2"
+                              Style="{StaticResource App.DataGrid}"
+                              ItemsSource="{Binding SelectedRowValues}"
+                              AutoGenerateColumns="False"
+                              BorderThickness="0"
+                              CanUserAddRows="False"
+                              IsReadOnly="True">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Column"
+                                                Binding="{Binding ColumnName}"
+                                                Width="260"/>
+                            <DataGridTextColumn Header="Value"
+                                                Binding="{Binding DisplayValue}"
+                                                Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <TextBlock Grid.Row="3"
+                               Text="{Binding SelectedLastRowStatus}"
+                               Foreground="{StaticResource Text.Muted}"
+                               Margin="0,10,0,0"
+                               TextWrapping="Wrap"/>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</mah:MetroWindow>

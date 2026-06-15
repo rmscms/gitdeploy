@@ -110,6 +110,9 @@ namespace GitDeployPro.Pages
                 entry.RestoreValidationPassed = result.Passed;
                 entry.RestoreValidationMessage = result.Message;
                 entry.RestoreValidationDatabase = result.ValidationDatabaseName;
+                entry.IntegritySampleCapturedUtc = result.IntegritySampling?.CapturedUtc;
+                entry.IntegritySampleMessage = result.IntegritySampling?.Message ?? string.Empty;
+                entry.IntegrityTableSamples = result.IntegritySampling?.Tables ?? new System.Collections.Generic.List<BackupIntegrityTableSample>();
                 entry.Message = $"{entry.Message} · Manual import/validate: {(result.Passed ? "passed" : "warning")} ({result.Message})";
 
                 BackupHistoryStore.UpdateEntry(entry);

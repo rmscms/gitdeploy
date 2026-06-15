@@ -1675,7 +1675,7 @@ namespace GitDeployPro.Services
                 DatabaseName = entry.DatabaseName ?? connection.Database ?? "database",
                 ServerVersion = connection.ServerVersion,
                 UserName = profile.DbUsername ?? entry.Username ?? "root",
-                GeneratedAt = DateTime.Now
+                GeneratedAt = AppTimeService.LocalNow
             };
         }
 
@@ -1899,7 +1899,7 @@ namespace GitDeployPro.Services
         public string DatabaseName { get; init; } = string.Empty;
         public string ServerVersion { get; init; } = string.Empty;
         public string UserName { get; init; } = "root";
-        public DateTime GeneratedAt { get; init; } = DateTime.Now;
+        public DateTime GeneratedAt { get; init; } = AppTimeService.LocalNow;
     }
 }
 
