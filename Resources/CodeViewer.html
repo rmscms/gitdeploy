@@ -53,6 +53,7 @@
     let editor;
     let pendingPayload = null;
     let changeSubscription = null;
+    let currentFontSize = 14;
     const languageMap = {
       ".cs": "csharp",
       ".xaml": "xml",
@@ -72,8 +73,26 @@
       ".cshtml": "html",
       ".razor": "html",
       ".sql": "sql",
-      ".md": "markdown"
+      ".md": "markdown",
+      ".env": "shell",
+      ".ini": "ini",
+      ".conf": "ini",
+      ".yaml": "yaml",
+      ".yml": "yaml",
+      ".sh": "shell",
+      ".bat": "bat",
+      ".ps1": "powershell"
     };
+    function normalizeLanguage(language) {
+      if (!language || !window.monaco || !monaco.languages) {
+        return "plaintext";
+      }
+
+      const available = monaco.languages.getLanguages().map(x => (x && x.id ? x.id.toLowerCase() : ""));
+      const wanted = String(language).toLowerCase();
+      return available.includes(wanted) ? wanted : "plaintext";
+    }
+
 
     const extRegex = /\.([a-z0-9]+(\.[a-z0-9]+)?)$/i;
 
@@ -109,7 +128,7 @@
 
     function applyPayload(data) {
       if (!data) return;
-      const lang = inferLanguage(data.filePath);
+      const lang = normalizeLanguage(inferLanguage(data.filePath));
       updateHeader(data.filePath, lang);
       updateEditor(data.content, lang);
     }
@@ -125,6 +144,8 @@
         value: "// Loading...",
         language: "plaintext",
         theme: "vs-dark",
+        fontSize: currentFontSize,
+        lineHeight: Math.round(currentFontSize * 1.5),
         automaticLayout: true,
         readOnly: true,
         minimap: { enabled: true }
@@ -169,6 +190,18 @@
         changeSubscription = null;
         notifyHost({ Type: "dirty", Value: false });
       }
+    };
+
+    window.__setFontSize = function(size) {
+      const parsed = Number(size);
+      if (!Number.isFinite(parsed)) return;
+
+      currentFontSize = Math.max(10, Math.min(24, parsed));
+      if (!editor) return;
+      editor.updateOptions({
+        fontSize: currentFontSize,
+        lineHeight: Math.round(currentFontSize * 1.5)
+      });
     };
 
     window.__getValue = function() {

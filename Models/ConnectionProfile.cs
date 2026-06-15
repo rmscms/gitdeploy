@@ -88,5 +88,20 @@ namespace GitDeployPro.Models
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
+
+        public override string ToString()
+        {
+            if (!string.IsNullOrWhiteSpace(Name))
+            {
+                return Name;
+            }
+
+            if (!string.IsNullOrWhiteSpace(Host))
+            {
+                return Host;
+            }
+
+            return "Connection";
+        }
     }
 }
