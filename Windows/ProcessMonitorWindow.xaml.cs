@@ -216,7 +216,7 @@ namespace GitDeployPro.Windows
 
                 if (StatusText != null)
                 {
-                    StatusText.Text = $"Updated {DateTime.Now:T} · {_processes.Count} sessions.";
+                    StatusText.Text = $"Updated {AppTimeService.LocalNow:T} · {_processes.Count} sessions.";
                 }
             }
             catch (Exception ex)

@@ -456,7 +456,7 @@ namespace GitDeployPro.Pages
             // Clear and initialize upload log
             if (UploadLogTextBox != null)
             {
-                UploadLogTextBox.Text = $"=== Upload Started at {DateTime.Now:yyyy-MM-dd HH:mm:ss} ===" + Environment.NewLine;
+                UploadLogTextBox.Text = $"=== Upload Started at {AppTimeService.LocalNow:yyyy-MM-dd HH:mm:ss} ===" + Environment.NewLine;
                 UploadLogTextBox.Text += $"Total files to upload: {filesToUpload.Count}" + Environment.NewLine;
                 UploadLogTextBox.Text += Environment.NewLine;
             }
@@ -508,7 +508,7 @@ namespace GitDeployPro.Pages
                                 {
                                     file.UploadState = UploadState.Uploaded;
                                     UpdateUploadDetailText(file.Name, 100, file.Size, file.Size, "Already uploaded (session)");
-                                    AddUploadLog($"[{DateTime.Now:HH:mm:ss}] Skipped (Session): {file.Name}");
+                                    AddUploadLog($"[{AppTimeService.LocalNow:HH:mm:ss}] Skipped (Session): {file.Name}");
                                     AddUploadLog($"  → Remote Path: {skippedRemotePath}");
                                     AddUploadLog($"  ↺ Already uploaded in previous session");
                                     AddUploadLog("");
@@ -523,7 +523,7 @@ namespace GitDeployPro.Pages
                             {
                                 file.UploadState = UploadState.InProgress;
                                 // Log upload path to console
-                                AddUploadLog($"[{DateTime.Now:HH:mm:ss}] Uploading: {file.Name}");
+                                AddUploadLog($"[{AppTimeService.LocalNow:HH:mm:ss}] Uploading: {file.Name}");
                                 AddUploadLog($"  → Remote Path: {remotePath}");
                             });
 

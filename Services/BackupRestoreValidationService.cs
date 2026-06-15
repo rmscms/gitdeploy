@@ -16,6 +16,7 @@ namespace GitDeployPro.Services
     public sealed class BackupRestoreValidationService
     {
         private const string ValidationDbPrefix = "gdp_validate_";
+        private readonly BackupIntegritySamplingService _integritySamplingService = new();
         private static readonly HashSet<string> SystemDatabases = new(StringComparer.OrdinalIgnoreCase)
         {
             "mysql",
@@ -360,7 +361,7 @@ namespace GitDeployPro.Services
                 if (!dbExists)
                 {
                     validationResult = BackupRestoreValidationResult.Warning(
-                            BuildValidationWarningMessage(validationStage, "Temporary validation database was not found after import."))
+                            BuildValidationWarningMessage(validationStage, "Configured localhost validation database was not found after import."))
                         .WithDatabase(validationDatabaseName);
                 }
                 else
@@ -374,6 +375,31 @@ namespace GitDeployPro.Services
                     }
                     else
                     {
+                        BackupIntegritySamplingSnapshot? integritySnapshot = null;
+                        progress?.Report(new BackupProgressUpdate
+                        {
+                            Stage = "ValidationSampling",
+                            Message = "Collecting integrity sampling snapshot from largest tables …",
+                            TotalTables = 0,
+                            ProcessedTables = 0
+                        });
+                        try
+                        {
+                            integritySnapshot = await _integritySamplingService.CaptureAsync(
+                                client,
+                                validationDatabaseName,
+                                cancellationToken: cancellationToken);
+                        }
+                        catch (Exception samplingEx)
+                        {
+                            integritySnapshot = new BackupIntegritySamplingSnapshot
+                            {
+                                DatabaseName = validationDatabaseName,
+                                CapturedUtc = AppTimeService.UtcNow,
+                                Message = $"Sampling warning: {samplingEx.Message}"
+                            };
+                        }
+
                         progress?.Report(new BackupProgressUpdate
                         {
                             Stage = "ValidationDone",
@@ -382,7 +408,8 @@ namespace GitDeployPro.Services
                             ProcessedTables = 0
                         });
                         validationResult = BackupRestoreValidationResult.Success($"Local restore validation passed ({tables.Count} table(s) imported).")
-                            .WithDatabase(validationDatabaseName);
+                            .WithDatabase(validationDatabaseName)
+                            .WithIntegritySampling(integritySnapshot);
                     }
                 }
             }
@@ -487,6 +514,17 @@ namespace GitDeployPro.Services
                 return BackupRestoreValidationResult.Warning($"Validation skipped: {reason}");
             }
 
+            var configuredValidationDb = schedule.LocalValidationDatabaseName?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(configuredValidationDb))
+            {
+                return BackupRestoreValidationResult.Warning("Validation skipped: local validation database name is empty.");
+            }
+
+            if (SystemDatabases.Contains(configuredValidationDb))
+            {
+                return BackupRestoreValidationResult.Warning("Validation skipped: local validation database must not be a system database.");
+            }
+
             progress?.Report(new BackupProgressUpdate
             {
                 Stage = "ValidationPrepare",
@@ -496,10 +534,8 @@ namespace GitDeployPro.Services
             });
 
             var tempFiles = new List<string>();
-            string validationDatabaseName = BuildValidationDatabaseName(schedule.Id);
+            string validationDatabaseName = configuredValidationDb;
             bool validationDbCreated = false;
-            bool cleanupDropFailed = false;
-            string cleanupDropError = string.Empty;
             string validationStage = "prepare";
             var validationResult = BackupRestoreValidationResult.Warning("Validation warning: validation was not executed.")
                 .WithDatabase(validationDatabaseName);
@@ -520,7 +556,7 @@ namespace GitDeployPro.Services
                 progress?.Report(new BackupProgressUpdate
                 {
                     Stage = "ValidationImport",
-                    Message = $"Importing backup into temporary database `{validationDatabaseName}` …",
+                    Message = $"Importing backup into configured localhost database `{validationDatabaseName}` …",
                     TotalTables = 0,
                     ProcessedTables = 0
                 });
@@ -575,6 +611,31 @@ namespace GitDeployPro.Services
                     }
                     else
                     {
+                        BackupIntegritySamplingSnapshot? integritySnapshot = null;
+                        progress?.Report(new BackupProgressUpdate
+                        {
+                            Stage = "ValidationSampling",
+                            Message = "Collecting integrity sampling snapshot from largest tables …",
+                            TotalTables = 0,
+                            ProcessedTables = 0
+                        });
+                        try
+                        {
+                            integritySnapshot = await _integritySamplingService.CaptureAsync(
+                                client,
+                                validationDatabaseName,
+                                cancellationToken: cancellationToken);
+                        }
+                        catch (Exception samplingEx)
+                        {
+                            integritySnapshot = new BackupIntegritySamplingSnapshot
+                            {
+                                DatabaseName = validationDatabaseName,
+                                CapturedUtc = AppTimeService.UtcNow,
+                                Message = $"Sampling warning: {samplingEx.Message}"
+                            };
+                        }
+
                         progress?.Report(new BackupProgressUpdate
                         {
                             Stage = "ValidationDone",
@@ -583,7 +644,8 @@ namespace GitDeployPro.Services
                             ProcessedTables = 0
                         });
                         validationResult = BackupRestoreValidationResult.Success($"Local restore validation passed ({tables.Count} table(s) imported).")
-                            .WithDatabase(validationDatabaseName);
+                            .WithDatabase(validationDatabaseName)
+                            .WithIntegritySampling(integritySnapshot);
                     }
                 }
             }
@@ -602,28 +664,6 @@ namespace GitDeployPro.Services
             }
             finally
             {
-                if (validationDbCreated)
-                {
-                    try
-                    {
-                        await using var cleanupClient = new DatabaseClient();
-                        await cleanupClient.ConnectAsync(info);
-                        if (CanDropValidationDatabase(validationDatabaseName))
-                        {
-                            await cleanupClient.ExecuteNonQueryAsync(
-                                $"DROP DATABASE IF EXISTS {DatabaseClient.EscapeIdentifier(validationDatabaseName)};",
-                                null,
-                                0,
-                                cancellationToken);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        cleanupDropFailed = true;
-                        cleanupDropError = ex.Message;
-                    }
-                }
-
                 foreach (var tempFile in tempFiles)
                 {
                     try
@@ -642,21 +682,12 @@ namespace GitDeployPro.Services
                 progress?.Report(new BackupProgressUpdate
                 {
                     Stage = "ValidationCleanup",
-                    Message = cleanupDropFailed
-                        ? $"Validation cleanup warning: unable to drop `{validationDatabaseName}` ({cleanupDropError})."
+                    Message = validationDbCreated
+                        ? $"Validation cleanup completed. Local database `{validationDatabaseName}` is kept for project sampling."
                         : "Validation cleanup completed.",
                     TotalTables = 0,
                     ProcessedTables = 0
                 });
-            }
-
-            if (cleanupDropFailed)
-            {
-                validationResult = BackupRestoreValidationResult.Warning(
-                        BuildValidationWarningMessage(
-                            "cleanup",
-                            $"Import flow ended but cleanup failed for `{validationDatabaseName}` ({cleanupDropError})."))
-                    .WithDatabase(validationDatabaseName);
             }
 
             return validationResult;
@@ -887,7 +918,7 @@ namespace GitDeployPro.Services
             }
 
             safeSeed = safeSeed.Length > 8 ? safeSeed[..8] : safeSeed;
-            var suffix = $"{DateTime.UtcNow:yyyyMMddHHmmss}_{Guid.NewGuid():N}"[..21];
+            var suffix = $"{AppTimeService.UtcNow:yyyyMMddHHmmss}_{Guid.NewGuid():N}"[..21];
             return $"{ValidationDbPrefix}{safeSeed}_{suffix}";
         }
 
@@ -982,6 +1013,7 @@ namespace GitDeployPro.Services
         public bool IsWarning => IsAttempted && !Passed;
         public string Message { get; private init; } = string.Empty;
         public string ValidationDatabaseName { get; private set; } = string.Empty;
+        public BackupIntegritySamplingSnapshot? IntegritySampling { get; private set; }
 
         public static BackupRestoreValidationResult Success(string message) => new()
         {
@@ -1007,6 +1039,12 @@ namespace GitDeployPro.Services
         public BackupRestoreValidationResult WithDatabase(string dbName)
         {
             ValidationDatabaseName = dbName ?? string.Empty;
+            return this;
+        }
+
+        public BackupRestoreValidationResult WithIntegritySampling(BackupIntegritySamplingSnapshot? snapshot)
+        {
+            IntegritySampling = snapshot;
             return this;
         }
     }

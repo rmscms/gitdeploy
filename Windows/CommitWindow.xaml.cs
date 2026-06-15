@@ -19,6 +19,7 @@ namespace GitDeployPro.Windows
         public bool Confirmed { get; private set; } = false;
         public bool CommitAndDeployRequested { get; private set; } = false;
         public bool SyncWithoutDeployRequested { get; private set; } = false;
+        public string SyncWithoutDeployPath { get; private set; } = string.Empty;
         public string CommitMessage 
         { 
             get => CommitMessageTextBox?.Text ?? ""; 
@@ -55,13 +56,14 @@ namespace GitDeployPro.Windows
             string message = CommitMessageTextBox.Text?.Trim() ?? string.Empty;
             if (string.IsNullOrWhiteSpace(message))
             {
-                message = $"deploy update {DateTime.Now:yyyy-MM-dd HH:mm}";
+                message = $"deploy update {AppTimeService.LocalNow:yyyy-MM-dd HH:mm}";
             }
 
             CommitMessage = message;
             Confirmed = true;
             CommitAndDeployRequested = true;
             SyncWithoutDeployRequested = false;
+            SyncWithoutDeployPath = string.Empty;
             this.Close();
         }
 
@@ -232,7 +234,7 @@ namespace GitDeployPro.Windows
             }
 
             var confirm = ModernMessageBox.ShowWithResult(
-                $"Sync branches without FTP deploy?\n\nSelected file: {vm.Name}\n\nThis will commit current reviewed changes locally, sync selected branches, and push if remote exists.",
+                $"Sync branches without FTP deploy?\n\nSelected file: {vm.Name}\n\nOnly this selected file will be committed for sync, then branches are synced and pushed if remote exists.",
                 "Sync (No Deploy)",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question,
@@ -247,13 +249,14 @@ namespace GitDeployPro.Windows
             string message = CommitMessageTextBox.Text?.Trim() ?? string.Empty;
             if (string.IsNullOrWhiteSpace(message))
             {
-                message = $"sync update {DateTime.Now:yyyy-MM-dd HH:mm}";
+                message = $"sync update {AppTimeService.LocalNow:yyyy-MM-dd HH:mm}";
             }
 
             CommitMessage = message;
             Confirmed = true;
             CommitAndDeployRequested = false;
             SyncWithoutDeployRequested = true;
+            SyncWithoutDeployPath = vm.Name;
             Close();
         }
 

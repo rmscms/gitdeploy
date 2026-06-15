@@ -579,7 +579,7 @@ LIMIT 1";
 
             try
             {
-                await StreamImportAsync(sqlFilePath, progress, cancellationToken, commandTimeoutSeconds, continueOnError, errorLogger);
+                await StreamImportAsync(sqlFilePath, targetDatabase, progress, cancellationToken, commandTimeoutSeconds, continueOnError, errorLogger);
 
                 if (fastMode)
                 {
@@ -604,6 +604,7 @@ LIMIT 1";
         }
 
         private async Task StreamImportAsync(string sqlFilePath,
+                                             string targetDatabase,
                                              IProgress<ImportProgressUpdate>? progress,
                                              CancellationToken cancellationToken,
                                              int commandTimeoutSeconds,
@@ -640,7 +641,7 @@ LIMIT 1";
 
                     if (!string.IsNullOrWhiteSpace(statement))
                     {
-                        await ExecuteStatementAsync(statement, commandTimeoutSeconds, cancellationToken, continueOnError, errorLogger);
+                        await ExecuteStatementAsync(statement, targetDatabase, commandTimeoutSeconds, cancellationToken, continueOnError, errorLogger);
                         statements++;
                         progress?.Report(new ImportProgressUpdate
                         {
@@ -665,7 +666,7 @@ LIMIT 1";
             var leftover = builder.ToString().Trim();
             if (!string.IsNullOrWhiteSpace(leftover))
             {
-                await ExecuteStatementAsync(leftover, commandTimeoutSeconds, cancellationToken, continueOnError, errorLogger);
+                await ExecuteStatementAsync(leftover, targetDatabase, commandTimeoutSeconds, cancellationToken, continueOnError, errorLogger);
                 statements++;
                 progress?.Report(new ImportProgressUpdate
                 {
@@ -678,13 +679,14 @@ LIMIT 1";
         }
 
         private async Task ExecuteStatementAsync(string sql,
+                                                string targetDatabase,
                                                 int commandTimeoutSeconds,
                                                 CancellationToken cancellationToken,
                                                 bool continueOnError,
                                                 Action<string>? errorLogger)
         {
             await using var cmd = _mysqlConnection!.CreateCommand();
-            cmd.CommandText = NormalizeImportStatement(sql);
+            cmd.CommandText = NormalizeImportStatement(sql, targetDatabase);
             if (commandTimeoutSeconds > 0)
             {
                 cmd.CommandTimeout = commandTimeoutSeconds;
@@ -706,7 +708,7 @@ LIMIT 1";
             }
         }
 
-        private static string NormalizeImportStatement(string sql)
+        private static string NormalizeImportStatement(string sql, string targetDatabase)
         {
             if (string.IsNullOrWhiteSpace(sql))
             {
@@ -714,6 +716,17 @@ LIMIT 1";
             }
 
             var trimmed = sql.Trim();
+            if (trimmed.StartsWith("USE ", StringComparison.OrdinalIgnoreCase))
+            {
+                return $"USE {EscapeIdentifier(targetDatabase)};";
+            }
+
+            if (trimmed.StartsWith("CREATE DATABASE", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.StartsWith("DROP DATABASE", StringComparison.OrdinalIgnoreCase))
+            {
+                return "-- skipped database-level statement from dump";
+            }
+
             if (!trimmed.StartsWith("SET", StringComparison.OrdinalIgnoreCase) ||
                 !trimmed.Contains("sql_mode", StringComparison.OrdinalIgnoreCase))
             {

@@ -468,24 +468,31 @@ namespace GitDeployPro.Pages
                 }
 
                 var commitWindow = new CommitWindow(changes);
-                commitWindow.CommitMessage = $"deploy update {DateTime.Now:yyyy-MM-dd HH:mm}";
+                commitWindow.CommitMessage = $"deploy update {AppTimeService.LocalNow:yyyy-MM-dd HH:mm}";
                 commitWindow.ShowDialog();
 
                 if (commitWindow.Confirmed)
                 {
                     if (commitWindow.SyncWithoutDeployRequested)
                     {
-                        AddLog("🔄 Sync-only mode requested from review list (no FTP deploy).");
-                        await _gitService.CommitChangesAsync(commitWindow.CommitMessage);
-                        AddLog("✅ Commit completed.");
+                        string selectedSyncPath = commitWindow.SyncWithoutDeployPath?.Trim() ?? string.Empty;
+                        if (string.IsNullOrWhiteSpace(selectedSyncPath))
+                        {
+                            ModernMessageBox.Show("No file was selected for sync.", "Sync", MessageBoxButton.OK, MessageBoxImage.Warning);
+                            return;
+                        }
+
+                        AddLog($"🔄 Sync-only mode requested for file: {selectedSyncPath} (no FTP deploy).");
+                        await _gitService.CommitSpecificPathsAsync(new[] { selectedSyncPath }, commitWindow.CommitMessage);
+                        AddLog($"✅ Commit completed for selected file: {selectedSyncPath}");
                         await SyncLocalBranchesIfNeededAsync();
                         bool pushSucceededSyncOnly = await PushToGithub();
                         AddLog(pushSucceededSyncOnly
-                            ? "✅ Sync-only pipeline finished."
-                            : "⚠️ Sync-only pipeline finished with push error.");
+                            ? "✅ Single-file sync-only pipeline finished."
+                            : "⚠️ Single-file sync-only pipeline finished with push error.");
                         StatusText.Text = pushSucceededSyncOnly
-                            ? "Sync completed without deploy."
-                            : "Sync completed locally; push had issues.";
+                            ? "Selected file synced without deploy."
+                            : "Selected file synced locally; push had issues.";
                         StatusText.Foreground = GetThemeBrush(
                             pushSucceededSyncOnly ? "Status.Success" : "Status.Warning",
                             pushSucceededSyncOnly ? System.Windows.Media.Brushes.LightGreen : System.Windows.Media.Brushes.Orange);
@@ -1210,7 +1217,7 @@ namespace GitDeployPro.Pages
 
             Dispatcher.Invoke(() =>
             {
-                var timestamp = DateTime.Now.ToString("HH:mm:ss");
+                var timestamp = AppTimeService.LocalNow.ToString("HH:mm:ss");
                 var newLog = $"[{timestamp}] {message}\n";
                 
                 if (LogTextBlock.Text == "Waiting for deployment...")
@@ -1232,7 +1239,7 @@ namespace GitDeployPro.Pages
             var record = new DeploymentRecord
             {
                 Title = $"Deploy {SourceBranchComboBox.Text} to {TargetBranchComboBox.Text}",
-                Date = DateTime.Now,
+                Date = AppTimeService.LocalNow,
                 FilesCount = filesToDeploy.Count,
                 Branch = SourceBranchComboBox.Text,
                 Status = "Success",

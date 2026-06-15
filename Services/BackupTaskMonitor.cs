@@ -50,7 +50,7 @@ namespace GitDeployPro.Services
                 Origin = origin,
                 State = BackupTaskState.Running,
                 IsCancelable = allowCancel,
-                StartedLocal = DateTime.Now
+                StartedLocal = AppTimeService.LocalNow
             };
 
             var registration = new TaskRegistration
@@ -208,7 +208,7 @@ namespace GitDeployPro.Services
                 status.IsCancelable = false;
                 status.Stage = message;
                 status.Message = message;
-                status.FinishedLocal = DateTime.Now;
+                status.FinishedLocal = AppTimeService.LocalNow;
                 status.Percent = 100;
 
                 ActiveTasks.Remove(status);

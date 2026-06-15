@@ -722,7 +722,7 @@ namespace GitDeployPro.Controls
                 return;
             }
 
-            var now = DateTime.UtcNow;
+            var now = AppTimeService.UtcNow;
             if (_lastConnectRequestConnectionId == conn.Id &&
                 (now - _lastConnectRequestAt).TotalMilliseconds < 500)
             {

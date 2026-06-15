@@ -333,6 +333,26 @@ namespace GitDeployPro.Services
             message = message.Replace("\"", "\\\"");
             await RunGitCommandAsync($"commit -m \"{message}\"");
         }
+
+        public async Task CommitSpecificPathsAsync(IEnumerable<string> relativePaths, string message)
+        {
+            var paths = (relativePaths ?? Array.Empty<string>())
+                .Where(p => !string.IsNullOrWhiteSpace(p))
+                .Select(NormalizeGitPath)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (paths.Count == 0)
+            {
+                throw new ArgumentException("At least one file path must be provided.", nameof(relativePaths));
+            }
+
+            string pathSpecArgs = BuildPathSpecArguments(paths);
+            await RunGitCommandAsync($"add -- {pathSpecArgs}");
+
+            message = message.Replace("\"", "\\\"");
+            await RunGitCommandAsync($"commit -m \"{message}\" --only -- {pathSpecArgs}");
+        }
         
         public async Task RevertCommitAsync(string commitHash)
         {
@@ -580,7 +600,7 @@ namespace GitDeployPro.Services
                     DateTimeOffset dateOffset;
                     if (!DateTimeOffset.TryParse(parts[3], CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out dateOffset))
                     {
-                        dateOffset = DateTimeOffset.Now;
+                        dateOffset = AppTimeService.LocalNowOffset;
                     }
 
                     commits.Add(new CommitInfo
@@ -812,6 +832,16 @@ namespace GitDeployPro.Services
         private static string NormalizeGitPath(string path)
         {
             return path.Replace("\\", "/").Trim();
+        }
+
+        private static string BuildPathSpecArguments(IEnumerable<string> paths)
+        {
+            return string.Join(" ", paths.Select(QuoteGitArgument));
+        }
+
+        private static string QuoteGitArgument(string value)
+        {
+            return $"\"{value.Replace("\"", "\\\"")}\"";
         }
 
         private static bool IsInternalMetadataPath(string path)

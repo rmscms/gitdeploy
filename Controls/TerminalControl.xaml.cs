@@ -628,7 +628,7 @@ namespace GitDeployPro.Controls
                 return;
             }
 
-            var now = DateTime.UtcNow;
+            var now = AppTimeService.UtcNow;
             if ((now - _lastInterruptSentAt).TotalMilliseconds < 220)
             {
                 return;

@@ -14,7 +14,7 @@ namespace GitDeployPro.Services
                 return null;
             }
 
-            var referenceLocal = (fromUtc ?? DateTime.UtcNow).ToLocalTime();
+            var referenceLocal = AppTimeService.ToLocalFromUtc(fromUtc ?? AppTimeService.UtcNow);
             var runTime = schedule.LocalRunTime;
 
             return schedule.Frequency switch
@@ -33,7 +33,7 @@ namespace GitDeployPro.Services
         public static void RefreshNextRun(BackupSchedule schedule)
         {
             if (schedule == null) return;
-            schedule.NextRunUtc = CalculateNextRunUtc(schedule, DateTime.UtcNow);
+            schedule.NextRunUtc = CalculateNextRunUtc(schedule, AppTimeService.UtcNow);
         }
 
         private static DateTime GetNextDailyOccurrence(DateTime referenceLocal, TimeSpan runTime)
