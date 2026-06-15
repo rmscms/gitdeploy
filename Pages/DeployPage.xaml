@@ -2,9 +2,15 @@
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
+      xmlns:controls="clr-namespace:GitDeployPro.Controls"
       Title="DeployPage"
       Background="{StaticResource Surface.Base}">
     <Grid Margin="{StaticResource Spacing.PageMargin}">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition x:Name="DeployMainColumn" Width="*" />
+            <ColumnDefinition x:Name="DeployRemoteSplitterColumn" Width="6" />
+            <ColumnDefinition x:Name="DeployRemotePanelColumn" Width="470" />
+        </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -28,6 +34,14 @@
                     Style="{StaticResource DetachPageButtonStyle}"
                     ToolTip="Open Deploy page in a new window"
                     Click="DetachDeployPage_Click" />
+            <Button x:Name="ToggleRemoteWorkspaceButton"
+                    Content="🧭 Remote"
+                    Height="36"
+                    Padding="12,0"
+                    Margin="8,0,0,0"
+                    Style="{StaticResource App.Button.Ghost}"
+                    ToolTip="Show/Hide remote workspace"
+                    Click="ToggleRemoteWorkspaceButton_Click" />
         </StackPanel>
 
         <Grid Grid.Row="1" Margin="0,0,0,18">
@@ -300,5 +314,24 @@
                       Background="{StaticResource Border.Subtle}"
                       ShowsPreview="True"
                       Cursor="SizeNS" />
+
+        <GridSplitter Grid.Column="1"
+                      Grid.RowSpan="6"
+                      Width="6"
+                      HorizontalAlignment="Stretch"
+                      VerticalAlignment="Stretch"
+                      ResizeDirection="Columns"
+                      Background="{StaticResource Border.Subtle}"
+                      ShowsPreview="True"
+                      Cursor="SizeWE" />
+
+        <Border x:Name="RemoteWorkspaceContainer"
+                Grid.Column="2"
+                Grid.RowSpan="6"
+                Margin="12,0,0,0"
+                Style="{StaticResource App.CardStyle}"
+                Padding="10">
+            <controls:DeployRemoteWorkspaceControl x:Name="DeployRemoteWorkspace" />
+        </Border>
     </Grid>
 </Page>

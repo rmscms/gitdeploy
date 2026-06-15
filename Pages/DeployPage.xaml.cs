@@ -17,6 +17,16 @@ namespace GitDeployPro.Pages
 {
     public partial class DeployPage : Page
     {
+        private enum RemoteWorkspaceLayoutMode
+        {
+            Wide,
+            Medium,
+            Narrow
+        }
+
+        private const double RemoteWideBreakpoint = 1650;
+        private const double RemoteMediumBreakpoint = 1280;
+
         private bool isDeploying = false;
         private GitService _gitService;
         private HistoryService _historyService;
@@ -33,6 +43,12 @@ namespace GitDeployPro.Pages
         private string _compareSourceBranch = string.Empty;
         private string _compareTargetBranch = string.Empty;
         private bool _suppressFileSelectionModal;
+        private bool _isRemoteWorkspaceCollapsed;
+        private string _remoteWorkspaceProjectPath = string.Empty;
+        private bool _isRemoteEditorOverlayActive;
+        private GridLength _remotePanelLastWidth = new GridLength(470);
+        private RemoteWorkspaceLayoutMode _remoteLayoutMode = RemoteWorkspaceLayoutMode.Wide;
+        private bool _compactPanelOpenedByUser;
 
         public DeployPage()
         {
@@ -43,14 +59,270 @@ namespace GitDeployPro.Pages
             _configService = new ConfigurationService();
             _projectConfig = new ProjectConfig();
             _autoRefreshTimer = new DispatcherTimer(); // Initialize explicitly
+            DeployRemoteWorkspace.EditorModeChanged += DeployRemoteWorkspace_EditorModeChanged;
+            Loaded += DeployPage_Loaded;
+            SizeChanged += DeployPage_SizeChanged;
+            Unloaded += DeployPage_Unloaded;
             LoadGitData();
             SetupAutoRefreshTimer();
+        }
+
+        private void DeployPage_Loaded(object sender, RoutedEventArgs e)
+        {
+            ApplyRemoteWorkspaceLayout(force: true);
+        }
+
+        private void DeployPage_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            ApplyRemoteWorkspaceLayout();
+        }
+
+        private void DeployPage_Unloaded(object sender, RoutedEventArgs e)
+        {
+            DeployRemoteWorkspace.EditorModeChanged -= DeployRemoteWorkspace_EditorModeChanged;
+            Loaded -= DeployPage_Loaded;
+            SizeChanged -= DeployPage_SizeChanged;
+            Unloaded -= DeployPage_Unloaded;
+        }
+
+        private void DeployRemoteWorkspace_EditorModeChanged(object? sender, RemoteEditorModeChangedEventArgs e)
+        {
+            SetRemoteEditorOverlay(e.IsOpen);
         }
 
         private void DetachDeployPage_Click(object sender, RoutedEventArgs e)
         {
             var window = new PageHostWindow(new DeployPage(), "Deploy • Detached");
             window.Show();
+        }
+
+        private async void ToggleRemoteWorkspaceButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_isRemoteEditorOverlayActive)
+            {
+                if (!await DeployRemoteWorkspace.TryCloseEditorViewAsync(promptUnsaved: true))
+                {
+                    return;
+                }
+
+                ApplyRemoteWorkspaceLayout(force: true);
+                return;
+            }
+
+            _isRemoteWorkspaceCollapsed = !_isRemoteWorkspaceCollapsed;
+            if (_remoteLayoutMode != RemoteWorkspaceLayoutMode.Wide)
+            {
+                _compactPanelOpenedByUser = !_isRemoteWorkspaceCollapsed;
+            }
+            ApplyRemoteWorkspaceLayout(force: true);
+        }
+
+        private void SetRemoteEditorOverlay(bool enable)
+        {
+            if (enable)
+            {
+                _isRemoteEditorOverlayActive = true;
+                _isRemoteWorkspaceCollapsed = false;
+                if (_remoteLayoutMode == RemoteWorkspaceLayoutMode.Wide && DeployRemotePanelColumn.Width.Value > 0)
+                {
+                    _remotePanelLastWidth = DeployRemotePanelColumn.Width;
+                }
+
+                DeployRemotePanelColumn.Width = new GridLength(0);
+                DeployRemoteSplitterColumn.Width = new GridLength(0);
+                RemoteWorkspaceContainer.Visibility = Visibility.Visible;
+                Grid.SetColumn(RemoteWorkspaceContainer, 0);
+                Grid.SetColumnSpan(RemoteWorkspaceContainer, 3);
+                Grid.SetRow(RemoteWorkspaceContainer, 0);
+                Grid.SetRowSpan(RemoteWorkspaceContainer, 6);
+                RemoteWorkspaceContainer.Margin = new Thickness(0);
+                RemoteWorkspaceContainer.HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch;
+                RemoteWorkspaceContainer.VerticalAlignment = System.Windows.VerticalAlignment.Stretch;
+                RemoteWorkspaceContainer.Width = double.NaN;
+                System.Windows.Controls.Panel.SetZIndex(RemoteWorkspaceContainer, 25);
+                ToggleRemoteWorkspaceButton.Content = "🧭 Close Editor";
+                ToggleRemoteWorkspaceButton.ToolTip = "Close editor and keep FTP panel";
+                return;
+            }
+
+            _isRemoteEditorOverlayActive = false;
+            ApplyRemoteWorkspaceLayout(force: true);
+        }
+
+        private void ApplyRemoteWorkspaceLayout(bool force = false)
+        {
+            if (_isRemoteEditorOverlayActive)
+            {
+                SetRemoteEditorOverlay(true);
+                return;
+            }
+
+            if (_remoteLayoutMode == RemoteWorkspaceLayoutMode.Wide && DeployRemotePanelColumn.Width.Value > 0)
+            {
+                _remotePanelLastWidth = DeployRemotePanelColumn.Width;
+            }
+
+            var mode = DetermineRemoteLayoutMode();
+            var previousMode = _remoteLayoutMode;
+            if (mode == RemoteWorkspaceLayoutMode.Wide)
+            {
+                _compactPanelOpenedByUser = false;
+            }
+            else if (previousMode == RemoteWorkspaceLayoutMode.Wide && !_isRemoteEditorOverlayActive)
+            {
+                _isRemoteWorkspaceCollapsed = true;
+                _compactPanelOpenedByUser = false;
+            }
+            else if (!_compactPanelOpenedByUser)
+            {
+                _isRemoteWorkspaceCollapsed = true;
+            }
+
+            _remoteLayoutMode = mode;
+
+            switch (mode)
+            {
+                case RemoteWorkspaceLayoutMode.Wide:
+                    ApplyWideRemoteLayout();
+                    break;
+                case RemoteWorkspaceLayoutMode.Medium:
+                    ApplyMediumRemoteLayout();
+                    break;
+                default:
+                    ApplyNarrowRemoteLayout();
+                    break;
+            }
+
+            UpdateRemoteToggleButtonUi();
+        }
+
+        private RemoteWorkspaceLayoutMode DetermineRemoteLayoutMode()
+        {
+            var width = ActualWidth;
+            if (width <= 0 && System.Windows.Application.Current?.MainWindow != null)
+            {
+                width = System.Windows.Application.Current.MainWindow.ActualWidth;
+            }
+
+            if (width <= 0)
+            {
+                return _remoteLayoutMode;
+            }
+
+            if (width < RemoteMediumBreakpoint)
+            {
+                return RemoteWorkspaceLayoutMode.Narrow;
+            }
+
+            if (width < RemoteWideBreakpoint)
+            {
+                return RemoteWorkspaceLayoutMode.Medium;
+            }
+
+            return RemoteWorkspaceLayoutMode.Wide;
+        }
+
+        private void ApplyWideRemoteLayout()
+        {
+            Grid.SetColumn(RemoteWorkspaceContainer, 2);
+            Grid.SetColumnSpan(RemoteWorkspaceContainer, 1);
+            Grid.SetRow(RemoteWorkspaceContainer, 0);
+            Grid.SetRowSpan(RemoteWorkspaceContainer, 6);
+            RemoteWorkspaceContainer.Margin = new Thickness(12, 0, 0, 0);
+            RemoteWorkspaceContainer.HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch;
+            RemoteWorkspaceContainer.VerticalAlignment = System.Windows.VerticalAlignment.Stretch;
+            RemoteWorkspaceContainer.Width = double.NaN;
+            System.Windows.Controls.Panel.SetZIndex(RemoteWorkspaceContainer, 1);
+
+            if (_isRemoteWorkspaceCollapsed)
+            {
+                DeployRemotePanelColumn.Width = new GridLength(0);
+                DeployRemoteSplitterColumn.Width = new GridLength(0);
+                RemoteWorkspaceContainer.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            var width = _remotePanelLastWidth.Value > 0 ? _remotePanelLastWidth.Value : 470;
+            if (width < 320) width = 320;
+            if (width > 680) width = 680;
+
+            DeployRemotePanelColumn.Width = new GridLength(width);
+            DeployRemoteSplitterColumn.Width = new GridLength(6);
+            RemoteWorkspaceContainer.Visibility = Visibility.Visible;
+        }
+
+        private void ApplyMediumRemoteLayout()
+        {
+            DeployRemotePanelColumn.Width = new GridLength(0);
+            DeployRemoteSplitterColumn.Width = new GridLength(0);
+
+            if (_isRemoteWorkspaceCollapsed)
+            {
+                RemoteWorkspaceContainer.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            var availableWidth = ActualWidth > 0 ? ActualWidth : 1400;
+            var overlayWidth = Math.Min(460, Math.Max(340, availableWidth * 0.38));
+
+            Grid.SetColumn(RemoteWorkspaceContainer, 0);
+            Grid.SetColumnSpan(RemoteWorkspaceContainer, 3);
+            Grid.SetRow(RemoteWorkspaceContainer, 0);
+            Grid.SetRowSpan(RemoteWorkspaceContainer, 6);
+            RemoteWorkspaceContainer.Margin = new Thickness(0);
+            RemoteWorkspaceContainer.HorizontalAlignment = System.Windows.HorizontalAlignment.Right;
+            RemoteWorkspaceContainer.VerticalAlignment = System.Windows.VerticalAlignment.Stretch;
+            RemoteWorkspaceContainer.Width = overlayWidth;
+            System.Windows.Controls.Panel.SetZIndex(RemoteWorkspaceContainer, 10);
+            RemoteWorkspaceContainer.Visibility = Visibility.Visible;
+        }
+
+        private void ApplyNarrowRemoteLayout()
+        {
+            DeployRemotePanelColumn.Width = new GridLength(0);
+            DeployRemoteSplitterColumn.Width = new GridLength(0);
+
+            if (_isRemoteWorkspaceCollapsed)
+            {
+                RemoteWorkspaceContainer.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            Grid.SetColumn(RemoteWorkspaceContainer, 0);
+            Grid.SetColumnSpan(RemoteWorkspaceContainer, 3);
+            Grid.SetRow(RemoteWorkspaceContainer, 0);
+            Grid.SetRowSpan(RemoteWorkspaceContainer, 6);
+            RemoteWorkspaceContainer.Margin = new Thickness(0);
+            RemoteWorkspaceContainer.HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch;
+            RemoteWorkspaceContainer.VerticalAlignment = System.Windows.VerticalAlignment.Stretch;
+            RemoteWorkspaceContainer.Width = double.NaN;
+            System.Windows.Controls.Panel.SetZIndex(RemoteWorkspaceContainer, 12);
+            RemoteWorkspaceContainer.Visibility = Visibility.Visible;
+        }
+
+        private void UpdateRemoteToggleButtonUi()
+        {
+            if (_isRemoteEditorOverlayActive)
+            {
+                ToggleRemoteWorkspaceButton.Content = "🧭 Close Editor";
+                ToggleRemoteWorkspaceButton.ToolTip = "Close editor and keep FTP panel";
+                return;
+            }
+
+            if (_isRemoteWorkspaceCollapsed)
+            {
+                ToggleRemoteWorkspaceButton.Content = "🧭 FTP Panel";
+                ToggleRemoteWorkspaceButton.ToolTip = "Show FTP panel";
+                return;
+            }
+
+            ToggleRemoteWorkspaceButton.Content = _remoteLayoutMode switch
+            {
+                RemoteWorkspaceLayoutMode.Wide => "🧭 FTP Panel (ON)",
+                RemoteWorkspaceLayoutMode.Medium => "🧭 FTP Panel (Overlay)",
+                _ => "🧭 FTP Panel (Full)"
+            };
+            ToggleRemoteWorkspaceButton.ToolTip = "Hide FTP panel";
         }
 
         private async void LoadGitData()
@@ -74,8 +346,14 @@ namespace GitDeployPro.Pages
                 {
                     _projectConfig = _configService.LoadProjectConfig(globalConfig.LastProjectPath);
                 }
+                if (!string.Equals(_remoteWorkspaceProjectPath, _projectConfig.LocalProjectPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    _remoteWorkspaceProjectPath = _projectConfig.LocalProjectPath ?? string.Empty;
+                    DeployRemoteWorkspace?.Initialize(_projectConfig);
+                }
 
                 // Check changes & commits
+                var previousUncommittedCount = _cachedUncommittedCount;
                 var uncommitted = await _gitService.GetUncommittedChangesAsync();
                 var totalCommits = await _gitService.GetTotalCommitsAsync();
                 _cachedUncommittedCount = uncommitted.Count;
@@ -155,8 +433,11 @@ namespace GitDeployPro.Pages
                     StatusText.Foreground = GetThemeBrush("Text.Muted", System.Windows.Media.Brushes.LightGray);
                 }
                 
-                // LOG UNCOMMITTED FOR DEBUG
-                if (uncommitted.Count > 0) AddLog($"[DEBUG] Found {uncommitted.Count} uncommitted changes.");
+                // Log only when uncommitted count changes to avoid spam.
+                if (uncommitted.Count > 0 && uncommitted.Count != previousUncommittedCount)
+                {
+                    AddLog($"[DEBUG] Found {uncommitted.Count} uncommitted changes.");
+                }
 
                 // --- NEW: Check if branches are already synced ---
                 if (SourceBranchComboBox.SelectedItem is ComboBoxItem src && 
