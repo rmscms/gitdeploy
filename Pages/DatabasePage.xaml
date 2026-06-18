@@ -471,7 +471,10 @@
             </ScrollViewer>
 
             <!-- Loading Overlay -->
-            <Border x:Name="LoadingOverlay" Background="{StaticResource Surface.Overlay}" Visibility="Collapsed">
+            <Border x:Name="LoadingOverlay"
+                    Background="{StaticResource Surface.Overlay}"
+                    Visibility="Collapsed"
+                    Panel.ZIndex="100">
                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                     <TextBlock Text="⏳" FontSize="48" HorizontalAlignment="Center"/>
                     <TextBlock x:Name="LoadingText" Text="Connecting..." Foreground="{StaticResource Text.Primary}" FontSize="18" FontWeight="SemiBold" Margin="0,12,0,0"/>

@@ -1,4 +1,6 @@
+using System.Windows;
 using System.Windows.Controls;
+using GitDeployPro.Services;
 using MahApps.Metro.Controls;
 
 namespace GitDeployPro.Windows
@@ -10,6 +12,12 @@ namespace GitDeployPro.Windows
             InitializeComponent();
             Title = title;
             HostFrame.Content = page;
+
+            var owner = WindowOwnerService.ResolveOwner();
+            if (owner != null && !ReferenceEquals(owner, this))
+            {
+                Owner = owner;
+            }
         }
     }
 }

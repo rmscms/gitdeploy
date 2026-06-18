@@ -288,7 +288,7 @@ namespace GitDeployPro.Windows
                 int.Parse(PortBox.Text)
             );
 
-            if (browser.ShowDialog() == true)
+            if (WindowOwnerService.ShowDialogOwned(browser, this) == true)
             {
                 RootPathBox.Text = browser.SelectedPath;
             }

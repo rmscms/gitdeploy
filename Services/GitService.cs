@@ -585,39 +585,95 @@ namespace GitDeployPro.Services
 
         public async Task<List<CommitInfo>> GetCommitHistoryAsync(int maxCount = 30)
         {
+            var entries = await GetCommitHistoryPageAsync(maxCount);
+            return entries.Select(x => x.Commit).ToList();
+        }
+
+        public async Task<List<CommitHistoryEntry>> GetCommitHistoryPageAsync(int take = 50, string? beforeCommitHash = null)
+        {
+            var entries = await GetCommitHistoryWithFilesPageAsync(take, beforeCommitHash);
+            return entries
+                .Select(entry => new CommitHistoryEntry
+                {
+                    Commit = entry.Commit,
+                    ChangedFiles = new List<CommitFileChangeInfo>()
+                })
+                .ToList();
+        }
+
+        public async Task<List<CommitHistoryEntry>> GetCommitHistoryWithFilesPageAsync(int take = 50, string? beforeCommitHash = null)
+        {
             try
             {
-                var format = "%H%x1F%h%x1F%an%x1F%ad%x1F%s";
-                var output = await RunGitCommandAsync($"log -n {maxCount} --date=iso --pretty=format:{format}");
-                var lines = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-                var commits = new List<CommitInfo>();
-
-                foreach (var line in lines)
-                {
-                    var parts = line.Split('\x1F');
-                    if (parts.Length != 5) continue;
-
-                    DateTimeOffset dateOffset;
-                    if (!DateTimeOffset.TryParse(parts[3], CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out dateOffset))
-                    {
-                        dateOffset = AppTimeService.LocalNowOffset;
-                    }
-
-                    commits.Add(new CommitInfo
-                    {
-                        FullHash = parts[0],
-                        ShortHash = parts[1],
-                        Author = parts[2],
-                        Date = dateOffset.LocalDateTime,
-                        Message = parts[4]
-                    });
-                }
-
-                return commits;
+                int normalizedTake = Math.Clamp(take, 1, 500);
+                string revArg = string.IsNullOrWhiteSpace(beforeCommitHash) ? "HEAD" : $"{beforeCommitHash.Trim()}^";
+                // Put record separator at the beginning of each commit block so
+                // splitting by 0x1E keeps header + file lines in one chunk.
+                var format = "%x1E%H%x1F%h%x1F%an%x1F%ad%x1F%s";
+                var output = await RunGitCommandAsync($"log {revArg} -n {normalizedTake} --date=iso --pretty=format:{format} --name-status");
+                return ParseCommitHistoryWithFilesOutput(output);
             }
             catch
             {
-                return new List<CommitInfo>();
+                return new List<CommitHistoryEntry>();
+            }
+        }
+
+        public async Task<string> GetCommitFileContentAsync(string commitHash, string relativePath)
+        {
+            if (string.IsNullOrWhiteSpace(commitHash))
+            {
+                throw new ArgumentException("Commit hash is required.", nameof(commitHash));
+            }
+
+            if (string.IsNullOrWhiteSpace(relativePath))
+            {
+                throw new ArgumentException("Relative path is required.", nameof(relativePath));
+            }
+
+            var normalizedPath = NormalizeGitPath(relativePath);
+            if (string.IsNullOrWhiteSpace(normalizedPath))
+            {
+                throw new ArgumentException("Relative path is invalid.", nameof(relativePath));
+            }
+
+            try
+            {
+                return await RunGitCommandAsync($"show {QuoteGitArgument($"{commitHash}:{normalizedPath}")}");
+            }
+            catch (GitCommandException ex) when (IsPathMissingFromCommit(ex))
+            {
+                // Deleted files are not available in commit tree; fallback to parent snapshot.
+                return await RunGitCommandAsync($"show {QuoteGitArgument($"{commitHash}^:{normalizedPath}")}");
+            }
+        }
+
+        public async Task<string> GetCommitFileDiffAsync(string commitHash, string relativePath)
+        {
+            if (string.IsNullOrWhiteSpace(commitHash))
+            {
+                throw new ArgumentException("Commit hash is required.", nameof(commitHash));
+            }
+
+            if (string.IsNullOrWhiteSpace(relativePath))
+            {
+                throw new ArgumentException("Relative path is required.", nameof(relativePath));
+            }
+
+            var normalizedPath = NormalizeGitPath(relativePath);
+            if (string.IsNullOrWhiteSpace(normalizedPath))
+            {
+                throw new ArgumentException("Relative path is invalid.", nameof(relativePath));
+            }
+
+            string pathArg = QuoteGitArgument(normalizedPath);
+            try
+            {
+                return await RunGitCommandAsync($"diff --unified=80 {commitHash}^..{commitHash} -- {pathArg}");
+            }
+            catch
+            {
+                return await RunGitCommandAsync($"show --unified=80 --pretty=format: {commitHash} -- {pathArg}");
             }
         }
 
@@ -732,6 +788,13 @@ namespace GitDeployPro.Services
             string message = ex.GetDetailedMessage();
             return message.Contains("nothing to commit", StringComparison.OrdinalIgnoreCase) ||
                    message.Contains("no changes added to commit", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsPathMissingFromCommit(GitCommandException ex)
+        {
+            string message = ex.GetDetailedMessage();
+            return message.Contains("does not exist in", StringComparison.OrdinalIgnoreCase) ||
+                   message.Contains("exists on disk, but not in", StringComparison.OrdinalIgnoreCase);
         }
 
         private static bool IsBranchAlreadyExistsError(GitCommandException ex)
@@ -850,6 +913,129 @@ namespace GitDeployPro.Services
             string fileName = Path.GetFileName(path.Trim().Trim('"'));
             return InternalMetadataFiles.Contains(fileName);
         }
+
+        private static List<CommitHistoryEntry> ParseCommitHistoryWithFilesOutput(string output)
+        {
+            var records = output.Split('\x1E', StringSplitOptions.RemoveEmptyEntries);
+            var commits = new List<CommitHistoryEntry>();
+
+            foreach (var rawRecord in records)
+            {
+                var block = rawRecord.Trim('\r', '\n');
+                if (string.IsNullOrWhiteSpace(block))
+                {
+                    continue;
+                }
+
+                var lines = block.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                if (lines.Length == 0)
+                {
+                    continue;
+                }
+
+                var headerParts = lines[0].Split('\x1F');
+                if (headerParts.Length != 5)
+                {
+                    continue;
+                }
+
+                DateTimeOffset dateOffset;
+                if (!DateTimeOffset.TryParse(headerParts[3], CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out dateOffset))
+                {
+                    dateOffset = AppTimeService.LocalNowOffset;
+                }
+
+                var entry = new CommitHistoryEntry
+                {
+                    Commit = new CommitInfo
+                    {
+                        FullHash = headerParts[0],
+                        ShortHash = headerParts[1],
+                        Author = headerParts[2],
+                        Date = dateOffset.LocalDateTime,
+                        Message = headerParts[4]
+                    },
+                    ChangedFiles = new List<CommitFileChangeInfo>()
+                };
+
+                for (int i = 1; i < lines.Length; i++)
+                {
+                    var parsed = ParseNameStatusLine(lines[i]);
+                    if (parsed == null || IsInternalMetadataPath(parsed.Path))
+                    {
+                        continue;
+                    }
+
+                    entry.ChangedFiles.Add(parsed);
+                }
+
+                commits.Add(entry);
+            }
+
+            return commits;
+        }
+
+        private static CommitFileChangeInfo? ParseNameStatusLine(string line)
+        {
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                return null;
+            }
+
+            var parts = line.Split('\t');
+            if (parts.Length < 2)
+            {
+                return null;
+            }
+
+            string statusCode = parts[0].Trim();
+            if (string.IsNullOrWhiteSpace(statusCode))
+            {
+                return null;
+            }
+
+            string path;
+            string? oldPath = null;
+            char statusKind = char.ToUpperInvariant(statusCode[0]);
+
+            if ((statusKind == 'R' || statusKind == 'C') && parts.Length >= 3)
+            {
+                oldPath = NormalizeGitPath(parts[1]);
+                path = NormalizeGitPath(parts[2]);
+            }
+            else
+            {
+                path = NormalizeGitPath(parts[1]);
+            }
+
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return null;
+            }
+
+            return new CommitFileChangeInfo
+            {
+                Path = path,
+                OldPath = oldPath,
+                StatusCode = statusCode,
+                Type = ParseNameStatusChangeType(statusCode)
+            };
+        }
+
+        private static ChangeType ParseNameStatusChangeType(string statusCode)
+        {
+            if (string.IsNullOrWhiteSpace(statusCode))
+            {
+                return ChangeType.Modified;
+            }
+
+            return char.ToUpperInvariant(statusCode[0]) switch
+            {
+                'A' => ChangeType.Added,
+                'D' => ChangeType.Deleted,
+                _ => ChangeType.Modified
+            };
+        }
     }
 
     public class FileChange
@@ -866,6 +1052,20 @@ namespace GitDeployPro.Services
         public string Author { get; set; } = "";
         public DateTime Date { get; set; }
         public string Message { get; set; } = "";
+    }
+
+    public sealed class CommitHistoryEntry
+    {
+        public CommitInfo Commit { get; set; } = new CommitInfo();
+        public List<CommitFileChangeInfo> ChangedFiles { get; set; } = new List<CommitFileChangeInfo>();
+    }
+
+    public sealed class CommitFileChangeInfo
+    {
+        public string Path { get; set; } = "";
+        public string? OldPath { get; set; }
+        public string StatusCode { get; set; } = "";
+        public ChangeType Type { get; set; } = ChangeType.Modified;
     }
 
     public enum ChangeType

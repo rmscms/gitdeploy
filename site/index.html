@@ -185,6 +185,39 @@
       padding-left: 18px;
       color: #c4d1ff;
     }
+    .portal-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+      margin-top: 16px;
+    }
+    .portal-card {
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(20, 30, 56, 0.62);
+      padding: 16px;
+      text-decoration: none;
+      color: #f1f5ff;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+      display: block;
+      height: 100%;
+    }
+    .portal-card:hover {
+      transform: translateY(-3px);
+      border-color: rgba(97, 246, 255, 0.45);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+      color: #fff;
+    }
+    .portal-card h5 {
+      margin: 0 0 8px;
+      color: #8dffe6;
+    }
+    .portal-card p {
+      margin: 0;
+      color: #ced8ff;
+      font-size: 0.95rem;
+      line-height: 1.55;
+    }
   </style>
 </head>
 <body>
@@ -198,6 +231,7 @@
       </div>
       <nav class="nav gap-3">
         <a class="nav-link" href="#features">Features</a>
+        <a class="nav-link" href="#docs-portal">Pages</a>
         <a class="nav-link" href="#docs">Docs</a>
         <a class="nav-link" href="#screens">Gallery</a>
         <a class="nav-link" href="#changelog">Changelog</a>
@@ -209,7 +243,39 @@
       <p class="text-uppercase text-info fw-semibold small mb-2">GitDeploy Pro</p>
       <h1 class="display-4 fw-semibold">Command every deployment from one desktop hub</h1>
       <p class="text-muted mx-auto" style="max-width:540px;">Coordinate Git workflows, terminals, SSH sessions, database ops, and release automation for any language stack directly inside GitDeploy Pro.</p>
-      <button class="btn btn-glow btn-lg px-5 mt-3">Get Started</button>
+      <a class="btn btn-glow btn-lg px-5 mt-3" href="pages/platform-overview.html">Get Started</a>
+    </section>
+
+    <section id="docs-portal" class="mb-5">
+      <p class="section-label mb-2">Documentation Portal</p>
+      <h2>Multi-page product docs (new)</h2>
+      <p class="text-muted" style="max-width:690px;">We now maintain dedicated pages for each major capability so teams can onboard faster and find operational details without scrolling one giant page.</p>
+      <div class="portal-grid">
+        <a class="portal-card" href="pages/platform-overview.html">
+          <h5>Platform Overview</h5>
+          <p>Architecture map, workspace mission, and navigation strategy for the full product.</p>
+        </a>
+        <a class="portal-card" href="pages/deploy-workflows.html">
+          <h5>Deploy Workflows</h5>
+          <p>Compare-select-deploy flow, remote editor behavior, and operational verification patterns.</p>
+        </a>
+        <a class="portal-card" href="pages/backup-automation.html">
+          <h5>Backup Automation</h5>
+          <p>Scheduler lifecycle, validation stages, integrity sampling, and history-driven reruns.</p>
+        </a>
+        <a class="portal-card" href="pages/terminal-database-suite.html">
+          <h5>Terminal + Database Suite</h5>
+          <p>Incident-friendly shell and SQL workflows for fast diagnosis and production support.</p>
+        </a>
+        <a class="portal-card" href="pages/release-and-distribution.html">
+          <h5>Release and Distribution</h5>
+          <p>Version tagging, packaging strategy, and artifact guidance for operator-ready delivery.</p>
+        </a>
+        <a class="portal-card" href="pages/faq-and-troubleshooting.html">
+          <h5>FAQ and Troubleshooting</h5>
+          <p>Answers to common runtime/deploy issues plus practical escalation checklist.</p>
+        </a>
+      </div>
     </section>
 
     <div id="features" class="row g-4 align-items-stretch">

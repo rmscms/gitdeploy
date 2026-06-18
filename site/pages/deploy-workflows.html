@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GitDeploy Pro - Deploy Workflows</title>
+  <link rel="icon" type="image/x-icon" href="../faveicon.ico" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link href="../assets/theme.css" rel="stylesheet" />
+</head>
+<body data-page="deploy">
+  <div class="shell">
+    <header class="topbar">
+      <div class="brand"><span class="brand-dot"></span>GitDeploy Pro Docs</div>
+      <nav class="nav">
+        <a href="../index.html" data-nav="home">Home</a>
+        <a href="platform-overview.html" data-nav="overview">Overview</a>
+        <a href="deploy-workflows.html" data-nav="deploy">Deploy</a>
+        <a href="backup-automation.html" data-nav="backup">Backup</a>
+        <a href="terminal-database-suite.html" data-nav="terminaldb">Terminal + DB</a>
+        <a href="release-and-distribution.html" data-nav="release">Release</a>
+        <a href="faq-and-troubleshooting.html" data-nav="faq">FAQ</a>
+      </nav>
+    </header>
+
+    <main class="content">
+      <p class="eyebrow">Deploy</p>
+      <h1>Deploy Workflows: Safe, Fast, and Observable</h1>
+      <p>
+        The Deploy stack is built around one principle: always know what is changing, where it is going, and what happened after upload.
+      </p>
+
+      <section class="section">
+        <h2>Primary Deploy Pipeline</h2>
+        <div class="grid two">
+          <article class="card">
+            <h3>Step 1 - Repository Readiness</h3>
+            <ul class="list">
+              <li>Checks uncommitted state and branch context.</li>
+              <li>Guides commit or compare action when needed.</li>
+              <li>Surface push-needed state clearly before deploy.</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>Step 2 - Compare & Select</h3>
+            <ul class="list">
+              <li>Diff source and target branch snapshots.</li>
+              <li>Select exactly which files should be deployed.</li>
+              <li>Avoid accidental uploads from unrelated changes.</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>Step 3 - Upload & Verify</h3>
+            <ul class="list">
+              <li>Upload progress and per-operation logs are visible.</li>
+              <li>Warnings identify partial or risky outcomes.</li>
+              <li>Status is persisted into project history records.</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>Step 4 - Post-Deploy Sync</h3>
+            <ul class="list">
+              <li>Follow-up merge/push actions can be triggered.</li>
+              <li>Keeps repository and remote state aligned.</li>
+              <li>Reduces drift between local and production branches.</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>Remote Editor Workspace</h2>
+        <div class="grid two">
+          <article class="card">
+            <h3>What It Adds</h3>
+            <ul class="list">
+              <li>Browse remote tree and open files directly.</li>
+              <li>Multi-tab editing for hotfix scenarios.</li>
+              <li>Dirty-state indicators before upload.</li>
+              <li>Upload progress + post-upload feedback.</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>Safety Behavior</h3>
+            <ul class="list">
+              <li>Prompt when closing unsaved tabs.</li>
+              <li>Fallback editor if advanced host is unavailable.</li>
+              <li>Timeout-aware open flow for laggy servers.</li>
+              <li>Connection recovery hooks for transient failures.</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>FTP Explorer & Direct Upload</h2>
+        <div class="card">
+          <p>
+            For rapid operational tasks, Direct Upload and FTP Explorer remain first-class workspaces.
+            They are ideal for emergency fixes, mapped uploads, and selective remote file operations.
+          </p>
+          <ul class="list">
+            <li><strong>Direct Upload:</strong> map local folders to remote paths, upload with progress, and keep rollback-ready context.</li>
+            <li><strong>FTP Explorer:</strong> inspect remote structure, include hidden files when needed, and manage conflict-aware downloads.</li>
+            <li><strong>Cross-page consistency:</strong> shared remote path resolution logic minimizes mismatched upload destinations.</li>
+          </ul>
+        </div>
+      </section>
+
+      <div class="callout">
+        <strong>Recommended flow:</strong> Compare -> Select -> Deploy -> Verify logs -> Sync branch state.
+      </div>
+
+      <footer class="footer">
+        GitDeploy Pro Documentation Portal - Deploy Workflows
+      </footer>
+    </main>
+  </div>
+  <script src="../assets/site.js"></script>
+</body>
+</html>

@@ -96,7 +96,7 @@ namespace GitDeployPro.Pages
         private void DetachDatabasePage_Click(object sender, RoutedEventArgs e)
         {
             var window = new PageHostWindow(new DatabasePage(), "Database • Detached");
-            window.Show();
+            WindowOwnerService.ShowOwned(window, this);
         }
 
         private void InitializeSqlEditor()

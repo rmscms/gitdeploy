@@ -42,7 +42,15 @@ namespace GitDeployPro.Pages
                 {
                     await ReloadSettingsForPath(globalConfig.LastProjectPath);
                 }
-                LaunchOnStartupCheckBox.IsChecked = globalConfig.LaunchOnStartup;
+                var startupEnabled = _autoStartService.IsEnabled();
+                LaunchOnStartupCheckBox.IsChecked = startupEnabled;
+                ShowBackupLocalhostWarningCheckBox.IsChecked = globalConfig.ShowBackupSchedulerLocalhostWarning;
+                if (globalConfig.LaunchOnStartup != startupEnabled)
+                {
+                    _configService.UpdateGlobalConfig(cfg => cfg.LaunchOnStartup = startupEnabled);
+                }
+
+                RefreshStartupAudit();
             }
             catch (Exception ex)
             {
@@ -162,9 +170,8 @@ namespace GitDeployPro.Pages
             try
             {
                 var manager = new ConnectionManagerWindow();
-                manager.Owner = System.Windows.Application.Current.MainWindow;
-                
-                if (manager.ShowDialog() == true)
+
+                if (WindowOwnerService.ShowDialogOwned(manager, this) == true)
                 {
                      // Refresh list
                      var connections = _configService.LoadConnections();
@@ -277,21 +284,24 @@ namespace GitDeployPro.Pages
                 }
 
                 bool launchOnStartup = LaunchOnStartupCheckBox.IsChecked == true;
+                bool showBackupLocalhostWarning = ShowBackupLocalhostWarningCheckBox.IsChecked != false;
 
                 _configService.UpdateGlobalConfig(cfg =>
                 {
                     cfg.LastProjectPath = projectPath;
                     cfg.LaunchOnStartup = launchOnStartup;
+                    cfg.ShowBackupSchedulerLocalhostWarning = showBackupLocalhostWarning;
                 });
 
                 _autoStartService.SetAutoStart(launchOnStartup);
+                RefreshStartupAudit();
                 
                 GitService.SetWorkingDirectory(projectPath);
 
                 if (!_gitService.IsGitRepository())
                 {
                     var initWindow = new InitGitWindow(RemoteUrlTextBox.Text);
-                    initWindow.ShowDialog();
+                    WindowOwnerService.ShowDialogOwned(initWindow, this);
 
                     if (initWindow.Confirmed)
                     {
@@ -468,6 +478,195 @@ namespace GitDeployPro.Pages
              ModernMessageBox.Show(".gitignore updated with app entries!", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
+        private void RefreshStartupAuditButton_Click(object sender, RoutedEventArgs e)
+        {
+            RefreshStartupAudit();
+        }
+
+        private void UseCurrentStartupButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                _autoStartService.SetAutoStart(true);
+
+                var entries = _autoStartService.GetGitDeployStartupEntries();
+                var extraValueNames = entries
+                    .Where(x => !string.Equals(x.ValueName, _autoStartService.PrimaryValueName, StringComparison.OrdinalIgnoreCase))
+                    .Select(x => x.ValueName)
+                    .ToList();
+                var removedDuplicates = _autoStartService.RemoveStartupEntries(extraValueNames);
+
+                LaunchOnStartupCheckBox.IsChecked = true;
+                _configService.UpdateGlobalConfig(cfg => cfg.LaunchOnStartup = true);
+                RefreshStartupAudit();
+
+                var duplicateHint = removedDuplicates > 0
+                    ? $" Removed {removedDuplicates} duplicate startup entr{(removedDuplicates == 1 ? "y" : "ies")}."
+                    : string.Empty;
+                ModernMessageBox.Show(
+                    $"Startup now points to this running version.{duplicateHint}",
+                    "Startup Updated",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show($"Failed to update startup entry: {ex.Message}", "Startup Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void RemoveStartupEntriesButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var entries = _autoStartService.GetGitDeployStartupEntries();
+                if (entries.Count == 0)
+                {
+                    RefreshStartupAudit();
+                    ModernMessageBox.Show("No GitDeploy startup entries were found.", "Startup", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                var confirm = ModernMessageBox.ShowWithResult(
+                    $"Remove all detected GitDeploy startup entries? ({entries.Count})",
+                    "Confirm Startup Cleanup",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning,
+                    "Remove",
+                    "Cancel");
+                if (confirm != MessageBoxResult.Yes)
+                {
+                    return;
+                }
+
+                var removed = _autoStartService.RemoveStartupEntries(entries.Select(x => x.ValueName));
+                LaunchOnStartupCheckBox.IsChecked = false;
+                _configService.UpdateGlobalConfig(cfg => cfg.LaunchOnStartup = false);
+                RefreshStartupAudit();
+
+                ModernMessageBox.Show(
+                    $"Removed {removed} startup entr{(removed == 1 ? "y" : "ies")}.",
+                    "Startup Cleaned",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show($"Failed to remove startup entries: {ex.Message}", "Startup Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void RefreshStartupAudit()
+        {
+            try
+            {
+                var currentExe = _autoStartService.GetCurrentExecutablePath();
+                var primaryEntry = _autoStartService.GetPrimaryStartupEntry();
+                var entries = _autoStartService.GetGitDeployStartupEntries();
+
+                var hasAny = entries.Count > 0;
+                var hasCurrent = entries.Any(x => ArePathsEqual(x.ExecutablePath, currentExe));
+                var hasDuplicates = entries.Count > 1;
+
+                var summary = !hasAny
+                    ? "No GitDeploy startup entry found."
+                    : hasCurrent && hasDuplicates
+                        ? "Startup has multiple GitDeploy entries. Current version is detected, but cleanup is recommended."
+                        : hasCurrent
+                            ? "Startup is correctly pointing to this current version."
+                            : "Startup points to another executable (likely an older portable release).";
+
+                LaunchOnStartupCheckBox.IsChecked = hasAny;
+                StartupAuditSummaryText.Text = summary;
+                StartupCurrentExeText.Text = $"Current exe: {FormatPathWithVersion(currentExe)}";
+                StartupPrimaryEntryText.Text = primaryEntry == null
+                    ? $"Primary startup value ({_autoStartService.PrimaryValueName}): not found"
+                    : $"Primary startup value ({primaryEntry.ValueName}): {FormatPathWithVersion(primaryEntry.ExecutablePath)}";
+
+                StartupEntriesTextBox.Text = entries.Count == 0
+                    ? "(none)"
+                    : string.Join(Environment.NewLine, entries.Select(FormatStartupEntryLine));
+
+                UseCurrentStartupButton.IsEnabled = !string.IsNullOrWhiteSpace(currentExe);
+                RemoveStartupEntriesButton.IsEnabled = hasAny;
+            }
+            catch (Exception ex)
+            {
+                StartupAuditSummaryText.Text = $"Startup audit failed: {ex.Message}";
+                StartupCurrentExeText.Text = "Current exe: -";
+                StartupPrimaryEntryText.Text = "Primary startup value: -";
+                StartupEntriesTextBox.Text = "(error)";
+            }
+        }
+
+        private static bool ArePathsEqual(string? left, string? right)
+        {
+            if (string.IsNullOrWhiteSpace(left) || string.IsNullOrWhiteSpace(right))
+            {
+                return false;
+            }
+
+            try
+            {
+                var a = Path.GetFullPath(left).TrimEnd('\\', '/');
+                var b = Path.GetFullPath(right).TrimEnd('\\', '/');
+                return string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return string.Equals(left?.Trim(), right?.Trim(), StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
+        private static string FormatPathValue(string? path)
+        {
+            return string.IsNullOrWhiteSpace(path) ? "-" : path.Trim();
+        }
+
+        private static string FormatPathWithVersion(string? executablePath)
+        {
+            var path = FormatPathValue(executablePath);
+            var version = ResolveExecutableVersion(executablePath);
+            return $"{path} (v{version})";
+        }
+
+        private static string FormatStartupEntryLine(AutoStartService.StartupEntryInfo entry)
+        {
+            if (entry == null)
+            {
+                return "-";
+            }
+
+            return $"{entry.ValueName} => {FormatPathWithVersion(entry.ExecutablePath)}";
+        }
+
+        private static string ResolveExecutableVersion(string? executablePath)
+        {
+            if (string.IsNullOrWhiteSpace(executablePath) || !File.Exists(executablePath))
+            {
+                return "unknown";
+            }
+
+            try
+            {
+                var info = System.Diagnostics.FileVersionInfo.GetVersionInfo(executablePath);
+                var version = !string.IsNullOrWhiteSpace(info.ProductVersion)
+                    ? info.ProductVersion
+                    : info.FileVersion;
+                if (string.IsNullOrWhiteSpace(version))
+                {
+                    return "unknown";
+                }
+
+                var plusIndex = version.IndexOf('+');
+                return plusIndex > 0 ? version[..plusIndex] : version;
+            }
+            catch
+            {
+                return "unknown";
+            }
+        }
+
         private void UpdateGitPushStatusBadge(BranchStatusInfo status)
         {
             if (GitPushStatusBadge == null || GitPushStatusText == null) return;
@@ -609,12 +808,9 @@ namespace GitDeployPro.Pages
 
         private async Task RunSetupWizardAsync(string path)
         {
-            var wizard = new ProjectSetupWizard(path)
-            {
-                Owner = System.Windows.Application.Current.MainWindow
-            };
+            var wizard = new ProjectSetupWizard(path);
 
-            if (wizard.ShowDialog() == true)
+            if (WindowOwnerService.ShowDialogOwned(wizard, this) == true)
             {
                 ModernMessageBox.Show("Project configuration re-setup successfully! 🔄", "Setup Completed", MessageBoxButton.OK, MessageBoxImage.Information);
                 await ReloadSettingsForPath(path);

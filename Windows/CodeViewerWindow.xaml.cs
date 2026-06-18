@@ -17,29 +17,37 @@ namespace GitDeployPro.Windows
         private readonly string _absolutePath;
         private static string? _htmlTemplate;
         private bool _isEditMode;
+        private readonly bool _readOnlyOnly;
         private readonly bool _canSave;
         private bool _hasUnsavedChanges;
         private bool _isSaving;
 
-        public CodeViewerWindow(string displayPath, string content, string absolutePath)
+        public CodeViewerWindow(string displayPath, string content, string absolutePath, bool readOnlyOnly = false)
         {
             InitializeComponent();
             _displayPath = displayPath;
             _content = content ?? string.Empty;
             _absolutePath = absolutePath ?? string.Empty;
-            _canSave = !string.IsNullOrWhiteSpace(_absolutePath) && File.Exists(_absolutePath);
+            _readOnlyOnly = readOnlyOnly;
+            _canSave = !_readOnlyOnly && !string.IsNullOrWhiteSpace(_absolutePath) && File.Exists(_absolutePath);
 
             TitleText.Text = Path.GetFileName(displayPath);
             SubTitleText.Text = displayPath;
             SaveButton.IsEnabled = _canSave;
             UpdateSaveButtonState();
 
+            if (_readOnlyOnly)
+            {
+                EditToggleButton.Visibility = Visibility.Collapsed;
+                SaveButton.Visibility = Visibility.Collapsed;
+            }
+
             Loaded += CodeViewerWindow_Loaded;
         }
 
         protected override void OnClosing(CancelEventArgs e)
         {
-            if (_hasUnsavedChanges && !_isSaving)
+            if (!_readOnlyOnly && _hasUnsavedChanges && !_isSaving)
             {
                 var result = ModernMessageBox.ShowWithResult(
                     "You have unsaved changes. Do you want to save before closing?",
@@ -177,6 +185,11 @@ namespace GitDeployPro.Windows
 
         private async void EditToggleButton_Click(object sender, RoutedEventArgs e)
         {
+            if (_readOnlyOnly)
+            {
+                return;
+            }
+
             _isEditMode = !_isEditMode;
             EditToggleButton.Content = _isEditMode ? "Disable Edit" : "Enable Edit";
 
@@ -195,6 +208,11 @@ namespace GitDeployPro.Windows
 
         private async Task<bool> SaveContentAsync()
         {
+            if (_readOnlyOnly)
+            {
+                return false;
+            }
+
             if (!_canSave)
             {
                 System.Windows.MessageBox.Show("Cannot save because original file path is not available.", "Save Error", MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -232,6 +250,11 @@ namespace GitDeployPro.Windows
 
         private void UpdateSaveButtonState()
         {
+            if (SaveButton.Visibility != Visibility.Visible)
+            {
+                return;
+            }
+
             var brush = CreateBrush(_hasUnsavedChanges ? "#1E88E5" : "#455A64");
             SaveButton.Background = brush;
             SaveButton.BorderBrush = brush;

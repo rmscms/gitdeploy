@@ -311,7 +311,7 @@ namespace GitDeployPro.Windows
         private void AddFolderButton_Click(object sender, RoutedEventArgs e)
         {
             var inputDialog = new InputDialog("Enter folder name:", "New Folder", "New Folder");
-            if (inputDialog.ShowDialog() == true)
+            if (WindowOwnerService.ShowDialogOwned(inputDialog, this) == true)
             {
                 var name = inputDialog.InputText;
                 if (string.IsNullOrWhiteSpace(name)) return;
@@ -383,7 +383,7 @@ namespace GitDeployPro.Windows
         private void LinkButton_Click(object sender, RoutedEventArgs e)
         {
             var connWindow = new ConnectionManagerWindow();
-            if (connWindow.ShowDialog() == true)
+            if (WindowOwnerService.ShowDialogOwned(connWindow, this) == true)
             {
                 LoadData();
                 BuildTree();

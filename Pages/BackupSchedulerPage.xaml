@@ -120,6 +120,7 @@
     <Grid Margin="{StaticResource Spacing.PageMargin}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
@@ -159,8 +160,40 @@
             </StackPanel>
         </Grid>
 
+        <Border Grid.Row="1"
+                Margin="0,0,0,16"
+                Padding="12,10"
+                Background="{StaticResource Status.WarningSurface}"
+                BorderBrush="{StaticResource Status.Warning}"
+                BorderThickness="1"
+                CornerRadius="10"
+                Visibility="{Binding IsLocalhostConnectionWarningVisible, Converter={StaticResource BoolToVisibility}}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="⚠️" FontSize="14" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding LocalhostConnectionWarningMessage}"
+                               FontSize="12"
+                               Foreground="{StaticResource Text.Secondary}"
+                               VerticalAlignment="Center"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
+                <Button Grid.Column="1"
+                        Content="✕"
+                        Width="28"
+                        Height="28"
+                        Margin="10,0,0,0"
+                        Style="{StaticResource App.IconButton}"
+                        ToolTip="Dismiss warning"
+                        Click="DismissLocalhostConnectionWarning_Click"/>
+            </Grid>
+        </Border>
+
         <!-- Body -->
-        <Grid Grid.Row="1">
+        <Grid Grid.Row="2">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="300"/>
                 <ColumnDefinition Width="*"/>

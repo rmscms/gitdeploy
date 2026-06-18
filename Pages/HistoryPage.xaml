@@ -6,142 +6,304 @@
       Background="{StaticResource Surface.Base}">
     <Grid Margin="{StaticResource Spacing.PageMargin}">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- Header -->
-        <Grid Grid.Row="0" Margin="0,0,0,25">
+        <Grid Grid.Row="0" Margin="0,0,0,20">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            
+
             <StackPanel Grid.Column="0" Orientation="Horizontal">
-                <TextBlock Text="📜" FontSize="40" VerticalAlignment="Center" Margin="0,0,15,0" Foreground="{StaticResource Text.Primary}"/>
+                <TextBlock Text="📜" FontSize="40" VerticalAlignment="Center" Margin="0,0,15,0" Foreground="{StaticResource Text.Primary}" />
                 <StackPanel>
-                    <TextBlock Text="Deployment History" Style="{StaticResource App.PageTitleTextStyle}" />
-                    <TextBlock Text="Track deploy status, details and rollback checkpoints."
+                    <TextBlock Text="Commit History" Style="{StaticResource App.PageTitleTextStyle}" />
+                    <TextBlock Text="Fast loading with file search and snapshot preview."
                                Style="{StaticResource App.PageSubtitleTextStyle}" />
                 </StackPanel>
             </StackPanel>
 
-            <Button Grid.Column="1"
-                   Height="42"
-                   Padding="20,0"
-                   Style="{StaticResource App.Button.Primary}"
-                   FontSize="13"
-                   FontWeight="SemiBold"
-                   Cursor="Hand"
-                   Click="Refresh_Click">
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="🔄" FontSize="16" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{StaticResource Text.Primary}"/>
-                    <TextBlock Text="Refresh" VerticalAlignment="Center"/>
-                </StackPanel>
-            </Button>
+            <StackPanel Grid.Column="1"
+                        Orientation="Vertical"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Center">
+                <TextBlock x:Name="LoadedSummaryText"
+                           Text="Loaded: 0"
+                           HorizontalAlignment="Right"
+                           Foreground="{StaticResource Text.Muted}"
+                           Margin="0,0,0,8" />
+                <Button Height="40"
+                        Padding="18,0"
+                        Style="{StaticResource App.Button.Primary}"
+                        Click="Refresh_Click">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Refresh" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
         </Grid>
 
-        <!-- History List -->
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-            <ItemsControl x:Name="HistoryItemsControl">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <Border Background="{StaticResource Surface.Card}" 
-                               BorderBrush="{StaticResource Border.Subtle}"
-                               BorderThickness="1"
-                               CornerRadius="10" 
-                               Padding="20" 
-                               Margin="0,0,0,12">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                </Grid.RowDefinitions>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
+        <Border Grid.Row="1"
+                Style="{StaticResource App.CardStyle}"
+                Margin="0,0,0,16">
+            <StackPanel>
+                <TextBlock Text="File search (loaded commits)"
+                           Style="{StaticResource App.SectionTitleTextStyle}" />
+                <TextBlock Text="Type a file path to get live suggestions and open snapshots from commit history."
+                           Foreground="{StaticResource Text.Muted}"
+                           Margin="0,4,0,12" />
 
-                                <!-- Icon Circle -->
-                                <Border Grid.Row="0" Grid.Column="0" Grid.RowSpan="2"
-                                       Background="{Binding StatusColor}" 
-                                       CornerRadius="30" 
-                                       Width="50" 
-                                       Height="50"
-                                       Margin="0,0,15,0"
-                                       VerticalAlignment="Top">
-                                    <TextBlock Text="{Binding Icon}" 
-                                              FontSize="26" 
-                                              HorizontalAlignment="Center"
-                                              VerticalAlignment="Center"
-                                              Foreground="{StaticResource Text.Inverse}"/>
-                                </Border>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
 
-                                <!-- Title -->
-                                <TextBlock Grid.Row="0" Grid.Column="1"
-                                          Text="{Binding Title}" 
-                                          FontSize="17" 
-                                          FontWeight="SemiBold"
-                                          Foreground="{StaticResource Text.Primary}"/>
+                    <TextBox x:Name="FileSearchTextBox"
+                             Grid.Column="0"
+                             Style="{StaticResource App.InputTextBox}"
+                             mah:TextBoxHelper.Watermark="Search changed files..."
+                             TextChanged="FileSearchTextBox_TextChanged"
+                             KeyDown="FileSearchTextBox_KeyDown" />
 
-                                <!-- Status Badge -->
-                                <Border Grid.Row="0" Grid.Column="2" 
-                                       Background="{Binding StatusColor}" 
-                                       CornerRadius="4" 
-                                       Padding="12,6"
-                                       VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding Status}" 
-                                              Foreground="{StaticResource Text.Inverse}" 
-                                              FontSize="12" 
-                                              FontWeight="Bold"/>
-                                </Border>
+                    <Button Grid.Column="1"
+                            Margin="8,0,0,0"
+                            Style="{StaticResource App.IconButton}"
+                            Content="✕"
+                            Click="ClearSearch_Click" />
+                </Grid>
 
-                                <!-- Details -->
-                                <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
-                                          Text="{Binding Details}" 
-                                          FontSize="13" 
-                                          Foreground="{StaticResource Text.Muted}" 
-                                          Margin="0,6,0,12"/>
+                <Border x:Name="SuggestionsBorder"
+                        Margin="0,10,0,0"
+                        Style="{StaticResource App.CardStyle}"
+                        Visibility="Collapsed"
+                        Padding="10">
+                    <StackPanel>
+                        <TextBlock Text="Suggestions"
+                                   Foreground="{StaticResource Text.Muted}"
+                                   Margin="0,0,0,8" />
+                        <ListBox x:Name="SuggestionsListBox"
+                                 BorderThickness="0"
+                                 Background="Transparent"
+                                 ItemContainerStyle="{StaticResource App.ListBoxItem.Card}"
+                                 SelectionChanged="SuggestionsListBox_SelectionChanged" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </Border>
 
-                                <!-- Actions -->
-                                <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" 
-                                           Orientation="Horizontal" 
-                                           Margin="0,8,0,0">
-                                    <Button Height="36" 
-                                           Padding="16,0"
-                                           Margin="0,0,10,0"
-                                           Style="{StaticResource App.Button.Ghost}"
-                                           Foreground="{StaticResource Text.Secondary}"
-                                           FontSize="12"
-                                           Cursor="Hand"
-                                           Click="Details_Click"
-                                           Tag="{Binding Id}">
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="📋" FontSize="14" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="{StaticResource Text.Primary}"/>
-                                            <TextBlock Text="Details" VerticalAlignment="Center"/>
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="7*" />
+                <ColumnDefinition Width="5*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0"
+                    Style="{StaticResource App.CardStyle}"
+                    Margin="0,0,12,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0" Margin="0,0,0,12">
+                        <TextBlock Text="Commits"
+                                   Style="{StaticResource App.SectionTitleTextStyle}" />
+                        <TextBlock Text="Latest commits are loaded in batches of 50."
+                                   Foreground="{StaticResource Text.Muted}" />
+                    </StackPanel>
+
+                    <ListBox x:Name="HistoryListBox"
+                             Grid.Row="1"
+                             BorderThickness="0"
+                             Background="Transparent"
+                             ItemContainerStyle="{StaticResource App.ListBoxItem.Transparent}"
+                             VirtualizingPanel.IsVirtualizing="True"
+                             VirtualizingPanel.VirtualizationMode="Recycling"
+                             ScrollViewer.CanContentScroll="True">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="{StaticResource Surface.Card}"
+                                        BorderBrush="{StaticResource Border.Subtle}"
+                                        BorderThickness="1"
+                                        CornerRadius="10"
+                                        Padding="16"
+                                        Margin="0,0,0,10">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <Border Grid.Row="0"
+                                                Grid.Column="0"
+                                                Grid.RowSpan="2"
+                                                Background="{Binding StatusColor}"
+                                                CornerRadius="24"
+                                                Width="44"
+                                                Height="44"
+                                                Margin="0,0,12,0"
+                                                VerticalAlignment="Top">
+                                            <TextBlock Text="{Binding Icon}"
+                                                       FontSize="22"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{StaticResource Text.Inverse}" />
+                                        </Border>
+
+                                        <TextBlock Grid.Row="0"
+                                                   Grid.Column="1"
+                                                   Text="{Binding Title}"
+                                                   FontSize="15"
+                                                   FontWeight="SemiBold"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   Foreground="{StaticResource Text.Primary}" />
+
+                                        <Border Grid.Row="0"
+                                                Grid.Column="2"
+                                                Background="{Binding StatusColor}"
+                                                CornerRadius="6"
+                                                Padding="10,4"
+                                                VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Status}"
+                                                       Foreground="{StaticResource Text.Inverse}"
+                                                       FontSize="11"
+                                                       FontWeight="Bold" />
+                                        </Border>
+
+                                        <TextBlock Grid.Row="1"
+                                                   Grid.Column="1"
+                                                   Grid.ColumnSpan="2"
+                                                   Text="{Binding Details}"
+                                                   FontSize="12"
+                                                   Foreground="{StaticResource Text.Muted}"
+                                                   Margin="0,6,0,10" />
+
+                                        <StackPanel Grid.Row="2"
+                                                    Grid.Column="0"
+                                                    Grid.ColumnSpan="3"
+                                                    Orientation="Horizontal">
+                                            <Button Height="34"
+                                                    Padding="14,0"
+                                                    Margin="0,0,8,0"
+                                                    Style="{StaticResource App.Button.Ghost}"
+                                                    FontSize="12"
+                                                    Click="Details_Click"
+                                                    Tag="{Binding}">
+                                                <TextBlock Text="Details" />
+                                            </Button>
+                                            <Button Height="34"
+                                                    Padding="14,0"
+                                                    Style="{StaticResource App.Button.Ghost}"
+                                                    FontSize="12"
+                                                    Click="Rollback_Click"
+                                                    Tag="{Binding}">
+                                                <TextBlock Text="Rollback" />
+                                            </Button>
                                         </StackPanel>
-                                    </Button>
-                                    <Button Height="36" 
-                                           Padding="16,0"
-                                           Style="{StaticResource App.Button.Ghost}"
-                                           Foreground="{StaticResource Text.Secondary}"
-                                           FontSize="12"
-                                           Cursor="Hand"
-                                           Click="Rollback_Click"
-                                           Tag="{Binding Id}">
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="↩️" FontSize="14" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="{StaticResource Text.Primary}"/>
-                                            <TextBlock Text="Rollback" VerticalAlignment="Center"/>
-                                        </StackPanel>
-                                    </Button>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <StackPanel Grid.Row="2"
+                                Orientation="Horizontal"
+                                Margin="0,10,0,0">
+                        <Button x:Name="LoadMoreButton"
+                                Height="36"
+                                Padding="16,0"
+                                Style="{StaticResource App.Button.Toolbar}"
+                                Content="Load more"
+                                Click="LoadMore_Click" />
+                        <TextBlock x:Name="HistoryEmptyText"
+                                   Text="No commits available."
+                                   Margin="12,0,0,0"
+                                   VerticalAlignment="Center"
+                                   Foreground="{StaticResource Text.Muted}"
+                                   Visibility="Collapsed" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Border Grid.Column="1"
+                    Style="{StaticResource App.CardStyle}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0" Margin="0,0,0,12">
+                        <TextBlock Text="File matches"
+                                   Style="{StaticResource App.SectionTitleTextStyle}" />
+                        <TextBlock x:Name="SelectedFileText"
+                                   Text="Select a suggested file to see commits."
+                                   Foreground="{StaticResource Text.Muted}" />
+                    </StackPanel>
+
+                    <ListBox x:Name="FileHitsListBox"
+                             Grid.Row="1"
+                             BorderThickness="0"
+                             Background="Transparent"
+                             ItemContainerStyle="{StaticResource App.ListBoxItem.Card}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel>
+                                    <TextBlock Text="{Binding CommitSummary}"
+                                               FontWeight="SemiBold"
+                                               Foreground="{StaticResource Text.Primary}"
+                                               TextTrimming="CharacterEllipsis" />
+                                    <StackPanel Orientation="Horizontal" Margin="0,6,0,8">
+                                        <Border Background="{Binding ChangeTypeBrush}"
+                                                CornerRadius="6"
+                                                Padding="8,3"
+                                                Margin="0,0,8,0">
+                                            <TextBlock Text="{Binding ChangeTypeLabel}"
+                                                       FontSize="11"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{StaticResource Text.Inverse}" />
+                                        </Border>
+                                        <TextBlock Text="{Binding DateText}"
+                                                   Foreground="{StaticResource Text.Muted}"
+                                                   Margin="0,0,8,0" />
+                                        <TextBlock Text="{Binding CommitShortHashText}"
+                                                   Foreground="{StaticResource Text.Muted}" />
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Button Height="32"
+                                                Padding="12,0"
+                                                Margin="0,0,8,0"
+                                                Style="{StaticResource App.Button.Primary}"
+                                                Content="Open content"
+                                                IsEnabled="{Binding CanOpen}"
+                                                Click="OpenFileContent_Click"
+                                                Tag="{Binding}" />
+                                        <Button Height="32"
+                                                Padding="12,0"
+                                                Style="{StaticResource App.Button.Ghost}"
+                                                Content="View diff"
+                                                IsEnabled="{Binding CanOpen}"
+                                                Click="ViewFileDiff_Click"
+                                                Tag="{Binding}" />
+                                    </StackPanel>
                                 </StackPanel>
-                            </Grid>
-                        </Border>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-        </ScrollViewer>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </Border>
+        </Grid>
     </Grid>
 </Page>

@@ -25,9 +25,19 @@ namespace GitDeployPro.Windows
 
         private void ToastWindow_Loaded(object? sender, RoutedEventArgs e)
         {
-            var workArea = SystemParameters.WorkArea;
-            Left = workArea.Right - Width - 20;
-            Top = workArea.Bottom - Height - 20;
+            var targetRect = SystemParameters.WorkArea;
+            if (Owner != null && Owner.IsLoaded && Owner.WindowState != WindowState.Minimized)
+            {
+                var ownerWidth = Owner.ActualWidth > 0 ? Owner.ActualWidth : Owner.Width;
+                var ownerHeight = Owner.ActualHeight > 0 ? Owner.ActualHeight : Owner.Height;
+                if (ownerWidth > 0 && ownerHeight > 0)
+                {
+                    targetRect = new Rect(Owner.Left, Owner.Top, ownerWidth, ownerHeight);
+                }
+            }
+
+            Left = targetRect.Right - Width - 20;
+            Top = targetRect.Bottom - Height - 20;
             _timer.Start();
         }
 

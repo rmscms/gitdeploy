@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GitDeploy Pro - Platform Overview</title>
+  <link rel="icon" type="image/x-icon" href="../faveicon.ico" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link href="../assets/theme.css" rel="stylesheet" />
+</head>
+<body data-page="overview">
+  <div class="shell">
+    <header class="topbar">
+      <div class="brand"><span class="brand-dot"></span>GitDeploy Pro Docs</div>
+      <nav class="nav">
+        <a href="../index.html" data-nav="home">Home</a>
+        <a href="platform-overview.html" data-nav="overview">Overview</a>
+        <a href="deploy-workflows.html" data-nav="deploy">Deploy</a>
+        <a href="backup-automation.html" data-nav="backup">Backup</a>
+        <a href="terminal-database-suite.html" data-nav="terminaldb">Terminal + DB</a>
+        <a href="release-and-distribution.html" data-nav="release">Release</a>
+        <a href="faq-and-troubleshooting.html" data-nav="faq">FAQ</a>
+      </nav>
+    </header>
+
+    <main class="content">
+      <p class="eyebrow">Platform</p>
+      <h1>One Desktop Hub For Git, Deploy, Backup, and Operations</h1>
+      <p>
+        GitDeploy Pro is designed as an operations cockpit: everything from daily Git pushes to emergency direct uploads,
+        database checks, scheduled backups, and terminal operations can be handled without switching apps.
+      </p>
+
+      <section class="hero">
+        <article class="card">
+          <h3>Mission</h3>
+          <p>
+            Replace fragmented workflows with one reliable Windows app that gives you visibility, traceability, and fast controls.
+            Every important action can be reviewed, logged, retried, and verified.
+          </p>
+          <div class="chip-list">
+            <span class="chip">WPF .NET 8</span>
+            <span class="chip">Git + SSH + FTP/SFTP</span>
+            <span class="chip">Terminal + Database</span>
+            <span class="chip">Backup Scheduler</span>
+            <span class="chip">Release Packaging</span>
+          </div>
+        </article>
+        <article class="card">
+          <h3>At A Glance</h3>
+          <p class="kpi">7 Workspaces</p>
+          <p class="muted">Dashboard, Deploy, Direct Upload, FTP Explorer, Database, Terminal, Git & GitHub.</p>
+          <p class="kpi">Per-Project State</p>
+          <p class="muted">Config and history are tracked per repository for safer context switching.</p>
+        </article>
+      </section>
+
+      <section class="section">
+        <h2>Core Workspace Map</h2>
+        <div class="grid three">
+          <article class="card">
+            <h3>Deploy Center</h3>
+            <p>Branch compare, selective file shipping, and operation logs with safer release flow controls.</p>
+            <ul class="list">
+              <li>Review and commit checks before deploy.</li>
+              <li>Compare branch outputs and deploy selected paths.</li>
+              <li>Remote workspace with inline editor and tabs.</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>Backup + Validation</h3>
+            <p>Job scheduler, execution history, integrity checks, and guided restore validation.</p>
+            <ul class="list">
+              <li>Timed backup jobs and active task tracking.</li>
+              <li>Validation stages and retry-friendly diagnostics.</li>
+              <li>History browser with actionable reruns.</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>Operations Suite</h3>
+            <p>Terminal and Database tools that let engineers investigate and fix issues in one place.</p>
+            <ul class="list">
+              <li>Local/SSH terminal sessions and presets.</li>
+              <li>Schema browsing and SQL query execution.</li>
+              <li>Live troubleshooting without context switching.</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>How To Use This Documentation Set</h2>
+        <div class="grid two">
+          <article class="card">
+            <h3>Feature-First Navigation</h3>
+            <ul class="list">
+              <li>Start with <strong>Deploy</strong> page if your main use-case is production delivery.</li>
+              <li>Use <strong>Backup</strong> page for scheduler and restore-validation strategy.</li>
+              <li>Use <strong>Terminal + DB</strong> page for diagnostics and data operations.</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>Ops-First Navigation</h3>
+            <ul class="list">
+              <li>Read <strong>Release</strong> for package types (self-contained vs lightweight).</li>
+              <li>Read <strong>FAQ</strong> when onboarding teammates or handling incidents.</li>
+              <li>Keep this portal as the quick map for all pages under <code>site/pages</code>.</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <div class="callout">
+        <strong>Tip:</strong> Keep this docs portal inside the repository so every release can update product docs with the same commit.
+      </div>
+
+      <footer class="footer">
+        GitDeploy Pro Documentation Portal - Platform Overview
+      </footer>
+    </main>
+  </div>
+  <script src="../assets/site.js"></script>
+</body>
+</html>
