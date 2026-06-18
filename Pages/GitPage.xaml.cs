@@ -249,7 +249,7 @@ namespace GitDeployPro.Pages
         private void DetachGitPage_Click(object sender, RoutedEventArgs e)
         {
             var window = new PageHostWindow(new GitPage(), "GitHub • Detached");
-            window.Show();
+            WindowOwnerService.ShowOwned(window, this);
         }
     }
 }

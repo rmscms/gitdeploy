@@ -1,11 +1,13 @@
 ﻿using System;
 using System.ComponentModel;
 using System.Linq;
+using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives; 
 using System.Windows.Media; 
 using System.Windows.Threading;
+using GitDeployPro.Controls;
 using GitDeployPro.Models;
 using GitDeployPro.Pages;
 using GitDeployPro.Services;
@@ -415,6 +417,41 @@ namespace GitDeployPro
         private void Git_Click(object sender, RoutedEventArgs e) => ContentFrame.Navigate(new GitPage());
         private void History_Click(object sender, RoutedEventArgs e) => ContentFrame.Navigate(new HistoryPage());
         private void Settings_Click(object sender, RoutedEventArgs e) => ContentFrame.Navigate(new SettingsPage());
+        private void About_Click(object sender, RoutedEventArgs e)
+        {
+            var version = GetApplicationVersion();
+            ModernMessageBox.Show(
+                $"GitDeploy Pro\nVersion: {version}",
+                "About GitDeploy Pro",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information,
+                "Close");
+        }
+
+        private static string GetApplicationVersion()
+        {
+            var assembly = Assembly.GetExecutingAssembly();
+            var informational = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+            if (!string.IsNullOrWhiteSpace(informational))
+            {
+                var plusIndex = informational.IndexOf('+');
+                return plusIndex > 0 ? informational[..plusIndex] : informational;
+            }
+
+            var version = assembly.GetName().Version;
+            if (version == null)
+            {
+                return "unknown";
+            }
+
+            if (version.Build > 0)
+            {
+                return $"{version.Major}.{version.Minor}.{version.Build}";
+            }
+
+            return $"{version.Major}.{version.Minor}";
+        }
+
         private void Minimize_Click(object sender, RoutedEventArgs e) => this.WindowState = WindowState.Minimized;
         private void Maximize_Click(object sender, RoutedEventArgs e) => this.WindowState = (this.WindowState == WindowState.Maximized) ? WindowState.Normal : WindowState.Maximized;
         private void Close_Click(object sender, RoutedEventArgs e) => this.Close();

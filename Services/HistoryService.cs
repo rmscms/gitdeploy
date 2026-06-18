@@ -85,6 +85,9 @@ namespace GitDeployPro.Services
 
     public class DeploymentRecord
     {
+        private static readonly SolidColorBrush SuccessBrush = CreateFrozenBrush(46, 125, 50);
+        private static readonly SolidColorBrush FailedBrush = CreateFrozenBrush(198, 40, 40);
+
         public int Id { get; set; }
         public string Title { get; set; } = "";
         public DateTime Date { get; set; }
@@ -98,11 +101,16 @@ namespace GitDeployPro.Services
         public string Icon => Status == "Success" ? "✅" : "❌";
         
         [JsonIgnore]
-        public SolidColorBrush StatusColor => Status == "Success" 
-            ? new SolidColorBrush(System.Windows.Media.Color.FromRgb(46, 125, 50)) 
-            : new SolidColorBrush(System.Windows.Media.Color.FromRgb(198, 40, 40));
+        public SolidColorBrush StatusColor => Status == "Success" ? SuccessBrush : FailedBrush;
 
         [JsonIgnore]
         public string Details => $"Date: {Date:yyyy/MM/dd - HH:mm} | Files: {FilesCount} | Branch: {Branch}";
+
+        private static SolidColorBrush CreateFrozenBrush(byte red, byte green, byte blue)
+        {
+            var brush = new SolidColorBrush(System.Windows.Media.Color.FromRgb(red, green, blue));
+            brush.Freeze();
+            return brush;
+        }
     }
 }

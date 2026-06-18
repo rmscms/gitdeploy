@@ -81,6 +81,10 @@ namespace GitDeployPro.Pages
         private string _customIntervalMinutesPartText = "0";
         private bool _isSyncingCustomIntervalEditor;
         private bool _hasUnsavedScheduleChanges;
+        private bool _isLocalhostConnectionWarningVisible;
+        private string _localhostConnectionWarningMessage = "Localhost is not connected (127.0.0.1:3306 / root).";
+        private CancellationTokenSource? _localhostWarningProbeCts;
+        private bool _localhostWarningProbeStarted;
         private static readonly Regex ArtifactNameRegex = new(
             @"^(?<db>.+)_(?<stamp>\d{2}_\d{2}_\d{2}_\d{2}_\d{2})(?:_(?<seq>\d+))?$",
             RegexOptions.Compiled | RegexOptions.CultureInvariant);
@@ -471,6 +475,18 @@ namespace GitDeployPro.Pages
             ? "⚠ Save changes"
             : "💾 Save changes";
 
+        public bool IsLocalhostConnectionWarningVisible
+        {
+            get => _isLocalhostConnectionWarningVisible;
+            private set => SetProperty(ref _isLocalhostConnectionWarningVisible, value);
+        }
+
+        public string LocalhostConnectionWarningMessage
+        {
+            get => _localhostConnectionWarningMessage;
+            private set => SetProperty(ref _localhostConnectionWarningMessage, value);
+        }
+
         public event PropertyChangedEventHandler? PropertyChanged;
 
         public BackupSchedulerPage()
@@ -503,6 +519,10 @@ namespace GitDeployPro.Pages
         private void BackupSchedulerPage_Unloaded(object sender, RoutedEventArgs e)
         {
             ReleaseMonitorSubscriptions();
+            _localhostWarningProbeCts?.Cancel();
+            _localhostWarningProbeCts?.Dispose();
+            _localhostWarningProbeCts = null;
+            _localhostWarningProbeStarted = false;
         }
 
         private void BackupSchedulerPage_Loaded(object sender, RoutedEventArgs e)
@@ -514,6 +534,88 @@ namespace GitDeployPro.Pages
             UpdateDatabaseStatus("Select a schedule to load databases.", isInfo: true);
             CurrentWizardStep = 1;
             UpdateWizardUiState();
+            StartLocalhostConnectionWarningProbe();
+        }
+
+        private void StartLocalhostConnectionWarningProbe()
+        {
+            if (_localhostWarningProbeStarted)
+            {
+                return;
+            }
+
+            _localhostWarningProbeStarted = true;
+            _localhostWarningProbeCts?.Cancel();
+            _localhostWarningProbeCts?.Dispose();
+            _localhostWarningProbeCts = new CancellationTokenSource();
+            _ = CheckLocalhostConnectionWarningAsync(_localhostWarningProbeCts.Token);
+        }
+
+        private async Task CheckLocalhostConnectionWarningAsync(CancellationToken cancellationToken)
+        {
+            try
+            {
+                var globalConfig = _configService.LoadGlobalConfig();
+                if (!globalConfig.ShowBackupSchedulerLocalhostWarning)
+                {
+                    IsLocalhostConnectionWarningVisible = false;
+                    return;
+                }
+
+                var isConnected = await ProbeDefaultLocalhostConnectionAsync(cancellationToken);
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    return;
+                }
+
+                if (!isConnected)
+                {
+                    LocalhostConnectionWarningMessage = "Localhost is not connected (127.0.0.1:3306 / root / empty password).";
+                    IsLocalhostConnectionWarningVisible = true;
+                }
+                else
+                {
+                    IsLocalhostConnectionWarningVisible = false;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            finally
+            {
+                _localhostWarningProbeStarted = false;
+            }
+        }
+
+        private static async Task<bool> ProbeDefaultLocalhostConnectionAsync(CancellationToken cancellationToken)
+        {
+            var info = new DatabaseConnectionInfo
+            {
+                Name = "Backup scheduler localhost probe",
+                DbType = DatabaseType.MySQL,
+                Host = "127.0.0.1",
+                Port = 3306,
+                Username = "root",
+                Password = string.Empty,
+                DatabaseName = "information_schema",
+                IsLocal = true,
+                UseSshTunnel = false
+            };
+
+            try
+            {
+                await using var client = new DatabaseClient();
+                await client.ConnectAsync(info).WaitAsync(TimeSpan.FromSeconds(4), cancellationToken).ConfigureAwait(false);
+                return true;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         private void LoadConnectionProfiles()
@@ -3236,6 +3338,25 @@ namespace GitDeployPro.Pages
             }
         }
 
+        private void DismissLocalhostConnectionWarning_Click(object sender, RoutedEventArgs e)
+        {
+            IsLocalhostConnectionWarningVisible = false;
+            var hostWindow = Window.GetWindow(this);
+
+            var decision = ModernMessageBox.ShowWithResult(
+                "Show localhost connection warning next time if default localhost is unreachable?",
+                "Backup Scheduler",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question,
+                "Yes, keep warning",
+                "No, do not show",
+                owner: hostWindow,
+                context: this);
+
+            var keepWarning = decision != MessageBoxResult.No;
+            _configService.UpdateGlobalConfig(cfg => cfg.ShowBackupSchedulerLocalhostWarning = keepWarning);
+        }
+
         private string GetDefaultOutputDirectory()
         {
             var projectPath = _configService.LoadGlobalConfig().LastProjectPath;
@@ -3283,7 +3404,7 @@ namespace GitDeployPro.Pages
         private void OpenInWindow_Click(object sender, RoutedEventArgs e)
         {
             var window = new PageHostWindow(new BackupSchedulerPage(), "Backup Scheduler • Detached");
-            window.Show();
+            WindowOwnerService.ShowOwned(window, this);
         }
 
         private static string FormatBytes(long bytes)

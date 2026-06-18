@@ -109,7 +109,7 @@ namespace GitDeployPro.Pages
         private void DetachFtpExplorerPage_Click(object sender, RoutedEventArgs e)
         {
             var window = new PageHostWindow(new FtpExplorerPage(), "FTP Explorer • Detached");
-            window.Show();
+            WindowOwnerService.ShowOwned(window, this);
         }
 
         private async Task LoadConnectionsAsync()

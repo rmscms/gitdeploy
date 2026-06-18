@@ -229,7 +229,7 @@ namespace GitDeployPro.Pages
                 {
                     // Open popup window for this connection
                     var win = new TerminalWindow(instance.Profile);
-                    win.Show();
+                    WindowOwnerService.ShowOwned(win, this);
                     
                     CloseTerminal(instance);
                 }
@@ -531,7 +531,7 @@ namespace GitDeployPro.Pages
         private void DetachTerminalPage_Click(object sender, RoutedEventArgs e)
         {
             var window = new PageHostWindow(new TerminalPage(), "Terminal • Detached");
-            window.Show();
+            WindowOwnerService.ShowOwned(window, this);
         }
 
         private void TerminalPage_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)

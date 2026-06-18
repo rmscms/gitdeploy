@@ -93,7 +93,7 @@ namespace GitDeployPro.Pages
         private void DetachDeployPage_Click(object sender, RoutedEventArgs e)
         {
             var window = new PageHostWindow(new DeployPage(), "Deploy • Detached");
-            window.Show();
+            WindowOwnerService.ShowOwned(window, this);
         }
 
         private async void ToggleRemoteWorkspaceButton_Click(object sender, RoutedEventArgs e)
@@ -750,7 +750,7 @@ namespace GitDeployPro.Pages
 
                 var commitWindow = new CommitWindow(changes);
                 commitWindow.CommitMessage = $"deploy update {AppTimeService.LocalNow:yyyy-MM-dd HH:mm}";
-                commitWindow.ShowDialog();
+                WindowOwnerService.ShowDialogOwned(commitWindow, this);
 
                 if (commitWindow.Confirmed)
                 {
@@ -1610,7 +1610,7 @@ namespace GitDeployPro.Pages
         private void NewBranchButton_Click(object sender, RoutedEventArgs e)
         {
             var inputDialog = new InputDialog("Create New Branch", "Enter new branch name:");
-            if (inputDialog.ShowDialog() == true)
+            if (WindowOwnerService.ShowDialogOwned(inputDialog, this) == true)
             {
                 string newBranch = inputDialog.ResponseText.Trim();
                 if (string.IsNullOrWhiteSpace(newBranch)) return;

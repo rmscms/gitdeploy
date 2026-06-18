@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Controls; // Explicitly using WPF controls
+using GitDeployPro.Services;
 
 namespace GitDeployPro.Controls
 {
@@ -109,16 +110,49 @@ namespace GitDeployPro.Controls
             this.Close();
         }
 
-        public static bool Show(string message, string title = "Notification", MessageBoxButton buttons = MessageBoxButton.OK, MessageBoxImage image = MessageBoxImage.Information, string? primaryText = null, string? secondaryText = null, string? cancelText = null)
+        private static void PrepareOwnerAndPlacement(ModernMessageBox msgBox, Window? owner, DependencyObject? context)
+        {
+            var resolvedOwner = WindowOwnerService.ResolveOwner(context, owner) ?? System.Windows.Application.Current?.MainWindow;
+            if (resolvedOwner != null && !ReferenceEquals(msgBox, resolvedOwner))
+            {
+                WindowOwnerService.ApplyOwner(msgBox, resolvedOwner, centerOnOwner: true);
+                msgBox.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+                return;
+            }
+
+            msgBox.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+        }
+
+        public static bool Show(
+            string message,
+            string title = "Notification",
+            MessageBoxButton buttons = MessageBoxButton.OK,
+            MessageBoxImage image = MessageBoxImage.Information,
+            string? primaryText = null,
+            string? secondaryText = null,
+            string? cancelText = null,
+            Window? owner = null,
+            DependencyObject? context = null)
         {
             var msgBox = new ModernMessageBox(message, title, buttons, image, primaryText, secondaryText, cancelText);
+            PrepareOwnerAndPlacement(msgBox, owner, context);
             msgBox.ShowDialog();
             return msgBox.Result;
         }
 
-        public static MessageBoxResult ShowWithResult(string message, string title = "Notification", MessageBoxButton buttons = MessageBoxButton.OK, MessageBoxImage image = MessageBoxImage.Information, string? primaryText = null, string? secondaryText = null, string? cancelText = null)
+        public static MessageBoxResult ShowWithResult(
+            string message,
+            string title = "Notification",
+            MessageBoxButton buttons = MessageBoxButton.OK,
+            MessageBoxImage image = MessageBoxImage.Information,
+            string? primaryText = null,
+            string? secondaryText = null,
+            string? cancelText = null,
+            Window? owner = null,
+            DependencyObject? context = null)
         {
             var msgBox = new ModernMessageBox(message, title, buttons, image, primaryText, secondaryText, cancelText);
+            PrepareOwnerAndPlacement(msgBox, owner, context);
             msgBox.ShowDialog();
             return msgBox.MessageResult;
         }

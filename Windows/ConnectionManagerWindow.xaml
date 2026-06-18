@@ -688,7 +688,9 @@
         </Grid>
 
         <!-- Overlay for Empty State (Now controlled by code-behind) -->
-        <Grid x:Name="EmptyStateOverlay" Grid.Column="1">
+        <Grid x:Name="EmptyStateOverlay"
+              Grid.Column="1"
+              Panel.ZIndex="50">
             <Border HorizontalAlignment="Center"
                     VerticalAlignment="Center"
                     Background="{StaticResource Surface.Raised}"

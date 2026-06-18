@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GitDeploy Pro - Backup Automation</title>
+  <link rel="icon" type="image/x-icon" href="../faveicon.ico" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link href="../assets/theme.css" rel="stylesheet" />
+</head>
+<body data-page="backup">
+  <div class="shell">
+    <header class="topbar">
+      <div class="brand"><span class="brand-dot"></span>GitDeploy Pro Docs</div>
+      <nav class="nav">
+        <a href="../index.html" data-nav="home">Home</a>
+        <a href="platform-overview.html" data-nav="overview">Overview</a>
+        <a href="deploy-workflows.html" data-nav="deploy">Deploy</a>
+        <a href="backup-automation.html" data-nav="backup">Backup</a>
+        <a href="terminal-database-suite.html" data-nav="terminaldb">Terminal + DB</a>
+        <a href="release-and-distribution.html" data-nav="release">Release</a>
+        <a href="faq-and-troubleshooting.html" data-nav="faq">FAQ</a>
+      </nav>
+    </header>
+
+    <main class="content">
+      <p class="eyebrow">Backup</p>
+      <h1>Backup Scheduler and Validation Automation</h1>
+      <p>
+        Backup in GitDeploy Pro is not just file creation. It includes scheduling, execution tracking, restore validation,
+        and operator-level visibility for each stage.
+      </p>
+
+      <section class="section">
+        <h2>Scheduler Capabilities</h2>
+        <div class="grid two">
+          <article class="card">
+            <h3>Task Lifecycle</h3>
+            <ul class="list">
+              <li>Create backup plans with cadence and retention rules.</li>
+              <li>Run on demand or via automated schedule triggers.</li>
+              <li>Auto-start support and missed-run recovery logic.</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>Operational Visibility</h3>
+            <ul class="list">
+              <li>Active tasks modal with status and control actions.</li>
+              <li>Progress and logs shown during run-time execution.</li>
+              <li>History updates are written per project for traceability.</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>Validation Stages</h2>
+        <div class="card">
+          <p>
+            Restore validation can be staged so teams can quickly identify exactly where a backup fails.
+          </p>
+          <ul class="list">
+            <li><strong>connect:</strong> validate DB connectivity and runtime prerequisites.</li>
+            <li><strong>import:</strong> replay dump into validation target and inspect SQL behavior.</li>
+            <li><strong>cleanup:</strong> verify post-validation cleanup and environment stability.</li>
+          </ul>
+          <p class="muted">
+            Warnings and failures can be replayed manually from history actions, making incident investigation faster.
+          </p>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>Integrity Sampling Workflow</h2>
+        <div class="grid two">
+          <article class="card">
+            <h3>Sampling Modal</h3>
+            <ul class="list">
+              <li>Shows largest tables from latest validation sample.</li>
+              <li>Lets operators inspect snapshot rows quickly.</li>
+              <li>Useful for confidence checks before promotions.</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>History Integration</h3>
+            <ul class="list">
+              <li>Backups can be re-validated from the history grid.</li>
+              <li>Uses schedule-linked validation preferences.</li>
+              <li>Stores updated outcomes for audit continuity.</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>Backup Packaging Formats</h2>
+        <div class="card">
+          <ul class="list">
+            <li>Raw SQL output for direct data workflows.</li>
+            <li>Archive outputs (ZIP / TAR.GZ) for transport and storage.</li>
+            <li>Health and validation metadata aligned with run history.</li>
+          </ul>
+        </div>
+      </section>
+
+      <div class="callout">
+        <strong>Operator guideline:</strong> treat each backup as a testable artifact, not just a generated file.
+      </div>
+
+      <footer class="footer">
+        GitDeploy Pro Documentation Portal - Backup Automation
+      </footer>
+    </main>
+  </div>
+  <script src="../assets/site.js"></script>
+</body>
+</html>

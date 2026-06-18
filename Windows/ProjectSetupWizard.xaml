@@ -164,7 +164,12 @@
             </StackPanel>
 
             <!-- Loading Overlay -->
-            <Grid x:Name="OverlayGrid" Grid.RowSpan="3" Background="{StaticResource Surface.Overlay}" Visibility="Collapsed" Margin="-30">
+            <Grid x:Name="OverlayGrid"
+                  Grid.RowSpan="3"
+                  Background="{StaticResource Surface.Overlay}"
+                  Visibility="Collapsed"
+                  Margin="-30"
+                  Panel.ZIndex="100">
                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                     <ProgressBar IsIndeterminate="True" Width="200" Height="10" Background="{StaticResource Surface.Input}" Foreground="{StaticResource Accent.Primary}" BorderThickness="0"/>
                     <TextBlock Text="Please wait, setting up project..." Foreground="{StaticResource Text.Primary}" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,20,0,10"/>

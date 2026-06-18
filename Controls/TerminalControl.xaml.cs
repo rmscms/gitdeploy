@@ -723,7 +723,7 @@ namespace GitDeployPro.Controls
         private void DetachButton_Click(object sender, RoutedEventArgs e)
         {
             var window = new TerminalWindow(_projectPath ?? string.Empty);
-            window.Show();
+            WindowOwnerService.ShowOwned(window, this);
         }
 
         private async void ClearButton_Click(object sender, RoutedEventArgs e)

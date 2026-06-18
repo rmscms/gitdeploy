@@ -51,7 +51,7 @@ namespace GitDeployPro.Pages
         private void DetachDirectUploadPage_Click(object sender, RoutedEventArgs e)
         {
             var window = new PageHostWindow(new DirectUploadPage(), "Direct Upload • Detached");
-            window.Show();
+            WindowOwnerService.ShowOwned(window, this);
         }
 
         private async void DirectUploadPage_Loaded(object sender, RoutedEventArgs e)

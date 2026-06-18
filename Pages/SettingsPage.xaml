@@ -118,6 +118,77 @@
                                       Content="Launch GitDeploy Pro when Windows starts"
                                       Foreground="{StaticResource Text.Secondary}"
                                       FontSize="13" />
+                            <CheckBox x:Name="ShowBackupLocalhostWarningCheckBox"
+                                      Content="Show localhost warning in Backup Scheduler (127.0.0.1:3306 / root)"
+                                      Foreground="{StaticResource Text.Secondary}"
+                                      FontSize="13"
+                                      Margin="0,8,0,0" />
+                            <Border Background="{StaticResource Surface.Input}"
+                                    BorderBrush="{StaticResource Border.Subtle}"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    Padding="12"
+                                    Margin="0,12,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="Windows startup audit"
+                                               Foreground="{StaticResource Text.Primary}"
+                                               FontWeight="SemiBold"
+                                               FontSize="13" />
+                                    <TextBlock x:Name="StartupAuditSummaryText"
+                                               Text="Startup status will be loaded..."
+                                               Foreground="{StaticResource Text.Secondary}"
+                                               FontSize="12"
+                                               Margin="0,6,0,0"
+                                               TextWrapping="Wrap" />
+                                    <TextBlock x:Name="StartupCurrentExeText"
+                                               Text="Current exe: -"
+                                               Foreground="{StaticResource Text.Muted}"
+                                               FontSize="11"
+                                               Margin="0,4,0,0"
+                                               TextWrapping="Wrap" />
+                                    <TextBlock x:Name="StartupPrimaryEntryText"
+                                               Text="Primary startup value: -"
+                                               Foreground="{StaticResource Text.Muted}"
+                                               FontSize="11"
+                                               Margin="0,2,0,0"
+                                               TextWrapping="Wrap" />
+                                    <TextBlock Text="Detected GitDeploy startup entries:"
+                                               Foreground="{StaticResource Text.Muted}"
+                                               FontSize="11"
+                                               Margin="0,8,0,4" />
+                                    <TextBox x:Name="StartupEntriesTextBox"
+                                             IsReadOnly="True"
+                                             TextWrapping="Wrap"
+                                             VerticalScrollBarVisibility="Auto"
+                                             MinHeight="78"
+                                             MaxHeight="120"
+                                             FontSize="11"
+                                             Foreground="{StaticResource Text.Secondary}"
+                                             FontFamily="{StaticResource FontFamily.Mono}" />
+                                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                        <Button x:Name="RefreshStartupAuditButton"
+                                                Content="🔄 Refresh"
+                                                Height="30"
+                                                Padding="10,0"
+                                                Margin="0,0,8,0"
+                                                Style="{StaticResource App.Button.Ghost}"
+                                                Click="RefreshStartupAuditButton_Click" />
+                                        <Button x:Name="UseCurrentStartupButton"
+                                                Content="✅ Use this version"
+                                                Height="30"
+                                                Padding="10,0"
+                                                Margin="0,0,8,0"
+                                                Style="{StaticResource App.Button.Primary}"
+                                                Click="UseCurrentStartupButton_Click" />
+                                        <Button x:Name="RemoveStartupEntriesButton"
+                                                Content="🧹 Remove startup entries"
+                                                Height="30"
+                                                Padding="10,0"
+                                                Style="{StaticResource App.Button.Ghost}"
+                                                Click="RemoveStartupEntriesButton_Click" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
                         </StackPanel>
                     </Border>
                 </Grid>

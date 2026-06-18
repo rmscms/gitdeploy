@@ -2,11 +2,11 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Notification" Height="230" Width="430"
-        WindowStartupLocation="CenterScreen"
+        WindowStartupLocation="CenterOwner"
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent"
-        Topmost="True">
+        ShowInTaskbar="False">
 
     <Grid Background="{StaticResource Surface.Overlay}">
         <Border Width="430"

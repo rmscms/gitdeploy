@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GitDeploy Pro - FAQ and Troubleshooting</title>
+  <link rel="icon" type="image/x-icon" href="../faveicon.ico" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link href="../assets/theme.css" rel="stylesheet" />
+</head>
+<body data-page="faq">
+  <div class="shell">
+    <header class="topbar">
+      <div class="brand"><span class="brand-dot"></span>GitDeploy Pro Docs</div>
+      <nav class="nav">
+        <a href="../index.html" data-nav="home">Home</a>
+        <a href="platform-overview.html" data-nav="overview">Overview</a>
+        <a href="deploy-workflows.html" data-nav="deploy">Deploy</a>
+        <a href="backup-automation.html" data-nav="backup">Backup</a>
+        <a href="terminal-database-suite.html" data-nav="terminaldb">Terminal + DB</a>
+        <a href="release-and-distribution.html" data-nav="release">Release</a>
+        <a href="faq-and-troubleshooting.html" data-nav="faq">FAQ</a>
+      </nav>
+    </header>
+
+    <main class="content">
+      <p class="eyebrow">Support</p>
+      <h1>FAQ and Troubleshooting</h1>
+      <p>
+        Common questions and fast answers for release operators, backend engineers, and deployment maintainers.
+      </p>
+
+      <section class="section">
+        <h2>Frequently Asked Questions</h2>
+        <div class="grid two">
+          <article class="card">
+            <h3>Why is my release ZIP suddenly much larger?</h3>
+            <p>
+              A self-contained publish includes .NET runtime binaries. Use framework-dependent publish when you need a smaller archive.
+            </p>
+          </article>
+          <article class="card">
+            <h3>Why is the first remote editor open slower?</h3>
+            <p>
+              The initial editor host can require warm-up. Recent versions preload editor runtime and moved stat checks to background for faster first open.
+            </p>
+          </article>
+          <article class="card">
+            <h3>Can I re-run backup validation manually?</h3>
+            <p>
+              Yes. Use history actions to trigger import/validation with the original schedule configuration.
+            </p>
+          </article>
+          <article class="card">
+            <h3>How do I avoid deploying ignored files?</h3>
+            <p>
+              Use compare/select workflow and sync-only options where available, then verify deploy logs before promotion.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>Troubleshooting Playbook</h2>
+        <div class="grid two">
+          <article class="card">
+            <h3>Connection and Transfer Issues</h3>
+            <ul class="list">
+              <li>Validate connection profile and remote root path.</li>
+              <li>Retry from refresh/connect controls before restarting app.</li>
+              <li>Review operation log for timeout or permission hints.</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>Editor Behavior</h3>
+            <ul class="list">
+              <li>If advanced editor host fails, fallback mode should activate.</li>
+              <li>Use close prompts to avoid losing unsaved tabs.</li>
+              <li>Check open timing logs to isolate download vs editor delays.</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>Build and Packaging</h3>
+            <ul class="list">
+              <li>Close running app process before full publish/build copy step.</li>
+              <li>Use compile target if executable lock blocks copy stage.</li>
+              <li>Confirm version bump in project file before tagging.</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>Database Import Problems</h3>
+            <ul class="list">
+              <li>Check server packet limits for large SQL imports.</li>
+              <li>Inspect validation stage output to pinpoint failure step.</li>
+              <li>Use process list view during long-running operations.</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>Escalation Notes</h2>
+        <div class="card">
+          <p>
+            When filing an issue, include: app version, target environment, exact action sequence, and the last relevant lines from operation logs.
+            This dramatically reduces troubleshooting time.
+          </p>
+        </div>
+      </section>
+
+      <footer class="footer">
+        GitDeploy Pro Documentation Portal - FAQ and Troubleshooting
+      </footer>
+    </main>
+  </div>
+  <script src="../assets/site.js"></script>
+</body>
+</html>

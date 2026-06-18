@@ -18,7 +18,8 @@ namespace GitDeployPro.Services
                 System.Windows.Application.Current.Dispatcher.Invoke(() =>
                 {
                     var toast = new ToastWindow(title, message);
-                    toast.Show();
+                    var owner = WindowOwnerService.ResolveOwner();
+                    WindowOwnerService.ShowOwned(toast, preferredOwner: owner);
                 });
             }
             catch

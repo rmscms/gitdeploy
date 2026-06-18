@@ -8,7 +8,7 @@
         Background="Transparent"
         Width="320"
         Height="120"
-        Topmost="True"
+        ShowActivated="False"
         Focusable="False">
     <Border CornerRadius="12"
             Background="{StaticResource Surface.Card}"
