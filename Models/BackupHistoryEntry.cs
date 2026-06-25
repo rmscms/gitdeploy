@@ -48,6 +48,9 @@ namespace GitDeployPro.Models
         public string StartedLocalDisplay => AppTimeService.FormatLocalFromUtc(StartedUtc);
 
         [JsonIgnore]
+        public string StartedRelativeDisplay => BuildRelativeTime(StartedLocal);
+
+        [JsonIgnore]
         public string CompletedLocalDisplay => AppTimeService.FormatLocalFromUtc(CompletedUtc);
 
         [JsonIgnore]
@@ -55,6 +58,53 @@ namespace GitDeployPro.Models
 
         [JsonIgnore]
         public bool HasIntegritySamples => IntegrityTableSamples != null && IntegrityTableSamples.Count > 0;
+
+        private static string BuildRelativeTime(DateTime localTime)
+        {
+            var delta = AppTimeService.LocalNow - localTime;
+            if (delta.TotalSeconds < 0)
+            {
+                return "just now";
+            }
+
+            if (delta.TotalMinutes < 1)
+            {
+                return "just now";
+            }
+
+            if (delta.TotalHours < 1)
+            {
+                var mins = Math.Max(1, (int)Math.Floor(delta.TotalMinutes));
+                return mins == 1 ? "1 min ago" : $"{mins} mins ago";
+            }
+
+            if (delta.TotalDays < 1)
+            {
+                var hours = Math.Max(1, (int)Math.Floor(delta.TotalHours));
+                return hours == 1 ? "1 hr ago" : $"{hours} hrs ago";
+            }
+
+            if (delta.TotalDays < 7)
+            {
+                var days = Math.Max(1, (int)Math.Floor(delta.TotalDays));
+                return days == 1 ? "1 day ago" : $"{days} days ago";
+            }
+
+            if (delta.TotalDays < 30)
+            {
+                var weeks = Math.Max(1, (int)Math.Floor(delta.TotalDays / 7));
+                return weeks == 1 ? "1 wk ago" : $"{weeks} wks ago";
+            }
+
+            if (delta.TotalDays < 365)
+            {
+                var months = Math.Max(1, (int)Math.Floor(delta.TotalDays / 30));
+                return months == 1 ? "1 mo ago" : $"{months} mos ago";
+            }
+
+            var years = Math.Max(1, (int)Math.Floor(delta.TotalDays / 365));
+            return years == 1 ? "1 yr ago" : $"{years} yrs ago";
+        }
     }
 }
 

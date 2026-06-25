@@ -49,6 +49,71 @@
                 </StackPanel>
             </Border>
 
+            <Border Style="{StaticResource App.CardStyle}" Margin="{StaticResource Spacing.CardMargin}">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                        <TextBlock Text="🧩" FontSize="20" VerticalAlignment="Center" Margin="0,0,10,0" />
+                        <TextBlock Text="Setup Status"
+                                   Style="{StaticResource App.SectionTitleTextStyle}"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Border Grid.Column="0"
+                                Background="{StaticResource Surface.Shell}"
+                                BorderBrush="{StaticResource Border.Subtle}"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Padding="12">
+                            <StackPanel>
+                                <Border x:Name="ProjectGitStatusBadge"
+                                        Style="{StaticResource App.StatusBadge.Warning}"
+                                        HorizontalAlignment="Left">
+                                    <TextBlock x:Name="ProjectGitStatusText"
+                                               Text="Git: Checking..."
+                                               FontWeight="SemiBold"
+                                               Foreground="{StaticResource Status.Warning}" />
+                                </Border>
+                                <TextBlock x:Name="ProjectGitStatusDetailText"
+                                           Text="Checking git repository and remote..."
+                                           Style="{StaticResource App.MutedTextStyle}"
+                                           Margin="0,10,0,0"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Grid.Column="2"
+                                Background="{StaticResource Surface.Shell}"
+                                BorderBrush="{StaticResource Border.Subtle}"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Padding="12">
+                            <StackPanel>
+                                <Border x:Name="ProjectFtpStatusBadge"
+                                        Style="{StaticResource App.StatusBadge.Warning}"
+                                        HorizontalAlignment="Left">
+                                    <TextBlock x:Name="ProjectFtpStatusText"
+                                               Text="FTP/SFTP: Checking..."
+                                               FontWeight="SemiBold"
+                                               Foreground="{StaticResource Status.Warning}" />
+                                </Border>
+                                <TextBlock x:Name="ProjectFtpStatusDetailText"
+                                           Text="Checking connection profile..."
+                                           Style="{StaticResource App.MutedTextStyle}"
+                                           Margin="0,10,0,0"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
             <Grid Margin="0,0,0,25">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -133,6 +198,15 @@
                 <Button MinWidth="170"
                         Margin="0,0,10,10"
                         Style="{StaticResource App.Button.Toolbar}"
+                        Click="OpenLocalTerminal_Click">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <TextBlock Text="🖥" Margin="0,0,8,0" />
+                        <TextBlock Text="Local Terminal" />
+                    </StackPanel>
+                </Button>
+                <Button MinWidth="170"
+                        Margin="0,0,10,10"
+                        Style="{StaticResource App.Button.Toolbar}"
                         Click="RunSetupWizard_Click">
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                         <TextBlock Text="🛠" Margin="0,0,8,0" />
@@ -154,10 +228,182 @@
                        Style="{StaticResource App.SectionTitleTextStyle}"
                        Margin="0,0,0,12" />
             <Border Style="{StaticResource App.CardStyle}">
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                    <TextBlock Text="📋" FontSize="16" Margin="0,0,10,0" />
-                    <TextBlock Text="No recent activity found."
-                               Style="{StaticResource App.MutedTextStyle}" />
+                <StackPanel>
+                    <Border x:Name="RunningBackupsSection"
+                            Background="{StaticResource Surface.Shell}"
+                            BorderBrush="{StaticResource Border.Subtle}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="14"
+                            Margin="0,0,0,10"
+                            Visibility="Collapsed">
+                        <StackPanel>
+                            <TextBlock x:Name="RunningBackupsTitleText"
+                                       Text="Live Backups"
+                                       Style="{StaticResource App.SectionTitleTextStyle}" />
+                            <TextBlock Text="Active backup operations with live progress."
+                                       Style="{StaticResource App.MutedTextStyle}"
+                                       Margin="0,2,0,10" />
+                            <ItemsControl ItemsSource="{Binding RunningBackupTasks}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="{StaticResource Surface.Card}"
+                                                BorderBrush="{StaticResource Border.Subtle}"
+                                                BorderThickness="1"
+                                                CornerRadius="10"
+                                                Padding="12"
+                                                Margin="0,0,0,8">
+                                            <StackPanel>
+                                                <DockPanel LastChildFill="True">
+                                                    <TextBlock Text="⏳" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                                    <TextBlock Text="{Binding ScheduleName}"
+                                                               Style="{StaticResource App.BodyTextStyle}"
+                                                               FontWeight="SemiBold"
+                                                               VerticalAlignment="Center" />
+                                                    <TextBlock Text="{Binding Percent, StringFormat={}{0:0}%}"
+                                                               DockPanel.Dock="Right"
+                                                               Foreground="{StaticResource Accent.Primary}"
+                                                               FontWeight="Bold"
+                                                               VerticalAlignment="Center" />
+                                                </DockPanel>
+                                                <ProgressBar Height="6"
+                                                             Margin="0,8,0,8"
+                                                             Minimum="0"
+                                                             Maximum="100"
+                                                             Value="{Binding Percent}" />
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Text="{Binding Stage}"
+                                                               Style="{StaticResource App.MutedTextStyle}"
+                                                               TextWrapping="Wrap" />
+                                                    <Border Grid.Column="1"
+                                                            Style="{StaticResource App.StatusBadge.Info}"
+                                                            Margin="10,0,0,0"
+                                                            HorizontalAlignment="Right">
+                                                        <TextBlock Text="{Binding ProgressSummary}"
+                                                                   Style="{StaticResource App.CaptionTextStyle}"
+                                                                   Foreground="{StaticResource Status.Info}" />
+                                                    </Border>
+                                                </Grid>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+
+                    <Border x:Name="BackupHistorySection"
+                            Background="{StaticResource Surface.Shell}"
+                            BorderBrush="{StaticResource Border.Subtle}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="14"
+                            Margin="0,0,0,10"
+                            Visibility="Collapsed">
+                        <StackPanel>
+                            <TextBlock Text="Last 5 Full Backup History"
+                                       Style="{StaticResource App.SectionTitleTextStyle}" />
+                            <TextBlock Text="Newest backup runs from full history."
+                                       Style="{StaticResource App.MutedTextStyle}"
+                                       Margin="0,2,0,10" />
+                            <ItemsControl ItemsSource="{Binding RecentBackupHistory}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="{StaticResource Surface.Card}"
+                                                BorderBrush="{StaticResource Border.Subtle}"
+                                                BorderThickness="1"
+                                                CornerRadius="10"
+                                                Padding="12"
+                                                Margin="0,0,0,8">
+                                            <Grid VerticalAlignment="Top">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <StackPanel Grid.Column="0">
+                                                    <DockPanel LastChildFill="True">
+                                                        <Border x:Name="HistoryStatusBadge"
+                                                                Style="{StaticResource App.StatusBadge.Warning}"
+                                                                HorizontalAlignment="Left">
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <TextBlock x:Name="HistoryStatusIcon"
+                                                                           Text="⚠"
+                                                                           Foreground="{StaticResource Status.Warning}"
+                                                                           Margin="0,0,6,0" />
+                                                                <TextBlock x:Name="HistoryStatusText"
+                                                                           Text="Failed"
+                                                                           Foreground="{StaticResource Status.Warning}"
+                                                                           FontWeight="SemiBold" />
+                                                            </StackPanel>
+                                                        </Border>
+                                                        <TextBlock Text="{Binding ScheduleName}"
+                                                                   DockPanel.Dock="Right"
+                                                                   Style="{StaticResource App.BodyTextStyle}"
+                                                                   FontWeight="SemiBold"
+                                                                   TextWrapping="Wrap"
+                                                                   Margin="10,0,0,0" />
+                                                    </DockPanel>
+                                                    <TextBlock Text="{Binding DatabaseName, StringFormat=DB: {0}}"
+                                                               Style="{StaticResource App.CaptionTextStyle}"
+                                                               Margin="0,6,0,0" />
+                                                    <TextBlock Text="{Binding Message}"
+                                                               Style="{StaticResource App.MutedTextStyle}"
+                                                               TextWrapping="Wrap"
+                                                               Margin="0,6,0,0" />
+                                                    <TextBlock Text="{Binding StartedLocalDisplay, StringFormat=at {0}}"
+                                                               Style="{StaticResource App.CaptionTextStyle}"
+                                                               Margin="0,6,0,0"
+                                                               Opacity="0.75" />
+                                                </StackPanel>
+
+                                                <StackPanel Grid.Column="1"
+                                                            Margin="12,0,0,0"
+                                                            HorizontalAlignment="Right">
+                                                    <TextBlock Text="{Binding StartedRelativeDisplay}"
+                                                               Style="{StaticResource App.BodyTextStyle}"
+                                                               FontWeight="SemiBold"
+                                                               HorizontalAlignment="Right" />
+                                                    <TextBlock Text="backup event"
+                                                               Style="{StaticResource App.CaptionTextStyle}"
+                                                               HorizontalAlignment="Right"
+                                                               Opacity="0.75" />
+                                                </StackPanel>
+
+                                            </Grid>
+                                        </Border>
+                                        <DataTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding Success}" Value="True">
+                                                <Setter TargetName="HistoryStatusBadge" Property="Style" Value="{StaticResource App.StatusBadge.Success}" />
+                                                <Setter TargetName="HistoryStatusIcon" Property="Text" Value="✅" />
+                                                <Setter TargetName="HistoryStatusIcon" Property="Foreground" Value="{StaticResource Status.Success}" />
+                                                <Setter TargetName="HistoryStatusText" Property="Text" Value="Success" />
+                                                <Setter TargetName="HistoryStatusText" Property="Foreground" Value="{StaticResource Status.Success}" />
+                                            </DataTrigger>
+                                        </DataTemplate.Triggers>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+
+                    <Border x:Name="RecentActivityEmptyState"
+                            Background="{StaticResource Surface.Shell}"
+                            BorderBrush="{StaticResource Border.Subtle}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="12"
+                            Visibility="Collapsed">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                            <TextBlock Text="📋" FontSize="16" Margin="0,0,10,0" />
+                            <TextBlock Text="No backup activity yet."
+                                       Style="{StaticResource App.MutedTextStyle}" />
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
             </Border>
         </StackPanel>

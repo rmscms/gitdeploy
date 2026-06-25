@@ -42,6 +42,7 @@ namespace GitDeployPro.Services
 
         private async Task CheckAsync()
         {
+            using var scope = PerformanceSampler.Instance.BeginScope("backup", "scheduler-check");
             if (_disposed) return;
 
             lock (_gate)
@@ -71,6 +72,7 @@ namespace GitDeployPro.Services
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"[BackupSchedulerRunner] Check loop error: {ex}");
+                scope.Fail(ex);
             }
             finally
             {
@@ -83,6 +85,7 @@ namespace GitDeployPro.Services
 
         private async Task RunScheduleAsync(BackupSchedule schedule)
         {
+            using var scope = PerformanceSampler.Instance.BeginScope("backup", "run-schedule", schedule?.Name);
             var connections = _configService.LoadConnections();
             var profile = connections.FirstOrDefault(c => string.Equals(c.Id, schedule.ConnectionProfileId, StringComparison.OrdinalIgnoreCase));
             if (profile == null)
@@ -239,6 +242,7 @@ namespace GitDeployPro.Services
             }
             catch (Exception ex)
             {
+                scope.Fail(ex);
                 history.CompletedUtc = AppTimeService.UtcNow;
                 history.Success = false;
                 history.Message = ex.Message;

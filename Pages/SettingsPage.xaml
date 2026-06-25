@@ -123,6 +123,11 @@
                                       Foreground="{StaticResource Text.Secondary}"
                                       FontSize="13"
                                       Margin="0,8,0,0" />
+                            <CheckBox x:Name="MinimizeToTrayCheckBox"
+                                      Content="Minimize and close to system tray (use tray icon menu to Exit)"
+                                      Foreground="{StaticResource Text.Secondary}"
+                                      FontSize="13"
+                                      Margin="0,8,0,0" />
                             <Border Background="{StaticResource Surface.Input}"
                                     BorderBrush="{StaticResource Border.Subtle}"
                                     BorderThickness="1"

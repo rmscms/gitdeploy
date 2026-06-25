@@ -27,4 +27,12 @@ namespace GitDeployPro.Models
         public double Percent { get; set; }
         public bool IsIndeterminate { get; set; }
     }
+
+    public sealed class RemoteDownloadProgress
+    {
+        public long BytesTransferred { get; set; }
+        public long TotalBytes { get; set; }
+        public double Percent { get; set; }
+        public bool IsIndeterminate { get; set; }
+    }
 }

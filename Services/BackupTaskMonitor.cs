@@ -39,6 +39,7 @@ namespace GitDeployPro.Services
 
         public BackupTaskHandle StartTask(BackupSchedule schedule, ConnectionProfile profile, bool allowCancel, string origin)
         {
+            using var scope = PerformanceSampler.Instance.BeginScope("backup", "task-start", schedule?.Name);
             var status = new BackupTaskStatus
             {
                 ScheduleId = schedule.Id,
@@ -151,9 +152,34 @@ namespace GitDeployPro.Services
                 status.CurrentTableProcessedRows = update.CurrentTableProcessedRows;
                 status.CurrentTableTotalRows = update.CurrentTableTotalRows;
 
-                if (status.TotalTables > 0)
+                double? nextPercent = null;
+                if (update.Percent.HasValue)
                 {
-                    status.Percent = Math.Clamp((double)status.ProcessedTables / status.TotalTables * 100d, 0d, 100d);
+                    nextPercent = Math.Clamp(update.Percent.Value, 0d, 100d);
+                }
+                else if (status.TotalTables > 0)
+                {
+                    var processedBase = Math.Clamp(status.ProcessedTables, 0, status.TotalTables);
+                    var fractional = 0d;
+                    if (processedBase < status.TotalTables &&
+                        status.CurrentTableTotalRows > 0 &&
+                        status.CurrentTableProcessedRows > 0)
+                    {
+                        fractional = Math.Clamp(
+                            (double)status.CurrentTableProcessedRows / status.CurrentTableTotalRows,
+                            0d,
+                            1d);
+                    }
+
+                    nextPercent = Math.Clamp(
+                        ((processedBase + fractional) / status.TotalTables) * 100d,
+                        0d,
+                        100d);
+                }
+
+                if (nextPercent.HasValue)
+                {
+                    status.Percent = nextPercent.Value;
                 }
             });
         }
@@ -191,6 +217,7 @@ namespace GitDeployPro.Services
 
         private void FinishTask(Guid taskId, BackupTaskState finalState, string message, bool isError)
         {
+            using var scope = PerformanceSampler.Instance.BeginScope("backup", "task-finish", finalState.ToString());
             TaskRegistration? registration;
             lock (_registrations)
             {

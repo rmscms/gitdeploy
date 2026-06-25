@@ -86,6 +86,9 @@ namespace GitDeployPro.Services.Remote
             return entries;
         }
 
+        public Task<string> OpenTextAsync(string remotePath, CancellationToken cancellationToken = default) =>
+            ReadTextFileAsync(remotePath, cancellationToken);
+
         public async Task<string> ReadTextFileAsync(string remotePath, CancellationToken cancellationToken = default)
         {
             EnsureConnected();
@@ -93,6 +96,142 @@ namespace GitDeployPro.Services.Remote
             using var memory = new MemoryStream();
             await stream.CopyToAsync(memory, cancellationToken);
             return Encoding.UTF8.GetString(memory.ToArray());
+        }
+
+        public async Task DownloadFileAsync(
+            string remotePath,
+            string localPath,
+            IProgress<RemoteDownloadProgress>? progress = null,
+            CancellationToken cancellationToken = default)
+        {
+            EnsureConnected();
+
+            var parentDirectory = Path.GetDirectoryName(localPath);
+            if (!string.IsNullOrWhiteSpace(parentDirectory))
+            {
+                Directory.CreateDirectory(parentDirectory);
+            }
+
+            long totalBytes = 0;
+            try
+            {
+                var stat = await GetFileStatAsync(remotePath, cancellationToken);
+                totalBytes = Math.Max(0, stat.SizeBytes);
+            }
+            catch
+            {
+                // Best-effort size detection.
+            }
+
+            progress?.Report(new RemoteDownloadProgress
+            {
+                BytesTransferred = 0,
+                TotalBytes = totalBytes,
+                Percent = 0,
+                IsIndeterminate = totalBytes <= 0
+            });
+
+            IProgress<FtpProgress>? ftpProgress = null;
+            if (progress != null)
+            {
+                ftpProgress = new Progress<FtpProgress>(ftp =>
+                {
+                    if (ftp == null)
+                    {
+                        return;
+                    }
+
+                    var transferred = Math.Max(0, ftp.TransferredBytes);
+                    var inferredTotal = totalBytes > 0 ? totalBytes : Math.Max(transferred, 1);
+                    var percent = ftp.Progress >= 0
+                        ? ftp.Progress
+                        : (inferredTotal > 0 ? (double)transferred / inferredTotal * 100d : 0d);
+                    progress.Report(new RemoteDownloadProgress
+                    {
+                        BytesTransferred = transferred,
+                        TotalBytes = inferredTotal,
+                        Percent = percent,
+                        IsIndeterminate = inferredTotal <= 0
+                    });
+                });
+            }
+
+            await _client!.DownloadFile(
+                localPath,
+                remotePath,
+                FtpLocalExists.Overwrite,
+                FtpVerify.None,
+                progress: ftpProgress,
+                token: cancellationToken);
+
+            if (progress != null)
+            {
+                var finalBytes = totalBytes > 0 && File.Exists(localPath) ? totalBytes : (File.Exists(localPath) ? new FileInfo(localPath).Length : 0);
+                progress.Report(new RemoteDownloadProgress
+                {
+                    BytesTransferred = finalBytes,
+                    TotalBytes = finalBytes,
+                    Percent = 100,
+                    IsIndeterminate = false
+                });
+            }
+        }
+
+        public async Task DownloadDirectoryAsync(
+            string remoteDirectoryPath,
+            string localDirectoryPath,
+            IProgress<RemoteDownloadProgress>? progress = null,
+            CancellationToken cancellationToken = default)
+        {
+            EnsureConnected();
+            Directory.CreateDirectory(localDirectoryPath);
+            var normalizedRemoteRoot = RemotePathResolver.EnsureTrailingSlash(remoteDirectoryPath).TrimEnd('/');
+
+            var fileQueue = new List<(string RemotePath, string LocalPath, long SizeBytes)>();
+            await BuildDownloadQueueAsync(normalizedRemoteRoot, localDirectoryPath, fileQueue, cancellationToken);
+
+            var totalBytes = fileQueue.Sum(item => Math.Max(0, item.SizeBytes));
+            long transferredBytes = 0;
+            progress?.Report(new RemoteDownloadProgress
+            {
+                BytesTransferred = 0,
+                TotalBytes = totalBytes,
+                Percent = 0,
+                IsIndeterminate = totalBytes <= 0
+            });
+
+            foreach (var file in fileQueue)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await DownloadFileAsync(file.RemotePath, file.LocalPath, null, cancellationToken);
+                var actualBytes = File.Exists(file.LocalPath) ? new FileInfo(file.LocalPath).Length : Math.Max(0, file.SizeBytes);
+                transferredBytes += actualBytes;
+                progress?.Report(new RemoteDownloadProgress
+                {
+                    BytesTransferred = transferredBytes,
+                    TotalBytes = totalBytes,
+                    Percent = totalBytes > 0 ? (double)transferredBytes / totalBytes * 100d : 100d,
+                    IsIndeterminate = totalBytes <= 0
+                });
+            }
+        }
+
+        public async Task RenameAsync(string sourcePath, string destinationPath, CancellationToken cancellationToken = default)
+        {
+            EnsureConnected();
+            await _client!.Rename(sourcePath, destinationPath, cancellationToken);
+        }
+
+        public async Task DeleteAsync(string remotePath, bool isDirectory, CancellationToken cancellationToken = default)
+        {
+            EnsureConnected();
+            if (isDirectory)
+            {
+                await _client!.DeleteDirectory(remotePath, FtpListOption.Recursive, cancellationToken);
+                return;
+            }
+
+            await _client!.DeleteFile(remotePath, cancellationToken);
         }
 
         public async Task UploadTextFileAsync(
@@ -246,6 +385,40 @@ namespace GitDeployPro.Services.Remote
             }
 
             return normalized[..idx];
+        }
+
+        private async Task BuildDownloadQueueAsync(
+            string remoteDirectoryPath,
+            string localDirectoryPath,
+            List<(string RemotePath, string LocalPath, long SizeBytes)> queue,
+            CancellationToken cancellationToken)
+        {
+            var listing = await _client!.GetListing(
+                RemotePathResolver.EnsureTrailingSlash(remoteDirectoryPath),
+                FtpListOption.AllFiles | FtpListOption.Size | FtpListOption.Modify,
+                cancellationToken);
+            foreach (var item in listing)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (item.Type == FtpObjectType.Directory)
+                {
+                    if (item.Name is "." or "..")
+                    {
+                        continue;
+                    }
+
+                    var localChild = Path.Combine(localDirectoryPath, item.Name);
+                    Directory.CreateDirectory(localChild);
+                    await BuildDownloadQueueAsync(item.FullName, localChild, queue, cancellationToken);
+                    continue;
+                }
+
+                if (item.Type == FtpObjectType.File)
+                {
+                    var localFile = Path.Combine(localDirectoryPath, item.Name);
+                    queue.Add((item.FullName, localFile, Math.Max(0, item.Size)));
+                }
+            }
         }
 
         private void EnsureConnected()

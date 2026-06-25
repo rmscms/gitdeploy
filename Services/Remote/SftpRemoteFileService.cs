@@ -127,6 +127,9 @@ namespace GitDeployPro.Services.Remote
             return entries;
         }
 
+        public Task<string> OpenTextAsync(string remotePath, CancellationToken cancellationToken = default) =>
+            ReadTextFileAsync(remotePath, cancellationToken);
+
         public async Task<string> ReadTextFileAsync(string remotePath, CancellationToken cancellationToken = default)
         {
             EnsureConnected();
@@ -137,6 +140,132 @@ namespace GitDeployPro.Services.Remote
                 stream.CopyTo(memory);
             }, cancellationToken);
             return Encoding.UTF8.GetString(memory.ToArray());
+        }
+
+        public async Task DownloadFileAsync(
+            string remotePath,
+            string localPath,
+            IProgress<RemoteDownloadProgress>? progress = null,
+            CancellationToken cancellationToken = default)
+        {
+            EnsureConnected();
+            var directory = Path.GetDirectoryName(localPath);
+            if (!string.IsNullOrWhiteSpace(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            long totalBytes = 0;
+            try
+            {
+                var stat = await GetFileStatAsync(remotePath, cancellationToken);
+                totalBytes = Math.Max(0, stat.SizeBytes);
+            }
+            catch
+            {
+                // Best-effort size detection.
+            }
+
+            progress?.Report(new RemoteDownloadProgress
+            {
+                BytesTransferred = 0,
+                TotalBytes = totalBytes,
+                Percent = 0,
+                IsIndeterminate = totalBytes <= 0
+            });
+
+            await Task.Run(async () =>
+            {
+                using var remoteStream = _client!.OpenRead(remotePath);
+                await using var localStream = new FileStream(localPath, FileMode.Create, FileAccess.Write, FileShare.None, 64 * 1024, useAsync: true);
+                var buffer = new byte[64 * 1024];
+                long transferred = 0;
+                int read;
+                while ((read = await remoteStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken)) > 0)
+                {
+                    await localStream.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
+                    transferred += read;
+                    progress?.Report(new RemoteDownloadProgress
+                    {
+                        BytesTransferred = transferred,
+                        TotalBytes = totalBytes > 0 ? totalBytes : transferred,
+                        Percent = totalBytes > 0 ? (double)transferred / totalBytes * 100d : 0d,
+                        IsIndeterminate = totalBytes <= 0
+                    });
+                }
+            }, cancellationToken);
+
+            if (progress != null)
+            {
+                var finalBytes = File.Exists(localPath) ? new FileInfo(localPath).Length : totalBytes;
+                progress.Report(new RemoteDownloadProgress
+                {
+                    BytesTransferred = finalBytes,
+                    TotalBytes = finalBytes,
+                    Percent = 100,
+                    IsIndeterminate = false
+                });
+            }
+        }
+
+        public async Task DownloadDirectoryAsync(
+            string remoteDirectoryPath,
+            string localDirectoryPath,
+            IProgress<RemoteDownloadProgress>? progress = null,
+            CancellationToken cancellationToken = default)
+        {
+            EnsureConnected();
+            Directory.CreateDirectory(localDirectoryPath);
+
+            var queue = new List<(string RemotePath, string LocalPath, long SizeBytes)>();
+            await Task.Run(() => BuildDownloadQueue(remoteDirectoryPath, localDirectoryPath, queue, cancellationToken), cancellationToken);
+
+            var totalBytes = queue.Sum(item => Math.Max(0, item.SizeBytes));
+            long transferredBytes = 0;
+            progress?.Report(new RemoteDownloadProgress
+            {
+                BytesTransferred = 0,
+                TotalBytes = totalBytes,
+                Percent = 0,
+                IsIndeterminate = totalBytes <= 0
+            });
+
+            foreach (var file in queue)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await DownloadFileAsync(file.RemotePath, file.LocalPath, null, cancellationToken);
+                var actualBytes = File.Exists(file.LocalPath) ? new FileInfo(file.LocalPath).Length : Math.Max(0, file.SizeBytes);
+                transferredBytes += actualBytes;
+                progress?.Report(new RemoteDownloadProgress
+                {
+                    BytesTransferred = transferredBytes,
+                    TotalBytes = totalBytes,
+                    Percent = totalBytes > 0 ? (double)transferredBytes / totalBytes * 100d : 100d,
+                    IsIndeterminate = totalBytes <= 0
+                });
+            }
+        }
+
+        public async Task RenameAsync(string sourcePath, string destinationPath, CancellationToken cancellationToken = default)
+        {
+            EnsureConnected();
+            await Task.Run(() => _client!.RenameFile(sourcePath, destinationPath), cancellationToken);
+        }
+
+        public async Task DeleteAsync(string remotePath, bool isDirectory, CancellationToken cancellationToken = default)
+        {
+            EnsureConnected();
+            await Task.Run(() =>
+            {
+                if (isDirectory)
+                {
+                    DeleteDirectoryRecursive(remotePath);
+                    _client!.DeleteDirectory(remotePath);
+                    return;
+                }
+
+                _client!.DeleteFile(remotePath);
+            }, cancellationToken);
         }
 
         public async Task UploadTextFileAsync(
@@ -258,6 +387,53 @@ namespace GitDeployPro.Services.Remote
             }
 
             return normalized[..idx];
+        }
+
+        private void BuildDownloadQueue(
+            string remoteDirectoryPath,
+            string localDirectoryPath,
+            List<(string RemotePath, string LocalPath, long SizeBytes)> queue,
+            CancellationToken cancellationToken)
+        {
+            foreach (var entry in _client!.ListDirectory(remoteDirectoryPath))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (entry.Name is "." or "..")
+                {
+                    continue;
+                }
+
+                if (entry.IsDirectory)
+                {
+                    var localChild = Path.Combine(localDirectoryPath, entry.Name);
+                    Directory.CreateDirectory(localChild);
+                    BuildDownloadQueue(entry.FullName, localChild, queue, cancellationToken);
+                    continue;
+                }
+
+                var localFile = Path.Combine(localDirectoryPath, entry.Name);
+                queue.Add((entry.FullName, localFile, Math.Max(0, entry.Attributes?.Size ?? 0)));
+            }
+        }
+
+        private void DeleteDirectoryRecursive(string remoteDirectoryPath)
+        {
+            foreach (var entry in _client!.ListDirectory(remoteDirectoryPath))
+            {
+                if (entry.Name is "." or "..")
+                {
+                    continue;
+                }
+
+                if (entry.IsDirectory)
+                {
+                    DeleteDirectoryRecursive(entry.FullName);
+                    _client.DeleteDirectory(entry.FullName);
+                    continue;
+                }
+
+                _client.DeleteFile(entry.FullName);
+            }
         }
 
         private void EnsureConnected()

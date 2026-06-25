@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
 using GitDeployPro.Controls;
+using GitDeployPro.Services;
 using Microsoft.Web.WebView2.Core;
 
 namespace GitDeployPro.Windows
@@ -43,6 +44,7 @@ namespace GitDeployPro.Windows
             }
 
             Loaded += CodeViewerWindow_Loaded;
+            Closed += CodeViewerWindow_Closed;
         }
 
         protected override void OnClosing(CancelEventArgs e)
@@ -78,6 +80,7 @@ namespace GitDeployPro.Windows
 
         private async void CodeViewerWindow_Loaded(object sender, RoutedEventArgs e)
         {
+            using var scope = PerformanceSampler.Instance.BeginScope("editor", "code-viewer-load", _displayPath);
             try
             {
                 await EnsureHtmlTemplateAsync();
@@ -89,8 +92,25 @@ namespace GitDeployPro.Windows
             }
             catch (Exception ex)
             {
+                scope.Fail(ex);
                 System.Windows.MessageBox.Show($"Unable to initialize code viewer: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 Close();
+            }
+        }
+
+        private void CodeViewerWindow_Closed(object? sender, EventArgs e)
+        {
+            try
+            {
+                if (CodeWebView?.CoreWebView2 != null)
+                {
+                    CodeWebView.CoreWebView2.WebMessageReceived -= CoreWebView2_WebMessageReceived;
+                    CodeWebView.CoreWebView2.NavigationCompleted -= CoreWebView2_NavigationCompleted;
+                }
+            }
+            catch
+            {
+                // Ignore teardown errors.
             }
         }
 
@@ -208,6 +228,7 @@ namespace GitDeployPro.Windows
 
         private async Task<bool> SaveContentAsync()
         {
+            using var scope = PerformanceSampler.Instance.BeginScope("editor", "code-viewer-save", _displayPath);
             if (_readOnlyOnly)
             {
                 return false;
@@ -233,6 +254,7 @@ namespace GitDeployPro.Windows
             }
             catch (Exception ex)
             {
+                scope.Fail(ex);
                 System.Windows.MessageBox.Show($"Unable to save file: {ex.Message}", "Save Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 return false;
             }

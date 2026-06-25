@@ -18,6 +18,9 @@ namespace GitDeployPro.Pages
     {
         private const int PageSize = 50;
         private const int SuggestionLimit = 20;
+        private const int MaxIndexedPaths = 4000;
+        private const int MaxHitsPerPath = 60;
+        private const int MaxIndexedHits = 30000;
 
         private static readonly SolidColorBrush AddedBrush = CreateFrozenBrush(46, 125, 50);
         private static readonly SolidColorBrush ModifiedBrush = CreateFrozenBrush(255, 143, 0);
@@ -29,6 +32,7 @@ namespace GitDeployPro.Pages
         private readonly ObservableCollection<string> _suggestions;
         private readonly ObservableCollection<HistoryFileHitItem> _fileHits;
         private readonly Dictionary<string, List<HistoryFileHitItem>> _fileIndex;
+        private readonly Queue<string> _fileIndexOrder;
         private readonly List<DeploymentRecord> _localHistoryBuffer;
         private readonly DispatcherTimer _searchDebounceTimer;
         private readonly HashSet<string> _loadedCommitHashes;
@@ -41,6 +45,7 @@ namespace GitDeployPro.Pages
         private int _totalCommitCount;
         private string? _oldestLoadedCommitHash;
         private string _currentBranch = string.Empty;
+        private int _indexedHitCount;
 
         public HistoryPage()
         {
@@ -51,6 +56,7 @@ namespace GitDeployPro.Pages
             _suggestions = new ObservableCollection<string>();
             _fileHits = new ObservableCollection<HistoryFileHitItem>();
             _fileIndex = new Dictionary<string, List<HistoryFileHitItem>>(StringComparer.OrdinalIgnoreCase);
+            _fileIndexOrder = new Queue<string>();
             _localHistoryBuffer = new List<DeploymentRecord>();
             _loadedCommitHashes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             _searchDebounceTimer = new DispatcherTimer
@@ -64,6 +70,7 @@ namespace GitDeployPro.Pages
             FileHitsListBox.ItemsSource = _fileHits;
 
             Loaded += HistoryPage_Loaded;
+            Unloaded += HistoryPage_Unloaded;
         }
 
         private async void HistoryPage_Loaded(object sender, RoutedEventArgs e)
@@ -72,8 +79,15 @@ namespace GitDeployPro.Pages
             await InitializeHistoryAsync();
         }
 
+        private void HistoryPage_Unloaded(object sender, RoutedEventArgs e)
+        {
+            _searchDebounceTimer.Stop();
+            Unloaded -= HistoryPage_Unloaded;
+        }
+
         private async Task InitializeHistoryAsync()
         {
+            using var scope = PerformanceSampler.Instance.BeginScope("history", "initialize");
             ResetState();
             SelectedFileText.Text = "Select a suggested file to see commits.";
             HistoryEmptyText.Visibility = Visibility.Collapsed;
@@ -129,6 +143,7 @@ namespace GitDeployPro.Pages
             _suggestions.Clear();
             _fileHits.Clear();
             _fileIndex.Clear();
+            _fileIndexOrder.Clear();
             _localHistoryBuffer.Clear();
             _loadedCommitHashes.Clear();
 
@@ -138,10 +153,12 @@ namespace GitDeployPro.Pages
             _localHistoryCursor = 0;
             _totalCommitCount = 0;
             _oldestLoadedCommitHash = null;
+            _indexedHitCount = 0;
         }
 
         private async Task LoadNextGitPageAsync()
         {
+            using var scope = PerformanceSampler.Instance.BeginScope("history", "load-next-git-page");
             if (_isLoading || !_hasMore)
             {
                 return;
@@ -182,6 +199,7 @@ namespace GitDeployPro.Pages
             }
             catch (Exception ex)
             {
+                scope.Fail(ex);
                 _hasMore = false;
                 ModernMessageBox.Show(
                     $"Unable to load commit history: {ex.Message}",
@@ -205,6 +223,7 @@ namespace GitDeployPro.Pages
 
         private Task LoadNextLocalPageAsync()
         {
+            using var scope = PerformanceSampler.Instance.BeginScope("history", "load-next-local-page");
             if (_isLoading || !_hasMore)
             {
                 return Task.CompletedTask;
@@ -305,8 +324,14 @@ namespace GitDeployPro.Pages
 
                 if (!_fileIndex.TryGetValue(normalizedPath, out var hits))
                 {
+                    if (_fileIndex.Count >= MaxIndexedPaths)
+                    {
+                        RemoveOldestIndexedPath();
+                    }
+
                     hits = new List<HistoryFileHitItem>();
                     _fileIndex[normalizedPath] = hits;
+                    _fileIndexOrder.Enqueue(normalizedPath);
                 }
 
                 if (hits.Any(hit =>
@@ -327,6 +352,36 @@ namespace GitDeployPro.Pages
                     ChangeTypeLabel = ToChangeTypeLabel(change.Type),
                     ChangeTypeBrush = ToChangeTypeBrush(change.Type)
                 });
+                _indexedHitCount++;
+
+                if (hits.Count > MaxHitsPerPath)
+                {
+                    hits.RemoveAt(hits.Count - 1);
+                    _indexedHitCount--;
+                }
+            }
+
+            TrimIndexIfNeeded();
+        }
+
+        private void RemoveOldestIndexedPath()
+        {
+            while (_fileIndexOrder.Count > 0)
+            {
+                var key = _fileIndexOrder.Dequeue();
+                if (_fileIndex.Remove(key, out var removedHits))
+                {
+                    _indexedHitCount = Math.Max(0, _indexedHitCount - removedHits.Count);
+                    return;
+                }
+            }
+        }
+
+        private void TrimIndexIfNeeded()
+        {
+            while (_indexedHitCount > MaxIndexedHits && _fileIndexOrder.Count > 0)
+            {
+                RemoveOldestIndexedPath();
             }
         }
 
@@ -452,6 +507,7 @@ namespace GitDeployPro.Pages
 
         private async void OpenFileContent_Click(object sender, RoutedEventArgs e)
         {
+            using var scope = PerformanceSampler.Instance.BeginScope("history", "open-file-content");
             if (sender is not System.Windows.Controls.Button button || button.Tag is not HistoryFileHitItem hit)
             {
                 return;
@@ -476,6 +532,7 @@ namespace GitDeployPro.Pages
             }
             catch (Exception ex)
             {
+                scope.Fail(ex);
                 ModernMessageBox.Show(
                     $"Unable to open file content: {ex.Message}",
                     "History",
@@ -487,6 +544,7 @@ namespace GitDeployPro.Pages
 
         private async void ViewFileDiff_Click(object sender, RoutedEventArgs e)
         {
+            using var scope = PerformanceSampler.Instance.BeginScope("history", "open-file-diff");
             if (sender is not System.Windows.Controls.Button button || button.Tag is not HistoryFileHitItem hit)
             {
                 return;
@@ -511,6 +569,7 @@ namespace GitDeployPro.Pages
             }
             catch (Exception ex)
             {
+                scope.Fail(ex);
                 ModernMessageBox.Show(
                     $"Unable to open file diff: {ex.Message}",
                     "History",

@@ -5,6 +5,7 @@ namespace GitDeployPro.Models
         public string Message { get; set; } = string.Empty;
         public int TotalTables { get; set; }
         public int ProcessedTables { get; set; }
+        public double? Percent { get; set; }
         public string? Stage { get; set; }
         public string? CurrentTable { get; set; }
         public int CurrentTableIndex { get; set; }

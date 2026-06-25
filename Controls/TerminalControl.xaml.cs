@@ -39,6 +39,7 @@ namespace GitDeployPro.Controls
         private string? _projectPath;
         private DateTime _lastInterruptSentAt = DateTime.MinValue;
         private bool _remoteHistoryConfigured;
+        private bool _disposed;
 
         public TerminalControl()
         {
@@ -75,6 +76,7 @@ namespace GitDeployPro.Controls
 
         public async Task ConnectLocal(string shell = "cmd.exe")
         {
+            using var scope = PerformanceSampler.Instance.BeginScope("terminal", "connect-local", shell);
             await EnsureWebViewReadyAsync();
             if (_webInitFailed)
             {
@@ -115,6 +117,7 @@ namespace GitDeployPro.Controls
             }
             catch (Exception ex)
             {
+                scope.Fail(ex);
                 await fallbackSession.DisposeAsync();
                 await HandleConnectionFailureAsync(ex, "Failed to start local terminal");
             }
@@ -122,6 +125,7 @@ namespace GitDeployPro.Controls
 
         public async Task ConnectAsync(string host, string user, string password, int port)
         {
+            using var scope = PerformanceSampler.Instance.BeginScope("terminal", "connect-ssh", $"{user}@{host}:{port}");
             await EnsureWebViewReadyAsync();
             if (_webInitFailed)
             {
@@ -138,6 +142,7 @@ namespace GitDeployPro.Controls
             }
             catch (Exception ex)
             {
+                scope.Fail(ex);
                 await session.DisposeAsync();
                 await HandleConnectionFailureAsync(ex, "Connection failed");
             }
@@ -150,6 +155,11 @@ namespace GitDeployPro.Controls
 
         private async void TerminalControl_Loaded(object sender, RoutedEventArgs e)
         {
+            if (_disposed)
+            {
+                return;
+            }
+
             lock (_activeTerminals)
             {
                 _activeTerminals.Add(this);
@@ -181,6 +191,9 @@ namespace GitDeployPro.Controls
             }
 
             await DisconnectAsync(includeCloseMessage: false);
+            ReleaseWebViewBridge();
+            _welcomeWritten = false;
+            _remoteHistoryConfigured = false;
         }
 
         private async void ConnectButton_Click(object sender, RoutedEventArgs e)
@@ -246,6 +259,7 @@ namespace GitDeployPro.Controls
 
         private async Task DisconnectAsync(bool includeCloseMessage = true)
         {
+            using var scope = PerformanceSampler.Instance.BeginScope("terminal", "disconnect", includeCloseMessage ? "normal" : "silent");
             if (_isDisconnecting)
             {
                 return;
@@ -287,6 +301,45 @@ namespace GitDeployPro.Controls
             {
                 await WriteToTerminalAsync("\r\nSession closed.\r\n");
             }
+        }
+
+        public async Task DisposeTerminalAsync()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+            Loaded -= TerminalControl_Loaded;
+            Unloaded -= TerminalControl_Unloaded;
+
+            lock (_activeTerminals)
+            {
+                _activeTerminals.Remove(this);
+            }
+
+            await DisconnectAsync(includeCloseMessage: false);
+            ReleaseWebViewBridge();
+        }
+
+        private void ReleaseWebViewBridge()
+        {
+            try
+            {
+                if (TerminalWebView?.CoreWebView2 != null)
+                {
+                    TerminalWebView.CoreWebView2.WebMessageReceived -= CoreWebView2_WebMessageReceived;
+                    TerminalWebView.CoreWebView2.NavigationCompleted -= CoreWebView2_NavigationCompleted;
+                }
+            }
+            catch
+            {
+                // Ignore teardown errors.
+            }
+
+            _webReady = false;
+            _webReadyTcs = null;
         }
 
         private async Task EnsureWebViewReadyAsync()

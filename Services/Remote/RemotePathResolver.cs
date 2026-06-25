@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using GitDeployPro.Models;
 
@@ -101,6 +102,71 @@ namespace GitDeployPro.Services.Remote
             }
 
             return EnsureTrailingSlash(parent);
+        }
+
+        public static string GetRelativeRemotePath(string remoteRoot, string remotePath)
+        {
+            var normalizedRoot = EnsureTrailingSlash(remoteRoot).TrimEnd('/');
+            var normalizedPath = NormalizeRemoteBase(remotePath).TrimEnd('/');
+            if (normalizedPath.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase))
+            {
+                var relative = normalizedPath[normalizedRoot.Length..].TrimStart('/');
+                if (!string.IsNullOrWhiteSpace(relative))
+                {
+                    return relative;
+                }
+            }
+
+            return normalizedPath.TrimStart('/');
+        }
+
+        public static string ResolveLocalDownloadRoot(string? projectRoot, PathMapping? mapping, string? fallbackRoot = null)
+        {
+            var basePath = !string.IsNullOrWhiteSpace(projectRoot)
+                ? projectRoot
+                : fallbackRoot;
+
+            if (string.IsNullOrWhiteSpace(basePath))
+            {
+                basePath = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+            }
+
+            if (mapping != null && !string.IsNullOrWhiteSpace(mapping.LocalPath))
+            {
+                var localSegment = mapping.LocalPath
+                    .Replace("/", "\\")
+                    .TrimStart('\\')
+                    .Trim();
+                if (!string.IsNullOrWhiteSpace(localSegment))
+                {
+                    basePath = Path.Combine(basePath, localSegment);
+                }
+            }
+
+            return basePath;
+        }
+
+        public static string BuildLocalDownloadPath(
+            string localRoot,
+            string remoteRoot,
+            string remotePath,
+            bool isDirectory,
+            string fallbackName)
+        {
+            var relative = GetRelativeRemotePath(remoteRoot, remotePath);
+            if (string.IsNullOrWhiteSpace(relative))
+            {
+                relative = fallbackName.Trim().Replace("/", "\\");
+            }
+
+            var normalizedRelative = relative.Replace("/", "\\").TrimStart('\\');
+            var result = Path.Combine(localRoot, normalizedRelative);
+            if (isDirectory)
+            {
+                return result.TrimEnd('\\', '/');
+            }
+
+            return result;
         }
     }
 }

@@ -89,6 +89,9 @@
                                  BorderThickness="0"
                                  Background="Transparent"
                                  ItemContainerStyle="{StaticResource App.ListBoxItem.Card}"
+                                 ScrollViewer.CanContentScroll="True"
+                                 VirtualizingPanel.IsVirtualizing="True"
+                                 VirtualizingPanel.VirtualizationMode="Recycling"
                                  SelectionChanged="SuggestionsListBox_SelectionChanged" />
                     </StackPanel>
                 </Border>
@@ -257,7 +260,10 @@
                              Grid.Row="1"
                              BorderThickness="0"
                              Background="Transparent"
-                             ItemContainerStyle="{StaticResource App.ListBoxItem.Card}">
+                             ItemContainerStyle="{StaticResource App.ListBoxItem.Card}"
+                             ScrollViewer.CanContentScroll="True"
+                             VirtualizingPanel.IsVirtualizing="True"
+                             VirtualizingPanel.VirtualizationMode="Recycling">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
                                 <StackPanel>
