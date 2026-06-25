@@ -1,5 +1,6 @@
 <UserControl x:Class="GitDeployPro.Controls.DeployRemoteWorkspaceControl"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:behaviors="clr-namespace:GitDeployPro.Behaviors"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:wv="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
@@ -91,89 +92,172 @@
                                Foreground="{StaticResource Text.Primary}"
                                Margin="0,0,0,8" />
 
-                    <TreeView x:Name="RemoteTreeView"
-                              Grid.Row="1"
-                              ItemsSource="{Binding RootNodes}"
-                              Background="Transparent"
-                              BorderThickness="0"
-                              PreviewMouseLeftButtonUp="RemoteTreeView_PreviewMouseLeftButtonUp"
-                              SelectedItemChanged="RemoteTreeView_SelectedItemChanged">
-                        <TreeView.Resources>
-                            <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#2B65D9" />
-                            <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#2B65D9" />
-                            <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#FFFFFF" />
-                            <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="#FFFFFF" />
-                        </TreeView.Resources>
-                        <TreeView.ItemContainerStyle>
-                            <Style TargetType="TreeViewItem">
-                                <Setter Property="Margin" Value="0,1,0,1" />
-                                <Setter Property="Padding" Value="2" />
-                                <Setter Property="FontSize" Value="12" />
-                                <Setter Property="Foreground" Value="{StaticResource Text.Secondary}" />
-                                <Setter Property="Background" Value="Transparent" />
-                                <Setter Property="BorderBrush" Value="Transparent" />
-                                <EventSetter Event="Expanded"
-                                             Handler="RemoteTreeItem_Expanded" />
-                                <Style.Triggers>
-                                    <Trigger Property="IsSelected" Value="True">
-                                        <Setter Property="Foreground" Value="{StaticResource Text.Primary}" />
-                                    </Trigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TreeView.ItemContainerStyle>
-                        <TreeView.ItemTemplate>
-                            <HierarchicalDataTemplate ItemsSource="{Binding Children}">
-                                <Grid Margin="0,1,0,1">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
+                    <Grid Grid.Row="1">
+                        <TreeView x:Name="RemoteTreeView"
+                                  ItemsSource="{Binding RootNodes}"
+                                  Background="Transparent"
+                                  BorderThickness="0"
+                                  behaviors:ContextMenuSelectionBehavior.Enable="True"
+                                  MouseRightButtonUp="RemoteTreeView_MouseRightButtonUp"
+                                  MouseDoubleClick="RemoteTreeView_MouseDoubleClick">
+                            <TreeView.Resources>
+                                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#2B65D9" />
+                                <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#2B65D9" />
+                                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#FFFFFF" />
+                                <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="#FFFFFF" />
+                            </TreeView.Resources>
+                            <TreeView.ItemContainerStyle>
+                                <Style TargetType="TreeViewItem">
+                                    <Setter Property="Margin" Value="0,1,0,1" />
+                                    <Setter Property="Padding" Value="2" />
+                                    <Setter Property="FontSize" Value="12" />
+                                    <Setter Property="Foreground" Value="{StaticResource Text.Secondary}" />
+                                    <Setter Property="Background" Value="Transparent" />
+                                    <Setter Property="BorderBrush" Value="Transparent" />
+                                    <EventSetter Event="Expanded"
+                                                 Handler="RemoteTreeItem_Expanded" />
+                                    <Style.Triggers>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter Property="Foreground" Value="{StaticResource Text.Primary}" />
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TreeView.ItemContainerStyle>
+                            <TreeView.ItemTemplate>
+                                <HierarchicalDataTemplate ItemsSource="{Binding Children}">
+                                    <Grid Margin="0,1,0,1">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
 
-                                    <TextBlock Grid.Column="0"
-                                               Text="{Binding IconGlyph}"
-                                               Margin="0,0,6,0"
-                                               VerticalAlignment="Center"
-                                               FontSize="13"
-                                               Foreground="{Binding IconColor}" />
+                                        <TextBlock Grid.Column="0"
+                                                   Text="{Binding IconGlyph}"
+                                                   Margin="0,0,6,0"
+                                                   VerticalAlignment="Center"
+                                                   FontSize="13"
+                                                   Foreground="{Binding IconColor}" />
 
-                                    <Border Grid.Column="1"
-                                            MinWidth="32"
-                                            Margin="0,0,8,0"
-                                            CornerRadius="4"
-                                            Background="{Binding BadgeBackground}"
-                                            BorderBrush="{Binding BadgeBorder}"
-                                            BorderThickness="1"
-                                            Padding="5,1"
-                                            VerticalAlignment="Center">
-                                        <Border.Style>
-                                            <Style TargetType="Border">
-                                                <Setter Property="Visibility" Value="Visible" />
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsDirectory}" Value="True">
-                                                        <Setter Property="Visibility" Value="Collapsed" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </Border.Style>
-                                        <TextBlock Text="{Binding BadgeText}"
-                                                   Foreground="{Binding BadgeForeground}"
-                                                   FontSize="9"
-                                                   FontWeight="SemiBold"
-                                                   HorizontalAlignment="Center"
+                                        <Border Grid.Column="1"
+                                                MinWidth="32"
+                                                Margin="0,0,8,0"
+                                                CornerRadius="4"
+                                                Background="{Binding BadgeBackground}"
+                                                BorderBrush="{Binding BadgeBorder}"
+                                                BorderThickness="1"
+                                                Padding="5,1"
+                                                VerticalAlignment="Center">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsDirectory}" Value="True">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <TextBlock Text="{Binding BadgeText}"
+                                                       Foreground="{Binding BadgeForeground}"
+                                                       FontSize="9"
+                                                       FontWeight="SemiBold"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center" />
+                                        </Border>
+
+                                        <TextBlock Grid.Column="2"
+                                                   Text="{Binding Name}"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TreeViewItem}}"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   FontSize="12" />
+                                    </Grid>
+                                </HierarchicalDataTemplate>
+                            </TreeView.ItemTemplate>
+                        </TreeView>
+
+                        <Border x:Name="RemoteEmptyState"
+                                Visibility="Collapsed"
+                                CornerRadius="10"
+                                BorderBrush="{StaticResource Border.Subtle}"
+                                BorderThickness="1"
+                                Background="{StaticResource Surface.Input}"
+                                Padding="16"
+                                Margin="2"
+                                IsHitTestVisible="False">
+                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                <TextBlock Text="📂"
+                                           FontSize="22"
+                                           HorizontalAlignment="Center"
+                                           Foreground="{StaticResource Text.Muted}" />
+                                <TextBlock Text="No files loaded yet"
+                                           Margin="0,8,0,0"
+                                           FontSize="13"
+                                           FontWeight="SemiBold"
+                                           Foreground="{StaticResource Text.Primary}"
+                                           HorizontalAlignment="Center" />
+                                <TextBlock x:Name="RemoteEmptyHintText"
+                                           Margin="0,4,0,0"
+                                           FontSize="11"
+                                           Foreground="{StaticResource Text.Muted}"
+                                           HorizontalAlignment="Center"
+                                           Text="Connect or refresh to load remote files." />
+                            </StackPanel>
+                        </Border>
+
+                        <Border x:Name="RemoteLoadingOverlay"
+                                Visibility="Collapsed"
+                                Background="#AF151C26"
+                                CornerRadius="10"
+                                BorderBrush="{StaticResource Border.Strong}"
+                                BorderThickness="1"
+                                Margin="2"
+                                Panel.ZIndex="5">
+                            <Border Width="260"
+                                    Padding="14"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    CornerRadius="10"
+                                    Background="{StaticResource Surface.Raised}"
+                                    BorderBrush="{StaticResource Border.Strong}"
+                                    BorderThickness="1">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="🔄"
+                                                   FontSize="15"
+                                                   Margin="0,0,8,0"
                                                    VerticalAlignment="Center" />
-                                    </Border>
-
-                                    <TextBlock Grid.Column="2"
-                                               Text="{Binding Name}"
-                                               VerticalAlignment="Center"
-                                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TreeViewItem}}"
-                                               TextTrimming="CharacterEllipsis"
-                                               FontSize="12" />
-                                </Grid>
-                            </HierarchicalDataTemplate>
-                        </TreeView.ItemTemplate>
-                    </TreeView>
+                                        <TextBlock x:Name="RemoteLoadingTitleText"
+                                                   Text="Connecting to remote..."
+                                                   FontSize="13"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{StaticResource Text.Primary}" />
+                                    </StackPanel>
+                                    <TextBlock x:Name="RemoteLoadingDetailText"
+                                               Margin="0,6,0,0"
+                                               Text="Please wait while we fetch files."
+                                               FontSize="11"
+                                               Foreground="{StaticResource Text.Muted}"
+                                               TextWrapping="Wrap" />
+                                    <ProgressBar x:Name="RemoteLoadingProgressBar"
+                                                 Margin="0,10,0,0"
+                                                 Height="5"
+                                                 Minimum="0"
+                                                 Maximum="100"
+                                                 IsIndeterminate="True"
+                                                 Background="{StaticResource Surface.Input}"
+                                                 Foreground="{StaticResource Accent.Primary}"
+                                                 BorderThickness="0" />
+                                    <StackPanel Margin="0,10,0,0">
+                                        <Border Height="6" Margin="0,0,0,6" CornerRadius="3" Background="#213D4F66"/>
+                                        <Border Height="6" Margin="0,0,0,6" CornerRadius="3" Background="#1B3D4F66" Width="200" HorizontalAlignment="Left"/>
+                                        <Border Height="6" CornerRadius="3" Background="#163D4F66" Width="170" HorizontalAlignment="Left"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </Border>
+                    </Grid>
                 </Grid>
             </Border>
 

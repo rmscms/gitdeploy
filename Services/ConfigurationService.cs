@@ -36,6 +36,8 @@ namespace GitDeployPro.Services
             public List<BackupHistoryEntry> BackupHistory { get; set; } = new();
             public bool LaunchOnStartup { get; set; }
             public bool ShowBackupSchedulerLocalhostWarning { get; set; } = true;
+            public bool MinimizeToTray { get; set; } = true;
+            public bool EnablePerformanceSampling { get; set; }
         }
 
         public class RecentProjectEntry

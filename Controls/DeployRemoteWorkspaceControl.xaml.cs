@@ -11,12 +11,15 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using GitDeployPro.Models;
 using GitDeployPro.Services;
 using GitDeployPro.Services.Remote;
+using GitDeployPro.Windows;
 using Microsoft.Web.WebView2.Core;
+using Forms = System.Windows.Forms;
 
 namespace GitDeployPro.Controls
 {
@@ -60,6 +63,7 @@ namespace GitDeployPro.Controls
         private bool _editorRecoveryInProgress;
         private bool _editorWarmupInProgress;
         private bool _editorWarmupLoggedReady;
+        private int _remoteLoadingDepth;
         private int _editorFontSize = 14;
         private DateTime _lastEditorRecoveryAttemptUtc = DateTime.MinValue;
         private DateTime _lastEditorWarmupAttemptUtc = DateTime.MinValue;
@@ -84,6 +88,7 @@ namespace GitDeployPro.Controls
             ShowBrowserMode(notify: false);
             ApplyWorkspacePanelLayout(editorMode: false);
             ResetUploadFeedback();
+            UpdateRemoteBrowserVisualState();
             Unloaded += DeployRemoteWorkspaceControl_Unloaded;
         }
 
@@ -781,6 +786,9 @@ namespace GitDeployPro.Controls
         private async Task ConnectAsync(ConnectionProfile profile, bool showDialogOnError, bool isAutoConnect)
         {
             _isBusy = true;
+            BeginRemoteLoading(
+                isAutoConnect ? "Auto-connecting..." : "Connecting...",
+                $"Preparing remote workspace for {profile.Name}...");
             UpdateUiState();
             try
             {
@@ -820,6 +828,7 @@ namespace GitDeployPro.Controls
             finally
             {
                 _isBusy = false;
+                EndRemoteLoading();
                 UpdateUiState();
             }
         }
@@ -851,6 +860,7 @@ namespace GitDeployPro.Controls
                 ShowBrowserMode();
                 SetStatus("Disconnected.", warning: false);
                 AddLog("Disconnected.");
+                UpdateRemoteBrowserVisualState();
             }
             finally
             {
@@ -930,16 +940,25 @@ namespace GitDeployPro.Controls
 
             _ = WarmupEditorInBackgroundAsync("FTP listing started");
             var root = RemotePathResolver.BuildRemoteRoot(_currentProfile);
-            var entries = await ExecuteRemoteAsync(service => service.ListDirectoryAsync(root), "Load root");
-            var nodes = _treeBuilder.BuildNodes(entries);
-            RootNodes.Clear();
-            foreach (var node in nodes)
+            BeginRemoteLoading("Loading remote files...", $"Fetching {root}");
+            try
             {
-                RootNodes.Add(node);
-            }
+                var entries = await ExecuteRemoteAsync(service => service.ListDirectoryAsync(root), "Load root");
+                var nodes = _treeBuilder.BuildNodes(entries);
+                RootNodes.Clear();
+                foreach (var node in nodes)
+                {
+                    RootNodes.Add(node);
+                }
 
-            SetStatus($"Loaded {RootNodes.Count} item(s) from {root}", success: true);
-            AddLog($"Root loaded from {root}");
+                SetStatus($"Loaded {RootNodes.Count} item(s) from {root}", success: true);
+                AddLog($"Root loaded from {root}");
+            }
+            finally
+            {
+                EndRemoteLoading();
+                UpdateRemoteBrowserVisualState();
+            }
         }
 
         private async Task LoadChildrenAsync(RemoteTreeNode node)
@@ -1006,15 +1025,7 @@ namespace GitDeployPro.Controls
             }
         }
 
-        private async void RemoteTreeView_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
-        {
-            if (_isBusy) return;
-            if (e.NewValue is not RemoteTreeNode node) return;
-            if (node.IsDirectory || node.IsPlaceholder) return;
-            await OpenFileAsync(node);
-        }
-
-        private async void RemoteTreeView_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        private async void RemoteTreeView_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
             if (_isBusy)
             {
@@ -1032,14 +1043,31 @@ namespace GitDeployPro.Controls
                 return;
             }
 
-            if (_editSession != null &&
-                string.Equals(_editSession.FilePath.TrimEnd('/'), node.FullPath.TrimEnd('/'), StringComparison.OrdinalIgnoreCase) &&
-                _isEditorOpen)
+            e.Handled = true;
+            await OpenFileAsync(node);
+        }
+
+        private void RemoteTreeView_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            if (_isBusy || _remoteService == null || !_remoteService.IsConnected)
             {
                 return;
             }
 
-            await OpenFileAsync(node);
+            var treeItem = FindParent<TreeViewItem>(e.OriginalSource as DependencyObject);
+            if (treeItem?.DataContext is not RemoteTreeNode node || node.IsPlaceholder)
+            {
+                return;
+            }
+
+            treeItem.IsSelected = true;
+            treeItem.Focus();
+
+            var actions = BuildRemoteContextActions(node);
+            if (GlobalContextMenuService.ShowMenu(treeItem, actions, node, PlacementMode.MousePoint))
+            {
+                e.Handled = true;
+            }
         }
 
         private RemoteEditSession? FindSessionByPath(string? path)
@@ -1219,7 +1247,7 @@ namespace GitDeployPro.Controls
             }
 
             var active = _editSession;
-            var text = await ExecuteRemoteAsync(service => service.ReadTextFileAsync(active.FilePath), $"Reload {active.FileName}");
+            var text = await ExecuteRemoteAsync(service => service.OpenTextAsync(active.FilePath), $"Reload {active.FileName}");
             var stat = await ExecuteRemoteAsync(service => service.GetFileStatAsync(active.FilePath), $"Reload stat {active.FileName}");
 
             active.Content = text;
@@ -1247,6 +1275,312 @@ namespace GitDeployPro.Controls
             }
 
             return null;
+        }
+
+        private IReadOnlyList<AppContextMenuAction> BuildRemoteContextActions(RemoteTreeNode node)
+        {
+            var actions = new List<AppContextMenuAction>
+            {
+                new()
+                {
+                    Id = "open",
+                    Label = "Open",
+                    IconGlyph = "📂",
+                    IsEnabled = !node.IsDirectory,
+                    Execute = _ => _ = OpenFileAsync(node)
+                },
+                new()
+                {
+                    Id = "download",
+                    Label = node.IsDirectory ? "Download Folder" : "Download File",
+                    IconGlyph = "⬇",
+                    Execute = _ => _ = DownloadNodeAsync(node)
+                },
+                AppContextMenuAction.Separator("remote-action-separator"),
+                new()
+                {
+                    Id = "rename",
+                    Label = "Rename",
+                    IconGlyph = "✏",
+                    Execute = _ => _ = RenameNodeAsync(node)
+                },
+                new()
+                {
+                    Id = "delete",
+                    Label = "Delete",
+                    IconGlyph = "🗑",
+                    IsDestructive = true,
+                    Execute = _ => _ = DeleteNodeAsync(node)
+                }
+            };
+            return actions;
+        }
+
+        private string ResolveDefaultDownloadRoot()
+        {
+            var projectRoot = _configService.LoadGlobalConfig().LastProjectPath;
+            var mapping = RemotePathResolver.GetPrimaryMapping(_currentProfile);
+            return RemotePathResolver.ResolveLocalDownloadRoot(projectRoot, mapping);
+        }
+
+        private async Task DownloadNodeAsync(RemoteTreeNode node)
+        {
+            if (_isBusy || _remoteService == null || !_remoteService.IsConnected || _currentProfile == null)
+            {
+                return;
+            }
+
+            using var dialog = new Forms.FolderBrowserDialog
+            {
+                Description = "Choose where to download remote files",
+                SelectedPath = ResolveDefaultDownloadRoot()
+            };
+
+            if (dialog.ShowDialog() != Forms.DialogResult.OK || string.IsNullOrWhiteSpace(dialog.SelectedPath))
+            {
+                return;
+            }
+
+            _isBusy = true;
+            UpdateUiState();
+            try
+            {
+                var remoteRoot = RemotePathResolver.BuildRemoteRoot(_currentProfile);
+                var localTarget = RemotePathResolver.BuildLocalDownloadPath(
+                    dialog.SelectedPath,
+                    remoteRoot,
+                    node.FullPath,
+                    node.IsDirectory,
+                    node.Name);
+
+                if (node.IsDirectory)
+                {
+                    await ExecuteRemoteAsync(
+                        service => service.DownloadDirectoryAsync(node.FullPath, localTarget),
+                        $"Download directory {node.Name}");
+                    SetStatus($"Folder downloaded to {localTarget}", success: true);
+                    AddLog($"Downloaded folder {node.FullPath} -> {localTarget}");
+                }
+                else
+                {
+                    await ExecuteRemoteAsync(
+                        service => service.DownloadFileAsync(node.FullPath, localTarget),
+                        $"Download file {node.Name}");
+                    SetStatus($"File downloaded to {localTarget}", success: true);
+                    AddLog($"Downloaded file {node.FullPath} -> {localTarget}");
+                }
+            }
+            catch (Exception ex)
+            {
+                SetStatus($"Download failed: {ex.Message}", warning: true);
+                AddLog($"Download failed: {ex.Message}");
+                ModernMessageBox.Show($"Download failed:\n{ex.Message}", "Remote workspace", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                _isBusy = false;
+                UpdateUiState();
+            }
+        }
+
+        private async Task RenameNodeAsync(RemoteTreeNode node)
+        {
+            if (_isBusy || _remoteService == null || !_remoteService.IsConnected || _currentProfile == null)
+            {
+                return;
+            }
+
+            var dialog = new InputDialog("Rename", $"Enter a new name for '{node.Name}':", node.Name)
+            {
+                Owner = Window.GetWindow(this)
+            };
+
+            if (WindowOwnerService.ShowDialogOwned(dialog, this) != true)
+            {
+                return;
+            }
+
+            var newName = (dialog.ResponseText ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(newName) || string.Equals(newName, node.Name, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            _isBusy = true;
+            UpdateUiState();
+            try
+            {
+                var root = RemotePathResolver.BuildRemoteRoot(_currentProfile);
+                var parent = RemotePathResolver.GetParentDirectory(node.FullPath, root);
+                var destinationPath = RemotePathResolver.CombineRemotePaths(parent, newName);
+                await ExecuteRemoteAsync(
+                    service => service.RenameAsync(node.FullPath, destinationPath),
+                    $"Rename {node.Name}");
+
+                ApplyPathRenameToOpenSessions(node.FullPath, destinationPath, node.IsDirectory);
+                await LoadRootAsync();
+                SetStatus($"Renamed to {newName}", success: true);
+                AddLog($"Renamed {node.FullPath} -> {destinationPath}");
+            }
+            catch (Exception ex)
+            {
+                SetStatus($"Rename failed: {ex.Message}", warning: true);
+                AddLog($"Rename failed: {ex.Message}");
+                ModernMessageBox.Show($"Rename failed:\n{ex.Message}", "Remote workspace", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                _isBusy = false;
+                UpdateUiState();
+            }
+        }
+
+        private async Task DeleteNodeAsync(RemoteTreeNode node)
+        {
+            if (_isBusy || _remoteService == null || !_remoteService.IsConnected)
+            {
+                return;
+            }
+
+            var result = ModernMessageBox.ShowWithResult(
+                $"Delete '{node.Name}' {(node.IsDirectory ? "folder" : "file")}? This action cannot be undone.",
+                "Confirm delete",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning,
+                primaryText: "Delete",
+                secondaryText: "Cancel");
+            if (result != MessageBoxResult.Yes)
+            {
+                return;
+            }
+
+            _isBusy = true;
+            UpdateUiState();
+            try
+            {
+                await ExecuteRemoteAsync(
+                    service => service.DeleteAsync(node.FullPath, node.IsDirectory),
+                    $"Delete {node.Name}");
+
+                await RemoveDeletedSessionsAsync(node.FullPath, node.IsDirectory);
+                await LoadRootAsync();
+                SetStatus($"Deleted {node.Name}", success: true);
+                AddLog($"Deleted {node.FullPath}");
+            }
+            catch (Exception ex)
+            {
+                SetStatus($"Delete failed: {ex.Message}", warning: true);
+                AddLog($"Delete failed: {ex.Message}");
+                ModernMessageBox.Show($"Delete failed:\n{ex.Message}", "Remote workspace", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                _isBusy = false;
+                UpdateUiState();
+            }
+        }
+
+        private void ApplyPathRenameToOpenSessions(string oldPath, string newPath, bool isDirectory)
+        {
+            if (OpenSessions.Count == 0)
+            {
+                return;
+            }
+
+            var oldNormalized = oldPath.TrimEnd('/');
+            var oldPrefix = oldNormalized + "/";
+            var newNormalized = newPath.TrimEnd('/');
+
+            foreach (var session in OpenSessions)
+            {
+                var sessionPath = session.FilePath.TrimEnd('/');
+                if (!isDirectory)
+                {
+                    if (!string.Equals(sessionPath, oldNormalized, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    session.FilePath = newPath;
+                    session.FileName = Path.GetFileName(newPath.Replace("\\", "/"));
+                    continue;
+                }
+
+                if (string.Equals(sessionPath, oldNormalized, StringComparison.OrdinalIgnoreCase))
+                {
+                    session.FilePath = newNormalized;
+                    session.FileName = Path.GetFileName(newNormalized.Replace("\\", "/"));
+                    continue;
+                }
+
+                if (sessionPath.StartsWith(oldPrefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    var suffix = sessionPath[oldPrefix.Length..];
+                    var updatedPath = $"{newNormalized}/{suffix}".Replace("\\", "/");
+                    session.FilePath = updatedPath;
+                    session.FileName = Path.GetFileName(updatedPath);
+                }
+            }
+
+            if (_editSession != null)
+            {
+                EditorPathText.Text = _editSession.FilePath;
+            }
+
+            EditorTabsListBox.Items.Refresh();
+        }
+
+        private async Task RemoveDeletedSessionsAsync(string deletedPath, bool isDirectory)
+        {
+            if (OpenSessions.Count == 0)
+            {
+                return;
+            }
+
+            var normalized = deletedPath.TrimEnd('/');
+            var prefix = normalized + "/";
+            var removedSessions = OpenSessions
+                .Where(session =>
+                {
+                    var sessionPath = session.FilePath.TrimEnd('/');
+                    if (!isDirectory)
+                    {
+                        return string.Equals(sessionPath, normalized, StringComparison.OrdinalIgnoreCase);
+                    }
+
+                    return string.Equals(sessionPath, normalized, StringComparison.OrdinalIgnoreCase)
+                           || sessionPath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
+                })
+                .ToList();
+            if (removedSessions.Count == 0)
+            {
+                return;
+            }
+
+            var removedActive = _editSession != null && removedSessions.Contains(_editSession);
+            foreach (var session in removedSessions)
+            {
+                OpenSessions.Remove(session);
+            }
+
+            if (OpenSessions.Count == 0)
+            {
+                _editSession = null;
+                SyncTabSelection(null);
+                EditorPathText.Text = "Select a remote file to edit";
+                EditorStatusText.Text = "No file loaded.";
+                ShowBrowserMode();
+                return;
+            }
+
+            if (removedActive)
+            {
+                await ActivateSessionAsync(OpenSessions[0], captureCurrentBuffer: false);
+            }
+            else
+            {
+                UpdateUiState();
+            }
         }
 
         private async Task OpenFileAsync(RemoteTreeNode node)
@@ -1300,7 +1634,7 @@ namespace GitDeployPro.Controls
 
                 var stepTimer = Stopwatch.StartNew();
                 var text = await ExecuteRemoteAsync(
-                    service => service.ReadTextFileAsync(node.FullPath),
+                    service => service.OpenTextAsync(node.FullPath),
                     $"Download {node.Name}");
                 downloadMs = stepTimer.ElapsedMilliseconds;
                 AddLog($"Downloaded {node.Name} ({text.Length} chars).");
@@ -1396,7 +1730,7 @@ namespace GitDeployPro.Controls
                 if (timestampUnchanged)
                 {
                     var remoteContent = await ExecuteRemoteAsync(
-                        service => service.ReadTextFileAsync(_editSession.FilePath),
+                        service => service.OpenTextAsync(_editSession.FilePath),
                         $"Verify content {_editSession.FileName}");
                     if (string.Equals(ComputeHash(remoteContent), ComputeHash(localContent), StringComparison.Ordinal))
                     {
@@ -1627,6 +1961,69 @@ namespace GitDeployPro.Controls
             EditorFallbackTextBox.IsEnabled = connected && _editSession != null && !_isBusy && _isEditorOpen;
             EditorWebView.IsEnabled = connected && _editSession != null && !_isBusy && _isEditorOpen;
             UpdateSaveUploadButtonAppearance();
+            UpdateRemoteBrowserVisualState();
+        }
+
+        private void BeginRemoteLoading(string title, string detail)
+        {
+            _remoteLoadingDepth++;
+            if (RemoteLoadingTitleText != null)
+            {
+                RemoteLoadingTitleText.Text = string.IsNullOrWhiteSpace(title) ? "Loading remote files..." : title;
+            }
+
+            if (RemoteLoadingDetailText != null)
+            {
+                RemoteLoadingDetailText.Text = string.IsNullOrWhiteSpace(detail)
+                    ? "Please wait while we fetch files."
+                    : detail;
+            }
+
+            if (RemoteLoadingProgressBar != null)
+            {
+                RemoteLoadingProgressBar.IsIndeterminate = true;
+            }
+
+            UpdateRemoteBrowserVisualState();
+        }
+
+        private void EndRemoteLoading()
+        {
+            if (_remoteLoadingDepth > 0)
+            {
+                _remoteLoadingDepth--;
+            }
+
+            if (_remoteLoadingDepth == 0 && RemoteLoadingDetailText != null)
+            {
+                RemoteLoadingDetailText.Text = "Please wait while we fetch files.";
+            }
+
+            UpdateRemoteBrowserVisualState();
+        }
+
+        private void UpdateRemoteBrowserVisualState()
+        {
+            var connected = _remoteService != null && _remoteService.IsConnected;
+            var isLoading = _remoteLoadingDepth > 0;
+
+            if (RemoteLoadingOverlay != null)
+            {
+                RemoteLoadingOverlay.Visibility = isLoading ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            if (RemoteEmptyState != null)
+            {
+                var showEmpty = !isLoading && connected && RootNodes.Count == 0;
+                RemoteEmptyState.Visibility = showEmpty ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            if (RemoteEmptyHintText != null)
+            {
+                RemoteEmptyHintText.Text = connected
+                    ? "Remote directory is empty or waiting for refresh."
+                    : "Connect to load remote files.";
+            }
         }
 
         private void UpdateSaveUploadButtonAppearance()

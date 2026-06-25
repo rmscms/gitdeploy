@@ -17,11 +17,10 @@ namespace GitDeployPro.Pages
     public partial class TerminalPage : Page
     {
         private ConfigurationService _configService;
-        private string _currentProjectPath;
+        private string _currentProjectPath = string.Empty;
         private ObservableCollection<TerminalCommandPreset> _commandPresets = new();
-        private List<ConnectionProfile> _allSshProfiles = new();
-        private List<ConnectionProfile> _filteredProfiles = new();
         private List<TerminalInstance> _activeTerminals = new();
+        private Controls.SessionManagerControl? _sessionManagerControl;
         
         private class TerminalInstance
         {
@@ -54,28 +53,20 @@ namespace GitDeployPro.Pages
 
             LoadCommandPresets();
             TerminalPresetStore.PresetsChanged += TerminalPresetStore_PresetsChanged;
-            
-            // Collapse main sidebar when Terminal page is loaded
-            var mainWindow = Window.GetWindow(this) as MainWindow;
-            if (mainWindow != null)
-            {
-                mainWindow.SetSidebarCollapsed(true);
-            }
-            
+
             // Load Session Manager inline
             LoadSessionManager();
         }
 
-        private void TerminalPage_Unloaded(object sender, RoutedEventArgs e)
+        private async void TerminalPage_Unloaded(object sender, RoutedEventArgs e)
         {
             TerminalPresetStore.PresetsChanged -= TerminalPresetStore_PresetsChanged;
-            
-            // Restore main sidebar when Terminal page is unloaded
-            var mainWindow = Window.GetWindow(this) as MainWindow;
-            if (mainWindow != null)
+            if (_sessionManagerControl != null)
             {
-                mainWindow.SetSidebarCollapsed(false);
+                _sessionManagerControl.ConnectionConnectRequested -= SessionManager_ConnectionConnectRequested;
+                _sessionManagerControl = null;
             }
+            await CloseAllTerminalsAsync();
         }
         
         private void LoadSessionManager()
@@ -91,7 +82,14 @@ namespace GitDeployPro.Pages
             
             if (sessionManager != null)
             {
-                sessionManager.ConnectionConnectRequested += SessionManager_ConnectionConnectRequested;
+                if (!ReferenceEquals(_sessionManagerControl, sessionManager) && _sessionManagerControl != null)
+                {
+                    _sessionManagerControl.ConnectionConnectRequested -= SessionManager_ConnectionConnectRequested;
+                }
+
+                _sessionManagerControl = sessionManager;
+                _sessionManagerControl.ConnectionConnectRequested -= SessionManager_ConnectionConnectRequested;
+                _sessionManagerControl.ConnectionConnectRequested += SessionManager_ConnectionConnectRequested;
             }
         }
         
@@ -119,6 +117,7 @@ namespace GitDeployPro.Pages
             
             try
             {
+                using var scope = PerformanceSampler.Instance.BeginScope("terminal", "open-session", conn.Name);
                 // Create new terminal instance inside the grid (allow multiple per connection)
                 var terminalControl = new Controls.TerminalControl();
                 terminalControl.SetProjectPath(_currentProjectPath ?? "");
@@ -214,15 +213,15 @@ namespace GitDeployPro.Pages
                 Cursor = System.Windows.Input.Cursors.Hand,
                 Margin = new Thickness(0, 0, 5, 0)
             };
-            closeButton.Click += (s, e) =>
+            closeButton.Click += async (s, e) =>
             {
                 var instance = _activeTerminals.FirstOrDefault(t => t.Container == container);
                 if (instance != null)
                 {
-                    CloseTerminal(instance);
+                    await CloseTerminalAsync(instance);
                 }
             };
-            detachButton.Click += (s, e) =>
+            detachButton.Click += async (s, e) =>
             {
                 var instance = _activeTerminals.FirstOrDefault(t => t.Container == container);
                 if (instance != null)
@@ -231,7 +230,7 @@ namespace GitDeployPro.Pages
                     var win = new TerminalWindow(instance.Profile);
                     WindowOwnerService.ShowOwned(win, this);
                     
-                    CloseTerminal(instance);
+                    await CloseTerminalAsync(instance);
                 }
             };
             
@@ -284,15 +283,44 @@ namespace GitDeployPro.Pages
             return container;
         }
         
-        private void CloseTerminal(TerminalInstance instance)
+        private async Task CloseTerminalAsync(TerminalInstance instance)
         {
             TerminalsGrid.Children.Remove(instance.Container);
             _activeTerminals.Remove(instance);
             
             // Unregister from SessionManager
             SessionManagerControl.UnregisterActiveConnection(instance.ConnectionId);
+            await instance.TerminalControl.DisposeTerminalAsync();
             
             ArrangeTerminals();
+            UpdateActiveTerminalsCount();
+        }
+
+        private async Task CloseAllTerminalsAsync()
+        {
+            if (_activeTerminals.Count == 0)
+            {
+                return;
+            }
+
+            var snapshot = _activeTerminals.ToList();
+            foreach (var terminal in snapshot)
+            {
+                try
+                {
+                    SessionManagerControl.UnregisterActiveConnection(terminal.ConnectionId);
+                    await terminal.TerminalControl.DisposeTerminalAsync();
+                }
+                catch
+                {
+                    // Keep cleanup best-effort.
+                }
+            }
+
+            _activeTerminals.Clear();
+            TerminalsGrid.Children.Clear();
+            TerminalsGrid.RowDefinitions.Clear();
+            TerminalsGrid.ColumnDefinitions.Clear();
             UpdateActiveTerminalsCount();
         }
         
@@ -383,6 +411,7 @@ namespace GitDeployPro.Pages
         {
             try
             {
+                using var scope = PerformanceSampler.Instance.BeginScope("terminal", "open-local-session");
                 var terminalControl = new Controls.TerminalControl();
                 terminalControl.SetProjectPath(_currentProjectPath ?? "");
                 terminalControl.DetachButton.Visibility = Visibility.Collapsed;

@@ -55,7 +55,9 @@ namespace GitDeployPro.Models
 
         public string ProgressSummary => TotalTables > 0
             ? $"{ProcessedTables}/{TotalTables} tables"
-            : "Preparing…";
+            : Percent > 0
+                ? $"{Math.Round(Percent):0}%"
+                : "Preparing…";
 
         public string CurrentTable
         {
@@ -96,7 +98,7 @@ namespace GitDeployPro.Models
         public double Percent
         {
             get => _percent;
-            set => SetProperty(ref _percent, value);
+            set => SetProperty(ref _percent, value, nameof(Percent), nameof(ProgressSummary));
         }
 
         public DateTime? FinishedLocal

@@ -13,6 +13,7 @@ using GitDeployPro.Pages;
 using GitDeployPro.Services;
 using GitDeployPro.Windows;
 using Button = System.Windows.Controls.Button;
+using Forms = System.Windows.Forms;
 
 namespace GitDeployPro
 {
@@ -26,9 +27,14 @@ namespace GitDeployPro
         private readonly DispatcherTimer _nextRunTimer;
         private DateTime? _nextRunUtc;
         private string _nextRunCountdownText = "next --";
+        private Forms.NotifyIcon? _trayIcon;
+        private bool _allowClose;
+        private bool _trayHintShown;
+        private bool _minimizeToTrayEnabled = true;
 
         public MainWindow()
         {
+            using var startupScope = PerformanceSampler.Instance.BeginScope("navigation", "main-window-startup");
             InitializeComponent();
             _configService = new ConfigurationService();
             SetSidebarCollapsed(false);
@@ -39,8 +45,11 @@ namespace GitDeployPro
             _nextRunTimer.Tick += NextRunTimer_Tick;
             _nextRunTimer.Start();
             RefreshNextRunTarget();
+            RefreshTrayPreference();
+            InitializeTrayIcon();
+            Closing += MainWindow_Closing;
 
-            ContentFrame.Navigate(new DashboardPage());
+            NavigateToPage(new DashboardPage(), "dashboard");
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
@@ -336,6 +345,7 @@ namespace GitDeployPro
 
         private void SwitchProject(string path)
         {
+            using var scope = PerformanceSampler.Instance.BeginScope("navigation", "switch-project", path);
             _configService.AddRecentProject(path);
             LoadRecentProjects(); // Refresh name and list
 
@@ -403,20 +413,26 @@ namespace GitDeployPro
 
         public void NavigateToDashboard()
         {
+            using var scope = PerformanceSampler.Instance.BeginScope("navigation", "navigate", "dashboard");
             LoadRecentProjects();
-            ContentFrame.Navigate(new DashboardPage());
+            NavigateToPage(new DashboardPage(), "dashboard");
         }
 
         private void Dashboard_Click(object sender, RoutedEventArgs e) => NavigateToDashboard();
-        private void Deploy_Click(object sender, RoutedEventArgs e) => ContentFrame.Navigate(new DeployPage());
-        private void DirectUpload_Click(object sender, RoutedEventArgs e) => ContentFrame.Navigate(new DirectUploadPage());
-        private void FtpExplorer_Click(object sender, RoutedEventArgs e) => ContentFrame.Navigate(new FtpExplorerPage());
-        private void Database_Click(object sender, RoutedEventArgs e) => ContentFrame.Navigate(new DatabasePage());
-        private void Terminal_Click(object sender, RoutedEventArgs e) => ContentFrame.Navigate(new TerminalPage());
-        private void BackupScheduler_Click(object sender, RoutedEventArgs e) => ContentFrame.Navigate(new BackupSchedulerPage());
-        private void Git_Click(object sender, RoutedEventArgs e) => ContentFrame.Navigate(new GitPage());
-        private void History_Click(object sender, RoutedEventArgs e) => ContentFrame.Navigate(new HistoryPage());
-        private void Settings_Click(object sender, RoutedEventArgs e) => ContentFrame.Navigate(new SettingsPage());
+        private void Deploy_Click(object sender, RoutedEventArgs e) => NavigateToPage(new DeployPage(), "deploy");
+        private void DirectUpload_Click(object sender, RoutedEventArgs e) => NavigateToPage(new DirectUploadPage(), "direct-upload");
+        private void Database_Click(object sender, RoutedEventArgs e) => NavigateToPage(new DatabasePage(), "database");
+        private void Terminal_Click(object sender, RoutedEventArgs e) => NavigateToPage(new TerminalPage(), "terminal");
+        private void BackupScheduler_Click(object sender, RoutedEventArgs e) => NavigateToPage(new BackupSchedulerPage(), "backup-scheduler");
+        private void Git_Click(object sender, RoutedEventArgs e) => NavigateToPage(new GitPage(), "git");
+        private void History_Click(object sender, RoutedEventArgs e) => NavigateToPage(new HistoryPage(), "history");
+        private void Settings_Click(object sender, RoutedEventArgs e) => NavigateToPage(new SettingsPage(), "settings");
+
+        private void NavigateToPage(Page page, string route)
+        {
+            using var scope = PerformanceSampler.Instance.BeginScope("navigation", "navigate", route);
+            ContentFrame.Navigate(page);
+        }
         private void About_Click(object sender, RoutedEventArgs e)
         {
             var version = GetApplicationVersion();
@@ -452,9 +468,146 @@ namespace GitDeployPro
             return $"{version.Major}.{version.Minor}";
         }
 
-        private void Minimize_Click(object sender, RoutedEventArgs e) => this.WindowState = WindowState.Minimized;
+        private void Minimize_Click(object sender, RoutedEventArgs e)
+        {
+            WindowState = WindowState.Minimized;
+        }
         private void Maximize_Click(object sender, RoutedEventArgs e) => this.WindowState = (this.WindowState == WindowState.Maximized) ? WindowState.Normal : WindowState.Maximized;
-        private void Close_Click(object sender, RoutedEventArgs e) => this.Close();
+        private void Close_Click(object sender, RoutedEventArgs e)
+        {
+            RefreshTrayPreference();
+            if (_minimizeToTrayEnabled)
+            {
+                MinimizeToTray();
+                return;
+            }
+
+            _allowClose = true;
+            Close();
+        }
+
+        private void InitializeTrayIcon()
+        {
+            try
+            {
+                var trayMenu = new Forms.ContextMenuStrip();
+                trayMenu.Items.Add("Open", null, (_, _) => Dispatcher.Invoke(RestoreFromTray));
+                trayMenu.Items.Add("Exit", null, (_, _) => Dispatcher.Invoke(ExitFromTray));
+
+                _trayIcon = new Forms.NotifyIcon
+                {
+                    Text = "GitDeploy Pro",
+                    Visible = true,
+                    ContextMenuStrip = trayMenu,
+                    Icon = ResolveTrayIcon()
+                };
+
+                _trayIcon.DoubleClick += (_, _) => Dispatcher.Invoke(RestoreFromTray);
+                UpdateTrayIconVisibility();
+            }
+            catch
+            {
+                _trayIcon = null;
+            }
+        }
+
+        private static System.Drawing.Icon ResolveTrayIcon()
+        {
+            try
+            {
+                var executablePath = Assembly.GetExecutingAssembly().Location;
+                var extracted = System.Drawing.Icon.ExtractAssociatedIcon(executablePath);
+                if (extracted != null)
+                {
+                    return extracted;
+                }
+            }
+            catch
+            {
+                // Fall through to default icon.
+            }
+
+            return System.Drawing.SystemIcons.Application;
+        }
+
+        private void MainWindow_Closing(object? sender, CancelEventArgs e)
+        {
+            if (_allowClose)
+            {
+                return;
+            }
+
+            RefreshTrayPreference();
+            if (_minimizeToTrayEnabled)
+            {
+                e.Cancel = true;
+                MinimizeToTray();
+            }
+        }
+
+        private void MinimizeToTray()
+        {
+            try
+            {
+                ShowInTaskbar = false;
+                Hide();
+
+                if (_trayIcon != null && !_trayHintShown)
+                {
+                    _trayIcon.BalloonTipTitle = "GitDeploy Pro";
+                    _trayIcon.BalloonTipText = "App is running in tray. Right-click tray icon for Open/Exit.";
+                    _trayIcon.BalloonTipIcon = Forms.ToolTipIcon.Info;
+                    _trayIcon.ShowBalloonTip(1800);
+                    _trayHintShown = true;
+                }
+            }
+            catch
+            {
+                // Ignore tray transition failures.
+            }
+        }
+
+        private void RestoreFromTray()
+        {
+            Show();
+            ShowInTaskbar = true;
+            WindowState = WindowState.Normal;
+            Activate();
+            Topmost = true;
+            Topmost = false;
+            Focus();
+        }
+
+        private void ExitFromTray()
+        {
+            _allowClose = true;
+            Close();
+        }
+
+        private void RefreshTrayPreference()
+        {
+            try
+            {
+                var config = _configService.LoadGlobalConfig();
+                _minimizeToTrayEnabled = config.MinimizeToTray;
+            }
+            catch
+            {
+                _minimizeToTrayEnabled = true;
+            }
+
+            UpdateTrayIconVisibility();
+        }
+
+        private void UpdateTrayIconVisibility()
+        {
+            if (_trayIcon == null)
+            {
+                return;
+            }
+
+            _trayIcon.Visible = _minimizeToTrayEnabled;
+        }
 
         protected override void OnClosed(EventArgs e)
         {
@@ -462,6 +615,12 @@ namespace GitDeployPro
             _taskMonitor.PropertyChanged -= TaskMonitorOnPropertyChanged;
             BackupScheduleStore.SchedulesChanged -= BackupScheduleStoreOnSchedulesChanged;
             _nextRunTimer.Stop();
+            if (_trayIcon != null)
+            {
+                _trayIcon.Visible = false;
+                _trayIcon.Dispose();
+                _trayIcon = null;
+            }
         }
     }
 }

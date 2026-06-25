@@ -6,6 +6,7 @@ using System.ComponentModel;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using GitDeployPro.Models;
 using GitDeployPro.Services;
@@ -500,75 +501,74 @@ namespace GitDeployPro.Controls
         
         private void ShowConnectionContextMenu(FrameworkElement element, ConnectionProfile conn)
         {
-            var contextMenu = new ContextMenu
+            var actions = new List<AppContextMenuAction>
             {
-                Background = new System.Windows.Media.SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#2D2D30")),
-                BorderBrush = new System.Windows.Media.SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#3E3E42")),
-                Foreground = System.Windows.Media.Brushes.White,
-                PlacementTarget = element,
-                Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint
-            };
-            
-            var connectItem = new MenuItem
-            {
-                Header = "🔌 Connect",
-                Background = System.Windows.Media.Brushes.Transparent,
-                Foreground = System.Windows.Media.Brushes.White
-            };
-            connectItem.Click += (s, e) => 
-            {
-                contextMenu.IsOpen = false;
-                RaiseConnectionConnectRequested(conn);
-            };
-            contextMenu.Items.Add(connectItem);
-            
-            var disconnectItem = new MenuItem
-            {
-                Header = "⏹ Disconnect",
-                Background = System.Windows.Media.Brushes.Transparent,
-                Foreground = System.Windows.Media.Brushes.White
-            };
-            disconnectItem.Click += (s, e) => 
-            {
-                contextMenu.IsOpen = false;
-                // TODO: Implement disconnect
-            };
-            contextMenu.Items.Add(disconnectItem);
-            
-            contextMenu.Items.Add(new Separator
-            {
-                Background = new System.Windows.Media.SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#3E3E42"))
-            });
-            
-            var removeItem = new MenuItem
-            {
-                Header = "🗑 Remove",
-                Background = System.Windows.Media.Brushes.Transparent,
-                Foreground = System.Windows.Media.Brushes.White
-            };
-            removeItem.Click += (s, e) =>
-            {
-                contextMenu.IsOpen = false;
-                var result = ModernMessageBox.ShowWithResult(
-                    $"Delete connection '{conn.Name}'?",
-                    "Confirm Delete",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Question,
-                    "Delete",
-                    "Cancel");
-                
-                if (result == MessageBoxResult.Yes)
+                new AppContextMenuAction
                 {
-                    _configService.DeleteConnection(conn.Id);
-                    LoadData();
-                    BuildTree();
+                    Id = "connect",
+                    Label = "Connect",
+                    IconGlyph = "🔌",
+                    Execute = _ => RaiseConnectionConnectRequested(conn)
+                },
+                new AppContextMenuAction
+                {
+                    Id = "disconnect",
+                    Label = "Disconnect",
+                    IconGlyph = "⏹",
+                    IsEnabled = _activeConnections.ContainsKey(conn.Id),
+                    Execute = _ => DisconnectConnection(conn)
+                },
+                AppContextMenuAction.Separator("connection-actions-separator"),
+                new AppContextMenuAction
+                {
+                    Id = "remove",
+                    Label = "Remove",
+                    IconGlyph = "🗑",
+                    IsDestructive = true,
+                    Execute = _ => RemoveConnection(conn)
                 }
             };
-            contextMenu.Items.Add(removeItem);
-            
-            // Open context menu
-            element.ContextMenu = contextMenu;
-            contextMenu.IsOpen = true;
+            GlobalContextMenuService.ShowMenu(element, actions, conn, PlacementMode.MousePoint);
+        }
+
+        private void DisconnectConnection(ConnectionProfile conn)
+        {
+            if (conn == null || string.IsNullOrWhiteSpace(conn.Id))
+            {
+                return;
+            }
+
+            if (_activeConnections.TryGetValue(conn.Id, out var window))
+            {
+                try
+                {
+                    window.Close();
+                }
+                catch
+                {
+                    // Ignore window close failures.
+                }
+            }
+        }
+
+        private void RemoveConnection(ConnectionProfile conn)
+        {
+            var result = ModernMessageBox.ShowWithResult(
+                $"Delete connection '{conn.Name}'?",
+                "Confirm Delete",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question,
+                "Delete",
+                "Cancel");
+
+            if (result != MessageBoxResult.Yes)
+            {
+                return;
+            }
+
+            _configService.DeleteConnection(conn.Id);
+            LoadData();
+            BuildTree();
         }
         
         private void SessionsTreeView_ContextMenuOpening(object sender, ContextMenuEventArgs e)

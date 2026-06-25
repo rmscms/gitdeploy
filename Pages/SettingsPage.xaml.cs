@@ -45,6 +45,7 @@ namespace GitDeployPro.Pages
                 var startupEnabled = _autoStartService.IsEnabled();
                 LaunchOnStartupCheckBox.IsChecked = startupEnabled;
                 ShowBackupLocalhostWarningCheckBox.IsChecked = globalConfig.ShowBackupSchedulerLocalhostWarning;
+                MinimizeToTrayCheckBox.IsChecked = globalConfig.MinimizeToTray;
                 if (globalConfig.LaunchOnStartup != startupEnabled)
                 {
                     _configService.UpdateGlobalConfig(cfg => cfg.LaunchOnStartup = startupEnabled);
@@ -285,12 +286,14 @@ namespace GitDeployPro.Pages
 
                 bool launchOnStartup = LaunchOnStartupCheckBox.IsChecked == true;
                 bool showBackupLocalhostWarning = ShowBackupLocalhostWarningCheckBox.IsChecked != false;
+                bool minimizeToTray = MinimizeToTrayCheckBox.IsChecked != false;
 
                 _configService.UpdateGlobalConfig(cfg =>
                 {
                     cfg.LastProjectPath = projectPath;
                     cfg.LaunchOnStartup = launchOnStartup;
                     cfg.ShowBackupSchedulerLocalhostWarning = showBackupLocalhostWarning;
+                    cfg.MinimizeToTray = minimizeToTray;
                 });
 
                 _autoStartService.SetAutoStart(launchOnStartup);

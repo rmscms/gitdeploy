@@ -30,6 +30,7 @@ namespace GitDeployPro.Services
 
         public async Task ConnectAsync(DatabaseConnectionInfo info)
         {
+            using var scope = PerformanceSampler.Instance.BeginScope("database", "connect", info?.Name ?? info?.Host);
             if (info == null) throw new ArgumentNullException(nameof(info));
 
             await DisconnectAsync();
@@ -73,8 +74,9 @@ namespace GitDeployPro.Services
                 _currentType = info.DbType;
                 _activeDatabase = string.IsNullOrWhiteSpace(info.DatabaseName) ? null : info.DatabaseName;
             }
-            catch
+            catch (Exception ex)
             {
+                scope.Fail(ex);
                 await DisconnectAsync();
                 throw;
             }
@@ -167,6 +169,7 @@ namespace GitDeployPro.Services
 
         public async Task<DatabaseQueryResult> ExecuteQueryAsync(string sql, string? database = null, int? commandTimeoutSeconds = null)
         {
+            using var scope = PerformanceSampler.Instance.BeginScope("database", "execute-query", database ?? "(default)");
             EnsureMySqlConnection();
 
             if (string.IsNullOrWhiteSpace(sql))
@@ -186,29 +189,37 @@ namespace GitDeployPro.Services
                 cmd.CommandTimeout = commandTimeoutSeconds.Value;
             }
 
-            if (expectsResult)
+            try
             {
-                var table = new DataTable();
-                await using var reader = await cmd.ExecuteReaderAsync();
-                table.Load(reader);
+                if (expectsResult)
+                {
+                    var table = new DataTable();
+                    await using var reader = await cmd.ExecuteReaderAsync();
+                    table.Load(reader);
 
-                return new DatabaseQueryResult
+                    return new DatabaseQueryResult
+                    {
+                        HasResultSet = true,
+                        Table = table,
+                        RowsAffected = table.Rows.Count,
+                        Message = $"Returned {table.Rows.Count} rows."
+                    };
+                }
+                else
                 {
-                    HasResultSet = true,
-                    Table = table,
-                    RowsAffected = table.Rows.Count,
-                    Message = $"Returned {table.Rows.Count} rows."
-                };
+                    int affected = await cmd.ExecuteNonQueryAsync();
+                    return new DatabaseQueryResult
+                    {
+                        HasResultSet = false,
+                        RowsAffected = affected,
+                        Message = $"Query executed successfully. Rows affected: {affected}."
+                    };
+                }
             }
-            else
+            catch (Exception ex)
             {
-                int affected = await cmd.ExecuteNonQueryAsync();
-                return new DatabaseQueryResult
-                {
-                    HasResultSet = false,
-                    RowsAffected = affected,
-                    Message = $"Query executed successfully. Rows affected: {affected}."
-                };
+                scope.Fail(ex);
+                throw;
             }
         }
 
@@ -552,6 +563,7 @@ LIMIT 1";
                                          bool continueOnError = false,
                                          Action<string>? errorLogger = null)
         {
+            using var scope = PerformanceSampler.Instance.BeginScope("database", "import-sql", targetDatabase);
             if (string.IsNullOrWhiteSpace(sqlFilePath))
             {
                 throw new ArgumentException("SQL file path required.", nameof(sqlFilePath));
@@ -585,6 +597,11 @@ LIMIT 1";
                 {
                     await ExecuteNonQueryAsync("COMMIT;", targetDatabase, commandTimeoutSeconds, cancellationToken);
                 }
+            }
+            catch (Exception ex)
+            {
+                scope.Fail(ex);
+                throw;
             }
             finally
             {

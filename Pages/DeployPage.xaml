@@ -178,13 +178,16 @@
                 </StackPanel>
 
                 <Grid Grid.Row="1">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <ListBox x:Name="FilesListBox"
                                  ItemContainerStyle="{StaticResource App.ListBoxItem.Transparent}"
                                  Background="Transparent"
                                  BorderThickness="0"
                                  SelectionMode="Single"
-                                 SelectionChanged="FilesListBox_SelectionChanged">
+                                 SelectionChanged="FilesListBox_SelectionChanged"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                 ScrollViewer.CanContentScroll="True"
+                                 VirtualizingPanel.IsVirtualizing="True"
+                                 VirtualizingPanel.VirtualizationMode="Recycling">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
                                     <Border Background="{StaticResource Surface.Raised}"
@@ -241,7 +244,6 @@
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>
-                    </ScrollViewer>
                 </Grid>
             </Grid>
         </Border>

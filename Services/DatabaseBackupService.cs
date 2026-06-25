@@ -601,7 +601,8 @@ namespace GitDeployPro.Services
                     Message = "Remote artifact ready. Starting SFTP download …",
                     Stage = "RemoteFileDownloadStart",
                     ProcessedTables = 0,
-                    TotalTables = 0
+                    TotalTables = 0,
+                    Percent = 0
                 });
 
                 await DownloadRemoteArtifactAsync(profile, remoteArtifactPath, finalSnapshot.FinalArtifactBytes, localTargetPath, progress, cancellationToken, pauseToken)
@@ -619,7 +620,8 @@ namespace GitDeployPro.Services
                     Message = "Downloaded artifact verified successfully.",
                     Stage = "RemoteFileDownloadVerified",
                     ProcessedTables = 0,
-                    TotalTables = 0
+                    TotalTables = 0,
+                    Percent = 100
                 });
 
                 var finalLocalPath = localTargetPath;
@@ -1082,7 +1084,10 @@ namespace GitDeployPro.Services
                             Message = $"Downloading remote artifact: {FormatByteSize(downloadedBytes)}{totalLabel} …",
                             Stage = "RemoteFileDownloading",
                             ProcessedTables = 0,
-                            TotalTables = 0
+                            TotalTables = 0,
+                            Percent = remoteLength > 0
+                                ? Math.Clamp((double)downloadedBytes / remoteLength * 100d, 0d, 100d)
+                                : null
                         });
                         lastReportedBytes = downloadedBytes;
                         reportClock.Restart();

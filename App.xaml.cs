@@ -21,17 +21,21 @@ namespace GitDeployPro
 
         protected override void OnStartup(StartupEventArgs e)
         {
+            PerformanceSampler.Instance.Mark("app", "lifecycle", "startup-begin");
             ConfigureUnhandledExceptions();
             base.OnStartup(e);
             RegisterGlobalMouseWheelScrolling();
             Log("Application started.");
             _schedulerRunner.Start();
+            PerformanceSampler.Instance.Mark("app", "lifecycle", "startup-end");
         }
 
         protected override void OnExit(ExitEventArgs e)
         {
+            PerformanceSampler.Instance.Mark("app", "lifecycle", "exit-begin");
             _schedulerRunner.Dispose();
             base.OnExit(e);
+            PerformanceSampler.Instance.Mark("app", "lifecycle", "exit-end");
         }
 
         private void ConfigureUnhandledExceptions()
@@ -194,6 +198,7 @@ namespace GitDeployPro
 
             var message = $"[{AppTimeService.LocalNow:yyyy-MM-dd HH:mm:ss}] [{source}] {exception.Message}\n{exception.StackTrace}";
             Log(message);
+            PerformanceSampler.Instance.Mark("app", "unhandled-exception", source, exception: exception);
 
             System.Windows.MessageBox.Show("An unexpected error occurred. Details saved to log file.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
         }

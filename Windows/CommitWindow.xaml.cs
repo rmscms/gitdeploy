@@ -6,7 +6,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
 using System.Windows.Media;
 using GitDeployPro.Controls;
 using GitDeployPro.Services;
@@ -160,16 +159,6 @@ namespace GitDeployPro.Windows
             if (FilesListBox?.SelectedItem is FileChangeViewModel vm)
             {
                 OpenCodeViewer(vm);
-            }
-        }
-
-        private void FilesListBox_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
-        {
-            var listItem = FindAncestor<ListBoxItem>(e.OriginalSource as DependencyObject);
-            if (listItem != null)
-            {
-                listItem.IsSelected = true;
-                listItem.Focus();
             }
         }
 
@@ -348,20 +337,6 @@ namespace GitDeployPro.Windows
             addedNow = true;
         }
 
-        private static T? FindAncestor<T>(DependencyObject? current) where T : DependencyObject
-        {
-            while (current != null)
-            {
-                if (current is T matched)
-                {
-                    return matched;
-                }
-
-                current = VisualTreeHelper.GetParent(current);
-            }
-
-            return null;
-        }
     }
 
     public class FileChangeViewModel

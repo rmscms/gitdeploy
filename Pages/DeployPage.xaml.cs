@@ -35,7 +35,7 @@ namespace GitDeployPro.Pages
         private bool _isLoaded = false;
         private ProjectConfig _projectConfig;
         private BranchStatusInfo _branchStatus = new BranchStatusInfo();
-        private DispatcherTimer _autoRefreshTimer;
+        private DispatcherTimer _autoRefreshTimer = new DispatcherTimer();
         private bool _isRefreshingGit;
         private int _cachedUncommittedCount = -1;
         private int _cachedTotalCommits = -1;
@@ -49,6 +49,10 @@ namespace GitDeployPro.Pages
         private GridLength _remotePanelLastWidth = new GridLength(470);
         private RemoteWorkspaceLayoutMode _remoteLayoutMode = RemoteWorkspaceLayoutMode.Wide;
         private bool _compactPanelOpenedByUser;
+        private int _autoRefreshTickCount;
+        private DateTime _lastBranchRefreshUtc = DateTime.MinValue;
+        private static readonly TimeSpan BranchRefreshInterval = TimeSpan.FromSeconds(60);
+        private const int FullRefreshTickInterval = 6;
 
         public DeployPage()
         {
@@ -58,12 +62,11 @@ namespace GitDeployPro.Pages
             _historyService = new HistoryService();
             _configService = new ConfigurationService();
             _projectConfig = new ProjectConfig();
-            _autoRefreshTimer = new DispatcherTimer(); // Initialize explicitly
             DeployRemoteWorkspace.EditorModeChanged += DeployRemoteWorkspace_EditorModeChanged;
             Loaded += DeployPage_Loaded;
             SizeChanged += DeployPage_SizeChanged;
             Unloaded += DeployPage_Unloaded;
-            LoadGitData();
+            LoadGitData(includeExpensiveOperations: true, refreshBranches: true);
             SetupAutoRefreshTimer();
         }
 
@@ -83,6 +86,11 @@ namespace GitDeployPro.Pages
             Loaded -= DeployPage_Loaded;
             SizeChanged -= DeployPage_SizeChanged;
             Unloaded -= DeployPage_Unloaded;
+            if (_autoRefreshTimer != null)
+            {
+                _autoRefreshTimer.Stop();
+                _autoRefreshTimer.Tick -= AutoRefreshTimer_Tick;
+            }
         }
 
         private void DeployRemoteWorkspace_EditorModeChanged(object? sender, RemoteEditorModeChangedEventArgs e)
@@ -325,9 +333,15 @@ namespace GitDeployPro.Pages
             ToggleRemoteWorkspaceButton.ToolTip = "Hide FTP panel";
         }
 
-        private async void LoadGitData()
+        private async void LoadGitData(bool includeExpensiveOperations = true, bool refreshBranches = true)
         {
             if (_isRefreshingGit) return;
+
+            using var perfScope = PerformanceSampler.Instance.BeginScope(
+                "deploy",
+                "load-git-data",
+                includeExpensiveOperations ? "full" : "light");
+
             _isRefreshingGit = true;
             _isLoaded = false;
             try
@@ -354,53 +368,17 @@ namespace GitDeployPro.Pages
 
                 // Check changes & commits
                 var previousUncommittedCount = _cachedUncommittedCount;
-                var uncommitted = await _gitService.GetUncommittedChangesAsync();
+                var uncommittedCount = await _gitService.GetUncommittedCountAsync();
                 var totalCommits = await _gitService.GetTotalCommitsAsync();
-                _cachedUncommittedCount = uncommitted.Count;
+                _cachedUncommittedCount = uncommittedCount;
                 _cachedTotalCommits = totalCommits;
 
-                // Check Branches
-                var branches = await _gitService.GetBranchesAsync();
-                var current = await _gitService.GetCurrentBranchAsync();
-
-                SourceBranchComboBox.Items.Clear();
-                TargetBranchComboBox.Items.Clear();
-
-                foreach (var branch in branches)
+                if (refreshBranches || ShouldRefreshBranchSelectors())
                 {
-                    // Source Logic
-                    bool isSource = !string.IsNullOrEmpty(_projectConfig.DefaultSourceBranch) 
-                        ? branch == _projectConfig.DefaultSourceBranch 
-                        : branch == current;
-                    
-                    SourceBranchComboBox.Items.Add(new ComboBoxItem { Content = branch, IsSelected = isSource });
-                    
-                    // Target Logic - Add all branches, try to select default
-                    bool isTarget = !string.IsNullOrEmpty(_projectConfig.DefaultTargetBranch) 
-                        ? branch == _projectConfig.DefaultTargetBranch 
-                        : false; 
-                    
-                    TargetBranchComboBox.Items.Add(new ComboBoxItem { Content = branch, IsSelected = isTarget });
-                }
-
-                // If no default target selected, try fallback
-                if (TargetBranchComboBox.SelectedIndex == -1)
-                {
-                    SelectFallbackTargetBranch(branches);
-                }
-
-                // Fallback logic for Source
-                if (SourceBranchComboBox.SelectedIndex == -1 && SourceBranchComboBox.Items.Count > 0)
-                {
-                    for(int i=0; i<SourceBranchComboBox.Items.Count; i++)
-                    {
-                        if ((SourceBranchComboBox.Items[i] as ComboBoxItem)?.Content?.ToString() == current)
-                        {
-                            SourceBranchComboBox.SelectedIndex = i;
-                            break;
-                        }
-                    }
-                    if (SourceBranchComboBox.SelectedIndex == -1) SourceBranchComboBox.SelectedIndex = 0;
+                    var branches = await _gitService.GetBranchesAsync();
+                    var current = await _gitService.GetCurrentBranchAsync();
+                    PopulateBranchSelectors(branches, current);
+                    _lastBranchRefreshUtc = AppTimeService.UtcNow;
                 }
 
                 await RefreshBranchStatusAsync();
@@ -427,27 +405,27 @@ namespace GitDeployPro.Pages
                     }
                 }
 
-                if (!ShouldKeepCompareResultsVisible() && StatusText.Text != $"⚠️ You have {uncommitted.Count} uncommitted changes!")
+                if (!ShouldKeepCompareResultsVisible() && StatusText.Text != $"⚠️ You have {uncommittedCount} uncommitted changes!")
                 {
                     StatusText.Text = "Ready...";
                     StatusText.Foreground = GetThemeBrush("Text.Muted", System.Windows.Media.Brushes.LightGray);
                 }
                 
                 // Log only when uncommitted count changes to avoid spam.
-                if (uncommitted.Count > 0 && uncommitted.Count != previousUncommittedCount)
+                if (uncommittedCount > 0 && uncommittedCount != previousUncommittedCount)
                 {
-                    AddLog($"[DEBUG] Found {uncommitted.Count} uncommitted changes.");
+                    AddLog($"[DEBUG] Found {uncommittedCount} uncommitted changes.");
                 }
 
-                // --- NEW: Check if branches are already synced ---
-                if (SourceBranchComboBox.SelectedItem is ComboBoxItem src && 
+                // Expensive compare diff check is intentionally limited to full refreshes.
+                if (includeExpensiveOperations &&
+                    SourceBranchComboBox.SelectedItem is ComboBoxItem src &&
                     TargetBranchComboBox.SelectedItem is ComboBoxItem tgt)
                 {
                     string? s = src.Content?.ToString();
                     string? t = tgt.Content?.ToString();
                     
-                    // Check uncommitted again to be safe
-                    if (uncommitted.Count == 0 && !string.IsNullOrEmpty(s) && !string.IsNullOrEmpty(t) && s != t)
+                    if (uncommittedCount == 0 && !string.IsNullOrEmpty(s) && !string.IsNullOrEmpty(t) && s != t)
                     {
                         var diff = await _gitService.GetDiffAsync(s, t);
                         if (diff.Count == 0)
@@ -461,12 +439,75 @@ namespace GitDeployPro.Pages
             }
             catch (Exception ex)
             {
+                perfScope.Fail(ex);
                 AddLog($"❌ Error loading Git data: {ex.Message}");
             }
             finally
             {
                 _isLoaded = true;
                 _isRefreshingGit = false;
+            }
+        }
+
+        private bool ShouldRefreshBranchSelectors()
+        {
+            if (SourceBranchComboBox.Items.Count == 0 || TargetBranchComboBox.Items.Count == 0)
+            {
+                return true;
+            }
+
+            return (AppTimeService.UtcNow - _lastBranchRefreshUtc) >= BranchRefreshInterval;
+        }
+
+        private void PopulateBranchSelectors(IReadOnlyList<string> branches, string currentBranch)
+        {
+            var selectedSource = (SourceBranchComboBox.SelectedItem as ComboBoxItem)?.Content?.ToString();
+            var selectedTarget = (TargetBranchComboBox.SelectedItem as ComboBoxItem)?.Content?.ToString();
+            var preferredSource = !string.IsNullOrWhiteSpace(selectedSource)
+                ? selectedSource
+                : (!string.IsNullOrWhiteSpace(_projectConfig.DefaultSourceBranch) ? _projectConfig.DefaultSourceBranch : currentBranch);
+            var preferredTarget = !string.IsNullOrWhiteSpace(selectedTarget)
+                ? selectedTarget
+                : _projectConfig.DefaultTargetBranch;
+
+            SourceBranchComboBox.Items.Clear();
+            TargetBranchComboBox.Items.Clear();
+
+            foreach (var branch in branches)
+            {
+                SourceBranchComboBox.Items.Add(new ComboBoxItem
+                {
+                    Content = branch,
+                    IsSelected = string.Equals(branch, preferredSource, StringComparison.OrdinalIgnoreCase)
+                });
+
+                TargetBranchComboBox.Items.Add(new ComboBoxItem
+                {
+                    Content = branch,
+                    IsSelected = string.Equals(branch, preferredTarget, StringComparison.OrdinalIgnoreCase)
+                });
+            }
+
+            if (TargetBranchComboBox.SelectedIndex == -1)
+            {
+                SelectFallbackTargetBranch(branches.ToList());
+            }
+
+            if (SourceBranchComboBox.SelectedIndex == -1 && SourceBranchComboBox.Items.Count > 0)
+            {
+                for (int i = 0; i < SourceBranchComboBox.Items.Count; i++)
+                {
+                    if ((SourceBranchComboBox.Items[i] as ComboBoxItem)?.Content?.ToString() == currentBranch)
+                    {
+                        SourceBranchComboBox.SelectedIndex = i;
+                        break;
+                    }
+                }
+
+                if (SourceBranchComboBox.SelectedIndex == -1)
+                {
+                    SourceBranchComboBox.SelectedIndex = 0;
+                }
             }
         }
 
@@ -655,9 +696,15 @@ namespace GitDeployPro.Pages
             {
                 Interval = TimeSpan.FromSeconds(10) // Refresh every 10 seconds for better UX
             };
-            _autoRefreshTimer.Tick += (s, e) => LoadGitData();
+            _autoRefreshTimer.Tick += AutoRefreshTimer_Tick;
             _autoRefreshTimer.Start();
-            this.Unloaded += (s, e) => _autoRefreshTimer?.Stop();
+        }
+
+        private void AutoRefreshTimer_Tick(object? sender, EventArgs e)
+        {
+            _autoRefreshTickCount++;
+            bool runFullRefresh = _autoRefreshTickCount % FullRefreshTickInterval == 0;
+            LoadGitData(includeExpensiveOperations: runFullRefresh, refreshBranches: runFullRefresh);
         }
 
         private System.Windows.Media.Brush GetThemeBrush(string resourceKey, System.Windows.Media.Brush fallback)
@@ -821,6 +868,7 @@ namespace GitDeployPro.Pages
 
         private async Task HandleCompare()
         {
+            using var scope = PerformanceSampler.Instance.BeginScope("deploy", "compare-branches");
             if (SourceBranchComboBox.SelectedItem is ComboBoxItem sourceItem && 
                 TargetBranchComboBox.SelectedItem is ComboBoxItem targetItem)
             {
@@ -859,6 +907,7 @@ namespace GitDeployPro.Pages
                 }
                 catch (Exception ex)
                 {
+                    scope.Fail(ex);
                     ModernMessageBox.Show($"Git Error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
                 finally
@@ -937,6 +986,7 @@ namespace GitDeployPro.Pages
 
         private async Task<bool> StartDeployProcess(List<FileChange> filesToDeploy, bool isAutoFlow = false, bool runGitPostSteps = true)
         {
+            using var scope = PerformanceSampler.Instance.BeginScope("deploy", "sync-pipeline", $"files={filesToDeploy?.Count ?? 0}");
             isDeploying = true;
             DeployButton.IsEnabled = false;
             ActionButton.IsEnabled = false;
@@ -1048,6 +1098,7 @@ namespace GitDeployPro.Pages
             }
             catch (Exception ex)
             {
+                scope.Fail(ex);
                 AddLog($"❌ Error: {ex}");
                 StatusText.Text = "Deployment failed.";
                 StatusText.Foreground = GetThemeBrush("Status.Error", System.Windows.Media.Brushes.Red);

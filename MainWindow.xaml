@@ -155,12 +155,6 @@
                                     <TextBlock Text="Direct Upload" FontSize="13" Foreground="{StaticResource Text.Secondary}" />
                                 </StackPanel>
                             </Button>
-                            <Button Style="{StaticResource App.SidebarNavButton}" Click="FtpExplorer_Click">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="🗂️" FontSize="15" Margin="0,0,12,0" Foreground="{StaticResource Text.Muted}" />
-                                    <TextBlock Text="FTP Explorer" FontSize="13" Foreground="{StaticResource Text.Secondary}" />
-                                </StackPanel>
-                            </Button>
                             <Button Style="{StaticResource App.SidebarNavButton}" Click="Database_Click">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="🛢️" FontSize="15" Margin="0,0,12,0" Foreground="{StaticResource Text.Muted}" />

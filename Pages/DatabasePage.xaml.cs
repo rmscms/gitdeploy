@@ -46,8 +46,6 @@ namespace GitDeployPro.Pages
 
         private DatabaseConnectionEntry? _activeConnection;
         private bool _isInitialized;
-        private bool _sidebarAdjusted;
-        private bool _collapsedSidebarByPage;
 
         // SQL Keywords for autocomplete
         private static readonly string[] SqlKeywords = {
@@ -274,11 +272,6 @@ namespace GitDeployPro.Pages
 
         private void DatabasePage_Loaded(object sender, RoutedEventArgs e)
         {
-            if (!_sidebarAdjusted)
-            {
-                UpdateSidebarState(true);
-                _sidebarAdjusted = true;
-            }
             if (_isInitialized) return;
             _isInitialized = true;
             UpdateSavedConnectionsCount();
@@ -288,8 +281,6 @@ namespace GitDeployPro.Pages
         {
             CancelImportOperation();
             await _client.DisconnectAsync();
-            UpdateSidebarState(false);
-            _sidebarAdjusted = false;
         }
 
         private void UpdateSavedConnectionsCount()
@@ -375,6 +366,7 @@ namespace GitDeployPro.Pages
 
         private async Task ConnectToEntryAsync(DatabaseConnectionEntry entry)
         {
+            using var scope = PerformanceSampler.Instance.BeginScope("database", "connect-entry", entry?.Name);
             if (!entry.SupportsCurrentVersion)
             {
                 ModernMessageBox.Show("This build supports MySQL/MariaDB only. Others coming soon.", "Not Supported", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -404,6 +396,7 @@ namespace GitDeployPro.Pages
             }
             catch (Exception ex)
             {
+                scope.Fail(ex);
                 ModernMessageBox.Show($"Failed to connect: {ex.Message}", "Database Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 ShowDisconnectedState();
             }
@@ -603,6 +596,7 @@ namespace GitDeployPro.Pages
 
         private async void RunQueryButton_Click(object sender, RoutedEventArgs e)
         {
+            using var scope = PerformanceSampler.Instance.BeginScope("database", "run-query");
             if (!_client.IsConnected)
             {
                 ModernMessageBox.Show("Connect to a database first.", "No Connection", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -636,6 +630,7 @@ namespace GitDeployPro.Pages
             }
             catch (Exception ex)
             {
+                scope.Fail(ex);
                 ModernMessageBox.Show($"Query failed: {ex.Message}", "Database Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
@@ -748,27 +743,6 @@ namespace GitDeployPro.Pages
             manager.ShowDialog();
             UpdateSavedConnectionsCount();
         }
-
-        private void UpdateSidebarState(bool collapse)
-        {
-            if (Window.GetWindow(this) is MainWindow mainWindow)
-            {
-                if (collapse)
-                {
-                    if (!mainWindow.IsSidebarCollapsed)
-                    {
-                        mainWindow.SetSidebarCollapsed(true);
-                        _collapsedSidebarByPage = true;
-                    }
-                }
-                else if (_collapsedSidebarByPage)
-                {
-                    mainWindow.SetSidebarCollapsed(false);
-                    _collapsedSidebarByPage = false;
-                }
-            }
-        }
-
 
         #region Database creation helpers
 
@@ -1064,6 +1038,7 @@ namespace GitDeployPro.Pages
                                           bool continueOnError,
                                           CancellationToken cancellationToken)
         {
+            using var scope = PerformanceSampler.Instance.BeginScope("database", "run-import", targetDatabase);
             string workingFile = sourceFile;
             string? tempFileToDelete = null;
             string recreateCharset = "utf8mb4";
@@ -1146,6 +1121,7 @@ namespace GitDeployPro.Pages
             }
             catch (Exception ex)
             {
+                scope.Fail(ex);
                 ImportProgressText.Text = $"Failed: {ex.Message}";
                 AppendImportLog($"❌ Import failed: {ex.Message}");
                 ModernMessageBox.Show($"Import failed: {ex.Message}", "Import error", MessageBoxButton.OK, MessageBoxImage.Error);
