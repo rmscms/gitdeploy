@@ -319,64 +319,86 @@
                                                 CornerRadius="10"
                                                 Padding="12"
                                                 Margin="0,0,0,8">
-                                            <Grid VerticalAlignment="Top">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="Auto" />
-                                                </Grid.ColumnDefinitions>
+                                            <StackPanel>
+                                                <Grid VerticalAlignment="Top">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
 
-                                                <StackPanel Grid.Column="0">
-                                                    <DockPanel LastChildFill="True">
-                                                        <Border x:Name="HistoryStatusBadge"
-                                                                Style="{StaticResource App.StatusBadge.Warning}"
-                                                                HorizontalAlignment="Left">
-                                                            <StackPanel Orientation="Horizontal">
-                                                                <TextBlock x:Name="HistoryStatusIcon"
-                                                                           Text="⚠"
-                                                                           Foreground="{StaticResource Status.Warning}"
-                                                                           Margin="0,0,6,0" />
-                                                                <TextBlock x:Name="HistoryStatusText"
-                                                                           Text="Failed"
-                                                                           Foreground="{StaticResource Status.Warning}"
-                                                                           FontWeight="SemiBold" />
-                                                            </StackPanel>
-                                                        </Border>
-                                                        <TextBlock Text="{Binding ScheduleName}"
-                                                                   DockPanel.Dock="Right"
+                                                    <StackPanel Grid.Column="0">
+                                                        <DockPanel LastChildFill="True">
+                                                            <Border x:Name="HistoryStatusBadge"
+                                                                    Style="{StaticResource App.StatusBadge.Warning}"
+                                                                    HorizontalAlignment="Left">
+                                                                <StackPanel Orientation="Horizontal">
+                                                                    <TextBlock x:Name="HistoryStatusIcon"
+                                                                               Text="⚠"
+                                                                               Foreground="{StaticResource Status.Warning}"
+                                                                               Margin="0,0,6,0" />
+                                                                    <TextBlock x:Name="HistoryStatusText"
+                                                                               Text="Failed"
+                                                                               Foreground="{StaticResource Status.Warning}"
+                                                                               FontWeight="SemiBold" />
+                                                                </StackPanel>
+                                                            </Border>
+                                                            <TextBlock Text="{Binding ScheduleName}"
+                                                                       DockPanel.Dock="Right"
+                                                                       Style="{StaticResource App.BodyTextStyle}"
+                                                                       FontWeight="SemiBold"
+                                                                       TextWrapping="Wrap"
+                                                                       Margin="10,0,0,0" />
+                                                        </DockPanel>
+                                                        <TextBlock Text="{Binding DatabaseName, StringFormat=DB: {0}}"
+                                                                   Style="{StaticResource App.CaptionTextStyle}"
+                                                                   Margin="0,6,0,0" />
+                                                        <TextBlock Text="{Binding Message}"
+                                                                   Style="{StaticResource App.MutedTextStyle}"
+                                                                   TextWrapping="Wrap"
+                                                                   Margin="0,6,0,0" />
+                                                        <TextBlock Text="{Binding StartedLocalDisplay, StringFormat=at {0}}"
+                                                                   Style="{StaticResource App.CaptionTextStyle}"
+                                                                   Margin="0,6,0,0"
+                                                                   Opacity="0.75" />
+                                                    </StackPanel>
+
+                                                    <StackPanel Grid.Column="1"
+                                                                Margin="12,0,0,0"
+                                                                HorizontalAlignment="Right">
+                                                        <TextBlock Text="{Binding StartedRelativeDisplay}"
                                                                    Style="{StaticResource App.BodyTextStyle}"
                                                                    FontWeight="SemiBold"
-                                                                   TextWrapping="Wrap"
-                                                                   Margin="10,0,0,0" />
-                                                    </DockPanel>
-                                                    <TextBlock Text="{Binding DatabaseName, StringFormat=DB: {0}}"
-                                                               Style="{StaticResource App.CaptionTextStyle}"
-                                                               Margin="0,6,0,0" />
-                                                    <TextBlock Text="{Binding Message}"
-                                                               Style="{StaticResource App.MutedTextStyle}"
-                                                               TextWrapping="Wrap"
-                                                               Margin="0,6,0,0" />
-                                                    <TextBlock Text="{Binding StartedLocalDisplay, StringFormat=at {0}}"
-                                                               Style="{StaticResource App.CaptionTextStyle}"
-                                                               Margin="0,6,0,0"
-                                                               Opacity="0.75" />
+                                                                   HorizontalAlignment="Right" />
+                                                        <TextBlock Text="backup event"
+                                                                   Style="{StaticResource App.CaptionTextStyle}"
+                                                                   HorizontalAlignment="Right"
+                                                                   Opacity="0.75" />
+                                                    </StackPanel>
+                                                </Grid>
+                                                <StackPanel x:Name="FailedActionsPanel"
+                                                            Orientation="Horizontal"
+                                                            Margin="0,10,0,0"
+                                                            Visibility="Collapsed">
+                                                    <Button Content="🔄 Refresh"
+                                                            Padding="12,4"
+                                                            Margin="0,0,8,0"
+                                                            Style="{StaticResource App.Button.Primary}"
+                                                            Foreground="{StaticResource Text.Primary}"
+                                                            Click="RetryFailedBackup_Click"
+                                                            Tag="{Binding}" />
+                                                    <Button Content="✏ Edit"
+                                                            Padding="12,4"
+                                                            Style="{StaticResource App.Button.Ghost}"
+                                                            Foreground="{StaticResource Text.Secondary}"
+                                                            Click="EditFailedBackupSchedule_Click"
+                                                            Tag="{Binding}" />
                                                 </StackPanel>
-
-                                                <StackPanel Grid.Column="1"
-                                                            Margin="12,0,0,0"
-                                                            HorizontalAlignment="Right">
-                                                    <TextBlock Text="{Binding StartedRelativeDisplay}"
-                                                               Style="{StaticResource App.BodyTextStyle}"
-                                                               FontWeight="SemiBold"
-                                                               HorizontalAlignment="Right" />
-                                                    <TextBlock Text="backup event"
-                                                               Style="{StaticResource App.CaptionTextStyle}"
-                                                               HorizontalAlignment="Right"
-                                                               Opacity="0.75" />
-                                                </StackPanel>
-
-                                            </Grid>
+                                            </StackPanel>
                                         </Border>
                                         <DataTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding Success}" Value="False">
+                                                <Setter TargetName="FailedActionsPanel" Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
                                             <DataTrigger Binding="{Binding Success}" Value="True">
                                                 <Setter TargetName="HistoryStatusBadge" Property="Style" Value="{StaticResource App.StatusBadge.Success}" />
                                                 <Setter TargetName="HistoryStatusIcon" Property="Text" Value="✅" />

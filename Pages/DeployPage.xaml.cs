@@ -841,13 +841,25 @@ namespace GitDeployPro.Pages
                     ClearCompareContext(clearList: false);
 
                     AddLog($"🚀 Step 1/2: Deploying {filesToDeploy.Count} reviewed file(s)...");
-                    bool deploySucceeded = await StartDeployProcess(filesToDeploy, isAutoFlow: true, runGitPostSteps: false);
-                    if (!deploySucceeded)
+                    var deployResult = await StartDeployProcess(filesToDeploy, isAutoFlow: true, runGitPostSteps: false);
+                    if (deployResult.HasFatalError || deployResult.IsCompleteFailure)
                     {
                         AddLog("⛔ Deploy failed. Commit+Push skipped to protect server state.");
                         StatusText.Text = "Deploy failed. Commit was not created.";
                         StatusText.Foreground = GetThemeBrush("Status.Error", System.Windows.Media.Brushes.OrangeRed);
                         return;
+                    }
+
+                    if (deployResult.IsPartialSuccess)
+                    {
+                        var continueAfterWarning = ConfirmContinueGitAfterPartialDeploy(deployResult);
+                        if (!continueAfterWarning)
+                        {
+                            AddLog("⏸ Commit+Push skipped by user after partial deploy warning.");
+                            StatusText.Text = "Partial deploy completed. Commit skipped by user.";
+                            StatusText.Foreground = GetThemeBrush("Status.Warning", System.Windows.Media.Brushes.Orange);
+                            return;
+                        }
                     }
 
                     AddLog("📝 Step 2/2: Deploy succeeded, committing and pushing...");
@@ -984,7 +996,7 @@ namespace GitDeployPro.Pages
             await StartDeployProcess(selectedFiles);
         }
 
-        private async Task<bool> StartDeployProcess(List<FileChange> filesToDeploy, bool isAutoFlow = false, bool runGitPostSteps = true)
+        private async Task<DeployExecutionResult> StartDeployProcess(List<FileChange> filesToDeploy, bool isAutoFlow = false, bool runGitPostSteps = true)
         {
             using var scope = PerformanceSampler.Instance.BeginScope("deploy", "sync-pipeline", $"files={filesToDeploy?.Count ?? 0}");
             isDeploying = true;
@@ -992,6 +1004,10 @@ namespace GitDeployPro.Pages
             ActionButton.IsEnabled = false;
             SourceBranchComboBox.IsEnabled = false;
             TargetBranchComboBox.IsEnabled = false;
+            var deployResult = new DeployExecutionResult
+            {
+                TotalSelected = filesToDeploy?.Count ?? 0
+            };
 
             try
             {
@@ -1005,21 +1021,33 @@ namespace GitDeployPro.Pages
                 }
 
                 // In FTP mode we must really deploy first; Git-only mode can simulate.
-                bool deployed = false;
                 if (hasFtpTarget)
                 {
-                    deployed = await UploadFilesAsync(filesToDeploy);
+                    deployResult = await UploadFilesAsync(filesToDeploy);
                 }
                 else
                 {
-                    await SimulateDeploy(filesToDeploy);
-                    deployed = true;
+                    deployResult = await SimulateDeploy(filesToDeploy);
                 }
 
-                if (!deployed) throw new Exception("Upload failed.");
+                LogDeploySummary(deployResult);
+                if (deployResult.HasFatalError)
+                {
+                    throw new InvalidOperationException(deployResult.FatalErrorMessage ?? "Upload failed due to a fatal FTP error.");
+                }
+
+                var continueGitSteps = runGitPostSteps;
+                if (runGitPostSteps && deployResult.IsPartialSuccess)
+                {
+                    continueGitSteps = ConfirmContinueGitAfterPartialDeploy(deployResult);
+                    if (!continueGitSteps)
+                    {
+                        AddLog("⏸ Git sync/push skipped by user after partial deploy warning.");
+                    }
+                }
 
                 // Sync Branches
-                if (runGitPostSteps &&
+                if (continueGitSteps &&
                     SourceBranchComboBox.SelectedItem is ComboBoxItem sourceItem && 
                     TargetBranchComboBox.SelectedItem is ComboBoxItem targetItem)
                 {
@@ -1052,7 +1080,7 @@ namespace GitDeployPro.Pages
                 }
 
                 // Auto-Push
-                if (runGitPostSteps && _projectConfig.AutoPush)
+                if (continueGitSteps && _projectConfig.AutoPush)
                 {
                     if (await EnsureOriginRemoteReadyAsync())
                     {
@@ -1079,9 +1107,22 @@ namespace GitDeployPro.Pages
                         AddLog("ℹ️ Auto-push skipped (no remote). Local sync already completed.");
                     }
                 }
-                
-                StatusText.Text = "Deployment finished successfully.";
-                StatusText.Foreground = GetThemeBrush("Status.Success", System.Windows.Media.Brushes.LightGreen);
+
+                if (deployResult.IsFullSuccess)
+                {
+                    StatusText.Text = "Deployment finished successfully.";
+                    StatusText.Foreground = GetThemeBrush("Status.Success", System.Windows.Media.Brushes.LightGreen);
+                }
+                else if (deployResult.IsPartialSuccess)
+                {
+                    StatusText.Text = $"Deployment finished with warnings ({deployResult.UploadedCount} uploaded, {deployResult.FailedItems.Count} failed).";
+                    StatusText.Foreground = GetThemeBrush("Status.Warning", System.Windows.Media.Brushes.Orange);
+                }
+                else if (deployResult.IsCompleteFailure)
+                {
+                    StatusText.Text = "Deployment finished with errors (no files uploaded).";
+                    StatusText.Foreground = GetThemeBrush("Status.Error", System.Windows.Media.Brushes.OrangeRed);
+                }
 
                 if (runGitPostSteps)
                 {
@@ -1091,10 +1132,17 @@ namespace GitDeployPro.Pages
                 // NO SUCCESS DIALOG for auto flow
                 if (!isAutoFlow)
                 {
-                    ModernMessageBox.Show("Deployment completed successfully! ✅", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+                    if (deployResult.IsFullSuccess)
+                    {
+                        ModernMessageBox.Show("Deployment completed successfully! ✅", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
+                    else if (deployResult.IsPartialSuccess || deployResult.IsCompleteFailure)
+                    {
+                        ModernMessageBox.Show(BuildPartialDeployMessage(deployResult), "Deploy Result", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    }
                 }
 
-                return true;
+                return deployResult;
             }
             catch (Exception ex)
             {
@@ -1113,7 +1161,9 @@ namespace GitDeployPro.Pages
                 }
                 // ALWAYS show error dialog
                 ModernMessageBox.Show($"Deployment Failed:\n\n{detailed}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                return false;
+                deployResult.HasFatalError = true;
+                deployResult.FatalErrorMessage = ex.Message;
+                return deployResult;
             }
             finally
             {
@@ -1134,8 +1184,13 @@ namespace GitDeployPro.Pages
             }
         }
 
-        private async Task<bool> UploadFilesAsync(List<FileChange> files)
+        private async Task<DeployExecutionResult> UploadFilesAsync(List<FileChange> files)
         {
+            var result = new DeployExecutionResult
+            {
+                TotalSelected = files?.Count ?? 0
+            };
+
             try
             {
                 var profile = GetActiveConnectionProfile();
@@ -1154,7 +1209,18 @@ namespace GitDeployPro.Pages
                     client.Config.DataConnectionReadTimeout = 300000; // 5 minutes
                     client.Config.RetryAttempts = 3;
                     
-                    await client.Connect();
+                    try
+                    {
+                        await client.Connect();
+                    }
+                    catch (Exception connectEx)
+                    {
+                        result.HasFatalError = true;
+                        result.FatalErrorMessage = $"FTP connect/login failed: {connectEx.Message}";
+                        AddLog($"❌ {result.FatalErrorMessage}");
+                        return result;
+                    }
+
                     AddLog("✅ Connected!");
 
                     int total = files.Count;
@@ -1173,11 +1239,18 @@ namespace GitDeployPro.Pages
                         current++;
                         if (file.Type == ChangeType.Deleted)
                         {
+                            result.SkippedCount++;
+                            AddLog($"⏭ Skipped delete sync for {file.Name} (remote delete is not enabled in deploy pipeline).");
                             continue;
                         }
 
                         string localPath = System.IO.Path.Combine(_projectConfig.LocalProjectPath, file.Name);
-                        if (!System.IO.File.Exists(localPath)) continue;
+                        if (!System.IO.File.Exists(localPath))
+                        {
+                            result.FailedItems.Add(new DeployFailedItem(file.Name, "Local file missing."));
+                            AddLog($"⚠️ Missing local file: {file.Name}");
+                            continue;
+                        }
 
                         string relativePath = file.Name.Replace("\\", "/");
                         string remoteBaseToUse = defaultRemoteBase;
@@ -1211,21 +1284,53 @@ namespace GitDeployPro.Pages
                              }
                         }
 
-                        AddLog($"📤 Uploading {file.Name}...");
-                        ProgressText.Text = $"Uploading {current}/{total}: {file.Name}";
-                        DeployProgressBar.Value = (current * 100) / total;
+                        try
+                        {
+                            AddLog($"📤 Uploading {file.Name}...");
+                            ProgressText.Text = $"Uploading {current}/{total}: {file.Name}";
+                            DeployProgressBar.Value = (current * 100) / total;
 
-                        await client.UploadFile(localPath, remotePath, FtpRemoteExists.Overwrite);
-                        AddLog($"✅ Uploaded {file.Name}");
+                            await client.UploadFile(localPath, remotePath, FtpRemoteExists.Overwrite);
+                            result.UploadedCount++;
+                            AddLog($"✅ Uploaded {file.Name}");
+                        }
+                        catch (Exception fileEx)
+                        {
+                            if (IsPermissionDeniedError(fileEx))
+                            {
+                                result.FailedItems.Add(new DeployFailedItem(file.Name, fileEx.Message, isPermissionDenied: true));
+                                AddLog($"⚠️ Permission denied for {file.Name}. Continuing with remaining files.");
+                                continue;
+                            }
+
+                            result.HasFatalError = true;
+                            result.FatalErrorMessage = $"Fatal FTP transfer error on {file.Name}: {fileEx.Message}";
+                            AddLog($"❌ {result.FatalErrorMessage}");
+                            break;
+                        }
                     }
                 }
-                AddLog("🎉 All files uploaded successfully!");
-                return true;
+
+                if (!result.HasFatalError)
+                {
+                    if (result.FailedItems.Count == 0)
+                    {
+                        AddLog("🎉 All files uploaded successfully!");
+                    }
+                    else
+                    {
+                        AddLog($"⚠️ Upload completed with warnings. Uploaded: {result.UploadedCount}, Failed: {result.FailedItems.Count}");
+                    }
+                }
+
+                return result;
             }
             catch (Exception ex)
             {
+                result.HasFatalError = true;
+                result.FatalErrorMessage = $"Upload failed: {ex.GetType().Name} - {ex.Message}";
                 AddLog($"❌ Upload Error: {ex.Message}");
-                throw new InvalidOperationException($"Upload failed: {ex.GetType().Name} - {ex.Message}", ex);
+                return result;
             }
         }
 
@@ -1349,22 +1454,139 @@ namespace GitDeployPro.Pages
             return combined;
         }
 
-        private async Task SimulateDeploy(List<FileChange> files)
+        private async Task<DeployExecutionResult> SimulateDeploy(List<FileChange> files)
         {
+            var result = new DeployExecutionResult
+            {
+                TotalSelected = files?.Count ?? 0
+            };
+
             int total = files.Count;
             int current = 0;
 
             foreach (var file in files)
             {
                 current++;
+                if (file.Type == ChangeType.Deleted)
+                {
+                    result.SkippedCount++;
+                    AddLog($"[SIMULATION] ⏭ Skipping delete for {file.Name}");
+                    continue;
+                }
+
                 AddLog($"[SIMULATION] 📤 Uploading {file.Name}...");
                 ProgressText.Text = $"Simulating {current}/{total}: {file.Name}";
                 DeployProgressBar.Value = (current * 100) / total;
                 await Task.Delay(200); 
                 AddLog($"[SIMULATION] ✅ Uploaded {file.Name}");
+                result.UploadedCount++;
             }
             
             AddLog("🎉 Simulation complete!");
+            return result;
+        }
+
+        private bool ConfirmContinueGitAfterPartialDeploy(DeployExecutionResult result)
+        {
+            var message = BuildPartialDeployMessage(result) +
+                          "\n\nSome files failed to upload. Continue with Git commit/sync/push anyway?";
+            return ModernMessageBox.Show(
+                message,
+                "Partial Deploy Warning",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+        }
+
+        private void LogDeploySummary(DeployExecutionResult result)
+        {
+            AddLog("📊 Deploy summary:");
+            AddLog($"   Selected: {result.TotalSelected}");
+            AddLog($"   Uploaded: {result.UploadedCount}");
+            AddLog($"   Skipped: {result.SkippedCount}");
+            AddLog($"   Failed: {result.FailedItems.Count}");
+            if (result.HasFatalError && !string.IsNullOrWhiteSpace(result.FatalErrorMessage))
+            {
+                AddLog($"   Fatal: {result.FatalErrorMessage}");
+            }
+
+            foreach (var failed in result.FailedItems.Take(5))
+            {
+                AddLog($"   - {failed.Path}: {failed.Reason}");
+            }
+
+            if (result.FailedItems.Count > 5)
+            {
+                AddLog($"   ... and {result.FailedItems.Count - 5} more failed file(s).");
+            }
+        }
+
+        private static bool IsPermissionDeniedError(Exception ex)
+        {
+            var message = ex.ToString();
+            return message.Contains("permission denied", StringComparison.OrdinalIgnoreCase) ||
+                   message.Contains("access denied", StringComparison.OrdinalIgnoreCase) ||
+                   message.Contains("550", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string BuildPartialDeployMessage(DeployExecutionResult result)
+        {
+            var lines = new List<string>
+            {
+                $"Selected: {result.TotalSelected}",
+                $"Uploaded: {result.UploadedCount}",
+                $"Skipped: {result.SkippedCount}",
+                $"Failed: {result.FailedItems.Count}"
+            };
+
+            if (result.FailedItems.Count > 0)
+            {
+                lines.Add(string.Empty);
+                lines.Add("Failed files:");
+                foreach (var failed in result.FailedItems.Take(8))
+                {
+                    lines.Add($"- {failed.Path}: {failed.Reason}");
+                }
+
+                if (result.FailedItems.Count > 8)
+                {
+                    lines.Add($"... and {result.FailedItems.Count - 8} more.");
+                }
+            }
+
+            if (result.HasFatalError && !string.IsNullOrWhiteSpace(result.FatalErrorMessage))
+            {
+                lines.Add(string.Empty);
+                lines.Add($"Fatal error: {result.FatalErrorMessage}");
+            }
+
+            return string.Join(Environment.NewLine, lines);
+        }
+
+        private sealed class DeployExecutionResult
+        {
+            public int TotalSelected { get; set; }
+            public int UploadedCount { get; set; }
+            public int SkippedCount { get; set; }
+            public List<DeployFailedItem> FailedItems { get; } = new();
+            public bool HasFatalError { get; set; }
+            public string FatalErrorMessage { get; set; } = string.Empty;
+            public bool IsFullSuccess => !HasFatalError && FailedItems.Count == 0;
+            public bool IsPartialSuccess => !HasFatalError && FailedItems.Count > 0 && UploadedCount > 0;
+            public bool IsCompleteFailure => !HasFatalError && FailedItems.Count > 0 && UploadedCount == 0;
+        }
+
+        private sealed class DeployFailedItem
+        {
+            public DeployFailedItem(string path, string reason, bool isPermissionDenied = false)
+            {
+                Path = path ?? string.Empty;
+                Reason = reason ?? string.Empty;
+                IsPermissionDenied = isPermissionDenied;
+            }
+
+            public string Path { get; }
+            public string Reason { get; }
+            public bool IsPermissionDenied { get; }
         }
 
         private void SelectAll_Click(object sender, RoutedEventArgs e)

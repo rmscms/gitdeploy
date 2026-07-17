@@ -85,6 +85,7 @@ namespace GitDeployPro.Pages
         private string _localhostConnectionWarningMessage = "Localhost is not connected (127.0.0.1:3306 / root).";
         private CancellationTokenSource? _localhostWarningProbeCts;
         private bool _localhostWarningProbeStarted;
+        private string? _preferredScheduleId;
         private static readonly Regex ArtifactNameRegex = new(
             @"^(?<db>.+)_(?<stamp>\d{2}_\d{2}_\d{2}_\d{2}_\d{2})(?:_(?<seq>\d+))?$",
             RegexOptions.Compiled | RegexOptions.CultureInvariant);
@@ -489,9 +490,10 @@ namespace GitDeployPro.Pages
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
-        public BackupSchedulerPage()
+        public BackupSchedulerPage(string? preferredScheduleId = null)
         {
             InitializeComponent();
+            _preferredScheduleId = string.IsNullOrWhiteSpace(preferredScheduleId) ? null : preferredScheduleId;
             DataContext = this;
             InitializeWeekdaySelections();
             Loaded += BackupSchedulerPage_Loaded;
@@ -652,6 +654,10 @@ namespace GitDeployPro.Pages
 
         private void LoadSchedules()
         {
+            var selectedId = !string.IsNullOrWhiteSpace(_preferredScheduleId)
+                ? _preferredScheduleId
+                : SelectedSchedule?.Id;
+
             Schedules.Clear();
             foreach (var schedule in BackupScheduleStore.LoadSchedules())
             {
@@ -662,13 +668,17 @@ namespace GitDeployPro.Pages
 
             if (Schedules.Count > 0)
             {
-                SelectedSchedule = Schedules[0];
+                var preferred = !string.IsNullOrWhiteSpace(selectedId)
+                    ? Schedules.FirstOrDefault(s => string.Equals(s.Id, selectedId, StringComparison.OrdinalIgnoreCase))
+                    : null;
+                SelectedSchedule = preferred ?? Schedules[0];
             }
             else
             {
                 SelectedSchedule = null;
             }
 
+            _preferredScheduleId = null;
             HasUnsavedScheduleChanges = false;
         }
 

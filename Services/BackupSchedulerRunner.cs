@@ -40,6 +40,59 @@ namespace GitDeployPro.Services
             _timer.Change(TimeSpan.Zero, TimeSpan.FromMinutes(1));
         }
 
+        public (bool Accepted, string Message) RunScheduleNow(string scheduleId)
+        {
+            if (_disposed)
+            {
+                return (false, "Backup scheduler is not running.");
+            }
+
+            if (string.IsNullOrWhiteSpace(scheduleId))
+            {
+                return (false, "Backup schedule id is missing.");
+            }
+
+            var schedules = BackupScheduleStore.LoadSchedules();
+            var schedule = schedules.FirstOrDefault(s =>
+                string.Equals(s.Id, scheduleId, StringComparison.OrdinalIgnoreCase));
+            if (schedule == null)
+            {
+                return (false, "Backup schedule not found.");
+            }
+
+            var connections = _configService.LoadConnections();
+            var profileExists = connections.Any(c =>
+                string.Equals(c.Id, schedule.ConnectionProfileId, StringComparison.OrdinalIgnoreCase));
+            if (!profileExists)
+            {
+                return (false, "Connection profile for this schedule was not found.");
+            }
+
+            var runKey = BuildRunKey(schedule.Id, schedule.ConnectionProfileId);
+            lock (_gate)
+            {
+                if (_runningScheduleKeys.Contains(runKey) ||
+                    _taskMonitor.IsScheduleRunning(schedule.Id, schedule.ConnectionProfileId))
+                {
+                    return (false, $"{schedule.Name} is already running.");
+                }
+            }
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await RunScheduleAsync(schedule);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[BackupSchedulerRunner] Manual run trigger error: {ex}");
+                }
+            });
+
+            return (true, $"{schedule.Name} started.");
+        }
+
         private async Task CheckAsync()
         {
             using var scope = PerformanceSampler.Instance.BeginScope("backup", "scheduler-check");
