@@ -10,6 +10,7 @@ using System.Windows.Navigation;
 using GitDeployPro.Controls;
 using GitDeployPro.Models;
 using GitDeployPro.Services;
+using GitDeployPro.Windows;
 using System.Windows.Threading;
 
 namespace GitDeployPro.Pages
@@ -223,6 +224,150 @@ namespace GitDeployPro.Pages
                     MessageBoxButton.OK,
                     MessageBoxImage.Error);
             }
+        }
+
+        private void RetryFailedBackup_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var entry = ResolveHistoryEntryFromSender(sender);
+                if (entry == null)
+                {
+                    ModernMessageBox.Show(
+                        "Backup item could not be resolved.",
+                        "Retry Backup",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                    return;
+                }
+
+                if (entry.Success)
+                {
+                    return;
+                }
+
+                if (string.IsNullOrWhiteSpace(entry.ScheduleId))
+                {
+                    ModernMessageBox.Show(
+                        "This failed backup has no schedule id, so it cannot be retried automatically.",
+                        "Retry Backup",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                    return;
+                }
+
+                var scheduleExists = BackupScheduleStore.LoadSchedules().Any(s =>
+                    string.Equals(s.Id, entry.ScheduleId, StringComparison.OrdinalIgnoreCase));
+                if (!scheduleExists)
+                {
+                    ModernMessageBox.Show(
+                        "Associated backup schedule was not found. It may have been deleted.",
+                        "Retry Backup",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                    return;
+                }
+
+                var trigger = BackupSchedulerRunner.Instance.RunScheduleNow(entry.ScheduleId);
+                if (trigger.Accepted)
+                {
+                    ModernMessageBox.Show(
+                        "Retry started successfully. You can track progress in Recent Activity.",
+                        "Retry Backup",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+                }
+                else
+                {
+                    ModernMessageBox.Show(
+                        trigger.Message,
+                        "Retry Backup",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                }
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show(
+                    $"Failed to start retry: {ex.Message}",
+                    "Retry Backup",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
+        }
+
+        private void EditFailedBackupSchedule_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var entry = ResolveHistoryEntryFromSender(sender);
+                if (entry == null)
+                {
+                    ModernMessageBox.Show(
+                        "Backup item could not be resolved.",
+                        "Edit Schedule",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                    return;
+                }
+
+                if (entry.Success)
+                {
+                    return;
+                }
+
+                if (string.IsNullOrWhiteSpace(entry.ScheduleId))
+                {
+                    ModernMessageBox.Show(
+                        "This backup entry has no schedule id.",
+                        "Edit Schedule",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                    return;
+                }
+
+                var scheduleExists = BackupScheduleStore.LoadSchedules().Any(s =>
+                    string.Equals(s.Id, entry.ScheduleId, StringComparison.OrdinalIgnoreCase));
+                if (!scheduleExists)
+                {
+                    ModernMessageBox.Show(
+                        "Associated backup schedule was not found. It may have been deleted.",
+                        "Edit Schedule",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                    return;
+                }
+
+                var schedulerPage = new BackupSchedulerPage(entry.ScheduleId);
+                if (NavigationService != null)
+                {
+                    NavigationService.Navigate(schedulerPage);
+                }
+                else
+                {
+                    var window = new PageHostWindow(schedulerPage, "Backup Scheduler • Detached");
+                    WindowOwnerService.ShowOwned(window, this);
+                }
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show(
+                    $"Failed to open backup schedule: {ex.Message}",
+                    "Edit Schedule",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
+        }
+
+        private static BackupHistoryEntry? ResolveHistoryEntryFromSender(object sender)
+        {
+            if (sender is FrameworkElement element)
+            {
+                return element.Tag as BackupHistoryEntry
+                    ?? element.DataContext as BackupHistoryEntry;
+            }
+
+            return null;
         }
 
         private void UpdatePushStatusBadge(BranchStatusInfo status)
