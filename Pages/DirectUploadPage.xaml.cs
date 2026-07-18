@@ -2,12 +2,15 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Input;
 using System.Windows.Media;
 using GitDeployPro.Services;
 using FluentFTP; 
@@ -333,6 +336,80 @@ namespace GitDeployPro.Pages
             // The binding handles the value update, but we need to trigger stats update
             // Also the logic inside FileSystemItem handles cascading checks
             UpdateStats();
+        }
+
+        private void FileTreeView_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            var treeItem = FindParent<TreeViewItem>(e.OriginalSource as DependencyObject);
+            if (treeItem?.DataContext is not FileSystemItem item || !item.IsFolder)
+            {
+                return;
+            }
+
+            treeItem.IsSelected = true;
+            treeItem.Focus();
+
+            var actions = new List<AppContextMenuAction>
+            {
+                new()
+                {
+                    Id = "open-in-explorer",
+                    Label = "Open in Explorer",
+                    IconGlyph = "📂",
+                    Execute = _ => OpenFolderInExplorer(item.FullPath)
+                }
+            };
+
+            if (GlobalContextMenuService.ShowMenu(treeItem, actions, item, PlacementMode.MousePoint))
+            {
+                e.Handled = true;
+            }
+        }
+
+        private void OpenFolderInExplorer(string folderPath)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(folderPath) || !Directory.Exists(folderPath))
+                {
+                    ModernMessageBox.Show(
+                        "Folder not found on disk.",
+                        "Direct Upload",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                    return;
+                }
+
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "explorer.exe",
+                    Arguments = $"\"{folderPath}\"",
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show(
+                    $"Unable to open Explorer:\n{ex.Message}",
+                    "Direct Upload",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
+        }
+
+        private static T? FindParent<T>(DependencyObject? child) where T : DependencyObject
+        {
+            while (child != null)
+            {
+                if (child is T typedParent)
+                {
+                    return typedParent;
+                }
+
+                child = VisualTreeHelper.GetParent(child);
+            }
+
+            return null;
         }
 
         private void UpdateStats()

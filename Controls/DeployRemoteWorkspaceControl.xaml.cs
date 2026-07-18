@@ -1306,6 +1306,13 @@ namespace GitDeployPro.Controls
                 },
                 new()
                 {
+                    Id = "move",
+                    Label = "Move",
+                    IconGlyph = "➡",
+                    Execute = _ => _ = MoveNodeAsync(node)
+                },
+                new()
+                {
                     Id = "delete",
                     Label = "Delete",
                     IconGlyph = "🗑",
@@ -1427,6 +1434,92 @@ namespace GitDeployPro.Controls
                 SetStatus($"Rename failed: {ex.Message}", warning: true);
                 AddLog($"Rename failed: {ex.Message}");
                 ModernMessageBox.Show($"Rename failed:\n{ex.Message}", "Remote workspace", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                _isBusy = false;
+                UpdateUiState();
+            }
+        }
+
+        private async Task MoveNodeAsync(RemoteTreeNode node)
+        {
+            if (_isBusy || _remoteService == null || !_remoteService.IsConnected || _currentProfile == null)
+            {
+                return;
+            }
+
+            if (node.IsPlaceholder)
+            {
+                return;
+            }
+
+            var root = RemotePathResolver.BuildRemoteRoot(_currentProfile);
+            var picker = new RemoteFolderPickerWindow(
+                _remoteService,
+                root,
+                node.Name,
+                node.FullPath,
+                node.IsDirectory)
+            {
+                Owner = Window.GetWindow(this)
+            };
+
+            if (WindowOwnerService.ShowDialogOwned(picker, this) != true
+                || string.IsNullOrWhiteSpace(picker.SelectedFolderPath))
+            {
+                return;
+            }
+
+            var destinationFolder = RemotePathResolver.EnsureTrailingSlash(picker.SelectedFolderPath).TrimEnd('/');
+            if (string.IsNullOrWhiteSpace(destinationFolder))
+            {
+                destinationFolder = "/";
+            }
+
+            if (node.IsDirectory && RemoteTreeBuilder.IsBlockedPath(destinationFolder, node.FullPath))
+            {
+                ModernMessageBox.Show(
+                    "Cannot move a folder into itself or one of its subfolders.",
+                    "Remote workspace",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
+
+            var currentParent = RemotePathResolver.GetParentDirectory(node.FullPath, root).TrimEnd('/');
+            if (string.Equals(currentParent, destinationFolder, StringComparison.OrdinalIgnoreCase))
+            {
+                SetStatus("Item is already in the selected folder.", warning: true);
+                return;
+            }
+
+            var destinationPath = RemotePathResolver.CombineRemotePaths(destinationFolder, node.Name);
+            var sourceNormalized = RemotePathResolver.NormalizeRemoteBase(node.FullPath).TrimEnd('/');
+            var destinationNormalized = RemotePathResolver.NormalizeRemoteBase(destinationPath).TrimEnd('/');
+            if (string.Equals(sourceNormalized, destinationNormalized, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            _isBusy = true;
+            UpdateUiState();
+            try
+            {
+                await ExecuteRemoteAsync(
+                    service => service.RenameAsync(node.FullPath, destinationPath),
+                    $"Move {node.Name}");
+
+                ApplyPathRenameToOpenSessions(node.FullPath, destinationPath, node.IsDirectory);
+                await LoadRootAsync();
+                SetStatus($"Moved to {destinationFolder}", success: true);
+                AddLog($"Moved {node.FullPath} -> {destinationPath}");
+            }
+            catch (Exception ex)
+            {
+                SetStatus($"Move failed: {ex.Message}", warning: true);
+                AddLog($"Move failed: {ex.Message}");
+                ModernMessageBox.Show($"Move failed:\n{ex.Message}", "Remote workspace", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
             {

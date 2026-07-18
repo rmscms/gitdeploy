@@ -4,6 +4,7 @@
       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
       xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
       xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
+      xmlns:behaviors="clr-namespace:GitDeployPro.Behaviors"
       mc:Ignorable="d" 
       Title="DirectUploadPage"
       Background="{StaticResource Surface.Base}" d:DesignHeight="600" d:DesignWidth="800">
@@ -94,7 +95,9 @@
                       BorderThickness="0"
                       Padding="10"
                       VirtualizingStackPanel.IsVirtualizing="True"
-                      VirtualizingStackPanel.VirtualizationMode="Recycling">
+                      VirtualizingStackPanel.VirtualizationMode="Recycling"
+                      behaviors:ContextMenuSelectionBehavior.Enable="True"
+                      MouseRightButtonUp="FileTreeView_MouseRightButtonUp">
                 <TreeView.ItemContainerStyle>
                     <Style TargetType="{x:Type TreeViewItem}">
                         <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />

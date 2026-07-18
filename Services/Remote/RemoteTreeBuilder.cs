@@ -57,34 +57,101 @@ namespace GitDeployPro.Services.Remote
                 .OrderByDescending(x => x.IsDirectory)
                 .ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase))
             {
-                var visual = ResolveVisual(entry.Name, entry.IsDirectory, isPlaceholder: false);
-                var node = new RemoteTreeNode
-                {
-                    Name = entry.Name,
-                    FullPath = entry.FullPath,
-                    IsDirectory = entry.IsDirectory,
-                    SizeBytes = entry.SizeBytes,
-                    SizeLabel = entry.IsDirectory ? "dir" : FormatSize(entry.SizeBytes),
-                    ModifiedLabel = entry.ModifiedUtc.HasValue
-                        ? AppTimeService.FormatLocalFromUtc(entry.ModifiedUtc)
-                        : "—",
-                    IconGlyph = visual.IconGlyph,
-                    IconColor = visual.IconColor,
-                    BadgeText = visual.BadgeText,
-                    BadgeBackground = visual.BadgeBackground,
-                    BadgeBorder = visual.BadgeBorder,
-                    BadgeForeground = visual.BadgeForeground
-                };
-
-                if (entry.IsDirectory)
-                {
-                    node.Children.Add(CreateLoadingPlaceholder());
-                }
-
-                result.Add(node);
+                result.Add(CreateNode(entry));
             }
 
             return result;
+        }
+
+        public List<RemoteTreeNode> BuildFolderNodes(
+            IEnumerable<RemoteDirectoryEntry> entries,
+            string? blockedPathPrefix = null)
+        {
+            var result = new List<RemoteTreeNode>();
+            foreach (var entry in entries
+                .Where(e => e.IsDirectory)
+                .Where(e => !IsBlockedPath(e.FullPath, blockedPathPrefix))
+                .OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase))
+            {
+                result.Add(CreateNode(entry));
+            }
+
+            return result;
+        }
+
+        public RemoteTreeNode CreateRootFolderNode(string remoteRoot)
+        {
+            var path = RemotePathResolver.EnsureTrailingSlash(remoteRoot);
+            var displayName = path.TrimEnd('/');
+            if (string.IsNullOrWhiteSpace(displayName))
+            {
+                displayName = "/";
+            }
+
+            var visual = DirectoryVisual;
+            var node = new RemoteTreeNode
+            {
+                Name = displayName,
+                FullPath = path.TrimEnd('/'),
+                IsDirectory = true,
+                SizeLabel = "dir",
+                ModifiedLabel = "—",
+                IconGlyph = visual.IconGlyph,
+                IconColor = visual.IconColor,
+                BadgeText = visual.BadgeText,
+                BadgeBackground = visual.BadgeBackground,
+                BadgeBorder = visual.BadgeBorder,
+                BadgeForeground = visual.BadgeForeground
+            };
+            node.Children.Add(CreateLoadingPlaceholder());
+            return node;
+        }
+
+        private RemoteTreeNode CreateNode(RemoteDirectoryEntry entry)
+        {
+            var visual = ResolveVisual(entry.Name, entry.IsDirectory, isPlaceholder: false);
+            var node = new RemoteTreeNode
+            {
+                Name = entry.Name,
+                FullPath = entry.FullPath,
+                IsDirectory = entry.IsDirectory,
+                SizeBytes = entry.SizeBytes,
+                SizeLabel = entry.IsDirectory ? "dir" : FormatSize(entry.SizeBytes),
+                ModifiedLabel = entry.ModifiedUtc.HasValue
+                    ? AppTimeService.FormatLocalFromUtc(entry.ModifiedUtc)
+                    : "—",
+                IconGlyph = visual.IconGlyph,
+                IconColor = visual.IconColor,
+                BadgeText = visual.BadgeText,
+                BadgeBackground = visual.BadgeBackground,
+                BadgeBorder = visual.BadgeBorder,
+                BadgeForeground = visual.BadgeForeground
+            };
+
+            if (entry.IsDirectory)
+            {
+                node.Children.Add(CreateLoadingPlaceholder());
+            }
+
+            return node;
+        }
+
+        public static bool IsBlockedPath(string candidatePath, string? blockedPathPrefix)
+        {
+            if (string.IsNullOrWhiteSpace(blockedPathPrefix))
+            {
+                return false;
+            }
+
+            var candidate = RemotePathResolver.NormalizeRemoteBase(candidatePath).TrimEnd('/');
+            var blocked = RemotePathResolver.NormalizeRemoteBase(blockedPathPrefix).TrimEnd('/');
+            if (string.IsNullOrWhiteSpace(blocked))
+            {
+                return false;
+            }
+
+            return string.Equals(candidate, blocked, StringComparison.OrdinalIgnoreCase)
+                   || candidate.StartsWith(blocked + "/", StringComparison.OrdinalIgnoreCase);
         }
 
         public RemoteTreeNode CreateLoadingPlaceholder()
