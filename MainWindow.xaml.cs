@@ -1,5 +1,6 @@
 ﻿using System;
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Windows;
@@ -513,13 +514,54 @@ namespace GitDeployPro
 
         private static System.Drawing.Icon ResolveTrayIcon()
         {
+            // Single-file publish leaves Assembly.Location empty; prefer ProcessPath.
+            foreach (var executablePath in new[]
+                     {
+                         Environment.ProcessPath,
+                         Assembly.GetExecutingAssembly().Location
+                     })
+            {
+                if (string.IsNullOrWhiteSpace(executablePath))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    var extracted = System.Drawing.Icon.ExtractAssociatedIcon(executablePath);
+                    if (extracted != null)
+                    {
+                        return extracted;
+                    }
+                }
+                catch
+                {
+                    // Try next candidate.
+                }
+            }
+
             try
             {
-                var executablePath = Assembly.GetExecutingAssembly().Location;
-                var extracted = System.Drawing.Icon.ExtractAssociatedIcon(executablePath);
-                if (extracted != null)
+                var baseIcon = Path.Combine(AppContext.BaseDirectory, "icon.ico");
+                if (File.Exists(baseIcon))
                 {
-                    return extracted;
+                    return new System.Drawing.Icon(baseIcon);
+                }
+            }
+            catch
+            {
+                // Try pack resource next.
+            }
+
+            try
+            {
+                var packIcon = System.Windows.Application.GetResourceStream(new Uri("pack://application:,,,/icon.ico"));
+                if (packIcon?.Stream != null)
+                {
+                    using (packIcon.Stream)
+                    {
+                        return new System.Drawing.Icon(packIcon.Stream);
+                    }
                 }
             }
             catch
