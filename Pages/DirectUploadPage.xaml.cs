@@ -315,8 +315,32 @@ namespace GitDeployPro.Pages
 
         private void RefreshButton_Click(object sender, RoutedEventArgs e)
         {
-            _ = LoadProjectFilesAsync();
-            CheckSessionStatus();
+            if (_isUploading)
+            {
+                StatusText.Text = "Wait for upload to finish before refreshing.";
+                return;
+            }
+
+            _ = RefreshFromDiskAsync();
+        }
+
+        private async Task RefreshFromDiskAsync()
+        {
+            RefreshButton.IsEnabled = false;
+            try
+            {
+                StatusText.Text = "Refreshing from disk...";
+                await LoadProjectFilesAsync();
+                CheckSessionStatus();
+                if (string.Equals(StatusText.Text, "Ready.", StringComparison.Ordinal))
+                {
+                    StatusText.Text = "Refreshed from disk.";
+                }
+            }
+            finally
+            {
+                RefreshButton.IsEnabled = !_isUploading;
+            }
         }
 
         private void SelectAllButton_Click(object sender, RoutedEventArgs e)
@@ -357,6 +381,14 @@ namespace GitDeployPro.Pages
                     Label = "Open in Explorer",
                     IconGlyph = "📂",
                     Execute = _ => OpenFolderInExplorer(item.FullPath)
+                },
+                new()
+                {
+                    Id = "refresh-folder",
+                    Label = "Refresh",
+                    IconGlyph = "🔄",
+                    IsEnabled = !_isUploading,
+                    Execute = _ => _ = RefreshFolderAsync(item)
                 }
             };
 
@@ -364,6 +396,73 @@ namespace GitDeployPro.Pages
             {
                 e.Handled = true;
             }
+        }
+
+        private async Task RefreshFolderAsync(FileSystemItem folder)
+        {
+            if (folder == null || !folder.IsFolder || _isUploading)
+            {
+                return;
+            }
+
+            try
+            {
+                if (string.IsNullOrWhiteSpace(folder.FullPath) || !Directory.Exists(folder.FullPath))
+                {
+                    RemoveFolderFromTree(folder);
+                    UpdateStats();
+                    StatusText.Text = $"Removed missing folder: {folder.Name}";
+                    return;
+                }
+
+                StatusText.Text = $"Refreshing {folder.Name}...";
+                StartUploadButton.IsEnabled = false;
+                RefreshButton.IsEnabled = false;
+
+                var wasExpanded = folder.IsExpanded;
+                var path = folder.FullPath;
+                var children = await Task.Run(() => ScanDirectory(path));
+
+                folder.Children.Clear();
+                foreach (var child in children)
+                {
+                    child.Parent = folder;
+                    folder.Children.Add(child);
+                }
+
+                folder.IsExpanded = wasExpanded || folder.Children.Count > 0;
+                folder.CheckParentStatus();
+                folder.RefreshUploadStateFromChildren();
+                UpdateStats();
+                StatusText.Text = $"Refreshed {folder.Name}.";
+            }
+            catch (Exception ex)
+            {
+                StatusText.Text = $"Refresh failed: {ex.Message}";
+                ModernMessageBox.Show(
+                    $"Unable to refresh folder:\n{ex.Message}",
+                    "Direct Upload",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
+            finally
+            {
+                StartUploadButton.IsEnabled = !_isUploading;
+                RefreshButton.IsEnabled = !_isUploading;
+            }
+        }
+
+        private void RemoveFolderFromTree(FileSystemItem folder)
+        {
+            if (folder.Parent != null)
+            {
+                folder.Parent.Children.Remove(folder);
+                folder.Parent.CheckParentStatus();
+                folder.Parent.RefreshUploadStateFromChildren();
+                return;
+            }
+
+            _items.Remove(folder);
         }
 
         private void OpenFolderInExplorer(string folderPath)

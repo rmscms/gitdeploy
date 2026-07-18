@@ -59,10 +59,14 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Grid.Column="0" Orientation="Horizontal">
-                    <Button x:Name="RefreshButton" Click="RefreshButton_Click" Style="{StaticResource App.Button.Ghost}" Margin="0,0,10,0">
+                    <Button x:Name="RefreshButton"
+                            Click="RefreshButton_Click"
+                            Style="{StaticResource App.Button.Ghost}"
+                            Margin="0,0,10,0"
+                            ToolTip="Re-scan the project folder from disk">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="🔄" Foreground="{StaticResource Status.Info}" Margin="0,0,5,0" />
-                            <TextBlock Text="Refresh Files" Foreground="{StaticResource Text.Secondary}" />
+                            <TextBlock Text="Refresh from Disk" Foreground="{StaticResource Text.Secondary}" />
                         </StackPanel>
                     </Button>
                     <Button x:Name="SelectAllButton" Click="SelectAllButton_Click" Style="{StaticResource App.Button.Ghost}" Margin="10,0">
