@@ -15,11 +15,28 @@
       font-family: Consolas, "Cascadia Mono", monospace;
     }
 
-    #terminal {
+    /* xterm only uses #terminal; #terminal-pad stays empty so the cursor never sits on the edge. */
+    #terminal-wrap {
       width: 100%;
       height: 100%;
-      padding: 8px 10px 58px 10px;
+      display: flex;
+      flex-direction: column;
       box-sizing: border-box;
+      padding: 8px 10px 0 10px;
+    }
+
+    #terminal {
+      flex: 1 1 auto;
+      min-height: 0;
+      width: 100%;
+    }
+
+    #terminal-pad {
+      flex: 0 0 140px;
+      height: 140px;
+      width: 100%;
+      background: #1e1e1e;
+      pointer-events: none;
     }
 
     .xterm-viewport::-webkit-scrollbar {
@@ -33,7 +50,10 @@
   </style>
 </head>
 <body>
-  <div id="terminal"></div>
+  <div id="terminal-wrap">
+    <div id="terminal"></div>
+    <div id="terminal-pad" aria-hidden="true"></div>
+  </div>
 
   <script>
     (() => {
@@ -88,7 +108,7 @@
       };
 
       const initCompatibilityTerminal = () => {
-        termElement.innerHTML = '<div style="color:#ffb74d;padding:10px 12px;border-bottom:1px solid #333">xterm.js unavailable (offline/CDN blocked). Running compatibility mode.</div><pre id="compatOut" style="margin:0;padding:10px 10px 58px 10px;height:calc(100% - 42px);overflow:auto;white-space:pre-wrap;color:#d4d4d4;box-sizing:border-box"></pre>';
+        termElement.innerHTML = '<div style="color:#ffb74d;padding:10px 12px;border-bottom:1px solid #333">xterm.js unavailable (offline/CDN blocked). Running compatibility mode.</div><pre id="compatOut" style="margin:0;padding:10px;height:calc(100% - 42px);overflow:auto;white-space:pre-wrap;color:#d4d4d4;box-sizing:border-box"></pre>';
         const compatOut = document.getElementById('compatOut');
         termElement.tabIndex = 0;
         termElement.focus();
@@ -99,6 +119,7 @@
             return;
           }
           compatOut.textContent += data;
+          // Keep the latest line above the empty pad (scroll to end of pre, pad stays below).
           compatOut.scrollTop = compatOut.scrollHeight;
         };
 

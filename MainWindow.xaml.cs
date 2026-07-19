@@ -32,6 +32,8 @@ namespace GitDeployPro
         private bool _allowClose;
         private bool _trayHintShown;
         private bool _minimizeToTrayEnabled = true;
+        private string _currentRoute = string.Empty;
+        private bool _sidebarCollapsedBeforeDeploy;
 
         public MainWindow()
         {
@@ -273,10 +275,33 @@ namespace GitDeployPro
         public void SetSidebarCollapsed(bool collapsed)
         {
             _isSidebarCollapsed = collapsed;
-            SidebarColumn.Width = collapsed ? new GridLength(0) : new GridLength(DefaultSidebarWidth);
-            SidebarPanel.Visibility = collapsed ? Visibility.Collapsed : Visibility.Visible;
             SidebarToggleIcon.Text = collapsed ? "☰" : "⮜";
             SidebarToggleButton.ToolTip = collapsed ? "Show Sidebar" : "Hide Sidebar";
+            SidebarColumn.Width = collapsed ? new GridLength(0) : new GridLength(DefaultSidebarWidth);
+            SidebarPanel.Visibility = collapsed ? Visibility.Collapsed : Visibility.Visible;
+            Grid.SetColumn(SidebarPanel, 0);
+            Grid.SetColumnSpan(SidebarPanel, 1);
+            SidebarPanel.Width = double.NaN;
+            SidebarPanel.HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch;
+            System.Windows.Controls.Panel.SetZIndex(SidebarPanel, 0);
+        }
+
+        private void ApplyDeploySidebarPolicy(string previousRoute, string route)
+        {
+            var enteringDeploy = string.Equals(route, "deploy", StringComparison.OrdinalIgnoreCase);
+            var leavingDeploy = string.Equals(previousRoute, "deploy", StringComparison.OrdinalIgnoreCase) && !enteringDeploy;
+
+            if (enteringDeploy && !string.Equals(previousRoute, "deploy", StringComparison.OrdinalIgnoreCase))
+            {
+                _sidebarCollapsedBeforeDeploy = _isSidebarCollapsed;
+                SetSidebarCollapsed(true);
+                return;
+            }
+
+            if (leavingDeploy)
+            {
+                SetSidebarCollapsed(_sidebarCollapsedBeforeDeploy);
+            }
         }
 
         private void LogSidebarAction(string source)
@@ -432,7 +457,10 @@ namespace GitDeployPro
         private void NavigateToPage(Page page, string route)
         {
             using var scope = PerformanceSampler.Instance.BeginScope("navigation", "navigate", route);
+            var previousRoute = _currentRoute;
+            _currentRoute = route ?? string.Empty;
             ContentFrame.Navigate(page);
+            ApplyDeploySidebarPolicy(previousRoute, _currentRoute);
         }
         private void About_Click(object sender, RoutedEventArgs e)
         {

@@ -119,7 +119,10 @@ namespace GitDeployPro.Pages
             {
                 using var scope = PerformanceSampler.Instance.BeginScope("terminal", "open-session", conn.Name);
                 // Create new terminal instance inside the grid (allow multiple per connection)
-                var terminalControl = new Controls.TerminalControl();
+                var terminalControl = new Controls.TerminalControl
+                {
+                    ShowCommandBar = false
+                };
                 terminalControl.SetProjectPath(_currentProjectPath ?? "");
                 terminalControl.DetachButton.Visibility = Visibility.Collapsed;
                 
@@ -412,7 +415,10 @@ namespace GitDeployPro.Pages
             try
             {
                 using var scope = PerformanceSampler.Instance.BeginScope("terminal", "open-local-session");
-                var terminalControl = new Controls.TerminalControl();
+                var terminalControl = new Controls.TerminalControl
+                {
+                    ShowCommandBar = false
+                };
                 terminalControl.SetProjectPath(_currentProjectPath ?? "");
                 terminalControl.DetachButton.Visibility = Visibility.Collapsed;
                 
