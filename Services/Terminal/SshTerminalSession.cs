@@ -88,6 +88,7 @@ namespace GitDeployPro.Services.Terminal
             }
 
             _shellStream!.Write(data);
+            _shellStream.Flush();
             return Task.CompletedTask;
         }
 

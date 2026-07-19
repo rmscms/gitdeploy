@@ -271,7 +271,7 @@
                               CanContentScroll="False"
                               HorizontalContentAlignment="Stretch"
                               VerticalContentAlignment="Stretch">
-                    <Grid MinWidth="860"
+                    <Grid MinWidth="480"
                           MinHeight="{Binding ActualHeight, ElementName=EditorPanelScrollViewer}"
                           VerticalAlignment="Stretch">
                     <Grid.RowDefinitions>

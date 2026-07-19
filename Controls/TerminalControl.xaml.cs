@@ -1,9 +1,11 @@
+using GitDeployPro.Models;
 using GitDeployPro.Services;
 using GitDeployPro.Services.Terminal;
 using GitDeployPro.Windows;
 using Microsoft.Web.WebView2.Core;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -17,6 +19,24 @@ namespace GitDeployPro.Controls
 {
     public partial class TerminalControl : System.Windows.Controls.UserControl
     {
+        private sealed class TerminalTargetOption
+        {
+            public string Id { get; init; } = string.Empty;
+            public string DisplayName { get; init; } = string.Empty;
+            public bool IsLocal { get; init; }
+            public ConnectionProfile? Profile { get; init; }
+
+            public override string ToString() =>
+                string.IsNullOrWhiteSpace(DisplayName) ? Id : DisplayName;
+        }
+
+        public static readonly DependencyProperty ShowCommandBarProperty =
+            DependencyProperty.Register(
+                nameof(ShowCommandBar),
+                typeof(bool),
+                typeof(TerminalControl),
+                new PropertyMetadata(true, OnShowCommandBarChanged));
+
         private static readonly HashSet<TerminalControl> _activeTerminals = new();
         private static string? _terminalHtmlTemplate;
 
@@ -40,6 +60,13 @@ namespace GitDeployPro.Controls
         private DateTime _lastInterruptSentAt = DateTime.MinValue;
         private bool _remoteHistoryConfigured;
         private bool _disposed;
+        private ObservableCollection<TerminalCommandPreset> _commandPresets = new();
+
+        public bool ShowCommandBar
+        {
+            get => (bool)GetValue(ShowCommandBarProperty);
+            set => SetValue(ShowCommandBarProperty, value);
+        }
 
         public TerminalControl()
         {
@@ -50,9 +77,53 @@ namespace GitDeployPro.Controls
             Unloaded += TerminalControl_Unloaded;
         }
 
+        private static void OnShowCommandBarChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            if (d is TerminalControl control)
+            {
+                control.ApplyCommandBarVisibility((bool)e.NewValue);
+            }
+        }
+
+        private void ApplyCommandBarVisibility(bool visible)
+        {
+            if (CommandBarPanel == null || CommandBarRow == null)
+            {
+                return;
+            }
+
+            CommandBarPanel.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+            CommandBarRow.Height = visible ? new GridLength(28) : new GridLength(0);
+
+            if (!visible && PresetEditToggle != null)
+            {
+                PresetEditToggle.IsChecked = false;
+                ApplyPresetEditVisibility(false);
+            }
+        }
+
+        private void PresetEditToggle_Checked(object sender, RoutedEventArgs e) => ApplyPresetEditVisibility(true);
+
+        private void PresetEditToggle_Unchecked(object sender, RoutedEventArgs e) => ApplyPresetEditVisibility(false);
+
+        private void ApplyPresetEditVisibility(bool visible)
+        {
+            if (PresetEditPanel == null || PresetEditRowDef == null)
+            {
+                return;
+            }
+
+            PresetEditPanel.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+            PresetEditRowDef.Height = visible ? GridLength.Auto : new GridLength(0);
+        }
+
         public void SetProjectPath(string path)
         {
             _projectPath = path;
+            if (IsLoaded)
+            {
+                LoadTerminalTargets();
+            }
         }
 
         public static void BroadcastCommand(string command)
@@ -165,6 +236,19 @@ namespace GitDeployPro.Controls
                 _activeTerminals.Add(this);
             }
 
+            ApplyCommandBarVisibility(ShowCommandBar);
+            if (ShowCommandBar)
+            {
+                if (string.IsNullOrWhiteSpace(_projectPath))
+                {
+                    _projectPath = _configService.LoadGlobalConfig().LastProjectPath;
+                }
+
+                LoadTerminalTargets();
+                LoadCommandPresets();
+                TerminalPresetStore.PresetsChanged += TerminalPresetStore_PresetsChanged;
+            }
+
             try
             {
                 await EnsureWebViewReadyAsync();
@@ -185,6 +269,8 @@ namespace GitDeployPro.Controls
 
         private async void TerminalControl_Unloaded(object sender, RoutedEventArgs e)
         {
+            TerminalPresetStore.PresetsChanged -= TerminalPresetStore_PresetsChanged;
+
             lock (_activeTerminals)
             {
                 _activeTerminals.Remove(this);
@@ -196,6 +282,216 @@ namespace GitDeployPro.Controls
             _remoteHistoryConfigured = false;
         }
 
+        private void TerminalPresetStore_PresetsChanged()
+        {
+            Dispatcher.Invoke(LoadCommandPresets);
+        }
+
+        private void LoadTerminalTargets()
+        {
+            if (TerminalTargetCombo == null)
+            {
+                return;
+            }
+
+            var previousId = ((TerminalTargetCombo.SelectedItem as ComboBoxItem)?.Tag as TerminalTargetOption)?.Id
+                             ?? (TerminalTargetCombo.SelectedItem as TerminalTargetOption)?.Id;
+            var items = new List<TerminalTargetOption>
+            {
+                new()
+                {
+                    Id = "local",
+                    DisplayName = "Local Terminal",
+                    IsLocal = true
+                }
+            };
+
+            try
+            {
+                var profiles = _configService.LoadConnections()
+                    .Where(p => p != null && p.UseSSH && !string.IsNullOrWhiteSpace(p.Host))
+                    .OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                foreach (var profile in profiles)
+                {
+                    items.Add(new TerminalTargetOption
+                    {
+                        Id = profile.Id,
+                        DisplayName = string.IsNullOrWhiteSpace(profile.Name)
+                            ? $"{profile.Username}@{profile.Host}"
+                            : profile.Name,
+                        IsLocal = false,
+                        Profile = profile
+                    });
+                }
+
+                // Also include project-assigned SSH if missing from profiles list.
+                if (!string.IsNullOrWhiteSpace(_projectPath))
+                {
+                    var project = _configService.LoadProjectConfig(_projectPath);
+                    if (project.UseSSH && !string.IsNullOrWhiteSpace(project.FtpHost))
+                    {
+                        var projectId = "project-ssh";
+                        if (items.All(i => !string.Equals(i.DisplayName, $"Project SSH ({project.FtpHost})", StringComparison.OrdinalIgnoreCase)))
+                        {
+                            items.Add(new TerminalTargetOption
+                            {
+                                Id = projectId,
+                                DisplayName = $"Project SSH ({project.FtpHost})",
+                                IsLocal = false,
+                                Profile = new ConnectionProfile
+                                {
+                                    Id = projectId,
+                                    Name = "Project SSH",
+                                    Host = project.FtpHost,
+                                    Username = project.FtpUsername,
+                                    Password = project.FtpPassword,
+                                    Port = project.FtpPort,
+                                    UseSSH = true
+                                }
+                            });
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // Keep at least Local.
+            }
+
+            // Use ComboBoxItem.Content so custom ComboBox templates always show the label.
+            TerminalTargetCombo.Items.Clear();
+            ComboBoxItem? selectedItem = null;
+            foreach (var option in items)
+            {
+                var boxItem = new ComboBoxItem
+                {
+                    Content = option.DisplayName,
+                    Tag = option,
+                    ToolTip = option.DisplayName
+                };
+                TerminalTargetCombo.Items.Add(boxItem);
+                if (selectedItem == null &&
+                    (string.Equals(option.Id, previousId, StringComparison.OrdinalIgnoreCase)
+                     || (!option.IsLocal && previousId == null)))
+                {
+                    selectedItem = boxItem;
+                }
+            }
+
+            if (selectedItem == null && TerminalTargetCombo.Items.Count > 0)
+            {
+                selectedItem = (ComboBoxItem)TerminalTargetCombo.Items[0];
+            }
+
+            TerminalTargetCombo.SelectedItem = selectedItem;
+        }
+
+        private void LoadCommandPresets()
+        {
+            if (PresetComboBox == null)
+            {
+                return;
+            }
+
+            var previous = PresetComboBox.SelectedValue?.ToString();
+            _commandPresets = TerminalPresetStore.LoadPresets();
+            PresetComboBox.ItemsSource = _commandPresets;
+            if (!string.IsNullOrEmpty(previous))
+            {
+                var match = _commandPresets.FirstOrDefault(p => p.Id == previous);
+                if (match != null)
+                {
+                    PresetComboBox.SelectedItem = match;
+                }
+            }
+
+            if (PresetComboBox.SelectedIndex < 0 && _commandPresets.Count > 0)
+            {
+                PresetComboBox.SelectedIndex = 0;
+            }
+        }
+
+        private void InsertPreset_Click(object sender, RoutedEventArgs e)
+        {
+            if (PresetComboBox.SelectedItem is TerminalCommandPreset preset &&
+                !string.IsNullOrWhiteSpace(preset.Command))
+            {
+                InjectCommandText(preset.Command);
+                return;
+            }
+
+            var typed = (PresetCommandBox.Text ?? string.Empty).Trim();
+            if (!string.IsNullOrWhiteSpace(typed))
+            {
+                InjectCommandText(typed);
+            }
+        }
+
+        private void SendCommand_Click(object sender, RoutedEventArgs e)
+        {
+            var command = (PresetCommandBox.Text ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(command))
+            {
+                if (PresetComboBox.SelectedItem is TerminalCommandPreset preset)
+                {
+                    command = preset.Command;
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(command))
+            {
+                return;
+            }
+
+            InjectCommandText(command);
+        }
+
+        private void SavePreset_Click(object sender, RoutedEventArgs e)
+        {
+            var title = (PresetTitleBox.Text ?? string.Empty).Trim();
+            var command = (PresetCommandBox.Text ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(command))
+            {
+                ModernMessageBox.Show(
+                    "Please enter both a title and a command.",
+                    "Command Presets",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+
+            var preset = new TerminalCommandPreset
+            {
+                Id = Guid.NewGuid().ToString(),
+                Title = title,
+                Command = command
+            };
+            _commandPresets.Add(preset);
+            TerminalPresetStore.SavePresets(_commandPresets);
+            PresetTitleBox.Text = string.Empty;
+            PresetCommandBox.Text = string.Empty;
+            PresetComboBox.SelectedItem = preset;
+        }
+
+        private void DeletePreset_Click(object sender, RoutedEventArgs e)
+        {
+            if (PresetComboBox.SelectedItem is not TerminalCommandPreset preset)
+            {
+                return;
+            }
+
+            var existing = _commandPresets.FirstOrDefault(p => p.Id == preset.Id);
+            if (existing == null)
+            {
+                return;
+            }
+
+            _commandPresets.Remove(existing);
+            TerminalPresetStore.SavePresets(_commandPresets);
+        }
+
         private async void ConnectButton_Click(object sender, RoutedEventArgs e)
         {
             if (_isConnected)
@@ -204,7 +500,40 @@ namespace GitDeployPro.Controls
                 return;
             }
 
-            await ConnectAsync();
+            await ConnectSelectedTargetAsync();
+        }
+
+        private async Task ConnectSelectedTargetAsync()
+        {
+            try
+            {
+                var target = (TerminalTargetCombo?.SelectedItem as ComboBoxItem)?.Tag as TerminalTargetOption
+                             ?? TerminalTargetCombo?.SelectedItem as TerminalTargetOption;
+                if (target != null)
+                {
+                    if (target.IsLocal)
+                    {
+                        await ConnectLocal();
+                        return;
+                    }
+
+                    if (target.Profile != null)
+                    {
+                        await ConnectAsync(
+                            target.Profile.Host,
+                            target.Profile.Username,
+                            EncryptionService.Decrypt(target.Profile.Password),
+                            target.Profile.Port);
+                        return;
+                    }
+                }
+
+                await ConnectAsync();
+            }
+            catch (Exception ex)
+            {
+                await HandleConnectionFailureAsync(ex, "Unable to connect selected terminal");
+            }
         }
 
         private async Task ConnectAsync()
@@ -736,7 +1065,7 @@ namespace GitDeployPro.Controls
         {
             StatusText.Text = text;
             StatusIndicator.Background = System.Windows.Media.Brushes.LimeGreen;
-            ConnectButton.Content = "❌ Disconnect";
+            ConnectButton.Content = "Disconnect";
             ConnectButton.Background = System.Windows.Media.Brushes.DarkRed;
             ConnectButton.IsEnabled = true;
         }
@@ -745,7 +1074,7 @@ namespace GitDeployPro.Controls
         {
             StatusText.Text = "Disconnected";
             StatusIndicator.Background = System.Windows.Media.Brushes.Gray;
-            ConnectButton.Content = "🔌 Connect";
+            ConnectButton.Content = "Connect";
             ConnectButton.Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 122, 204));
             ConnectButton.IsEnabled = true;
         }
@@ -757,14 +1086,20 @@ namespace GitDeployPro.Controls
                 return;
             }
 
+            // Normalize so we always send a single Enter after the command body.
+            var payload = command.TrimEnd('\r', '\n');
+
             if (_session == null || !_isConnected)
             {
-                await WriteToTerminalAsync($"\r\n> {command}\r\n");
+                await WriteToTerminalAsync($"\r\n> {payload}\r\n");
                 await FocusTerminalAsync();
                 return;
             }
 
-            await _session.WriteAsync(command);
+            // Write body and Enter separately (matches typed Enter from xterm = \r).
+            await _session.WriteAsync(payload);
+            await Task.Delay(15);
+            await _session.WriteAsync("\r");
             await FocusTerminalAsync();
         }
 

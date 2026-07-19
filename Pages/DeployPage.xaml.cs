@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Collections.Generic;
 using System.Linq;
 using System.IO;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using GitDeployPro.Controls;
@@ -24,8 +25,9 @@ namespace GitDeployPro.Pages
             Narrow
         }
 
-        private const double RemoteWideBreakpoint = 1650;
-        private const double RemoteMediumBreakpoint = 1280;
+        private const double RemoteWideBreakpoint = 1500;
+        private const double RemoteMediumBreakpoint = 1100;
+        private const double RemoteNarrowBreakpoint = 900;
 
         private bool isDeploying = false;
         private GitService _gitService;
@@ -43,12 +45,26 @@ namespace GitDeployPro.Pages
         private string _compareSourceBranch = string.Empty;
         private string _compareTargetBranch = string.Empty;
         private bool _suppressFileSelectionModal;
-        private bool _isRemoteWorkspaceCollapsed;
+        private bool _isRemoteWorkspaceCollapsed = true;
+        private bool _isDirectUploadDockCollapsed = true;
+        private bool _isBottomDockCollapsed;
+        private bool _bottomTerminalTabActive;
+        private bool _logsStripVisible;
+        private bool _logsStripAutoShownForDeploy;
+        private bool _isResizingBottomDock;
+        private double _bottomDockResizeStartY;
+        private double _bottomDockResizeStartHeight;
         private string _remoteWorkspaceProjectPath = string.Empty;
         private bool _isRemoteEditorOverlayActive;
-        private GridLength _remotePanelLastWidth = new GridLength(470);
+        private GridLength _remotePanelLastWidth = new GridLength(420);
+        private GridLength _leftDockLastWidth = new GridLength(340);
+        private GridLength _bottomDockLastHeight = new GridLength(0);
+        private const double BottomDockTerminalHeightRatio = 0.35;
+        private const double BottomDockCollapsedHeight = 33;
+        private const double BottomDockMinExpandedHeight = 160;
         private RemoteWorkspaceLayoutMode _remoteLayoutMode = RemoteWorkspaceLayoutMode.Wide;
         private bool _compactPanelOpenedByUser;
+        private bool _isPortrait;
         private int _autoRefreshTickCount;
         private DateTime _lastBranchRefreshUtc = DateTime.MinValue;
         private static readonly TimeSpan BranchRefreshInterval = TimeSpan.FromSeconds(60);
@@ -72,12 +88,21 @@ namespace GitDeployPro.Pages
 
         private void DeployPage_Loaded(object sender, RoutedEventArgs e)
         {
-            ApplyRemoteWorkspaceLayout(force: true);
+            _isBottomDockCollapsed = false;
+            ApplyWorkspaceLayout(force: true);
+            ShowBottomLogsTab();
         }
 
         private void DeployPage_SizeChanged(object sender, SizeChangedEventArgs e)
         {
-            ApplyRemoteWorkspaceLayout();
+            CaptureDockSizes();
+
+            var mode = DetermineRemoteLayoutMode();
+            var portrait = ActualHeight > 0 && ActualWidth > 0 && ActualHeight > ActualWidth;
+            if (mode != _remoteLayoutMode || portrait != _isPortrait)
+            {
+                ApplyWorkspaceLayout(force: true);
+            }
         }
 
         private void DeployPage_Unloaded(object sender, RoutedEventArgs e)
@@ -113,16 +138,380 @@ namespace GitDeployPro.Pages
                     return;
                 }
 
-                ApplyRemoteWorkspaceLayout(force: true);
+                ApplyWorkspaceLayout(force: true);
                 return;
             }
 
             _isRemoteWorkspaceCollapsed = !_isRemoteWorkspaceCollapsed;
-            if (_remoteLayoutMode != RemoteWorkspaceLayoutMode.Wide)
+            if (!_isRemoteWorkspaceCollapsed && _remoteLayoutMode != RemoteWorkspaceLayoutMode.Wide)
             {
-                _compactPanelOpenedByUser = !_isRemoteWorkspaceCollapsed;
+                _compactPanelOpenedByUser = true;
+                _isDirectUploadDockCollapsed = true;
             }
-            ApplyRemoteWorkspaceLayout(force: true);
+            else if (_isRemoteWorkspaceCollapsed)
+            {
+                _compactPanelOpenedByUser = false;
+            }
+
+            ApplyWorkspaceLayout(force: true);
+        }
+
+        private void OpenBottomTerminalButton_Click(object sender, RoutedEventArgs e)
+        {
+            ShowBottomTerminalTab();
+        }
+
+        private void OpenBottomLogsButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_bottomTerminalTabActive)
+            {
+                // Keep terminal; toggle deploy-log strip above it.
+                _logsStripVisible = !_logsStripVisible;
+                _isBottomDockCollapsed = false;
+                if (_logsStripVisible)
+                {
+                    EnsureBottomDockTallEnoughForSplit();
+                }
+
+                ApplyBottomContentLayout();
+                ApplyBottomDockLayout(resetHeight: false);
+                UpdateBottomTabButtonStyles();
+                UpdateBottomCollapseButtonUi();
+                return;
+            }
+
+            ShowBottomLogsTab();
+        }
+
+        private void ToggleDirectUploadDockButton_Click(object sender, RoutedEventArgs e)
+        {
+            _isDirectUploadDockCollapsed = !_isDirectUploadDockCollapsed;
+            if (!_isDirectUploadDockCollapsed && _remoteLayoutMode != RemoteWorkspaceLayoutMode.Wide)
+            {
+                _isRemoteWorkspaceCollapsed = true;
+                _compactPanelOpenedByUser = false;
+            }
+
+            ApplyWorkspaceLayout(force: true);
+        }
+
+        private void CollapseDirectUploadDock_Click(object sender, RoutedEventArgs e)
+        {
+            _isDirectUploadDockCollapsed = true;
+            ApplyWorkspaceLayout(force: true);
+        }
+
+        private void RefreshDirectUploadDock_Click(object sender, RoutedEventArgs e)
+        {
+            _ = DirectUploadDock.RefreshFromDiskPublicAsync();
+        }
+
+        private void ToggleBottomDockButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (!_isBottomDockCollapsed)
+            {
+                CaptureBottomDockHeight();
+            }
+
+            _isBottomDockCollapsed = !_isBottomDockCollapsed;
+            ApplyBottomDockLayout(resetHeight: true);
+            UpdateBottomCollapseButtonUi();
+            UpdateBottomTerminalRailUi();
+        }
+
+        private void BottomLogsTabButton_Click(object sender, RoutedEventArgs e) => ShowBottomLogsTab();
+
+        private void BottomTerminalTabButton_Click(object sender, RoutedEventArgs e) => ShowBottomTerminalTab();
+
+        private void ShowBottomLogsTab()
+        {
+            _bottomTerminalTabActive = false;
+            _logsStripVisible = true;
+            _isBottomDockCollapsed = false;
+            ApplyBottomContentLayout();
+            ApplyBottomDockLayout(resetHeight: false);
+            UpdateBottomTabButtonStyles();
+            UpdateBottomCollapseButtonUi();
+        }
+
+        private void ShowBottomTerminalTab()
+        {
+            _bottomTerminalTabActive = true;
+            _isBottomDockCollapsed = false;
+            if (!isDeploying)
+            {
+                _logsStripVisible = false;
+            }
+
+            // Prefer ~35% of the page when opening Terminal.
+            var preferred = GetPreferredTerminalHeight();
+            if (_bottomDockLastHeight.Value < preferred * 0.9)
+            {
+                _bottomDockLastHeight = new GridLength(preferred);
+            }
+
+            ApplyBottomContentLayout();
+            ApplyBottomDockLayout(resetHeight: true);
+            UpdateBottomTabButtonStyles();
+            UpdateBottomCollapseButtonUi();
+        }
+
+        private void ShowDeployLogsForActiveDeploy()
+        {
+            _logsStripVisible = true;
+            _logsStripAutoShownForDeploy = true;
+            _isBottomDockCollapsed = false;
+
+            if (_bottomTerminalTabActive)
+            {
+                EnsureBottomDockTallEnoughForSplit();
+            }
+            else
+            {
+                _bottomTerminalTabActive = false;
+            }
+
+            ApplyBottomContentLayout();
+            ApplyBottomDockLayout(resetHeight: true);
+            UpdateBottomTabButtonStyles();
+            UpdateBottomCollapseButtonUi();
+        }
+
+        private void HideDeployLogsAfterDeploy()
+        {
+            if (!_logsStripAutoShownForDeploy)
+            {
+                return;
+            }
+
+            _logsStripAutoShownForDeploy = false;
+            _logsStripVisible = false;
+
+            // Keep terminal open if it was the active workspace.
+            if (!_bottomTerminalTabActive)
+            {
+                // Was logs-only during deploy: collapse strip to tab bar after finish.
+                _isBottomDockCollapsed = true;
+            }
+
+            ApplyBottomContentLayout();
+            ApplyBottomDockLayout(resetHeight: true);
+            UpdateBottomTabButtonStyles();
+            UpdateBottomCollapseButtonUi();
+        }
+
+        private void EnsureBottomDockTallEnoughForSplit()
+        {
+            var minSplit = Math.Max(GetPreferredTerminalHeight(), ActualHeight > 0 ? ActualHeight * 0.42 : 320);
+            if (_bottomDockLastHeight.Value < minSplit)
+            {
+                _bottomDockLastHeight = new GridLength(minSplit);
+            }
+        }
+
+        private void ApplyBottomContentLayout()
+        {
+            var showTerminal = _bottomTerminalTabActive;
+            var showLogs = !_bottomTerminalTabActive || _logsStripVisible || isDeploying;
+
+            if (showLogs && showTerminal)
+            {
+                DeployLogsRow.Height = new GridLength(1, GridUnitType.Star);
+                DeployTerminalRow.Height = new GridLength(2, GridUnitType.Star);
+                BottomLogsPanel.Visibility = Visibility.Visible;
+                BottomTerminalPanel.Visibility = Visibility.Visible;
+            }
+            else if (showLogs)
+            {
+                DeployLogsRow.Height = new GridLength(1, GridUnitType.Star);
+                DeployTerminalRow.Height = new GridLength(0);
+                BottomLogsPanel.Visibility = Visibility.Visible;
+                BottomTerminalPanel.Visibility = Visibility.Collapsed;
+            }
+            else
+            {
+                DeployLogsRow.Height = new GridLength(0);
+                DeployTerminalRow.Height = new GridLength(1, GridUnitType.Star);
+                BottomLogsPanel.Visibility = Visibility.Collapsed;
+                BottomTerminalPanel.Visibility = Visibility.Visible;
+            }
+
+            ClearLogsButton.Visibility = showLogs ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        private double GetPreferredTerminalHeight()
+        {
+            var pageHeight = ActualHeight > 0 ? ActualHeight : 800;
+            return Math.Max(BottomDockMinExpandedHeight, pageHeight * BottomDockTerminalHeightRatio);
+        }
+
+        private void UpdateBottomTabButtonStyles()
+        {
+            var activeBg = (System.Windows.Media.Brush)FindResource("Surface.Raised");
+            var idleBg = System.Windows.Media.Brushes.Transparent;
+
+            var logsActive = !_bottomTerminalTabActive || _logsStripVisible || isDeploying;
+            BottomLogsTabButton.FontWeight = logsActive && !_bottomTerminalTabActive ? FontWeights.SemiBold : FontWeights.Normal;
+            BottomTerminalTabButton.FontWeight = _bottomTerminalTabActive ? FontWeights.SemiBold : FontWeights.Normal;
+            BottomLogsTabButton.Background = logsActive ? activeBg : idleBg;
+            BottomTerminalTabButton.Background = _bottomTerminalTabActive ? activeBg : idleBg;
+            UpdateBottomTerminalRailUi();
+        }
+
+        private void UpdateBottomTerminalRailUi()
+        {
+            if (OpenBottomTerminalButton != null)
+            {
+                OpenBottomTerminalButton.Opacity = _bottomTerminalTabActive && !_isBottomDockCollapsed ? 1.0 : 0.75;
+                OpenBottomTerminalButton.ToolTip = _bottomTerminalTabActive && !_isBottomDockCollapsed
+                    ? "Terminal (open)"
+                    : "Open Terminal";
+            }
+
+            if (OpenBottomLogsButton != null)
+            {
+                var logsOpen = (!_bottomTerminalTabActive || _logsStripVisible || isDeploying) && !_isBottomDockCollapsed;
+                OpenBottomLogsButton.Opacity = logsOpen ? 1.0 : 0.75;
+                OpenBottomLogsButton.ToolTip = logsOpen ? "Deploy Logs (open)" : "Deploy Logs";
+            }
+        }
+
+        private void UpdateBottomCollapseButtonUi()
+        {
+            if (BottomCollapseButton == null)
+            {
+                return;
+            }
+
+            BottomCollapseButton.Content = _isBottomDockCollapsed ? "⬆" : "−";
+            BottomCollapseButton.ToolTip = _isBottomDockCollapsed ? "Expand bottom panel" : "Collapse bottom panel";
+        }
+
+        private void ApplyBottomDockLayout(bool resetHeight = true)
+        {
+            if (BottomDockShell == null)
+            {
+                return;
+            }
+
+            BottomDockShell.Visibility = Visibility.Visible;
+            BottomDockResizeGrip.Visibility = _isBottomDockCollapsed ? Visibility.Collapsed : Visibility.Visible;
+
+            if (_isBottomDockCollapsed)
+            {
+                BottomDockShell.Height = BottomDockCollapsedHeight;
+                BottomDockShell.MinHeight = BottomDockCollapsedHeight;
+                SyncCenterContentBottomInset(BottomDockCollapsedHeight);
+                return;
+            }
+
+            BottomDockShell.MinHeight = BottomDockMinExpandedHeight;
+
+            double height;
+            if (!resetHeight && BottomDockShell.ActualHeight > 40)
+            {
+                height = BottomDockShell.ActualHeight;
+            }
+            else if (_bottomDockLastHeight.Value > 40)
+            {
+                height = _bottomDockLastHeight.Value;
+            }
+            else if (_bottomTerminalTabActive)
+            {
+                height = GetPreferredTerminalHeight();
+            }
+            else
+            {
+                height = Math.Max(220, GetPreferredTerminalHeight() * 0.7);
+            }
+
+            height = ClampBottomDockHeight(height);
+            BottomDockShell.Height = height;
+            _bottomDockLastHeight = new GridLength(height);
+            SyncCenterContentBottomInset(height);
+        }
+
+        private double ClampBottomDockHeight(double height)
+        {
+            var max = ActualHeight > 0 ? Math.Max(BottomDockMinExpandedHeight, ActualHeight - 80) : 900;
+            return Math.Max(BottomDockMinExpandedHeight, Math.Min(height, max));
+        }
+
+        private void SyncCenterContentBottomInset(double dockHeight)
+        {
+            if (CenterContentHost != null)
+            {
+                CenterContentHost.Margin = new Thickness(0, 0, 0, Math.Max(0, dockHeight));
+            }
+        }
+
+        private void CaptureBottomDockHeight()
+        {
+            if (_isBottomDockCollapsed || BottomDockShell == null)
+            {
+                return;
+            }
+
+            var height = BottomDockShell.ActualHeight > 40 ? BottomDockShell.ActualHeight : BottomDockShell.Height;
+            if (height > 40)
+            {
+                _bottomDockLastHeight = new GridLength(height);
+            }
+        }
+
+        private void BottomDockResizeGrip_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (_isBottomDockCollapsed)
+            {
+                return;
+            }
+
+            _isResizingBottomDock = true;
+            _bottomDockResizeStartY = e.GetPosition(DeployShellRoot).Y;
+            _bottomDockResizeStartHeight = BottomDockShell.ActualHeight > 0
+                ? BottomDockShell.ActualHeight
+                : BottomDockShell.Height;
+            BottomDockResizeGrip.CaptureMouse();
+            e.Handled = true;
+        }
+
+        private void BottomDockResizeGrip_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            if (!_isResizingBottomDock || e.LeftButton != MouseButtonState.Pressed)
+            {
+                return;
+            }
+
+            var currentY = e.GetPosition(DeployShellRoot).Y;
+            var next = ClampBottomDockHeight(_bottomDockResizeStartHeight + (_bottomDockResizeStartY - currentY));
+            BottomDockShell.Height = next;
+            _bottomDockLastHeight = new GridLength(next);
+            SyncCenterContentBottomInset(next);
+            e.Handled = true;
+        }
+
+        private void BottomDockResizeGrip_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            EndBottomDockResize();
+            e.Handled = true;
+        }
+
+        private void BottomDockResizeGrip_LostMouseCapture(object sender, System.Windows.Input.MouseEventArgs e) => EndBottomDockResize();
+
+        private void EndBottomDockResize()
+        {
+            if (!_isResizingBottomDock)
+            {
+                return;
+            }
+
+            _isResizingBottomDock = false;
+            if (BottomDockResizeGrip.IsMouseCaptured)
+            {
+                BottomDockResizeGrip.ReleaseMouseCapture();
+            }
+
+            CaptureBottomDockHeight();
         }
 
         private void SetRemoteEditorOverlay(bool enable)
@@ -136,62 +525,167 @@ namespace GitDeployPro.Pages
                     _remotePanelLastWidth = DeployRemotePanelColumn.Width;
                 }
 
+                // Keep editor constrained to the center content area only.
                 DeployRemotePanelColumn.Width = new GridLength(0);
                 DeployRemoteSplitterColumn.Width = new GridLength(0);
-                RemoteWorkspaceContainer.Visibility = Visibility.Visible;
-                Grid.SetColumn(RemoteWorkspaceContainer, 0);
-                Grid.SetColumnSpan(RemoteWorkspaceContainer, 3);
-                Grid.SetRow(RemoteWorkspaceContainer, 0);
-                Grid.SetRowSpan(RemoteWorkspaceContainer, 6);
-                RemoteWorkspaceContainer.Margin = new Thickness(0);
-                RemoteWorkspaceContainer.HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch;
-                RemoteWorkspaceContainer.VerticalAlignment = System.Windows.VerticalAlignment.Stretch;
-                RemoteWorkspaceContainer.Width = double.NaN;
-                System.Windows.Controls.Panel.SetZIndex(RemoteWorkspaceContainer, 25);
-                ToggleRemoteWorkspaceButton.Content = "🧭 Close Editor";
-                ToggleRemoteWorkspaceButton.ToolTip = "Close editor and keep FTP panel";
+                RemoteDockSplitter.Visibility = Visibility.Collapsed;
+                RemoteWorkspaceContainer.Visibility = Visibility.Collapsed;
+                ResetRemoteDockPlacement();
+
+                if (!ReferenceEquals(CenterEditorOverlayHost.Child, DeployRemoteWorkspace))
+                {
+                    RemoteWorkspaceContainer.Child = null;
+                    CenterEditorOverlayHost.Child = DeployRemoteWorkspace;
+                }
+
+                CenterEditorOverlayHost.Visibility = Visibility.Visible;
+                System.Windows.Controls.Panel.SetZIndex(CenterEditorOverlayHost, 40);
+                ToggleRemoteWorkspaceButton.Content = "✕";
+                ToggleRemoteWorkspaceButton.ToolTip = "Close editor";
                 return;
             }
 
             _isRemoteEditorOverlayActive = false;
-            ApplyRemoteWorkspaceLayout(force: true);
-        }
-
-        private void ApplyRemoteWorkspaceLayout(bool force = false)
-        {
-            if (_isRemoteEditorOverlayActive)
+            if (!ReferenceEquals(RemoteWorkspaceContainer.Child, DeployRemoteWorkspace))
             {
-                SetRemoteEditorOverlay(true);
-                return;
+                CenterEditorOverlayHost.Child = null;
+                RemoteWorkspaceContainer.Child = DeployRemoteWorkspace;
             }
 
-            if (_remoteLayoutMode == RemoteWorkspaceLayoutMode.Wide && DeployRemotePanelColumn.Width.Value > 0)
+            CenterEditorOverlayHost.Visibility = Visibility.Collapsed;
+            ApplyWorkspaceLayout(force: true);
+        }
+
+        private void CaptureDockSizes()
+        {
+            if (LeftDockColumn.Width.IsAbsolute && LeftDockColumn.Width.Value > 0)
+            {
+                _leftDockLastWidth = LeftDockColumn.Width;
+            }
+
+            if (DeployRemotePanelColumn.Width.IsAbsolute && DeployRemotePanelColumn.Width.Value > 0)
             {
                 _remotePanelLastWidth = DeployRemotePanelColumn.Width;
             }
 
+            CaptureBottomDockHeight();
+        }
+
+        private void ApplyWorkspaceLayout(bool force = false)
+        {
+            if (_isRemoteEditorOverlayActive)
+            {
+                // Re-assert center-only editor host without re-parenting loops.
+                DeployRemotePanelColumn.Width = new GridLength(0);
+                DeployRemoteSplitterColumn.Width = new GridLength(0);
+                RemoteDockSplitter.Visibility = Visibility.Collapsed;
+                RemoteWorkspaceContainer.Visibility = Visibility.Collapsed;
+                CenterEditorOverlayHost.Visibility = Visibility.Visible;
+                UpdateRemoteToggleButtonUi();
+                UpdateDirectUploadToggleUi();
+                return;
+            }
+
+            CaptureDockSizes();
+
             var mode = DetermineRemoteLayoutMode();
             var previousMode = _remoteLayoutMode;
+            _isPortrait = ActualHeight > 0 && ActualWidth > 0 && ActualHeight > ActualWidth;
+
             if (mode == RemoteWorkspaceLayoutMode.Wide)
             {
                 _compactPanelOpenedByUser = false;
             }
             else if (previousMode == RemoteWorkspaceLayoutMode.Wide && !_isRemoteEditorOverlayActive)
             {
-                _isRemoteWorkspaceCollapsed = true;
-                _compactPanelOpenedByUser = false;
-            }
-            else if (!_compactPanelOpenedByUser)
-            {
-                _isRemoteWorkspaceCollapsed = true;
+                if (!_compactPanelOpenedByUser)
+                {
+                    _isRemoteWorkspaceCollapsed = true;
+                    _isDirectUploadDockCollapsed = true;
+                }
             }
 
             _remoteLayoutMode = mode;
+            ApplyLeftDockLayout(resetWidth: force || previousMode != mode);
+            ApplyBottomDockLayout(resetHeight: force);
+            ApplyRemoteDockLayout(resetWidth: force || previousMode != mode);
 
-            switch (mode)
+            UpdateRemoteToggleButtonUi();
+            UpdateDirectUploadToggleUi();
+            UpdateBottomCollapseButtonUi();
+            ApplyPortraitBranchRowTweaks();
+        }
+
+        private void ApplyPortraitBranchRowTweaks()
+        {
+            if (BranchRow == null)
+            {
+                return;
+            }
+
+            if (_isPortrait || ActualWidth < RemoteNarrowBreakpoint)
+            {
+                BranchRow.ColumnDefinitions[4].Width = new GridLength(1, GridUnitType.Star);
+                BranchRow.ColumnDefinitions[4].MinWidth = 140;
+                DeployMainColumn.MinWidth = 220;
+            }
+            else
+            {
+                BranchRow.ColumnDefinitions[4].Width = GridLength.Auto;
+                BranchRow.ColumnDefinitions[4].MinWidth = 160;
+                DeployMainColumn.MinWidth = 320;
+            }
+        }
+
+        private void ApplyLeftDockLayout(bool resetWidth = true)
+        {
+            ResetLeftDockPlacement();
+
+            if (_isDirectUploadDockCollapsed)
+            {
+                LeftDockColumn.Width = new GridLength(0);
+                LeftSplitterColumn.Width = new GridLength(0);
+                LeftDockContainer.Visibility = Visibility.Collapsed;
+                LeftDockSplitter.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            if (_remoteLayoutMode == RemoteWorkspaceLayoutMode.Wide && !_isPortrait)
+            {
+                if (resetWidth || !LeftDockColumn.Width.IsAbsolute || LeftDockColumn.Width.Value <= 0)
+                {
+                    var width = _leftDockLastWidth.Value > 0 ? _leftDockLastWidth.Value : 340;
+                    if (width < 240) width = 240;
+                    if (width > 640) width = 640;
+                    LeftDockColumn.Width = new GridLength(width);
+                }
+
+                LeftDockColumn.MinWidth = 220;
+                LeftSplitterColumn.Width = new GridLength(8);
+                LeftDockContainer.Visibility = Visibility.Visible;
+                LeftDockSplitter.Visibility = Visibility.Visible;
+                System.Windows.Controls.Panel.SetZIndex(LeftDockContainer, 1);
+                return;
+            }
+
+            // Overlay for medium/narrow/portrait
+            LeftDockColumn.Width = new GridLength(0);
+            LeftSplitterColumn.Width = new GridLength(0);
+            LeftDockSplitter.Visibility = Visibility.Collapsed;
+            Grid.SetColumn(LeftDockContainer, 0);
+            Grid.SetColumnSpan(LeftDockContainer, 7);
+            LeftDockContainer.HorizontalAlignment = System.Windows.HorizontalAlignment.Left;
+            LeftDockContainer.Width = Math.Min(480, Math.Max(280, ActualWidth * 0.42));
+            System.Windows.Controls.Panel.SetZIndex(LeftDockContainer, 14);
+            LeftDockContainer.Visibility = Visibility.Visible;
+        }
+
+        private void ApplyRemoteDockLayout(bool resetWidth = true)
+        {
+            switch (_remoteLayoutMode)
             {
                 case RemoteWorkspaceLayoutMode.Wide:
-                    ApplyWideRemoteLayout();
+                    ApplyWideRemoteLayout(resetWidth);
                     break;
                 case RemoteWorkspaceLayoutMode.Medium:
                     ApplyMediumRemoteLayout();
@@ -200,8 +694,15 @@ namespace GitDeployPro.Pages
                     ApplyNarrowRemoteLayout();
                     break;
             }
+        }
 
-            UpdateRemoteToggleButtonUi();
+        private void ResetLeftDockPlacement()
+        {
+            Grid.SetColumn(LeftDockContainer, 1);
+            Grid.SetColumnSpan(LeftDockContainer, 1);
+            LeftDockContainer.HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch;
+            LeftDockContainer.Width = double.NaN;
+            System.Windows.Controls.Panel.SetZIndex(LeftDockContainer, 1);
         }
 
         private RemoteWorkspaceLayoutMode DetermineRemoteLayoutMode()
@@ -217,6 +718,12 @@ namespace GitDeployPro.Pages
                 return _remoteLayoutMode;
             }
 
+            var portrait = ActualHeight > width;
+            if (portrait || width < RemoteNarrowBreakpoint)
+            {
+                return RemoteWorkspaceLayoutMode.Narrow;
+            }
+
             if (width < RemoteMediumBreakpoint)
             {
                 return RemoteWorkspaceLayoutMode.Narrow;
@@ -230,32 +737,31 @@ namespace GitDeployPro.Pages
             return RemoteWorkspaceLayoutMode.Wide;
         }
 
-        private void ApplyWideRemoteLayout()
+        private void ApplyWideRemoteLayout(bool resetWidth = true)
         {
-            Grid.SetColumn(RemoteWorkspaceContainer, 2);
-            Grid.SetColumnSpan(RemoteWorkspaceContainer, 1);
-            Grid.SetRow(RemoteWorkspaceContainer, 0);
-            Grid.SetRowSpan(RemoteWorkspaceContainer, 6);
-            RemoteWorkspaceContainer.Margin = new Thickness(12, 0, 0, 0);
-            RemoteWorkspaceContainer.HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch;
-            RemoteWorkspaceContainer.VerticalAlignment = System.Windows.VerticalAlignment.Stretch;
-            RemoteWorkspaceContainer.Width = double.NaN;
+            ResetRemoteDockPlacement();
             System.Windows.Controls.Panel.SetZIndex(RemoteWorkspaceContainer, 1);
 
             if (_isRemoteWorkspaceCollapsed)
             {
                 DeployRemotePanelColumn.Width = new GridLength(0);
                 DeployRemoteSplitterColumn.Width = new GridLength(0);
+                RemoteDockSplitter.Visibility = Visibility.Collapsed;
                 RemoteWorkspaceContainer.Visibility = Visibility.Collapsed;
                 return;
             }
 
-            var width = _remotePanelLastWidth.Value > 0 ? _remotePanelLastWidth.Value : 470;
-            if (width < 320) width = 320;
-            if (width > 680) width = 680;
+            if (resetWidth || !DeployRemotePanelColumn.Width.IsAbsolute || DeployRemotePanelColumn.Width.Value <= 0)
+            {
+                var width = _remotePanelLastWidth.Value > 0 ? _remotePanelLastWidth.Value : 420;
+                if (width < 260) width = 260;
+                if (width > 720) width = 720;
+                DeployRemotePanelColumn.Width = new GridLength(width);
+            }
 
-            DeployRemotePanelColumn.Width = new GridLength(width);
-            DeployRemoteSplitterColumn.Width = new GridLength(6);
+            DeployRemotePanelColumn.MinWidth = 240;
+            DeployRemoteSplitterColumn.Width = new GridLength(8);
+            RemoteDockSplitter.Visibility = Visibility.Visible;
             RemoteWorkspaceContainer.Visibility = Visibility.Visible;
         }
 
@@ -263,25 +769,25 @@ namespace GitDeployPro.Pages
         {
             DeployRemotePanelColumn.Width = new GridLength(0);
             DeployRemoteSplitterColumn.Width = new GridLength(0);
+            RemoteDockSplitter.Visibility = Visibility.Collapsed;
 
             if (_isRemoteWorkspaceCollapsed)
             {
                 RemoteWorkspaceContainer.Visibility = Visibility.Collapsed;
+                ResetRemoteDockPlacement();
                 return;
             }
 
             var availableWidth = ActualWidth > 0 ? ActualWidth : 1400;
-            var overlayWidth = Math.Min(460, Math.Max(340, availableWidth * 0.38));
+            var overlayWidth = Math.Min(460, Math.Max(320, availableWidth * 0.38));
 
             Grid.SetColumn(RemoteWorkspaceContainer, 0);
-            Grid.SetColumnSpan(RemoteWorkspaceContainer, 3);
-            Grid.SetRow(RemoteWorkspaceContainer, 0);
-            Grid.SetRowSpan(RemoteWorkspaceContainer, 6);
+            Grid.SetColumnSpan(RemoteWorkspaceContainer, 7);
             RemoteWorkspaceContainer.Margin = new Thickness(0);
             RemoteWorkspaceContainer.HorizontalAlignment = System.Windows.HorizontalAlignment.Right;
             RemoteWorkspaceContainer.VerticalAlignment = System.Windows.VerticalAlignment.Stretch;
             RemoteWorkspaceContainer.Width = overlayWidth;
-            System.Windows.Controls.Panel.SetZIndex(RemoteWorkspaceContainer, 10);
+            System.Windows.Controls.Panel.SetZIndex(RemoteWorkspaceContainer, 15);
             RemoteWorkspaceContainer.Visibility = Visibility.Visible;
         }
 
@@ -289,48 +795,57 @@ namespace GitDeployPro.Pages
         {
             DeployRemotePanelColumn.Width = new GridLength(0);
             DeployRemoteSplitterColumn.Width = new GridLength(0);
+            RemoteDockSplitter.Visibility = Visibility.Collapsed;
 
             if (_isRemoteWorkspaceCollapsed)
             {
                 RemoteWorkspaceContainer.Visibility = Visibility.Collapsed;
+                ResetRemoteDockPlacement();
                 return;
             }
 
             Grid.SetColumn(RemoteWorkspaceContainer, 0);
-            Grid.SetColumnSpan(RemoteWorkspaceContainer, 3);
-            Grid.SetRow(RemoteWorkspaceContainer, 0);
-            Grid.SetRowSpan(RemoteWorkspaceContainer, 6);
+            Grid.SetColumnSpan(RemoteWorkspaceContainer, 7);
             RemoteWorkspaceContainer.Margin = new Thickness(0);
             RemoteWorkspaceContainer.HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch;
             RemoteWorkspaceContainer.VerticalAlignment = System.Windows.VerticalAlignment.Stretch;
             RemoteWorkspaceContainer.Width = double.NaN;
-            System.Windows.Controls.Panel.SetZIndex(RemoteWorkspaceContainer, 12);
+            System.Windows.Controls.Panel.SetZIndex(RemoteWorkspaceContainer, 16);
             RemoteWorkspaceContainer.Visibility = Visibility.Visible;
+        }
+
+        private void ResetRemoteDockPlacement()
+        {
+            Grid.SetColumn(RemoteWorkspaceContainer, 5);
+            Grid.SetColumnSpan(RemoteWorkspaceContainer, 1);
+            RemoteWorkspaceContainer.Margin = new Thickness(0);
+            RemoteWorkspaceContainer.HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch;
+            RemoteWorkspaceContainer.VerticalAlignment = System.Windows.VerticalAlignment.Stretch;
+            RemoteWorkspaceContainer.Width = double.NaN;
         }
 
         private void UpdateRemoteToggleButtonUi()
         {
             if (_isRemoteEditorOverlayActive)
             {
-                ToggleRemoteWorkspaceButton.Content = "🧭 Close Editor";
-                ToggleRemoteWorkspaceButton.ToolTip = "Close editor and keep FTP panel";
+                ToggleRemoteWorkspaceButton.Content = "✕";
+                ToggleRemoteWorkspaceButton.ToolTip = "Close editor";
                 return;
             }
 
-            if (_isRemoteWorkspaceCollapsed)
-            {
-                ToggleRemoteWorkspaceButton.Content = "🧭 FTP Panel";
-                ToggleRemoteWorkspaceButton.ToolTip = "Show FTP panel";
-                return;
-            }
+            ToggleRemoteWorkspaceButton.Content = "🗂";
+            ToggleRemoteWorkspaceButton.ToolTip = _isRemoteWorkspaceCollapsed
+                ? "Show FTP / Remote Host"
+                : "Hide FTP / Remote Host";
+            ToggleRemoteWorkspaceButton.Opacity = _isRemoteWorkspaceCollapsed ? 0.75 : 1.0;
+        }
 
-            ToggleRemoteWorkspaceButton.Content = _remoteLayoutMode switch
-            {
-                RemoteWorkspaceLayoutMode.Wide => "🧭 FTP Panel (ON)",
-                RemoteWorkspaceLayoutMode.Medium => "🧭 FTP Panel (Overlay)",
-                _ => "🧭 FTP Panel (Full)"
-            };
-            ToggleRemoteWorkspaceButton.ToolTip = "Hide FTP panel";
+        private void UpdateDirectUploadToggleUi()
+        {
+            ToggleDirectUploadDockButton.Opacity = _isDirectUploadDockCollapsed ? 0.75 : 1.0;
+            ToggleDirectUploadDockButton.ToolTip = _isDirectUploadDockCollapsed
+                ? "Show Direct Upload"
+                : "Hide Direct Upload";
         }
 
         private async void LoadGitData(bool includeExpensiveOperations = true, bool refreshBranches = true)
@@ -1011,6 +1526,7 @@ namespace GitDeployPro.Pages
 
             try
             {
+                ShowDeployLogsForActiveDeploy();
                 AddLog($"🚀 Starting sync pipeline ({filesToDeploy.Count} files)...");
                 
                 bool ftpRequired = IsFtpDeploymentMode();
@@ -1180,6 +1696,7 @@ namespace GitDeployPro.Pages
                 TargetBranchComboBox.IsEnabled = true;
                 DeployProgressBar.Value = 0;
                 ProgressText.Text = "Deployment finished!";
+                HideDeployLogsAfterDeploy();
                 LoadGitData();
             }
         }

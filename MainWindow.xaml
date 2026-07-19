@@ -83,7 +83,7 @@
             BorderBrush="{StaticResource Border.Subtle}"
             BorderThickness="1"
             SnapsToDevicePixels="True">
-        <Grid>
+        <Grid x:Name="ShellRootGrid">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition x:Name="SidebarColumn" Width="250" />
                 <ColumnDefinition Width="*" />

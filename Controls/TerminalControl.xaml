@@ -2,131 +2,237 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:wv="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
-             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
-             mc:Ignorable="d" 
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             mc:Ignorable="d"
              d:DesignHeight="450" d:DesignWidth="800">
+    <UserControl.Resources>
+        <Style x:Key="Terminal.ToolButton" TargetType="Button" BasedOn="{StaticResource App.Button.Ghost}">
+            <Setter Property="Width" Value="28" />
+            <Setter Property="Height" Value="24" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0,0,2,0" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{StaticResource Text.Secondary}" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style x:Key="Terminal.ToolToggle" TargetType="ToggleButton">
+            <Setter Property="Width" Value="28" />
+            <Setter Property="Height" Value="24" />
+            <Setter Property="Margin" Value="0,0,2,0" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Foreground" Value="{StaticResource Text.Secondary}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="Bg"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="3"
+                                Padding="0">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bg" Property="Background" Value="{StaticResource State.Hover}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Bg" Property="Background" Value="{StaticResource Surface.Raised}" />
+                                <Setter Property="Foreground" Value="{StaticResource Text.Primary}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="Terminal.SlimCombo" TargetType="ComboBox" BasedOn="{StaticResource App.InputComboBox}">
+            <Setter Property="Height" Value="24" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Padding" Value="6,0" />
+        </Style>
+    </UserControl.Resources>
+
     <Grid Background="{StaticResource Surface.Base}">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/> <!-- Toolbar -->
-            <RowDefinition Height="*"/>    <!-- Terminal Output -->
+            <RowDefinition Height="28" />
+            <RowDefinition x:Name="CommandBarRow" Height="28" />
+            <RowDefinition x:Name="PresetEditRowDef" Height="0" />
+            <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- Toolbar -->
-        <Border Grid.Row="0" Background="{StaticResource Surface.Card}" Padding="10,5" BorderBrush="{StaticResource Border.Subtle}" BorderThickness="0,0,0,1">
+        <!-- Slim status / actions bar (PhpStorm-like) -->
+        <Border Grid.Row="0"
+                Background="{StaticResource Surface.Shell}"
+                BorderBrush="{StaticResource Border.Subtle}"
+                BorderThickness="0,0,0,1"
+                Padding="10,0,8,0">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <!-- Connection Info -->
-                <StackPanel Grid.Column="0" Orientation="Horizontal">
-                    <TextBlock Text="SSH Terminal" Foreground="{StaticResource Text.Primary}" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                    <Border x:Name="StatusIndicator" Width="10" Height="10" CornerRadius="5" Background="{StaticResource Text.Muted}" VerticalAlignment="Center" Margin="0,0,5,0"/>
-                    <TextBlock x:Name="StatusText" Text="Disconnected" Foreground="{StaticResource Text.Muted}" VerticalAlignment="Center" FontSize="12"/>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border x:Name="StatusIndicator"
+                            Width="8"
+                            Height="8"
+                            CornerRadius="4"
+                            Background="{StaticResource Text.Muted}"
+                            VerticalAlignment="Center"
+                            Margin="0,0,6,0" />
+                    <TextBlock x:Name="StatusText"
+                               Text="Disconnected"
+                               Foreground="{StaticResource Text.Muted}"
+                               VerticalAlignment="Center"
+                               FontSize="11" />
                 </StackPanel>
 
-                <!-- Settings / Actions -->
-                <StackPanel Grid.Column="2" Orientation="Horizontal">
-                    <Button x:Name="ConnectButton" Content="🔌 Connect" Click="ConnectButton_Click" 
-                            Style="{StaticResource App.Button.Primary}" Foreground="{StaticResource Text.Primary}" Padding="10,4" Margin="0,0,10,0" Cursor="Hand"/>
-                    
-                    <Button x:Name="DetachButton" Content="🗖 Pop-out" Click="DetachButton_Click"
-                            Style="{StaticResource DetachPageButtonStyle}" Margin="0,0,10,0"/>
-
-                    <Button x:Name="ClearButton" Content="🧹 Clear" Click="ClearButton_Click"
-                            Style="{StaticResource App.Button.Ghost}" Foreground="{StaticResource Text.Secondary}" Padding="8,4" Margin="0,0,10,0" Cursor="Hand"/>
-
-                    <ToggleButton x:Name="TypeToggleButton" Content="⌶" ToolTip="Focus/Type (Enable/Disable typing)"
-                                  Width="32" Height="28" Margin="0,0,10,0"
-                                  Background="{StaticResource Surface.Input}" Foreground="{StaticResource Text.Secondary}" BorderBrush="{StaticResource Border.Subtle}" BorderThickness="1" Cursor="Hand"
-                                  Checked="TypeToggleButton_Checked" Unchecked="TypeToggleButton_Unchecked"
-                                  IsChecked="True">
-                        <ToggleButton.Resources>
-                            <Style TargetType="Border">
-                                <Setter Property="CornerRadius" Value="3"/>
-                            </Style>
-                        </ToggleButton.Resources>
-                        <ToggleButton.Style>
-                            <Style TargetType="ToggleButton">
-                                <Setter Property="Background" Value="{StaticResource Surface.Input}"/>
-                                <Setter Property="Foreground" Value="{StaticResource Text.Secondary}"/>
-                                <Setter Property="BorderBrush" Value="{StaticResource Border.Subtle}"/>
-                                <Setter Property="BorderThickness" Value="1"/>
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="ToggleButton">
-                                            <Border x:Name="Bg"
-                                                    Background="{TemplateBinding Background}"
-                                                    BorderBrush="{TemplateBinding BorderBrush}"
-                                                    BorderThickness="{TemplateBinding BorderThickness}"
-                                                    CornerRadius="4">
-                                                <ContentPresenter HorizontalAlignment="Center"
-                                                                  VerticalAlignment="Center"/>
-                                            </Border>
-                                            <ControlTemplate.Triggers>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="Bg" Property="Background" Value="{StaticResource State.Hover}"/>
-                                                </Trigger>
-                                                <Trigger Property="IsChecked" Value="True">
-                                                    <Setter TargetName="Bg" Property="Background" Value="{StaticResource Surface.Raised}"/>
-                                                    <Setter TargetName="Bg" Property="BorderBrush" Value="{StaticResource Accent.Primary}"/>
-                                                    <Setter Property="Foreground" Value="{StaticResource Text.Primary}"/>
-                                                </Trigger>
-                                                <Trigger Property="IsChecked" Value="False">
-                                                    <Setter TargetName="Bg" Property="Background" Value="{StaticResource Surface.Input}"/>
-                                                    <Setter TargetName="Bg" Property="BorderBrush" Value="{StaticResource Border.Subtle}"/>
-                                                    <Setter Property="Foreground" Value="{StaticResource Text.Secondary}"/>
-                                                </Trigger>
-                                                <Trigger Property="IsEnabled" Value="False">
-                                                    <Setter TargetName="Bg" Property="Opacity" Value="0.6"/>
-                                                </Trigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                                <Style.Triggers>
-                                    <Trigger Property="IsChecked" Value="True">
-                                        <Setter Property="Background" Value="{StaticResource Surface.Raised}"/>
-                                        <Setter Property="Foreground" Value="{StaticResource Text.Primary}"/>
-                                    </Trigger>
-                                    <Trigger Property="IsChecked" Value="False">
-                                        <Setter Property="Background" Value="{StaticResource Surface.Input}"/>
-                                        <Setter Property="Foreground" Value="{StaticResource Text.Secondary}"/>
-                                    </Trigger>
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter Property="Background" Value="{StaticResource State.Hover}"/>
-                                    </Trigger>
-                                </Style.Triggers>
-                            </Style>
-                        </ToggleButton.Style>
-                    </ToggleButton>
-
-                    <ComboBox x:Name="FontSizeCombo" Width="50" SelectedIndex="2" SelectionChanged="FontSizeCombo_SelectionChanged" VerticalContentAlignment="Center">
-                        <ComboBoxItem Content="10"/>
-                        <ComboBoxItem Content="12"/>
-                        <ComboBoxItem Content="14"/>
-                        <ComboBoxItem Content="16"/>
-                        <ComboBoxItem Content="18"/>
-                        <ComboBoxItem Content="20"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="ConnectButton"
+                            Content="Connect"
+                            Click="ConnectButton_Click"
+                            Height="22"
+                            Padding="10,0"
+                            Margin="0,0,4,0"
+                            FontSize="11"
+                            Style="{StaticResource App.Button.Primary}"
+                            Foreground="{StaticResource Text.Primary}"
+                            Cursor="Hand" />
+                    <Button x:Name="ClearButton"
+                            Content="🧹"
+                            Style="{StaticResource Terminal.ToolButton}"
+                            Click="ClearButton_Click"
+                            ToolTip="Clear terminal" />
+                    <ToggleButton x:Name="TypeToggleButton"
+                                  Content="⌶"
+                                  Style="{StaticResource Terminal.ToolToggle}"
+                                  ToolTip="Enable / disable typing"
+                                  Checked="TypeToggleButton_Checked"
+                                  Unchecked="TypeToggleButton_Unchecked"
+                                  IsChecked="True" />
+                    <ComboBox x:Name="FontSizeCombo"
+                              Width="44"
+                              Style="{StaticResource Terminal.SlimCombo}"
+                              SelectedIndex="2"
+                              Margin="0,0,2,0"
+                              SelectionChanged="FontSizeCombo_SelectionChanged"
+                              ToolTip="Font size">
+                        <ComboBoxItem Content="10" />
+                        <ComboBoxItem Content="12" />
+                        <ComboBoxItem Content="14" />
+                        <ComboBoxItem Content="16" />
+                        <ComboBoxItem Content="18" />
+                        <ComboBoxItem Content="20" />
                     </ComboBox>
-
-                    <ComboBox x:Name="TextColorCombo" Width="80" SelectedIndex="0" Margin="10,0,0,0" SelectionChanged="TextColorCombo_SelectionChanged" VerticalContentAlignment="Center">
-                        <ComboBoxItem Content="Gray" Tag="#D4D4D4"/>
-                        <ComboBoxItem Content="White" Tag="#FFFFFF"/>
-                        <ComboBoxItem Content="Green" Tag="#00FF00"/>
-                        <ComboBoxItem Content="Cyan" Tag="#00FFFF"/>
-                        <ComboBoxItem Content="Yellow" Tag="#FFFF00"/>
+                    <ComboBox x:Name="TextColorCombo"
+                              Width="64"
+                              Style="{StaticResource Terminal.SlimCombo}"
+                              SelectedIndex="0"
+                              Margin="0,0,2,0"
+                              SelectionChanged="TextColorCombo_SelectionChanged"
+                              ToolTip="Text color">
+                        <ComboBoxItem Content="Gray" Tag="#D4D4D4" />
+                        <ComboBoxItem Content="White" Tag="#FFFFFF" />
+                        <ComboBoxItem Content="Green" Tag="#00FF00" />
+                        <ComboBoxItem Content="Cyan" Tag="#00FFFF" />
+                        <ComboBoxItem Content="Yellow" Tag="#FFFF00" />
                     </ComboBox>
+                    <Button x:Name="DetachButton"
+                            Content="🗖"
+                            Style="{StaticResource Terminal.ToolButton}"
+                            Click="DetachButton_Click"
+                            ToolTip="Pop-out terminal" />
                 </StackPanel>
             </Grid>
         </Border>
 
-        <!-- Terminal Screen -->
-        <Grid Grid.Row="1" Background="{StaticResource Surface.Base}">
-            <wv:WebView2 x:Name="TerminalWebView"/>
+        <!-- Compact command strip (clustered left; no huge empty stretch) -->
+        <Border x:Name="CommandBarPanel"
+                Grid.Row="1"
+                Background="{StaticResource Surface.Shell}"
+                BorderBrush="{StaticResource Border.Subtle}"
+                BorderThickness="0,0,0,1"
+                Padding="10,0,8,0">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <ComboBox x:Name="TerminalTargetCombo"
+                          Width="150"
+                          Style="{StaticResource Terminal.SlimCombo}"
+                          Margin="0,0,8,0"
+                          ToolTip="Local or SSH target" />
+                <ComboBox x:Name="PresetComboBox"
+                          Width="160"
+                          Style="{StaticResource Terminal.SlimCombo}"
+                          DisplayMemberPath="Title"
+                          SelectedValuePath="Id"
+                          Margin="0,0,6,0"
+                          ToolTip="Command presets" />
+                <Button Content="▶"
+                        Style="{StaticResource Terminal.ToolButton}"
+                        Click="InsertPreset_Click"
+                        ToolTip="Insert + Enter" />
+                <Button Content="✉"
+                        Style="{StaticResource Terminal.ToolButton}"
+                        Click="SendCommand_Click"
+                        ToolTip="Send command box text" />
+                <ToggleButton x:Name="PresetEditToggle"
+                              Content="✎"
+                              Style="{StaticResource Terminal.ToolToggle}"
+                              ToolTip="Edit / save presets"
+                              Checked="PresetEditToggle_Checked"
+                              Unchecked="PresetEditToggle_Unchecked" />
+                <Button Content="🗑"
+                        Style="{StaticResource Terminal.ToolButton}"
+                        Click="DeletePreset_Click"
+                        ToolTip="Delete selected preset" />
+            </StackPanel>
+        </Border>
+
+        <!-- Hidden by default: preset editor -->
+        <Border x:Name="PresetEditPanel"
+                Grid.Row="2"
+                Background="{StaticResource Surface.Card}"
+                BorderBrush="{StaticResource Border.Subtle}"
+                BorderThickness="0,0,0,1"
+                Padding="6,4"
+                Visibility="Collapsed">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="120" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="PresetTitleBox"
+                         Grid.Column="0"
+                         Height="24"
+                         Margin="0,0,6,0"
+                         FontSize="11"
+                         Style="{StaticResource App.InputTextBox}"
+                         ToolTip="Preset title" />
+                <TextBox x:Name="PresetCommandBox"
+                         Grid.Column="1"
+                         Height="24"
+                         Margin="0,0,6,0"
+                         FontSize="11"
+                         Style="{StaticResource App.InputTextBox}"
+                         ToolTip="Command to save / send" />
+                <Button Grid.Column="2"
+                        Content="Save"
+                        Height="24"
+                        Padding="10,0"
+                        FontSize="11"
+                        Style="{StaticResource App.Button.Ghost}"
+                        Foreground="{StaticResource Text.Secondary}"
+                        Click="SavePreset_Click"
+                        ToolTip="Save command preset" />
+            </Grid>
+        </Border>
+
+        <!-- Terminal screen -->
+        <Grid Grid.Row="3" Background="#0C0C0C">
+            <wv:WebView2 x:Name="TerminalWebView" />
 
             <Border x:Name="TypingOverlay"
                     Background="#66000000"
@@ -134,9 +240,9 @@
                     IsHitTestVisible="False">
                 <TextBlock Text="Typing disabled"
                            Foreground="#E0E0E0"
-                           FontSize="14"
+                           FontSize="13"
                            HorizontalAlignment="Center"
-                           VerticalAlignment="Center"/>
+                           VerticalAlignment="Center" />
             </Border>
         </Grid>
     </Grid>
