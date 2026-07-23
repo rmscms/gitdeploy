@@ -48,6 +48,8 @@ namespace GitDeployPro.Services
 
         // --- Connection Profiles Management ---
 
+        public static event EventHandler? ConnectionsChanged;
+
         public List<ConnectionProfile> LoadConnections()
         {
             try
@@ -77,6 +79,7 @@ namespace GitDeployPro.Services
             {
                 var path = Path.Combine(GetAppDataPath(), ConnectionsFile);
                 File.WriteAllText(path, JsonConvert.SerializeObject(profiles, Formatting.Indented));
+                ConnectionsChanged?.Invoke(null, EventArgs.Empty);
             }
             catch { }
         }

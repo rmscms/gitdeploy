@@ -107,6 +107,7 @@ namespace GitDeployPro.Pages
 
         private void DeployPage_Unloaded(object sender, RoutedEventArgs e)
         {
+            DeployRemoteWorkspace.NotifyHostTeardown();
             DeployRemoteWorkspace.EditorModeChanged -= DeployRemoteWorkspace_EditorModeChanged;
             Loaded -= DeployPage_Loaded;
             SizeChanged -= DeployPage_SizeChanged;
@@ -120,6 +121,8 @@ namespace GitDeployPro.Pages
 
         private void DeployRemoteWorkspace_EditorModeChanged(object? sender, RemoteEditorModeChangedEventArgs e)
         {
+            // Host editor in the center Deploy area; FTP tree stays as in-control sidebar.
+            // Unloaded disconnect is gated by NotifyHostTeardown so reparent is safe.
             SetRemoteEditorOverlay(e.IsOpen);
         }
 
@@ -131,7 +134,7 @@ namespace GitDeployPro.Pages
 
         private async void ToggleRemoteWorkspaceButton_Click(object sender, RoutedEventArgs e)
         {
-            if (_isRemoteEditorOverlayActive)
+            if (_isRemoteEditorOverlayActive || DeployRemoteWorkspace.IsEditorOpen)
             {
                 if (!await DeployRemoteWorkspace.TryCloseEditorViewAsync(promptUnsaved: true))
                 {
@@ -520,39 +523,39 @@ namespace GitDeployPro.Pages
             {
                 _isRemoteEditorOverlayActive = true;
                 _isRemoteWorkspaceCollapsed = false;
-                if (_remoteLayoutMode == RemoteWorkspaceLayoutMode.Wide && DeployRemotePanelColumn.Width.Value > 0)
+
+                // Keep FTP on the right dock; only the editor panel moves to center.
+                if (!ReferenceEquals(RemoteWorkspaceContainer.Child, DeployRemoteWorkspace))
                 {
-                    _remotePanelLastWidth = DeployRemotePanelColumn.Width;
+                    CenterEditorOverlayHost.Child = null;
+                    RemoteWorkspaceContainer.Child = DeployRemoteWorkspace;
                 }
 
-                // Keep editor constrained to the center content area only.
-                DeployRemotePanelColumn.Width = new GridLength(0);
-                DeployRemoteSplitterColumn.Width = new GridLength(0);
-                RemoteDockSplitter.Visibility = Visibility.Collapsed;
-                RemoteWorkspaceContainer.Visibility = Visibility.Collapsed;
-                ResetRemoteDockPlacement();
-
-                if (!ReferenceEquals(CenterEditorOverlayHost.Child, DeployRemoteWorkspace))
+                if (_remotePanelLastWidth.Value < 360)
                 {
-                    RemoteWorkspaceContainer.Child = null;
-                    CenterEditorOverlayHost.Child = DeployRemoteWorkspace;
+                    _remotePanelLastWidth = new GridLength(420);
                 }
 
+                ApplyRemoteDockLayout(resetWidth: true);
+                DeployRemoteWorkspace.HostEditorIn(CenterEditorOverlayHost);
                 CenterEditorOverlayHost.Visibility = Visibility.Visible;
                 System.Windows.Controls.Panel.SetZIndex(CenterEditorOverlayHost, 40);
                 ToggleRemoteWorkspaceButton.Content = "✕";
                 ToggleRemoteWorkspaceButton.ToolTip = "Close editor";
+                UpdateRemoteToggleButtonUi();
                 return;
             }
 
             _isRemoteEditorOverlayActive = false;
+            DeployRemoteWorkspace.RestoreEditorPanelToDock();
+            CenterEditorOverlayHost.Child = null;
+            CenterEditorOverlayHost.Visibility = Visibility.Collapsed;
+
             if (!ReferenceEquals(RemoteWorkspaceContainer.Child, DeployRemoteWorkspace))
             {
-                CenterEditorOverlayHost.Child = null;
                 RemoteWorkspaceContainer.Child = DeployRemoteWorkspace;
             }
 
-            CenterEditorOverlayHost.Visibility = Visibility.Collapsed;
             ApplyWorkspaceLayout(force: true);
         }
 
@@ -575,12 +578,16 @@ namespace GitDeployPro.Pages
         {
             if (_isRemoteEditorOverlayActive)
             {
-                // Re-assert center-only editor host without re-parenting loops.
-                DeployRemotePanelColumn.Width = new GridLength(0);
-                DeployRemoteSplitterColumn.Width = new GridLength(0);
-                RemoteDockSplitter.Visibility = Visibility.Collapsed;
-                RemoteWorkspaceContainer.Visibility = Visibility.Collapsed;
+                // Editor in center + FTP dock on the right — keep both visible.
+                _isRemoteWorkspaceCollapsed = false;
+                ApplyLeftDockLayout(resetWidth: false);
+                ApplyRemoteDockLayout(resetWidth: false);
                 CenterEditorOverlayHost.Visibility = Visibility.Visible;
+                if (CenterEditorOverlayHost.Child == null)
+                {
+                    DeployRemoteWorkspace.HostEditorIn(CenterEditorOverlayHost);
+                }
+
                 UpdateRemoteToggleButtonUi();
                 UpdateDirectUploadToggleUi();
                 return;

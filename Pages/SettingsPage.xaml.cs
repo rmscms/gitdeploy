@@ -171,22 +171,25 @@ namespace GitDeployPro.Pages
             try
             {
                 var manager = new ConnectionManagerWindow();
+                var previousSelectedId = (ConnectionProfileComboBox.SelectedItem as ConnectionProfile)?.Id;
+                WindowOwnerService.ShowDialogOwned(manager, this);
 
-                if (WindowOwnerService.ShowDialogOwned(manager, this) == true)
+                // Always reload — Add/Delete persist even if the dialog was cancelled.
+                var connections = _configService.LoadConnections();
+                ConnectionProfileComboBox.ItemsSource = connections;
+
+                var preferredId = manager.SelectedProfile?.Id ?? previousSelectedId;
+                if (!string.IsNullOrWhiteSpace(preferredId))
                 {
-                     // Refresh list
-                     var connections = _configService.LoadConnections();
-                     ConnectionProfileComboBox.ItemsSource = connections;
-                     
-                     if (manager.SelectedProfile != null)
-                     {
-                          // Try to find and select the one that was edited/created
-                          var selected = connections.FirstOrDefault(c => c.Id == manager.SelectedProfile.Id);
-                          if (selected != null)
-                          {
-                              ConnectionProfileComboBox.SelectedItem = selected;
-                          }
-                     }
+                    var selected = connections.FirstOrDefault(c => c.Id == preferredId);
+                    if (selected != null)
+                    {
+                        ConnectionProfileComboBox.SelectedItem = selected;
+                    }
+                }
+                else if (connections.Count > 0 && ConnectionProfileComboBox.SelectedItem == null)
+                {
+                    ConnectionProfileComboBox.SelectedIndex = 0;
                 }
             }
             catch (Exception ex)
