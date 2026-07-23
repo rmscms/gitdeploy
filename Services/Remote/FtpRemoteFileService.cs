@@ -33,6 +33,7 @@ namespace GitDeployPro.Services.Remote
                 Config =
                 {
                     DataConnectionType = profile.PassiveMode ? FtpDataConnectionType.AutoPassive : FtpDataConnectionType.AutoActive,
+                    ConnectTimeout = 20000,
                     ReadTimeout = 45000,
                     DataConnectionReadTimeout = 45000,
                     RetryAttempts = 2

@@ -136,6 +136,31 @@ namespace GitDeployPro.Controls
             InitializeComponent();
             LoadData();
             BuildTree();
+            ConfigurationService.ConnectionsChanged += OnConnectionsChanged;
+            Unloaded += SessionManagerControl_Unloaded;
+        }
+
+        private void SessionManagerControl_Unloaded(object sender, RoutedEventArgs e)
+        {
+            ConfigurationService.ConnectionsChanged -= OnConnectionsChanged;
+            Unloaded -= SessionManagerControl_Unloaded;
+        }
+
+        private void OnConnectionsChanged(object? sender, EventArgs e)
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(ReloadConnectionsTree);
+                return;
+            }
+
+            ReloadConnectionsTree();
+        }
+
+        private void ReloadConnectionsTree()
+        {
+            LoadData();
+            BuildTree();
         }
 
         private void LoadData()
@@ -336,11 +361,9 @@ namespace GitDeployPro.Controls
         private void LinkButton_Click(object sender, RoutedEventArgs e)
         {
             var connWindow = new ConnectionManagerWindow();
-            if (WindowOwnerService.ShowDialogOwned(connWindow, this) == true)
-            {
-                LoadData();
-                BuildTree();
-            }
+            WindowOwnerService.ShowDialogOwned(connWindow, this);
+            // Always reload — Add/Delete persist even if the dialog was cancelled.
+            ReloadConnectionsTree();
         }
 
         private string? GetSelectedFolderId()

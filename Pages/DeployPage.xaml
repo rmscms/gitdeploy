@@ -373,7 +373,7 @@
                 </Grid>
             </ScrollViewer>
 
-            <!-- Editor stays inside center content only (not over rails / bottom dock). -->
+            <!-- FTP editor overlays the Deploy center area (full center column). -->
             <Border x:Name="CenterEditorOverlayHost"
                     Visibility="Collapsed"
                     Background="{StaticResource Surface.Base}"
@@ -381,7 +381,8 @@
                     BorderThickness="1"
                     CornerRadius="8"
                     Padding="6"
-                    Panel.ZIndex="40" />
+                    Panel.ZIndex="40"
+                    Margin="0,0,0,0" />
             </Grid>
         </Grid>
 

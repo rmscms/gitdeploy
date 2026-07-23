@@ -247,6 +247,8 @@ namespace GitDeployPro.Controls
                 LoadTerminalTargets();
                 LoadCommandPresets();
                 TerminalPresetStore.PresetsChanged += TerminalPresetStore_PresetsChanged;
+                ConfigurationService.ConnectionsChanged -= OnConnectionsChanged;
+                ConfigurationService.ConnectionsChanged += OnConnectionsChanged;
             }
 
             try
@@ -270,6 +272,7 @@ namespace GitDeployPro.Controls
         private async void TerminalControl_Unloaded(object sender, RoutedEventArgs e)
         {
             TerminalPresetStore.PresetsChanged -= TerminalPresetStore_PresetsChanged;
+            ConfigurationService.ConnectionsChanged -= OnConnectionsChanged;
 
             lock (_activeTerminals)
             {
@@ -285,6 +288,22 @@ namespace GitDeployPro.Controls
         private void TerminalPresetStore_PresetsChanged()
         {
             Dispatcher.Invoke(LoadCommandPresets);
+        }
+
+        private void OnConnectionsChanged(object? sender, EventArgs e)
+        {
+            if (!ShowCommandBar || _disposed)
+            {
+                return;
+            }
+
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(LoadTerminalTargets);
+                return;
+            }
+
+            LoadTerminalTargets();
         }
 
         private void LoadTerminalTargets()
@@ -569,6 +588,11 @@ namespace GitDeployPro.Controls
             try
             {
                 await session.StartAsync();
+                if (!session.IsConnected)
+                {
+                    throw new InvalidOperationException("Terminal session reported disconnected after start.");
+                }
+
                 _isConnected = true;
                 _isLocal = isLocal;
                 SetConnectedStatus(statusText);
@@ -582,6 +606,7 @@ namespace GitDeployPro.Controls
             {
                 DetachSession(session);
                 _session = null;
+                _isConnected = false;
                 throw;
             }
         }
@@ -642,6 +667,8 @@ namespace GitDeployPro.Controls
             _disposed = true;
             Loaded -= TerminalControl_Loaded;
             Unloaded -= TerminalControl_Unloaded;
+            TerminalPresetStore.PresetsChanged -= TerminalPresetStore_PresetsChanged;
+            ConfigurationService.ConnectionsChanged -= OnConnectionsChanged;
 
             lock (_activeTerminals)
             {
@@ -1051,7 +1078,21 @@ namespace GitDeployPro.Controls
                 return;
             }
 
-            await WriteToTerminalAsync($"\r\n[error] {caption}: {exception.Message}\r\n");
+            var message = exception.Message ?? string.Empty;
+            if (exception is OperationCanceledException ||
+                message.Contains("timed out", StringComparison.OrdinalIgnoreCase) ||
+                message.Contains("timeout", StringComparison.OrdinalIgnoreCase) ||
+                message.Contains("unable to connect", StringComparison.OrdinalIgnoreCase) ||
+                message.Contains("connection refused", StringComparison.OrdinalIgnoreCase) ||
+                message.Contains("no route to host", StringComparison.OrdinalIgnoreCase) ||
+                message.Contains("network is unreachable", StringComparison.OrdinalIgnoreCase))
+            {
+                message = $"{message} Host unreachable — check VPN/network.";
+            }
+
+            await WriteToTerminalAsync($"\r\n[error] {caption}: {message}\r\n");
+            StatusText.Text = $"{caption}: {message}";
+            StatusIndicator.Background = System.Windows.Media.Brushes.OrangeRed;
         }
 
         private void SetConnectingStatus(string text)

@@ -47,10 +47,18 @@ namespace GitDeployPro.Services.Terminal
                     _host,
                     _port,
                     _user,
-                    new PasswordAuthenticationMethod(_user, _password));
+                    new PasswordAuthenticationMethod(_user, _password))
+                {
+                    Timeout = TimeSpan.FromSeconds(20)
+                };
 
                 _sshClient = new SshClient(connectionInfo);
+                _sshClient.ConnectionInfo.Timeout = TimeSpan.FromSeconds(20);
                 _sshClient.Connect();
+                if (!_sshClient.IsConnected)
+                {
+                    throw new InvalidOperationException("SSH client reported disconnected after connect.");
+                }
 
                 var terminalModes = new Dictionary<TerminalModes, uint>
                 {
@@ -72,6 +80,11 @@ namespace GitDeployPro.Services.Terminal
                     (uint)Math.Max(320, _rows * 16),
                     4096,
                     terminalModes);
+
+                if (_shellStream == null)
+                {
+                    throw new InvalidOperationException("Failed to open SSH shell stream.");
+                }
             }, cancellationToken);
 
             _readLoopCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);

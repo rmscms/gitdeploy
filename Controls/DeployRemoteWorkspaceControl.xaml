@@ -292,12 +292,14 @@
                             </Grid.ColumnDefinitions>
 
                             <Button x:Name="CloseEditorOverlayButton"
-                                       Grid.Column="0"
+                                    Grid.Column="0"
                                     Content="Close"
                                     Height="26"
                                     MinWidth="68"
                                     Margin="0,0,6,0"
-                                    Style="{StaticResource App.Button.Danger}"
+                                    Style="{StaticResource App.Button.Ghost}"
+                                    Foreground="{StaticResource Status.Error}"
+                                    BorderBrush="{StaticResource Status.Error}"
                                     Click="CloseEditorOverlayButton_Click" />
 
                             <TextBlock x:Name="EditorPathText"
@@ -344,27 +346,59 @@
                                    FontSize="10"
                                    Text="No file loaded." />
 
-                        <ProgressBar x:Name="UploadProgressBar"
-                                     Margin="0,3,0,0"
-                                     Height="3"
-                                     Minimum="0"
-                                     Maximum="100"
-                                     Value="0"
-                                     Visibility="Collapsed"
-                                     IsIndeterminate="False"
-                                     Background="{StaticResource Surface.Input}"
-                                     Foreground="{StaticResource Accent.Primary}"
-                                     BorderThickness="0" />
-
-                        <TextBlock x:Name="UploadProgressHintText"
-                                   Margin="0,2,0,0"
-                                   Foreground="{StaticResource Text.Muted}"
-                                   FontSize="10"
-                                   Visibility="Collapsed"
-                                   Text="Uploading..." />
+                        <!-- Fixed-height strip: always reserved so Save/Upload never jumps the editor -->
+                        <Border x:Name="UploadStatusStrip"
+                                Margin="0,4,0,0"
+                                Height="32"
+                                Background="{StaticResource Surface.Input}"
+                                BorderBrush="{StaticResource Border.Subtle}"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Padding="8,5">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="*" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <Grid VerticalAlignment="Center">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="UploadStatusLabel"
+                                               Grid.Column="0"
+                                               Text=""
+                                               FontSize="10"
+                                               FontWeight="SemiBold"
+                                               Foreground="{StaticResource Accent.Primary}"
+                                               VerticalAlignment="Center"
+                                               Margin="0,0,8,0" />
+                                    <TextBlock x:Name="UploadProgressHintText"
+                                               Grid.Column="1"
+                                               Text=""
+                                               FontSize="10"
+                                               TextTrimming="CharacterEllipsis"
+                                               VerticalAlignment="Center"
+                                               Foreground="{StaticResource Text.Muted}" />
+                                </Grid>
+                                <ProgressBar x:Name="UploadProgressBar"
+                                             Grid.Row="1"
+                                             Margin="0,4,0,0"
+                                             Height="5"
+                                             Minimum="0"
+                                             Maximum="100"
+                                             Value="0"
+                                             Visibility="Visible"
+                                             IsIndeterminate="False"
+                                             Background="{StaticResource Border.Subtle}"
+                                             Foreground="{StaticResource Accent.Primary}"
+                                             BorderThickness="0" />
+                            </Grid>
+                        </Border>
                     </StackPanel>
 
-                    <Border Grid.Row="1"
+                    <Border x:Name="EditorTabsHostBorder"
+                            Grid.Row="1"
                             Margin="0,0,0,6"
                             Background="{StaticResource Surface.Input}"
                             BorderBrush="{StaticResource Border.Subtle}"
@@ -372,9 +406,10 @@
                             CornerRadius="8"
                             Padding="4,3,4,1">
                         <ListBox x:Name="EditorTabsListBox"
+                                 Style="{StaticResource App.ListBox.Host}"
                                  ItemsSource="{Binding OpenSessions}"
                                  BorderThickness="0"
-                                 Background="Transparent"
+                                 Background="{StaticResource Surface.Input}"
                                  SelectionChanged="EditorTabsListBox_SelectionChanged"
                                  ScrollViewer.VerticalScrollBarVisibility="Disabled"
                                  ScrollViewer.HorizontalScrollBarVisibility="Auto">
@@ -387,11 +422,14 @@
                                 <Style TargetType="ListBoxItem">
                                     <Setter Property="Padding" Value="0" />
                                     <Setter Property="Margin" Value="0,0,6,0" />
+                                    <Setter Property="Background" Value="Transparent" />
                                     <Setter Property="FocusVisualStyle" Value="{x:Null}" />
                                     <Setter Property="Template">
                                         <Setter.Value>
                                             <ControlTemplate TargetType="ListBoxItem">
-                                                <ContentPresenter />
+                                                <Border Background="Transparent">
+                                                    <ContentPresenter />
+                                                </Border>
                                             </ControlTemplate>
                                         </Setter.Value>
                                     </Setter>
