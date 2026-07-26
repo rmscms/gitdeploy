@@ -60,6 +60,8 @@ namespace GitDeployPro.Controls
         private DateTime _lastInterruptSentAt = DateTime.MinValue;
         private bool _remoteHistoryConfigured;
         private bool _disposed;
+        private bool _suppressTerminalTargetSelectionChanged;
+        private string _activeTerminalTargetId = string.Empty;
         private ObservableCollection<TerminalCommandPreset> _commandPresets = new();
 
         public bool ShowCommandBar
@@ -380,31 +382,62 @@ namespace GitDeployPro.Controls
             }
 
             // Use ComboBoxItem.Content so custom ComboBox templates always show the label.
-            TerminalTargetCombo.Items.Clear();
-            ComboBoxItem? selectedItem = null;
-            foreach (var option in items)
+            _suppressTerminalTargetSelectionChanged = true;
+            try
             {
-                var boxItem = new ComboBoxItem
+                TerminalTargetCombo.Items.Clear();
+                ComboBoxItem? selectedItem = null;
+                foreach (var option in items)
                 {
-                    Content = option.DisplayName,
-                    Tag = option,
-                    ToolTip = option.DisplayName
-                };
-                TerminalTargetCombo.Items.Add(boxItem);
-                if (selectedItem == null &&
-                    (string.Equals(option.Id, previousId, StringComparison.OrdinalIgnoreCase)
-                     || (!option.IsLocal && previousId == null)))
-                {
-                    selectedItem = boxItem;
+                    var boxItem = new ComboBoxItem
+                    {
+                        Content = option.DisplayName,
+                        Tag = option,
+                        ToolTip = option.DisplayName
+                    };
+                    TerminalTargetCombo.Items.Add(boxItem);
+                    if (selectedItem == null &&
+                        (string.Equals(option.Id, previousId, StringComparison.OrdinalIgnoreCase)
+                         || (!option.IsLocal && previousId == null)))
+                    {
+                        selectedItem = boxItem;
+                    }
                 }
-            }
 
-            if (selectedItem == null && TerminalTargetCombo.Items.Count > 0)
+                if (selectedItem == null && TerminalTargetCombo.Items.Count > 0)
+                {
+                    selectedItem = (ComboBoxItem)TerminalTargetCombo.Items[0];
+                }
+
+                TerminalTargetCombo.SelectedItem = selectedItem;
+            }
+            finally
             {
-                selectedItem = (ComboBoxItem)TerminalTargetCombo.Items[0];
+                _suppressTerminalTargetSelectionChanged = false;
+            }
+        }
+
+        private async void TerminalTargetCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_suppressTerminalTargetSelectionChanged || _disposed || !ShowCommandBar)
+            {
+                return;
             }
 
-            TerminalTargetCombo.SelectedItem = selectedItem;
+            var target = (TerminalTargetCombo?.SelectedItem as ComboBoxItem)?.Tag as TerminalTargetOption
+                         ?? TerminalTargetCombo?.SelectedItem as TerminalTargetOption;
+            if (target == null || string.IsNullOrWhiteSpace(target.Id))
+            {
+                return;
+            }
+
+            if (_isConnected &&
+                string.Equals(_activeTerminalTargetId, target.Id, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            await ConnectSelectedTargetAsync();
         }
 
         private void LoadCommandPresets()
@@ -533,6 +566,7 @@ namespace GitDeployPro.Controls
                     if (target.IsLocal)
                     {
                         await ConnectLocal();
+                        _activeTerminalTargetId = _isConnected ? target.Id : string.Empty;
                         return;
                     }
 
@@ -543,14 +577,17 @@ namespace GitDeployPro.Controls
                             target.Profile.Username,
                             EncryptionService.Decrypt(target.Profile.Password),
                             target.Profile.Port);
+                        _activeTerminalTargetId = _isConnected ? target.Id : string.Empty;
                         return;
                     }
                 }
 
                 await ConnectAsync();
+                _activeTerminalTargetId = _isConnected ? (target?.Id ?? "project-ssh") : string.Empty;
             }
             catch (Exception ex)
             {
+                _activeTerminalTargetId = string.Empty;
                 await HandleConnectionFailureAsync(ex, "Unable to connect selected terminal");
             }
         }
@@ -648,6 +685,7 @@ namespace GitDeployPro.Controls
 
             _isConnected = false;
             _isLocal = false;
+            _activeTerminalTargetId = string.Empty;
             SetDisconnectedStatus();
             _isDisconnecting = false;
 
@@ -732,6 +770,8 @@ namespace GitDeployPro.Controls
                 TerminalWebView.CoreWebView2.Settings.AreDefaultScriptDialogsEnabled = false;
                 TerminalWebView.CoreWebView2.Settings.IsStatusBarEnabled = false;
                 TerminalWebView.CoreWebView2.Settings.IsZoomControlEnabled = false;
+                // Let the page handle Ctrl+C / Ctrl+V instead of Edge browser accelerators.
+                TerminalWebView.CoreWebView2.Settings.AreBrowserAcceleratorKeysEnabled = false;
 
                 TerminalWebView.CoreWebView2.WebMessageReceived -= CoreWebView2_WebMessageReceived;
                 TerminalWebView.CoreWebView2.NavigationCompleted -= CoreWebView2_NavigationCompleted;

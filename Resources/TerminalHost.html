@@ -145,6 +145,12 @@
             return;
           }
 
+          if (ctrl && !shift && key === 'v') {
+            post({ type: 'pasteRequest' });
+            ev.preventDefault();
+            return;
+          }
+
           if (!typingEnabled) {
             return;
           }
@@ -278,6 +284,12 @@
           }
 
           if (ctrl && shift && key === 'v') {
+            post({ type: 'pasteRequest' });
+            ev.preventDefault();
+            return false;
+          }
+
+          if (ctrl && !shift && key === 'v') {
             post({ type: 'pasteRequest' });
             ev.preventDefault();
             return false;

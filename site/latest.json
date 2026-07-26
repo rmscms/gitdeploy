@@ -1,0 +1,9 @@
+{
+  "version": "1.4.5",
+  "fileName": "GitDeployPro-1.4.5.exe",
+  "downloadUrl": "versions/GitDeployPro-1.4.5.exe",
+  "sha256": "21A09B23101D99DC8ECF56E8400972B9E0FA2C0BF087D2B6B7FF03CDED15D30E",
+  "releaseNotes": "- Check for updates on About page\n- Direct Upload ./ root checkbox when path mapping is active\n- FTP banner when path mapping is active\n- Release feed/changelog polish for update testing",
+  "mandatory": false,
+  "publishedUtc": "2026-07-26T09:19:20Z"
+}

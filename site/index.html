@@ -474,8 +474,9 @@
       <div class="col-md-6 col-lg-5">
         <div class="download-card h-100">
           <strong>Windows 10/11 (x64)</strong>
-          <p class="text-muted mb-3">Self-contained build v1.1.8 with streamlined deploy workflow: 'Commit && Deploy' button for one-click automation, smarter success feedback, and optimized backup scheduler error handling.</p>
-          <a class="btn btn-glow w-100" href="versions/GitDeployPro-v1.1.8-win-x64.zip">Download GitDeployPro 1.1.8</a>
+          <p id="download-blurb" class="text-muted mb-3">Loading latest release…</p>
+          <a id="download-button" class="btn btn-glow w-100" href="latest.json">Download GitDeployPro</a>
+          <p id="download-meta" class="text-muted small mt-2 mb-0"></p>
         </div>
       </div>
     </section>
@@ -485,12 +486,36 @@
       <h2>What’s new in each build</h2>
       <p class="text-muted" style="max-width:620px;">Quick snapshot of the releases we’ve shipped so you know exactly what changed before installing.</p>
       <div class="row g-3 mt-2">
+        <div class="col-lg-6" id="latest-changelog-slot">
+          <div class="changelog">
+            <h4 id="latest-changelog-title">Latest</h4>
+            <small id="latest-changelog-date">Loading…</small>
+            <ul id="latest-changelog-list">
+              <li>Loading release notes…</li>
+            </ul>
+          </div>
+        </div>
         <div class="col-lg-6">
           <div class="changelog">
-            <h4>v1.1.8</h4>
-            <small>Released Dec 2025</small>
+            <h4>v1.4.5</h4>
+            <small>Released Jul 2026</small>
             <ul>
-              <li>Latest release with improvements and bug fixes.</li>
+              <li>Check for updates is available from the About sidebar page.</li>
+              <li>Direct Upload shows a <code>./</code> root row when path mapping is active so one checkbox selects everything.</li>
+              <li>FTP remote browser shows a mapping banner when path mapping is active.</li>
+              <li>Self-hosted update feed/changelog ready for end-to-end update testing.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="changelog">
+            <h4>v1.4.4</h4>
+            <small>Released Jul 2026</small>
+            <ul>
+              <li>Terminal Ctrl+C/V clipboard shortcuts.</li>
+              <li>Direct Upload paste from Windows clipboard into the selected folder.</li>
+              <li>Test Connection button moved under Authentication with primary styling.</li>
+              <li>Self-hosted update feed at <code>app.nitron.pro/gitdeploy</code>.</li>
             </ul>
           </div>
         </div>
@@ -708,5 +733,6 @@
       });
     })();
   </script>
+  <script src="assets/site.js"></script>
 </body>
 </html>

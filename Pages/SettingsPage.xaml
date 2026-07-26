@@ -128,6 +128,40 @@
                                       Foreground="{StaticResource Text.Secondary}"
                                       FontSize="13"
                                       Margin="0,8,0,0" />
+
+                            <Border Background="{StaticResource Surface.Input}"
+                                    BorderBrush="{StaticResource Border.Subtle}"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    Padding="12"
+                                    Margin="0,12,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="Software updates"
+                                               Foreground="{StaticResource Text.Primary}"
+                                               FontWeight="SemiBold"
+                                               FontSize="13" />
+                                    <TextBlock x:Name="UpdateVersionText"
+                                               Text="Current version: -"
+                                               Foreground="{StaticResource Text.Secondary}"
+                                               FontSize="12"
+                                               Margin="0,6,0,0" />
+                                    <TextBlock x:Name="UpdateLastCheckText"
+                                               Text="Last automatic check: never"
+                                               Foreground="{StaticResource Text.Muted}"
+                                               FontSize="11"
+                                               Margin="0,4,0,0"
+                                               TextWrapping="Wrap" />
+                                    <Button x:Name="CheckForUpdatesButton"
+                                            Content="Check for updates now"
+                                            Height="34"
+                                            Margin="0,10,0,0"
+                                            HorizontalAlignment="Left"
+                                            MinWidth="180"
+                                            Style="{StaticResource App.Button.Ghost}"
+                                            Click="CheckForUpdatesButton_Click" />
+                                </StackPanel>
+                            </Border>
+
                             <Border Background="{StaticResource Surface.Input}"
                                     BorderBrush="{StaticResource Border.Subtle}"
                                     BorderThickness="1"

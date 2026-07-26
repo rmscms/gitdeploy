@@ -13,3 +13,7 @@ publish/
 site/versions
 .cursor/
 releases/
+.idea/
+.vscode/
+dist/
+build/

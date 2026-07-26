@@ -12,6 +12,7 @@ using GitDeployPro.Controls;
 using GitDeployPro.Models;
 using GitDeployPro.Pages;
 using GitDeployPro.Services;
+using GitDeployPro.Services.Update;
 using GitDeployPro.Windows;
 using Button = System.Windows.Controls.Button;
 using Forms = System.Windows.Forms;
@@ -34,6 +35,7 @@ namespace GitDeployPro
         private bool _minimizeToTrayEnabled = true;
         private string _currentRoute = string.Empty;
         private bool _sidebarCollapsedBeforeDeploy;
+        private readonly DispatcherTimer _updateCheckTimer;
 
         public MainWindow()
         {
@@ -47,12 +49,29 @@ namespace GitDeployPro
             _nextRunTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
             _nextRunTimer.Tick += NextRunTimer_Tick;
             _nextRunTimer.Start();
+            _updateCheckTimer = new DispatcherTimer { Interval = UpdateOptions.TimerPollInterval };
+            _updateCheckTimer.Tick += UpdateCheckTimer_Tick;
+            _updateCheckTimer.Start();
             RefreshNextRunTarget();
             RefreshTrayPreference();
             InitializeTrayIcon();
             Closing += MainWindow_Closing;
+            Loaded += MainWindow_Loaded;
 
             NavigateToPage(new DashboardPage(), "dashboard");
+        }
+
+        private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            Loaded -= MainWindow_Loaded;
+            // Let the shell paint first, then check updates in the background.
+            await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+            await AppUpdateCoordinator.RunAutomaticCheckAsync(this);
+        }
+
+        private async void UpdateCheckTimer_Tick(object? sender, EventArgs e)
+        {
+            await AppUpdateCoordinator.RunAutomaticCheckAsync(this);
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
@@ -462,40 +481,7 @@ namespace GitDeployPro
             ContentFrame.Navigate(page);
             ApplyDeploySidebarPolicy(previousRoute, _currentRoute);
         }
-        private void About_Click(object sender, RoutedEventArgs e)
-        {
-            var version = GetApplicationVersion();
-            ModernMessageBox.Show(
-                $"GitDeploy Pro\nVersion: {version}",
-                "About GitDeploy Pro",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information,
-                "Close");
-        }
-
-        private static string GetApplicationVersion()
-        {
-            var assembly = Assembly.GetExecutingAssembly();
-            var informational = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
-            if (!string.IsNullOrWhiteSpace(informational))
-            {
-                var plusIndex = informational.IndexOf('+');
-                return plusIndex > 0 ? informational[..plusIndex] : informational;
-            }
-
-            var version = assembly.GetName().Version;
-            if (version == null)
-            {
-                return "unknown";
-            }
-
-            if (version.Build > 0)
-            {
-                return $"{version.Major}.{version.Minor}.{version.Build}";
-            }
-
-            return $"{version.Major}.{version.Minor}";
-        }
+        private void About_Click(object sender, RoutedEventArgs e) => NavigateToPage(new AboutPage(), "about");
 
         private void Minimize_Click(object sender, RoutedEventArgs e)
         {

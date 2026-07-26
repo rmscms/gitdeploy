@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
@@ -185,14 +186,36 @@ namespace GitDeployPro.Controls
 
                 var scanRoot = Directory.Exists(_scanRootPath) ? _scanRootPath : _projectPath;
 
+                var wrapWithMappingRoot = mapping != null;
                 await Task.Run(() =>
                 {
                     var rootItems = ScanDirectory(scanRoot);
                     Dispatcher.Invoke(() =>
                     {
-                        foreach (var item in rootItems)
+                        if (wrapWithMappingRoot)
                         {
-                            _items.Add(item);
+                            // Virtual "./" parent so one checkbox selects the mapped folder contents.
+                            var mappingRoot = new FileSystemItem
+                            {
+                                Name = "./",
+                                FullPath = scanRoot,
+                                IsFolder = true,
+                                IsExpanded = true
+                            };
+                            foreach (var item in rootItems)
+                            {
+                                item.Parent = mappingRoot;
+                                mappingRoot.Children.Add(item);
+                            }
+
+                            _items.Add(mappingRoot);
+                        }
+                        else
+                        {
+                            foreach (var item in rootItems)
+                            {
+                                _items.Add(item);
+                            }
                         }
                     });
                 });
@@ -393,6 +416,22 @@ namespace GitDeployPro.Controls
             UpdateStats();
         }
 
+        private void FileTreeView_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (e.Key != Key.V || (Keyboard.Modifiers & ModifierKeys.Control) != ModifierKeys.Control)
+            {
+                return;
+            }
+
+            if (!System.Windows.Clipboard.ContainsFileDropList())
+            {
+                return;
+            }
+
+            e.Handled = true;
+            _ = PasteClipboardFilesAsync();
+        }
+
         private void FileTreeView_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
         {
             var treeItem = FindParent<TreeViewItem>(e.OriginalSource as DependencyObject);
@@ -405,6 +444,7 @@ namespace GitDeployPro.Controls
             treeItem.Focus();
 
             var actions = new List<AppContextMenuAction>();
+            var canPaste = !_isUploading && System.Windows.Clipboard.ContainsFileDropList();
 
             if (item.IsFolder)
             {
@@ -422,6 +462,14 @@ namespace GitDeployPro.Controls
                     IconGlyph = "🔄",
                     IsEnabled = !_isUploading,
                     Execute = _ => _ = RefreshFolderAsync(item)
+                });
+                actions.Add(new AppContextMenuAction
+                {
+                    Id = "paste-files",
+                    Label = "Paste",
+                    IconGlyph = "📋",
+                    IsEnabled = canPaste,
+                    Execute = _ => _ = PasteClipboardFilesAsync()
                 });
             }
             else
@@ -448,11 +496,253 @@ namespace GitDeployPro.Controls
                         }
                     }
                 });
+                actions.Add(new AppContextMenuAction
+                {
+                    Id = "paste-files",
+                    Label = "Paste",
+                    IconGlyph = "📋",
+                    IsEnabled = canPaste,
+                    Execute = _ => _ = PasteClipboardFilesAsync()
+                });
             }
 
             if (GlobalContextMenuService.ShowMenu(treeItem, actions, item, PlacementMode.MousePoint))
             {
                 e.Handled = true;
+            }
+        }
+
+        private FileSystemItem? ResolvePasteTargetFolder()
+        {
+            if (FileTreeView.SelectedItem is not FileSystemItem selected)
+            {
+                return null;
+            }
+
+            if (selected.IsFolder)
+            {
+                return selected;
+            }
+
+            return selected.Parent;
+        }
+
+        private async Task PasteClipboardFilesAsync()
+        {
+            if (_isUploading)
+            {
+                StatusText.Text = "Wait for upload to finish before pasting.";
+                return;
+            }
+
+            if (!System.Windows.Clipboard.ContainsFileDropList())
+            {
+                StatusText.Text = "Clipboard has no files to paste.";
+                return;
+            }
+
+            var target = ResolvePasteTargetFolder();
+            if (target == null || string.IsNullOrWhiteSpace(target.FullPath))
+            {
+                StatusText.Text = "Select a folder (or file) to paste into.";
+                return;
+            }
+
+            StringCollection? dropList;
+            try
+            {
+                dropList = System.Windows.Clipboard.GetFileDropList();
+            }
+            catch (Exception ex)
+            {
+                StatusText.Text = $"Clipboard read failed: {ex.Message}";
+                return;
+            }
+
+            if (dropList == null || dropList.Count == 0)
+            {
+                StatusText.Text = "Clipboard has no files to paste.";
+                return;
+            }
+
+            var sources = dropList.Cast<string>()
+                .Where(p => !string.IsNullOrWhiteSpace(p))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (sources.Count == 0)
+            {
+                StatusText.Text = "Clipboard has no files to paste.";
+                return;
+            }
+
+            StatusText.Text = $"Pasting into {target.Name}...";
+            StartUploadButton.IsEnabled = false;
+            RefreshButton.IsEnabled = false;
+
+            var copied = 0;
+            var skipped = 0;
+            string? error = null;
+
+            try
+            {
+                await Task.Run(() =>
+                {
+                    foreach (var source in sources)
+                    {
+                        try
+                        {
+                            if (File.Exists(source))
+                            {
+                                if (TryCopyFileIntoFolder(source, target.FullPath))
+                                {
+                                    Interlocked.Increment(ref copied);
+                                }
+                                else
+                                {
+                                    Interlocked.Increment(ref skipped);
+                                }
+                            }
+                            else if (Directory.Exists(source))
+                            {
+                                if (TryCopyDirectoryIntoFolder(source, target.FullPath))
+                                {
+                                    Interlocked.Increment(ref copied);
+                                }
+                                else
+                                {
+                                    Interlocked.Increment(ref skipped);
+                                }
+                            }
+                            else
+                            {
+                                Interlocked.Increment(ref skipped);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            error = ex.Message;
+                            Interlocked.Increment(ref skipped);
+                        }
+                    }
+                });
+            }
+            finally
+            {
+                StartUploadButton.IsEnabled = !_isUploading;
+                RefreshButton.IsEnabled = !_isUploading;
+            }
+
+            await RefreshFolderAsync(target);
+
+            if (!string.IsNullOrWhiteSpace(error))
+            {
+                StatusText.Text = $"Pasted {copied}, skipped {skipped}. Last error: {error}";
+            }
+            else if (skipped > 0)
+            {
+                StatusText.Text = $"Pasted {copied} item(s), skipped {skipped}.";
+            }
+            else
+            {
+                StatusText.Text = $"Pasted {copied} item(s) into {target.Name}.";
+            }
+        }
+
+        private static bool TryCopyFileIntoFolder(string sourceFile, string destinationFolder)
+        {
+            if (!Directory.Exists(destinationFolder))
+            {
+                return false;
+            }
+
+            var destPath = GetUniqueDestinationPath(destinationFolder, Path.GetFileName(sourceFile), isDirectory: false);
+            if (IsSameOrNestedPath(sourceFile, destPath))
+            {
+                return false;
+            }
+
+            File.Copy(sourceFile, destPath, overwrite: false);
+            return true;
+        }
+
+        private static bool TryCopyDirectoryIntoFolder(string sourceDir, string destinationFolder)
+        {
+            if (!Directory.Exists(destinationFolder) || !Directory.Exists(sourceDir))
+            {
+                return false;
+            }
+
+            var folderName = new DirectoryInfo(sourceDir).Name;
+            var destRoot = GetUniqueDestinationPath(destinationFolder, folderName, isDirectory: true);
+
+            if (IsSameOrNestedPath(sourceDir, destRoot) || IsSameOrNestedPath(destRoot, sourceDir))
+            {
+                return false;
+            }
+
+            CopyDirectoryRecursive(sourceDir, destRoot);
+            return true;
+        }
+
+        private static void CopyDirectoryRecursive(string sourceDir, string destDir)
+        {
+            Directory.CreateDirectory(destDir);
+
+            foreach (var file in Directory.GetFiles(sourceDir))
+            {
+                var destFile = Path.Combine(destDir, Path.GetFileName(file));
+                File.Copy(file, destFile, overwrite: false);
+            }
+
+            foreach (var dir in Directory.GetDirectories(sourceDir))
+            {
+                var destSub = Path.Combine(destDir, Path.GetFileName(dir));
+                CopyDirectoryRecursive(dir, destSub);
+            }
+        }
+
+        private static string GetUniqueDestinationPath(string destinationFolder, string name, bool isDirectory)
+        {
+            var candidate = Path.Combine(destinationFolder, name);
+            if (!File.Exists(candidate) && !Directory.Exists(candidate))
+            {
+                return candidate;
+            }
+
+            var baseName = isDirectory ? name : Path.GetFileNameWithoutExtension(name);
+            var extension = isDirectory ? string.Empty : Path.GetExtension(name);
+
+            for (var i = 1; i < 10_000; i++)
+            {
+                var nextName = $"{baseName} ({i}){extension}";
+                candidate = Path.Combine(destinationFolder, nextName);
+                if (!File.Exists(candidate) && !Directory.Exists(candidate))
+                {
+                    return candidate;
+                }
+            }
+
+            throw new IOException($"Unable to find a unique name for '{name}'.");
+        }
+
+        private static bool IsSameOrNestedPath(string pathA, string pathB)
+        {
+            try
+            {
+                var a = Path.GetFullPath(pathA).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                var b = Path.GetFullPath(pathB).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                if (string.Equals(a, b, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+
+                var prefix = a + Path.DirectorySeparatorChar;
+                return b.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return true;
             }
         }
 

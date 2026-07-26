@@ -28,6 +28,12 @@ namespace GitDeployPro.Pages
         private const double RemoteWideBreakpoint = 1500;
         private const double RemoteMediumBreakpoint = 1100;
         private const double RemoteNarrowBreakpoint = 900;
+        private const double RailWidth = 40;
+        private const double SplitterWidth = 8;
+        private const double MainColumnMinWidth = 280;
+        private const double RemoteDockMinWidth = 260;
+        private const double LeftDockMinWidth = 220;
+        private const double CenterContentMinHeight = 180;
 
         private bool isDeploying = false;
         private GitService _gitService;
@@ -102,6 +108,15 @@ namespace GitDeployPro.Pages
             if (mode != _remoteLayoutMode || portrait != _isPortrait)
             {
                 ApplyWorkspaceLayout(force: true);
+                return;
+            }
+
+            ApplyPortraitBranchRowTweaks();
+            ShrinkSideDocksToFitIfNeeded();
+            ClampOpenDockWidthsToAvailableSpace();
+            if (!_isBottomDockCollapsed)
+            {
+                ApplyBottomDockLayout(resetHeight: false);
             }
         }
 
@@ -146,12 +161,11 @@ namespace GitDeployPro.Pages
             }
 
             _isRemoteWorkspaceCollapsed = !_isRemoteWorkspaceCollapsed;
-            if (!_isRemoteWorkspaceCollapsed && _remoteLayoutMode != RemoteWorkspaceLayoutMode.Wide)
+            if (!_isRemoteWorkspaceCollapsed)
             {
                 _compactPanelOpenedByUser = true;
-                _isDirectUploadDockCollapsed = true;
             }
-            else if (_isRemoteWorkspaceCollapsed)
+            else if (_isRemoteWorkspaceCollapsed && _isDirectUploadDockCollapsed)
             {
                 _compactPanelOpenedByUser = false;
             }
@@ -189,9 +203,12 @@ namespace GitDeployPro.Pages
         private void ToggleDirectUploadDockButton_Click(object sender, RoutedEventArgs e)
         {
             _isDirectUploadDockCollapsed = !_isDirectUploadDockCollapsed;
-            if (!_isDirectUploadDockCollapsed && _remoteLayoutMode != RemoteWorkspaceLayoutMode.Wide)
+            if (!_isDirectUploadDockCollapsed)
             {
-                _isRemoteWorkspaceCollapsed = true;
+                _compactPanelOpenedByUser = true;
+            }
+            else if (_isRemoteWorkspaceCollapsed && _isDirectUploadDockCollapsed)
+            {
                 _compactPanelOpenedByUser = false;
             }
 
@@ -436,7 +453,9 @@ namespace GitDeployPro.Pages
 
         private double ClampBottomDockHeight(double height)
         {
-            var max = ActualHeight > 0 ? Math.Max(BottomDockMinExpandedHeight, ActualHeight - 80) : 900;
+            var max = ActualHeight > 0
+                ? Math.Max(BottomDockMinExpandedHeight, ActualHeight - CenterContentMinHeight)
+                : 900;
             return Math.Max(BottomDockMinExpandedHeight, Math.Min(height, max));
         }
 
@@ -613,6 +632,7 @@ namespace GitDeployPro.Pages
             }
 
             _remoteLayoutMode = mode;
+            ShrinkSideDocksToFitIfNeeded();
             ApplyLeftDockLayout(resetWidth: force || previousMode != mode);
             ApplyBottomDockLayout(resetHeight: force);
             ApplyRemoteDockLayout(resetWidth: force || previousMode != mode);
@@ -634,13 +654,13 @@ namespace GitDeployPro.Pages
             {
                 BranchRow.ColumnDefinitions[4].Width = new GridLength(1, GridUnitType.Star);
                 BranchRow.ColumnDefinitions[4].MinWidth = 140;
-                DeployMainColumn.MinWidth = 220;
+                DeployMainColumn.MinWidth = MainColumnMinWidth;
             }
             else
             {
                 BranchRow.ColumnDefinitions[4].Width = GridLength.Auto;
                 BranchRow.ColumnDefinitions[4].MinWidth = 160;
-                DeployMainColumn.MinWidth = 320;
+                DeployMainColumn.MinWidth = MainColumnMinWidth;
             }
         }
 
@@ -650,6 +670,7 @@ namespace GitDeployPro.Pages
 
             if (_isDirectUploadDockCollapsed)
             {
+                ClearLeftDockColumnConstraints();
                 LeftDockColumn.Width = new GridLength(0);
                 LeftSplitterColumn.Width = new GridLength(0);
                 LeftDockContainer.Visibility = Visibility.Collapsed;
@@ -657,50 +678,60 @@ namespace GitDeployPro.Pages
                 return;
             }
 
-            if (_remoteLayoutMode == RemoteWorkspaceLayoutMode.Wide && !_isPortrait)
+            // Prefer real column + splitter whenever the shell can fit it.
+            if (CanFitLeftColumnDock())
             {
+                var maxWidth = ComputeLeftDockMaxWidth(remoteOpen: !_isRemoteWorkspaceCollapsed && _remoteLayoutMode != RemoteWorkspaceLayoutMode.Narrow);
+                var width = _leftDockLastWidth.Value > 0 ? _leftDockLastWidth.Value : 340;
+                width = Math.Max(LeftDockMinWidth, Math.Min(width, Math.Min(640, maxWidth)));
+
                 if (resetWidth || !LeftDockColumn.Width.IsAbsolute || LeftDockColumn.Width.Value <= 0)
                 {
-                    var width = _leftDockLastWidth.Value > 0 ? _leftDockLastWidth.Value : 340;
-                    if (width < 240) width = 240;
-                    if (width > 640) width = 640;
                     LeftDockColumn.Width = new GridLength(width);
                 }
+                else
+                {
+                    var current = LeftDockColumn.Width.Value;
+                    if (current > maxWidth || current < LeftDockMinWidth)
+                    {
+                        LeftDockColumn.Width = new GridLength(Math.Max(LeftDockMinWidth, Math.Min(current, maxWidth)));
+                    }
+                }
 
-                LeftDockColumn.MinWidth = 220;
-                LeftSplitterColumn.Width = new GridLength(8);
+                _leftDockLastWidth = LeftDockColumn.Width;
+                LeftDockColumn.MinWidth = LeftDockMinWidth;
+                LeftDockColumn.MaxWidth = Math.Max(LeftDockMinWidth, maxWidth);
+                LeftSplitterColumn.Width = new GridLength(SplitterWidth);
                 LeftDockContainer.Visibility = Visibility.Visible;
                 LeftDockSplitter.Visibility = Visibility.Visible;
                 System.Windows.Controls.Panel.SetZIndex(LeftDockContainer, 1);
+                System.Windows.Controls.Panel.SetZIndex(LeftDockSplitter, 50);
                 return;
             }
 
-            // Overlay for medium/narrow/portrait
+            // Tiny shell: left drawer overlay (never full-page).
+            ClearLeftDockColumnConstraints();
             LeftDockColumn.Width = new GridLength(0);
             LeftSplitterColumn.Width = new GridLength(0);
             LeftDockSplitter.Visibility = Visibility.Collapsed;
             Grid.SetColumn(LeftDockContainer, 0);
             Grid.SetColumnSpan(LeftDockContainer, 7);
             LeftDockContainer.HorizontalAlignment = System.Windows.HorizontalAlignment.Left;
-            LeftDockContainer.Width = Math.Min(480, Math.Max(280, ActualWidth * 0.42));
+            LeftDockContainer.Width = Math.Min(420, Math.Max(LeftDockMinWidth, GetEffectiveShellWidth() * 0.42));
             System.Windows.Controls.Panel.SetZIndex(LeftDockContainer, 14);
             LeftDockContainer.Visibility = Visibility.Visible;
         }
 
         private void ApplyRemoteDockLayout(bool resetWidth = true)
         {
-            switch (_remoteLayoutMode)
+            // Medium used to hide the splitter; keep a real column dock whenever it fits.
+            if (_remoteLayoutMode == RemoteWorkspaceLayoutMode.Narrow)
             {
-                case RemoteWorkspaceLayoutMode.Wide:
-                    ApplyWideRemoteLayout(resetWidth);
-                    break;
-                case RemoteWorkspaceLayoutMode.Medium:
-                    ApplyMediumRemoteLayout();
-                    break;
-                default:
-                    ApplyNarrowRemoteLayout();
-                    break;
+                ApplyNarrowRemoteLayout();
+                return;
             }
+
+            ApplyWideRemoteLayout(resetWidth);
         }
 
         private void ResetLeftDockPlacement()
@@ -712,7 +743,7 @@ namespace GitDeployPro.Pages
             System.Windows.Controls.Panel.SetZIndex(LeftDockContainer, 1);
         }
 
-        private RemoteWorkspaceLayoutMode DetermineRemoteLayoutMode()
+        private double GetEffectiveShellWidth()
         {
             var width = ActualWidth;
             if (width <= 0 && System.Windows.Application.Current?.MainWindow != null)
@@ -720,28 +751,186 @@ namespace GitDeployPro.Pages
                 width = System.Windows.Application.Current.MainWindow.ActualWidth;
             }
 
+            return width;
+        }
+
+        private bool CanFitColumnRemoteDock(bool leftOpen)
+        {
+            var width = GetEffectiveShellWidth();
+            if (width <= 0)
+            {
+                return true;
+            }
+
+            var mainMin = BothSideDocksOpen() ? Math.Min(MainColumnMinWidth, 220) : MainColumnMinWidth;
+            var needed = (RailWidth * 2) + mainMin + SplitterWidth + RemoteDockMinWidth;
+            if (leftOpen)
+            {
+                needed += LeftDockMinWidth + SplitterWidth;
+            }
+
+            return width >= needed;
+        }
+
+        private bool CanFitLeftColumnDock()
+        {
+            var width = GetEffectiveShellWidth();
+            if (width <= 0)
+            {
+                return true;
+            }
+
+            var mainMin = BothSideDocksOpen() ? Math.Min(MainColumnMinWidth, 220) : MainColumnMinWidth;
+            var needed = (RailWidth * 2) + mainMin + LeftDockMinWidth + SplitterWidth;
+            if (!_isRemoteWorkspaceCollapsed && _remoteLayoutMode != RemoteWorkspaceLayoutMode.Narrow)
+            {
+                needed += RemoteDockMinWidth + SplitterWidth;
+            }
+
+            return width >= needed;
+        }
+
+        private bool BothSideDocksOpen() => !_isDirectUploadDockCollapsed && !_isRemoteWorkspaceCollapsed;
+
+        /// <summary>
+        /// When both side docks are open, shrink them to minimum widths if preferred sizes no longer fit.
+        /// </summary>
+        private void ShrinkSideDocksToFitIfNeeded()
+        {
+            if (!BothSideDocksOpen())
+            {
+                return;
+            }
+
+            var width = GetEffectiveShellWidth();
+            if (width <= 0)
+            {
+                return;
+            }
+
+            var mainMin = Math.Min(MainColumnMinWidth, 220);
+            var availableForDocks = width - ((RailWidth * 2) + mainMin + (SplitterWidth * 2));
+            if (availableForDocks < LeftDockMinWidth + RemoteDockMinWidth)
+            {
+                // Still pin to mins — center may scroll; both docks stay open together.
+                _leftDockLastWidth = new GridLength(LeftDockMinWidth);
+                _remotePanelLastWidth = new GridLength(RemoteDockMinWidth);
+                return;
+            }
+
+            var leftWant = _leftDockLastWidth.Value > 0 ? _leftDockLastWidth.Value : 340;
+            var remoteWant = _remotePanelLastWidth.Value > 0 ? _remotePanelLastWidth.Value : 420;
+            if (leftWant + remoteWant <= availableForDocks)
+            {
+                return;
+            }
+
+            // Preferred widths are too wide: snap both to the configured minimums.
+            _leftDockLastWidth = new GridLength(LeftDockMinWidth);
+            _remotePanelLastWidth = new GridLength(RemoteDockMinWidth);
+        }
+
+        private double ComputeRemoteDockMaxWidth(bool leftOpen)
+        {
+            var width = GetEffectiveShellWidth();
+            if (width <= 0)
+            {
+                return 720;
+            }
+
+            var reserved = (RailWidth * 2) + MainColumnMinWidth + SplitterWidth;
+            if (leftOpen)
+            {
+                var leftWidth = LeftDockColumn.Width.IsAbsolute && LeftDockColumn.Width.Value > 0
+                    ? LeftDockColumn.Width.Value
+                    : LeftDockMinWidth;
+                reserved += leftWidth + SplitterWidth;
+            }
+
+            return Math.Max(RemoteDockMinWidth, width - reserved);
+        }
+
+        private double ComputeLeftDockMaxWidth(bool remoteOpen)
+        {
+            var width = GetEffectiveShellWidth();
+            if (width <= 0)
+            {
+                return 640;
+            }
+
+            var reserved = (RailWidth * 2) + MainColumnMinWidth + SplitterWidth;
+            if (remoteOpen)
+            {
+                var remoteWidth = DeployRemotePanelColumn.Width.IsAbsolute && DeployRemotePanelColumn.Width.Value > 0
+                    ? DeployRemotePanelColumn.Width.Value
+                    : RemoteDockMinWidth;
+                reserved += remoteWidth + SplitterWidth;
+            }
+
+            return Math.Max(LeftDockMinWidth, width - reserved);
+        }
+
+        private void ClearLeftDockColumnConstraints()
+        {
+            LeftDockColumn.MinWidth = 0;
+            LeftDockColumn.MaxWidth = double.PositiveInfinity;
+        }
+
+        private void ClearRemoteDockColumnConstraints()
+        {
+            DeployRemotePanelColumn.MinWidth = 0;
+            DeployRemotePanelColumn.MaxWidth = double.PositiveInfinity;
+        }
+
+        private void ClampOpenDockWidthsToAvailableSpace()
+        {
+            if (!_isDirectUploadDockCollapsed &&
+                LeftDockColumn.Width.IsAbsolute &&
+                LeftDockColumn.Width.Value > 0 &&
+                LeftDockSplitter.Visibility == Visibility.Visible)
+            {
+                var maxLeft = ComputeLeftDockMaxWidth(remoteOpen: !_isRemoteWorkspaceCollapsed && RemoteDockSplitter.Visibility == Visibility.Visible);
+                LeftDockColumn.MaxWidth = Math.Max(LeftDockMinWidth, maxLeft);
+                if (LeftDockColumn.Width.Value > maxLeft)
+                {
+                    LeftDockColumn.Width = new GridLength(Math.Max(LeftDockMinWidth, maxLeft));
+                    _leftDockLastWidth = LeftDockColumn.Width;
+                }
+            }
+
+            if (!_isRemoteWorkspaceCollapsed &&
+                DeployRemotePanelColumn.Width.IsAbsolute &&
+                DeployRemotePanelColumn.Width.Value > 0 &&
+                RemoteDockSplitter.Visibility == Visibility.Visible)
+            {
+                var maxRemote = ComputeRemoteDockMaxWidth(leftOpen: !_isDirectUploadDockCollapsed && LeftDockSplitter.Visibility == Visibility.Visible);
+                DeployRemotePanelColumn.MaxWidth = Math.Max(RemoteDockMinWidth, maxRemote);
+                if (DeployRemotePanelColumn.Width.Value > maxRemote)
+                {
+                    DeployRemotePanelColumn.Width = new GridLength(Math.Max(RemoteDockMinWidth, maxRemote));
+                    _remotePanelLastWidth = DeployRemotePanelColumn.Width;
+                }
+            }
+        }
+
+        private RemoteWorkspaceLayoutMode DetermineRemoteLayoutMode()
+        {
+            var width = GetEffectiveShellWidth();
             if (width <= 0)
             {
                 return _remoteLayoutMode;
             }
 
-            var portrait = ActualHeight > width;
-            if (portrait || width < RemoteNarrowBreakpoint)
+            // Column dock + visible splitter whenever the budget fits (covers typical "medium" sizes).
+            // Also keep column mode when both docks can share the shell at minimum widths.
+            if (CanFitColumnRemoteDock(leftOpen: false) || CanFitColumnRemoteDock(leftOpen: true))
             {
-                return RemoteWorkspaceLayoutMode.Narrow;
+                return width >= RemoteWideBreakpoint
+                    ? RemoteWorkspaceLayoutMode.Wide
+                    : RemoteWorkspaceLayoutMode.Medium;
             }
 
-            if (width < RemoteMediumBreakpoint)
-            {
-                return RemoteWorkspaceLayoutMode.Narrow;
-            }
-
-            if (width < RemoteWideBreakpoint)
-            {
-                return RemoteWorkspaceLayoutMode.Medium;
-            }
-
-            return RemoteWorkspaceLayoutMode.Wide;
+            return RemoteWorkspaceLayoutMode.Narrow;
         }
 
         private void ApplyWideRemoteLayout(bool resetWidth = true)
@@ -751,6 +940,7 @@ namespace GitDeployPro.Pages
 
             if (_isRemoteWorkspaceCollapsed)
             {
+                ClearRemoteDockColumnConstraints();
                 DeployRemotePanelColumn.Width = new GridLength(0);
                 DeployRemoteSplitterColumn.Width = new GridLength(0);
                 RemoteDockSplitter.Visibility = Visibility.Collapsed;
@@ -758,48 +948,31 @@ namespace GitDeployPro.Pages
                 return;
             }
 
+            var maxWidth = ComputeRemoteDockMaxWidth(leftOpen: !_isDirectUploadDockCollapsed);
+            var width = _remotePanelLastWidth.Value > 0 ? _remotePanelLastWidth.Value : 420;
+            width = Math.Max(RemoteDockMinWidth, Math.Min(width, Math.Min(720, maxWidth)));
+
             if (resetWidth || !DeployRemotePanelColumn.Width.IsAbsolute || DeployRemotePanelColumn.Width.Value <= 0)
             {
-                var width = _remotePanelLastWidth.Value > 0 ? _remotePanelLastWidth.Value : 420;
-                if (width < 260) width = 260;
-                if (width > 720) width = 720;
                 DeployRemotePanelColumn.Width = new GridLength(width);
             }
-
-            DeployRemotePanelColumn.MinWidth = 240;
-            DeployRemoteSplitterColumn.Width = new GridLength(8);
-            RemoteDockSplitter.Visibility = Visibility.Visible;
-            RemoteWorkspaceContainer.Visibility = Visibility.Visible;
-        }
-
-        private void ApplyMediumRemoteLayout()
-        {
-            DeployRemotePanelColumn.Width = new GridLength(0);
-            DeployRemoteSplitterColumn.Width = new GridLength(0);
-            RemoteDockSplitter.Visibility = Visibility.Collapsed;
-
-            if (_isRemoteWorkspaceCollapsed)
+            else if (DeployRemotePanelColumn.Width.Value > maxWidth || DeployRemotePanelColumn.Width.Value < RemoteDockMinWidth)
             {
-                RemoteWorkspaceContainer.Visibility = Visibility.Collapsed;
-                ResetRemoteDockPlacement();
-                return;
+                DeployRemotePanelColumn.Width = new GridLength(Math.Max(RemoteDockMinWidth, Math.Min(DeployRemotePanelColumn.Width.Value, maxWidth)));
             }
 
-            var availableWidth = ActualWidth > 0 ? ActualWidth : 1400;
-            var overlayWidth = Math.Min(460, Math.Max(320, availableWidth * 0.38));
-
-            Grid.SetColumn(RemoteWorkspaceContainer, 0);
-            Grid.SetColumnSpan(RemoteWorkspaceContainer, 7);
-            RemoteWorkspaceContainer.Margin = new Thickness(0);
-            RemoteWorkspaceContainer.HorizontalAlignment = System.Windows.HorizontalAlignment.Right;
-            RemoteWorkspaceContainer.VerticalAlignment = System.Windows.VerticalAlignment.Stretch;
-            RemoteWorkspaceContainer.Width = overlayWidth;
-            System.Windows.Controls.Panel.SetZIndex(RemoteWorkspaceContainer, 15);
+            _remotePanelLastWidth = DeployRemotePanelColumn.Width;
+            DeployRemotePanelColumn.MinWidth = RemoteDockMinWidth;
+            DeployRemotePanelColumn.MaxWidth = Math.Max(RemoteDockMinWidth, maxWidth);
+            DeployRemoteSplitterColumn.Width = new GridLength(SplitterWidth);
+            RemoteDockSplitter.Visibility = Visibility.Visible;
             RemoteWorkspaceContainer.Visibility = Visibility.Visible;
+            System.Windows.Controls.Panel.SetZIndex(RemoteDockSplitter, 50);
         }
 
         private void ApplyNarrowRemoteLayout()
         {
+            ClearRemoteDockColumnConstraints();
             DeployRemotePanelColumn.Width = new GridLength(0);
             DeployRemoteSplitterColumn.Width = new GridLength(0);
             RemoteDockSplitter.Visibility = Visibility.Collapsed;
@@ -811,12 +984,16 @@ namespace GitDeployPro.Pages
                 return;
             }
 
+            // Drawer overlay — keep ~15% of the page visible so it never feels full-screen with no handle.
+            var shellWidth = GetEffectiveShellWidth();
+            var overlayWidth = Math.Min(shellWidth * 0.85, Math.Max(RemoteDockMinWidth, shellWidth - (RailWidth * 2) - 120));
+
             Grid.SetColumn(RemoteWorkspaceContainer, 0);
             Grid.SetColumnSpan(RemoteWorkspaceContainer, 7);
-            RemoteWorkspaceContainer.Margin = new Thickness(0);
-            RemoteWorkspaceContainer.HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch;
+            RemoteWorkspaceContainer.Margin = new Thickness(0, 0, RailWidth, 0);
+            RemoteWorkspaceContainer.HorizontalAlignment = System.Windows.HorizontalAlignment.Right;
             RemoteWorkspaceContainer.VerticalAlignment = System.Windows.VerticalAlignment.Stretch;
-            RemoteWorkspaceContainer.Width = double.NaN;
+            RemoteWorkspaceContainer.Width = overlayWidth;
             System.Windows.Controls.Panel.SetZIndex(RemoteWorkspaceContainer, 16);
             RemoteWorkspaceContainer.Visibility = Visibility.Visible;
         }

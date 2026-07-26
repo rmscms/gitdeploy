@@ -1,0 +1,42 @@
+<Window x:Class="GitDeployPro.Windows.UpdateProgressWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Downloading update"
+        Width="420"
+        Height="180"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="{StaticResource Surface.Base}"
+        ShowInTaskbar="False">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0"
+                   Text="Downloading update..."
+                   FontSize="16"
+                   FontWeight="SemiBold"
+                   Foreground="{StaticResource Text.Primary}" />
+
+        <TextBlock x:Name="StatusText"
+                   Grid.Row="1"
+                   Margin="0,10,0,0"
+                   FontSize="12"
+                   Foreground="{StaticResource Text.Secondary}"
+                   Text="Preparing download..." />
+
+        <ProgressBar x:Name="DownloadProgress"
+                     Grid.Row="2"
+                     Height="10"
+                     Margin="0,16,0,0"
+                     Minimum="0"
+                     Maximum="100"
+                     IsIndeterminate="True"
+                     Background="{StaticResource Surface.Input}"
+                     Foreground="{StaticResource Accent.Primary}" />
+    </Grid>
+</Window>

@@ -9,6 +9,7 @@ using FluentFTP;
 using GitDeployPro.Controls;
 using GitDeployPro.Models;
 using GitDeployPro.Services;
+using GitDeployPro.Services.Update;
 using GitDeployPro.Windows;
 using System.Windows.Forms; // For FolderBrowserDialog
 
@@ -52,10 +53,42 @@ namespace GitDeployPro.Pages
                 }
 
                 RefreshStartupAudit();
+                RefreshUpdateStatus(globalConfig);
             }
             catch (Exception ex)
             {
                 ModernMessageBox.Show($"Error loading settings: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void RefreshUpdateStatus(ConfigurationService.GlobalConfig? globalConfig = null)
+        {
+            globalConfig ??= _configService.LoadGlobalConfig();
+            if (UpdateVersionText != null)
+            {
+                UpdateVersionText.Text = $"Current version: {new AppUpdateService().GetCurrentVersion()}";
+            }
+
+            if (UpdateLastCheckText != null)
+            {
+                UpdateLastCheckText.Text = globalConfig.LastUpdateCheckUtc.HasValue
+                    ? $"Last automatic check: {globalConfig.LastUpdateCheckUtc.Value.ToLocalTime():yyyy-MM-dd HH:mm}"
+                    : "Last automatic check: never";
+            }
+        }
+
+        private async void CheckForUpdatesButton_Click(object sender, RoutedEventArgs e)
+        {
+            CheckForUpdatesButton.IsEnabled = false;
+            try
+            {
+                var owner = Window.GetWindow(this);
+                await AppUpdateCoordinator.RunManualCheckAsync(owner);
+                RefreshUpdateStatus();
+            }
+            finally
+            {
+                CheckForUpdatesButton.IsEnabled = true;
             }
         }
 

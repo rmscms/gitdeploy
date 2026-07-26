@@ -61,6 +61,7 @@ namespace GitDeployPro.Controls
         private bool _autoConnectAttempted;
         private bool _autoConnectInProgress;
         private bool _suppressTabSelectionChanged;
+        private bool _suppressConnectionSelectionChanged;
         private bool _editorRecoveryInProgress;
         private bool _editorWarmupInProgress;
         private bool _editorWarmupLoggedReady;
@@ -707,24 +708,37 @@ namespace GitDeployPro.Controls
                 .OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
-            ConnectionComboBox.ItemsSource = profiles;
-            if (profiles.Count == 0)
+            _suppressConnectionSelectionChanged = true;
+            try
             {
-                ConnectionComboBox.SelectedItem = null;
-                _currentProfile = null;
-                SetStatus("No FTP/SFTP profile found. Create one in Connection Manager.", warning: true);
-                return;
+                ConnectionComboBox.ItemsSource = profiles;
+                if (profiles.Count == 0)
+                {
+                    ConnectionComboBox.SelectedItem = null;
+                    _currentProfile = null;
+                    SetStatus("No FTP/SFTP profile found. Create one in Connection Manager.", warning: true);
+                    return;
+                }
+
+                var preferred = profiles.FirstOrDefault(p =>
+                    !string.IsNullOrWhiteSpace(_projectConfig.ConnectionProfileId) &&
+                    string.Equals(p.Id, _projectConfig.ConnectionProfileId, StringComparison.OrdinalIgnoreCase));
+                var keepCurrent = profiles.FirstOrDefault(p =>
+                    !string.IsNullOrWhiteSpace(previousSelectedId) &&
+                    string.Equals(p.Id, previousSelectedId, StringComparison.OrdinalIgnoreCase));
+                var selected = preferred ?? keepCurrent ?? profiles.First();
+                ConnectionComboBox.SelectedItem = selected;
+                _currentProfile = selected;
+            }
+            finally
+            {
+                _suppressConnectionSelectionChanged = false;
             }
 
-            var preferred = profiles.FirstOrDefault(p =>
-                !string.IsNullOrWhiteSpace(_projectConfig.ConnectionProfileId) &&
-                string.Equals(p.Id, _projectConfig.ConnectionProfileId, StringComparison.OrdinalIgnoreCase));
-            var keepCurrent = profiles.FirstOrDefault(p =>
-                !string.IsNullOrWhiteSpace(previousSelectedId) &&
-                string.Equals(p.Id, previousSelectedId, StringComparison.OrdinalIgnoreCase));
-            var selected = preferred ?? keepCurrent ?? profiles.First();
-            ConnectionComboBox.SelectedItem = selected;
-            _currentProfile = selected;
+            if (profiles.Count == 0)
+            {
+                return;
+            }
 
             if (_remoteService != null && _remoteService.IsConnected && _currentProfile != null &&
                 !string.Equals(_remoteService.ProfileId, _currentProfile.Id, StringComparison.OrdinalIgnoreCase))
@@ -908,6 +922,11 @@ namespace GitDeployPro.Controls
             UpdateUiState();
             try
             {
+                if (_remoteService != null)
+                {
+                    await DisposeRemoteServiceQuietlyAsync();
+                }
+
                 _remoteService = profile.UseSSH
                     ? new SftpRemoteFileService()
                     : new FtpRemoteFileService();
@@ -1119,6 +1138,7 @@ namespace GitDeployPro.Controls
 
                 SetStatus($"Loaded {RootNodes.Count} item(s) from {root}", success: true);
                 AddLog($"Root loaded from {root}");
+                UpdateMappingBanner();
             }
             finally
             {
@@ -2249,12 +2269,48 @@ namespace GitDeployPro.Controls
             }
         }
 
-        private void ConnectionComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private async void ConnectionComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (ConnectionComboBox.SelectedItem is ConnectionProfile profile)
+            if (_suppressConnectionSelectionChanged || _isBusy)
+            {
+                return;
+            }
+
+            if (ConnectionComboBox.SelectedItem is not ConnectionProfile profile)
+            {
+                return;
+            }
+
+            var alreadyConnectedToSame =
+                _remoteService != null &&
+                _remoteService.IsConnected &&
+                string.Equals(_remoteService.ProfileId, profile.Id, StringComparison.OrdinalIgnoreCase);
+
+            if (alreadyConnectedToSame)
             {
                 _currentProfile = profile;
-                SetStatus($"Selected profile: {profile.Name}", warning: false);
+                return;
+            }
+
+            _currentProfile = profile;
+            SetStatus($"Switching to {profile.Name}...", warning: false);
+            AddLog($"Profile selected: {profile.Name}");
+
+            try
+            {
+                if (_remoteService != null)
+                {
+                    await DisconnectAsync();
+                }
+
+                _autoConnectAttempted = false;
+                _lastAutoConnectProfileId = string.Empty;
+                await ConnectAsync(profile, showDialogOnError: false, isAutoConnect: true);
+            }
+            catch (Exception ex)
+            {
+                SetStatus($"Switch failed: {ex.Message}", warning: true);
+                AddLog($"Profile switch failed: {ex.Message}");
             }
         }
 
@@ -2283,6 +2339,32 @@ namespace GitDeployPro.Controls
             ApplyEditorDirtyState(!string.Equals(buffer, _editSession.Content, StringComparison.Ordinal));
         }
 
+        private void UpdateMappingBanner()
+        {
+            if (MappingBanner == null || MappingBannerText == null)
+            {
+                return;
+            }
+
+            var mapping = RemotePathResolver.GetPrimaryMapping(_currentProfile);
+            if (mapping == null)
+            {
+                MappingBanner.Visibility = Visibility.Collapsed;
+                MappingBannerText.Text = string.Empty;
+                return;
+            }
+
+            var localLabel = string.IsNullOrWhiteSpace(mapping.LocalPath) ? "(project root)" : mapping.LocalPath.Trim();
+            var remoteLabel = string.IsNullOrWhiteSpace(mapping.RemotePath) ? "/" : mapping.RemotePath.Trim();
+            var root = _currentProfile != null
+                ? RemotePathResolver.BuildRemoteRoot(_currentProfile)
+                : remoteLabel;
+
+            MappingBannerText.Text =
+                $"Path mapping is active: local `{localLabel}` → remote `{remoteLabel}` (browsing `{root}`).";
+            MappingBanner.Visibility = Visibility.Visible;
+        }
+
         private void UpdateUiState()
         {
             var connected = _remoteService != null && _remoteService.IsConnected;
@@ -2292,6 +2374,7 @@ namespace GitDeployPro.Controls
             RefreshButton.IsEnabled = !_isBusy;
             ConnectionComboBox.IsEnabled = !_isBusy;
             RemoteTreeView.IsEnabled = connected && !_isBusy;
+            UpdateMappingBanner();
             // Keep tabs enabled visually (disabled ListBox flashes white). Block clicks while busy.
             EditorTabsListBox.IsEnabled = OpenSessions.Count > 0;
             EditorTabsListBox.IsHitTestVisible = !_isBusy && OpenSessions.Count > 0;
