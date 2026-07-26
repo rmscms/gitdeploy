@@ -83,7 +83,13 @@
             BorderBrush="{StaticResource Border.Subtle}"
             BorderThickness="1"
             SnapsToDevicePixels="True">
-        <Grid x:Name="ShellRootGrid">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+        <Grid x:Name="ShellRootGrid" Grid.Row="0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition x:Name="SidebarColumn" Width="250" />
                 <ColumnDefinition Width="*" />
@@ -395,6 +401,70 @@
                        ScrollViewer.VerticalScrollBarVisibility="Auto"
                        ScrollViewer.HorizontalScrollBarVisibility="Auto" />
             </Grid>
+        </Grid>
+
+            <!-- Update footer stays inside the window client area (above OS taskbar). -->
+            <Border x:Name="UpdateFooterBar"
+                    Grid.Row="1"
+                    Visibility="Collapsed"
+                    Background="{StaticResource Surface.Shell}"
+                    BorderBrush="{StaticResource Border.Subtle}"
+                    BorderThickness="0,1,0,0"
+                    Padding="14,10"
+                    MinHeight="52">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock x:Name="UpdateFooterTitle"
+                                   Text="Downloading update..."
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource Text.Primary}" />
+                        <ProgressBar x:Name="UpdateFooterProgress"
+                                     Height="6"
+                                     Margin="0,8,0,0"
+                                     Minimum="0"
+                                     Maximum="100"
+                                     Value="0" />
+                        <TextBlock x:Name="UpdateFooterDetail"
+                                   Margin="0,6,0,0"
+                                   FontSize="11"
+                                   Foreground="{StaticResource Text.Muted}"
+                                   TextWrapping="Wrap"
+                                   Text="" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1"
+                                Orientation="Horizontal"
+                                VerticalAlignment="Center"
+                                Margin="16,0,0,0">
+                        <Button x:Name="UpdateFooterCancelButton"
+                                Content="Cancel"
+                                MinWidth="88"
+                                Height="32"
+                                Margin="0,0,8,0"
+                                Style="{StaticResource App.Button.Ghost}"
+                                Click="UpdateFooterCancelButton_Click" />
+                        <Button x:Name="UpdateFooterRestartButton"
+                                Content="Restart now"
+                                MinWidth="110"
+                                Height="32"
+                                Style="{StaticResource App.Button.Primary}"
+                                Visibility="Collapsed"
+                                Click="UpdateFooterRestartButton_Click" />
+                        <Button x:Name="UpdateFooterLaterButton"
+                                Content="Later"
+                                MinWidth="80"
+                                Height="32"
+                                Margin="8,0,0,0"
+                                Style="{StaticResource App.Button.Ghost}"
+                                Visibility="Collapsed"
+                                Click="UpdateFooterLaterButton_Click" />
+                    </StackPanel>
+                </Grid>
+            </Border>
         </Grid>
     </Border>
 </Window>

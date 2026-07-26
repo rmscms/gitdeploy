@@ -25,6 +25,12 @@ namespace GitDeployPro.Services.Update
             var service = new AppUpdateService();
             if (!service.ShouldCheckAutomatically())
             {
+                // Still surface a previously downloaded pending update.
+                if (owner is MainWindow mainWindow)
+                {
+                    mainWindow.RestorePendingUpdateFooterIfAny();
+                }
+
                 return;
             }
 
@@ -55,12 +61,51 @@ namespace GitDeployPro.Services.Update
                     return;
                 }
 
+                if (owner is MainWindow busyMain && busyMain.IsBackgroundUpdateInProgress)
+                {
+                    if (showUpToDateMessage)
+                    {
+                        ModernMessageBox.Show(
+                            "An update download is already in progress.",
+                            "Updates",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Information,
+                            owner: owner);
+                    }
+
+                    return;
+                }
+
                 if (!UpdateOptions.IsConfigured)
                 {
                     if (showUpToDateMessage)
                     {
                         ModernMessageBox.Show(
                             "Update server is not configured for this app build.\nSet UpdateOptions.BaseUrl in code.",
+                            "Updates",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Information,
+                            owner: owner);
+                    }
+
+                    return;
+                }
+
+                // If a package is already downloaded, just show the footer.
+                var pending = service.GetPendingUpdate();
+                if (pending != null &&
+                    Version.TryParse(AppUpdateService.NormalizeVersionString(pending.Version), out var pendingVer) &&
+                    pendingVer > service.GetCurrentVersion())
+                {
+                    if (owner is MainWindow mainWithPending)
+                    {
+                        mainWithPending.ShowUpdateReadyFooter(pending);
+                    }
+
+                    if (showUpToDateMessage)
+                    {
+                        ModernMessageBox.Show(
+                            $"Update {pending.Version} is already downloaded.\nUse Restart now in the footer to apply it.",
                             "Updates",
                             MessageBoxButton.OK,
                             MessageBoxImage.Information,
@@ -140,14 +185,22 @@ namespace GitDeployPro.Services.Update
                         return;
                     }
 
-                    var progress = new UpdateProgressWindow(service, result.Manifest)
+                    if (owner is MainWindow mainWindow)
                     {
-                        Owner = owner
-                    };
-                    var applied = progress.ShowDialog() == true && progress.ApplyStarted;
-                    if (applied)
+                        mainWindow.StartBackgroundUpdateDownload(result.Manifest);
+                    }
+                    else
                     {
-                        System.Windows.Application.Current?.Shutdown();
+                        // Fallback for non-main owners: blocking progress window.
+                        var progress = new UpdateProgressWindow(service, result.Manifest)
+                        {
+                            Owner = owner
+                        };
+                        var applied = progress.ShowDialog() == true && progress.ApplyStarted;
+                        if (applied)
+                        {
+                            System.Windows.Application.Current?.Shutdown();
+                        }
                     }
                 }
                 finally

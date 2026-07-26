@@ -27,10 +27,14 @@ namespace GitDeployPro.Windows
             if (result.IsMandatory)
             {
                 TitleText.Text = "Critical update required";
-                VersionText.Text = $"Version {current} → {remote}\nYou must update before continuing.";
+                VersionText.Text =
+                    $"Version {current} → {remote}\n" +
+                    "Download starts in the background so you can keep working, then Restart to install.\n" +
+                    "You must install this update before continuing long-term.";
                 VersionText.Foreground = TryFindResource("Status.Warning") as System.Windows.Media.Brush
                     ?? System.Windows.Media.Brushes.Orange;
                 SecondaryButton.Content = "Exit";
+                PrimaryButton.Content = "Download update";
                 Choice = UpdateDialogChoice.Exit;
                 Closing += (_, e) =>
                 {
@@ -44,8 +48,11 @@ namespace GitDeployPro.Windows
             else
             {
                 TitleText.Text = "Update available";
-                VersionText.Text = $"Version {current} → {remote}";
+                VersionText.Text =
+                    $"Version {current} → {remote}\n" +
+                    "Download runs in the background. Keep using the app, then Restart when ready.";
                 SecondaryButton.Content = "Later";
+                PrimaryButton.Content = "Download update";
             }
 
             NotesText.Text = notes;

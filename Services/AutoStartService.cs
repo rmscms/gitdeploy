@@ -13,7 +13,9 @@ namespace GitDeployPro.Services
         private const string ValueName = "GitDeployPro";
         public string PrimaryValueName => ValueName;
 
-        public void SetAutoStart(bool enable)
+        public void SetAutoStart(bool enable) => SetAutoStart(enable, exePathOverride: null);
+
+        public void SetAutoStart(bool enable, string? exePathOverride)
         {
             try
             {
@@ -22,7 +24,9 @@ namespace GitDeployPro.Services
 
                 if (enable)
                 {
-                    var exePath = GetCurrentExecutablePath();
+                    var exePath = !string.IsNullOrWhiteSpace(exePathOverride)
+                        ? exePathOverride.Trim()
+                        : GetCurrentExecutablePath();
                     if (string.IsNullOrWhiteSpace(exePath))
                     {
                         return;
@@ -33,6 +37,39 @@ namespace GitDeployPro.Services
                 else
                 {
                     key.DeleteValue(ValueName, false);
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        /// <summary>
+        /// Points startup at the stable install EXE when Launch-on-startup is enabled
+        /// (or already registered), and removes obvious duplicate GitDeploy Run values.
+        /// </summary>
+        public void RefreshToInstallPath(bool launchOnStartupEnabled)
+        {
+            var installExe = Update.AppInstallPaths.ExecutablePath;
+            if (!File.Exists(installExe))
+            {
+                return;
+            }
+
+            if (launchOnStartupEnabled || IsEnabled())
+            {
+                SetAutoStart(true, installExe);
+            }
+
+            try
+            {
+                var duplicates = GetGitDeployStartupEntries()
+                    .Where(e => !string.Equals(e.ValueName, PrimaryValueName, StringComparison.OrdinalIgnoreCase))
+                    .Select(e => e.ValueName)
+                    .ToList();
+                if (duplicates.Count > 0)
+                {
+                    RemoveStartupEntries(duplicates);
                 }
             }
             catch
