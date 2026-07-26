@@ -1,9 +1,9 @@
 {
-  "version": "1.4.5",
-  "fileName": "GitDeployPro-1.4.5.exe",
-  "downloadUrl": "versions/GitDeployPro-1.4.5.exe",
-  "sha256": "21A09B23101D99DC8ECF56E8400972B9E0FA2C0BF087D2B6B7FF03CDED15D30E",
-  "releaseNotes": "- Check for updates on About page\n- Direct Upload ./ root checkbox when path mapping is active\n- FTP banner when path mapping is active\n- Release feed/changelog polish for update testing",
+  "version": "1.4.6",
+  "fileName": "GitDeployPro-1.4.6.exe",
+  "downloadUrl": "versions/GitDeployPro-1.4.6.exe",
+  "sha256": "6A7004D40CA7FAE6B8C48EF141111C57AA9618E02A8041AAA3B302E13AA15243",
+  "releaseNotes": "- Stable LocalAppData install + Desktop shortcut\n- Background update download footer with Restart to apply\n- AutoStart refreshes to install path after update\n- About shows install path",
   "mandatory": false,
-  "publishedUtc": "2026-07-26T09:19:20Z"
+  "publishedUtc": "2026-07-26T09:57:32Z"
 }

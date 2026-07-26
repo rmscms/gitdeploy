@@ -14,6 +14,7 @@ namespace GitDeployPro.Services.Update
     public sealed class AppUpdateService
     {
         private static readonly HttpClient Http = CreateClient();
+        private static readonly HttpClient DownloadHttp = CreateDownloadClient();
         private readonly ConfigurationService _configService;
 
         public AppUpdateService(ConfigurationService? configService = null)
@@ -60,6 +61,8 @@ namespace GitDeployPro.Services.Update
             _configService.UpdateGlobalConfig(cfg => cfg.LastUpdateCheckUtc = AppTimeService.UtcNow);
         }
 
+        public string GetInstallPathDisplay() => AppInstallPaths.ExecutablePath;
+
         public async Task<UpdateCheckResult> CheckForUpdateAsync(CancellationToken cancellationToken = default)
         {
             if (!UpdateOptions.IsConfigured)
@@ -73,7 +76,6 @@ namespace GitDeployPro.Services.Update
                 using var response = await Http.GetAsync(manifestUrl, cancellationToken);
                 if (!response.IsSuccessStatusCode)
                 {
-                    // Do not advance last-check on transport failures so automatic retries can happen sooner.
                     return UpdateCheckResult.Failed($"Update server returned {(int)response.StatusCode}.");
                 }
 
@@ -96,7 +98,6 @@ namespace GitDeployPro.Services.Update
                     return UpdateCheckResult.Failed($"Invalid remote version: {manifest.Version}");
                 }
 
-                // Successful fetch of a valid manifest — schedule the next automatic check window.
                 MarkCheckCompleted();
 
                 if (remote <= current)
@@ -129,7 +130,57 @@ namespace GitDeployPro.Services.Update
             }
         }
 
-        public async Task DownloadAndApplyAsync(
+        public PendingUpdateState? GetPendingUpdate()
+        {
+            try
+            {
+                var path = AppInstallPaths.PendingManifestPath;
+                if (!File.Exists(path))
+                {
+                    return null;
+                }
+
+                var json = File.ReadAllText(path);
+                var state = JsonConvert.DeserializeObject<PendingUpdateState>(json);
+                if (state == null ||
+                    string.IsNullOrWhiteSpace(state.PackagePath) ||
+                    !File.Exists(state.PackagePath))
+                {
+                    return null;
+                }
+
+                return state;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        public void ClearPendingUpdate()
+        {
+            try
+            {
+                if (File.Exists(AppInstallPaths.PendingManifestPath))
+                {
+                    File.Delete(AppInstallPaths.PendingManifestPath);
+                }
+
+                if (File.Exists(AppInstallPaths.PendingPackagePath))
+                {
+                    File.Delete(AppInstallPaths.PendingPackagePath);
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        /// <summary>
+        /// Downloads and verifies the package while the app stays running.
+        /// Does not replace the running EXE.
+        /// </summary>
+        public async Task<PendingUpdateState> DownloadOnlyAsync(
             UpdateManifest manifest,
             IProgress<double>? progress = null,
             CancellationToken cancellationToken = default)
@@ -140,12 +191,6 @@ namespace GitDeployPro.Services.Update
                 throw new InvalidOperationException("Update server is not configured.");
             }
 
-            var currentExe = Environment.ProcessPath;
-            if (string.IsNullOrWhiteSpace(currentExe) || !File.Exists(currentExe))
-            {
-                throw new InvalidOperationException("Could not resolve the running application path.");
-            }
-
             var fileName = string.IsNullOrWhiteSpace(manifest.FileName)
                 ? Path.GetFileName(manifest.DownloadUrl)
                 : manifest.FileName.Trim();
@@ -154,32 +199,93 @@ namespace GitDeployPro.Services.Update
                 throw new InvalidOperationException("Invalid update file name.");
             }
 
-            var downloadUrl = ResolveDownloadUrl(manifest.DownloadUrl, fileName);
-            var tempDir = Path.Combine(Path.GetTempPath(), "GitDeployPro-update");
-            Directory.CreateDirectory(tempDir);
-            var tempExe = Path.Combine(tempDir, fileName);
-            if (File.Exists(tempExe))
+            Directory.CreateDirectory(AppInstallPaths.UpdateStagingDirectory);
+            var packagePath = AppInstallPaths.PendingPackagePath;
+            if (File.Exists(packagePath))
             {
-                File.Delete(tempExe);
+                File.Delete(packagePath);
             }
 
-            await DownloadFileAsync(downloadUrl, tempExe, progress, cancellationToken);
-            await VerifySha256Async(tempExe, manifest.Sha256, cancellationToken);
+            var downloadUrl = ResolveDownloadUrl(manifest.DownloadUrl, fileName);
+            await DownloadFileAsync(downloadUrl, packagePath, progress, cancellationToken);
+            await VerifySha256Async(packagePath, manifest.Sha256, cancellationToken);
 
-            var helperPath = Path.Combine(tempDir, "apply-update.cmd");
+            var state = new PendingUpdateState
+            {
+                Version = manifest.Version?.Trim() ?? string.Empty,
+                PackagePath = packagePath,
+                Sha256 = manifest.Sha256?.Trim() ?? string.Empty,
+                FileName = fileName,
+                Mandatory = manifest.Mandatory,
+                ReleaseNotes = manifest.ReleaseNotes ?? string.Empty
+            };
+
+            var json = JsonConvert.SerializeObject(state, Formatting.Indented);
+            await File.WriteAllTextAsync(AppInstallPaths.PendingManifestPath, json, Encoding.UTF8, cancellationToken);
+            return state;
+        }
+
+        /// <summary>
+        /// Applies a previously downloaded package into the stable LocalAppData EXE and relaunches.
+        /// Caller should shut down the current process after this returns.
+        /// </summary>
+        public async Task ApplyPendingAndRestartAsync(CancellationToken cancellationToken = default)
+        {
+            var pending = GetPendingUpdate()
+                ?? throw new InvalidOperationException("No pending update package was found.");
+
+            Directory.CreateDirectory(AppInstallPaths.InstallDirectory);
+            var destExe = AppInstallPaths.ExecutablePath;
+            var global = _configService.LoadGlobalConfig();
+            var autoStart = new AutoStartService();
+
+            // Portable / non-install process can write the install EXE immediately.
+            if (!AppInstallPaths.IsRunningFromInstallPath())
+            {
+                File.Copy(pending.PackagePath, destExe, overwrite: true);
+                DesktopShortcutService.EnsureShortcut(destExe);
+                autoStart.RefreshToInstallPath(global.LaunchOnStartup || autoStart.IsEnabled());
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = destExe,
+                    UseShellExecute = true,
+                    WorkingDirectory = AppInstallPaths.InstallDirectory
+                });
+                return;
+            }
+
+            // Running from install path: replace after exit via helper.
+            autoStart.RefreshToInstallPath(global.LaunchOnStartup || autoStart.IsEnabled());
+            DesktopShortcutService.EnsureShortcut(destExe);
+
+            var helperDir = AppInstallPaths.UpdateStagingDirectory;
+            Directory.CreateDirectory(helperDir);
+            var helperPath = Path.Combine(helperDir, "apply-update.cmd");
             var pid = Environment.ProcessId;
-            var helper = BuildHelperScript(pid, tempExe, currentExe);
+            var helper = BuildHelperScript(pid, pending.PackagePath, destExe);
             await File.WriteAllTextAsync(helperPath, helper, Encoding.ASCII, cancellationToken);
 
-            var startInfo = new ProcessStartInfo
+            Process.Start(new ProcessStartInfo
             {
                 FileName = "cmd.exe",
                 Arguments = $"/c \"\"{helperPath}\"\"",
                 UseShellExecute = true,
                 CreateNoWindow = true,
-                WorkingDirectory = tempDir
-            };
-            Process.Start(startInfo);
+                WorkingDirectory = helperDir
+            });
+        }
+
+        /// <summary>
+        /// Legacy blocking path: download then apply immediately.
+        /// Prefer <see cref="DownloadOnlyAsync"/> + <see cref="ApplyPendingAndRestartAsync"/>.
+        /// </summary>
+        public async Task DownloadAndApplyAsync(
+            UpdateManifest manifest,
+            IProgress<double>? progress = null,
+            CancellationToken cancellationToken = default)
+        {
+            await DownloadOnlyAsync(manifest, progress, cancellationToken);
+            await ApplyPendingAndRestartAsync(cancellationToken);
         }
 
         private static async Task DownloadFileAsync(
@@ -188,7 +294,7 @@ namespace GitDeployPro.Services.Update
             IProgress<double>? progress,
             CancellationToken cancellationToken)
         {
-            using var response = await Http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            using var response = await DownloadHttp.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
             response.EnsureSuccessStatusCode();
 
             var total = response.Content.Headers.ContentLength ?? -1L;
@@ -234,20 +340,22 @@ namespace GitDeployPro.Services.Update
 
         private static string BuildHelperScript(int pid, string sourceExe, string destinationExe)
         {
-            // Escape quotes for cmd.
             var src = sourceExe.Replace("\"", "");
             var dest = destinationExe.Replace("\"", "");
+            var destDir = Path.GetDirectoryName(dest)?.Replace("\"", "") ?? string.Empty;
             return $@"@echo off
 setlocal
 set PID={pid}
 set SRC={src}
 set DEST={dest}
+set DESTDIR={destDir}
 :wait
 tasklist /FI ""PID eq %PID%"" | find ""%PID%"" >nul
 if not errorlevel 1 (
   timeout /t 1 /nobreak >nul
   goto wait
 )
+if not exist ""%DESTDIR%"" mkdir ""%DESTDIR%""
 copy /Y ""%SRC%"" ""%DEST%"" >nul
 if errorlevel 1 (
   ping 127.0.0.1 -n 2 >nul
@@ -324,6 +432,16 @@ endlocal
             var client = new HttpClient
             {
                 Timeout = TimeSpan.FromSeconds(15)
+            };
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("GitDeployPro-Updater/1.0");
+            return client;
+        }
+
+        private static HttpClient CreateDownloadClient()
+        {
+            var client = new HttpClient
+            {
+                Timeout = TimeSpan.FromMinutes(45)
             };
             client.DefaultRequestHeaders.UserAgent.ParseAdd("GitDeployPro-Updater/1.0");
             return client;

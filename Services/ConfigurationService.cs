@@ -35,6 +35,11 @@ namespace GitDeployPro.Services
             public List<BackupSchedule> BackupSchedules { get; set; } = new();
             public List<BackupHistoryEntry> BackupHistory { get; set; } = new();
             public bool LaunchOnStartup { get; set; }
+
+            /// <summary>
+            /// One-time notice after migrating portable EXE into LocalAppData.
+            /// </summary>
+            public bool HasShownInstallMigrationNotice { get; set; }
             public bool ShowBackupSchedulerLocalhostWarning { get; set; } = true;
             public bool MinimizeToTray { get; set; } = true;
             public bool EnablePerformanceSampling { get; set; }

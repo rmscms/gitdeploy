@@ -3,6 +3,8 @@ using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives; 
@@ -36,6 +38,12 @@ namespace GitDeployPro
         private string _currentRoute = string.Empty;
         private bool _sidebarCollapsedBeforeDeploy;
         private readonly DispatcherTimer _updateCheckTimer;
+        private CancellationTokenSource? _updateDownloadCts;
+        private readonly AppUpdateService _updateService = new();
+        private PendingUpdateState? _readyPendingUpdate;
+        private bool _backgroundUpdateInProgress;
+
+        public bool IsBackgroundUpdateInProgress => _backgroundUpdateInProgress;
 
         public MainWindow()
         {
@@ -64,9 +72,165 @@ namespace GitDeployPro
         private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
             Loaded -= MainWindow_Loaded;
-            // Let the shell paint first, then check updates in the background.
             await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+
+            if (AppInstallMigrator.TryMigrateAndRelaunchIfNeeded())
+            {
+                _allowClose = true;
+                System.Windows.Application.Current?.Shutdown();
+                return;
+            }
+
+            // Ensure shortcut/startup stay aligned when already installed.
+            DesktopShortcutService.EnsureShortcut(AppInstallPaths.ExecutablePath);
+            var global = _configService.LoadGlobalConfig();
+            new AutoStartService().RefreshToInstallPath(global.LaunchOnStartup);
+
+            RestorePendingUpdateFooterIfAny();
             await AppUpdateCoordinator.RunAutomaticCheckAsync(this);
+        }
+
+        public void RestorePendingUpdateFooterIfAny()
+        {
+            var pending = _updateService.GetPendingUpdate();
+            if (pending == null)
+            {
+                return;
+            }
+
+            if (!Version.TryParse(AppUpdateService.NormalizeVersionString(pending.Version), out var pendingVer) ||
+                pendingVer <= _updateService.GetCurrentVersion())
+            {
+                return;
+            }
+
+            ShowUpdateReadyFooter(pending);
+        }
+
+        public void StartBackgroundUpdateDownload(UpdateManifest manifest)
+        {
+            if (manifest == null || _backgroundUpdateInProgress)
+            {
+                return;
+            }
+
+            _ = DownloadUpdateInBackgroundAsync(manifest);
+        }
+
+        public void ShowUpdateReadyFooter(PendingUpdateState pending)
+        {
+            _readyPendingUpdate = pending;
+            _backgroundUpdateInProgress = false;
+            UpdateFooterBar.Visibility = Visibility.Visible;
+            UpdateFooterTitle.Text = $"Update {pending.Version} ready";
+            UpdateFooterDetail.Text = "You can keep working. Restart to install the update into LocalAppData.";
+            UpdateFooterProgress.IsIndeterminate = false;
+            UpdateFooterProgress.Value = 100;
+            UpdateFooterCancelButton.Visibility = Visibility.Collapsed;
+            UpdateFooterRestartButton.Visibility = Visibility.Visible;
+            UpdateFooterLaterButton.Visibility = Visibility.Visible;
+        }
+
+        private async Task DownloadUpdateInBackgroundAsync(UpdateManifest manifest)
+        {
+            _updateDownloadCts?.Cancel();
+            _updateDownloadCts = new CancellationTokenSource();
+            var token = _updateDownloadCts.Token;
+            _backgroundUpdateInProgress = true;
+            _readyPendingUpdate = null;
+
+            UpdateFooterBar.Visibility = Visibility.Visible;
+            UpdateFooterTitle.Text = $"Downloading {manifest.Version}...";
+            UpdateFooterDetail.Text = "You can keep using the app while the update downloads.";
+            UpdateFooterProgress.IsIndeterminate = true;
+            UpdateFooterProgress.Value = 0;
+            UpdateFooterCancelButton.Visibility = Visibility.Visible;
+            UpdateFooterRestartButton.Visibility = Visibility.Collapsed;
+            UpdateFooterLaterButton.Visibility = Visibility.Collapsed;
+
+            try
+            {
+                var progress = new Progress<double>(value =>
+                {
+                    if (value < 0)
+                    {
+                        UpdateFooterProgress.IsIndeterminate = true;
+                        UpdateFooterDetail.Text = "Downloading...";
+                        return;
+                    }
+
+                    UpdateFooterProgress.IsIndeterminate = false;
+                    UpdateFooterProgress.Value = value;
+                    UpdateFooterDetail.Text = $"Downloading... {value:0}%";
+                });
+
+                var pending = await _updateService.DownloadOnlyAsync(manifest, progress, token);
+                ShowUpdateReadyFooter(pending);
+            }
+            catch (OperationCanceledException)
+            {
+                HideUpdateFooter();
+            }
+            catch (Exception ex)
+            {
+                _backgroundUpdateInProgress = false;
+                UpdateFooterTitle.Text = "Update download failed";
+                UpdateFooterDetail.Text = ex.Message;
+                UpdateFooterProgress.IsIndeterminate = false;
+                UpdateFooterCancelButton.Content = "Dismiss";
+                UpdateFooterCancelButton.Visibility = Visibility.Visible;
+                UpdateFooterRestartButton.Visibility = Visibility.Collapsed;
+                UpdateFooterLaterButton.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        private void HideUpdateFooter()
+        {
+            _backgroundUpdateInProgress = false;
+            _readyPendingUpdate = null;
+            UpdateFooterBar.Visibility = Visibility.Collapsed;
+            UpdateFooterCancelButton.Content = "Cancel";
+        }
+
+        private void UpdateFooterCancelButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_backgroundUpdateInProgress && _updateDownloadCts != null && !_updateDownloadCts.IsCancellationRequested)
+            {
+                _updateDownloadCts.Cancel();
+                return;
+            }
+
+            HideUpdateFooter();
+        }
+
+        private void UpdateFooterLaterButton_Click(object sender, RoutedEventArgs e)
+        {
+            // Keep pending package on disk; just hide the footer for now.
+            UpdateFooterBar.Visibility = Visibility.Collapsed;
+        }
+
+        private async void UpdateFooterRestartButton_Click(object sender, RoutedEventArgs e)
+        {
+            UpdateFooterRestartButton.IsEnabled = false;
+            UpdateFooterLaterButton.IsEnabled = false;
+            try
+            {
+                UpdateFooterDetail.Text = "Installing update and restarting...";
+                await _updateService.ApplyPendingAndRestartAsync();
+                _allowClose = true;
+                System.Windows.Application.Current?.Shutdown();
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show(
+                    $"Could not apply update:\n{ex.Message}",
+                    "Update",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error,
+                    owner: this);
+                UpdateFooterRestartButton.IsEnabled = true;
+                UpdateFooterLaterButton.IsEnabled = true;
+            }
         }
 
         private async void UpdateCheckTimer_Tick(object? sender, EventArgs e)
