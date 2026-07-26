@@ -38,6 +38,7 @@ namespace GitDeployPro.Services
             public bool ShowBackupSchedulerLocalhostWarning { get; set; } = true;
             public bool MinimizeToTray { get; set; } = true;
             public bool EnablePerformanceSampling { get; set; }
+            public DateTime? LastUpdateCheckUtc { get; set; }
         }
 
         public class RecentProjectEntry

@@ -436,14 +436,16 @@
               VerticalAlignment="Bottom"
               Panel.ZIndex="55">
             <Grid.RowDefinitions>
-                <RowDefinition Height="5" />
+                <RowDefinition Height="8" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
             <Border x:Name="BottomDockResizeGrip"
                     Grid.Row="0"
-                    Background="#3A465C"
+                    Background="#4A5870"
+                    BorderBrush="#6A7A96"
+                    BorderThickness="0,1,0,0"
                     Cursor="SizeNS"
-                    ToolTip="Drag to resize"
+                    ToolTip="Drag to resize Logs / Terminal"
                     MouseLeftButtonDown="BottomDockResizeGrip_MouseLeftButtonDown"
                     MouseMove="BottomDockResizeGrip_MouseMove"
                     MouseLeftButtonUp="BottomDockResizeGrip_MouseLeftButtonUp"

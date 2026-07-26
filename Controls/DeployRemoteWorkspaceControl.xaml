@@ -86,11 +86,26 @@
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <TextBlock Text="Remote files"
-                               FontSize="13"
-                               FontWeight="SemiBold"
-                               Foreground="{StaticResource Text.Primary}"
-                               Margin="0,0,0,8" />
+                    <StackPanel Margin="0,0,0,8">
+                        <TextBlock Text="Remote files"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource Text.Primary}" />
+                        <Border x:Name="MappingBanner"
+                                Margin="0,8,0,0"
+                                Padding="10,8"
+                                CornerRadius="8"
+                                Background="{StaticResource Surface.Input}"
+                                BorderBrush="{StaticResource Border.Subtle}"
+                                BorderThickness="1"
+                                Visibility="Collapsed">
+                            <TextBlock x:Name="MappingBannerText"
+                                       TextWrapping="Wrap"
+                                       FontSize="12"
+                                       Foreground="{StaticResource Status.Info}"
+                                       Text="Path mapping is active for this connection." />
+                        </Border>
+                    </StackPanel>
 
                     <Grid Grid.Row="1">
                         <TreeView x:Name="RemoteTreeView"

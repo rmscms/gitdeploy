@@ -472,6 +472,23 @@
                                 </StackPanel>
                             </GroupBox>
 
+                            <!-- Test Connection (under Authentication) -->
+                            <StackPanel Margin="0,0,0,20">
+                                <Button x:Name="TestRemoteButton"
+                                        Content="⚡ Test Connection"
+                                        HorizontalAlignment="Left"
+                                        Style="{StaticResource App.Button.Primary}"
+                                        Height="32"
+                                        MinWidth="140"
+                                        Padding="14,0"
+                                        Click="TestButton_Click"/>
+                                <TextBlock x:Name="RemoteTestStatusText"
+                                           Text=""
+                                           Margin="0,8,0,0"
+                                           Foreground="{StaticResource Text.Secondary}"
+                                           FontSize="12"/>
+                            </StackPanel>
+
                             <!-- Root Path & URL -->
                             <Grid Margin="0,0,0,20">
                                 <Grid.ColumnDefinitions>
@@ -508,23 +525,6 @@
                                     </StackPanel>
                                 </StackPanel>
                             </Expander>
-                            
-                            <!-- Test Connection Button -->
-                            <StackPanel Margin="0,30,0,0">
-                                <StackPanel Orientation="Horizontal">
-                                    <Button x:Name="TestRemoteButton"
-                                            Content="⚡ Test Remote Connection" 
-                                            HorizontalAlignment="Left"
-                                            Style="{StaticResource ModernButtonStyle}"
-                                            Background="{StaticResource Surface.Input}"
-                                            Click="TestButton_Click"/>
-                                </StackPanel>
-                                <TextBlock x:Name="RemoteTestStatusText"
-                                           Text=""
-                                           Margin="0,8,0,0"
-                                           Foreground="{StaticResource Text.Secondary}"
-                                           FontSize="12"/>
-                            </StackPanel>
                         </StackPanel>
                     </ScrollViewer>
                 </TabItem>

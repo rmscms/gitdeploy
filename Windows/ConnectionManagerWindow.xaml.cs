@@ -633,7 +633,7 @@ namespace GitDeployPro.Windows
             if (TestRemoteButton != null)
             {
                 TestRemoteButton.IsEnabled = !isTesting;
-                TestRemoteButton.Content = isTesting ? "Testing..." : "⚡ Test Remote Connection";
+                TestRemoteButton.Content = isTesting ? "Testing..." : "⚡ Test Connection";
             }
 
             if (RemoteTestOverlay != null)

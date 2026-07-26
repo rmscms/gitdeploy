@@ -17,9 +17,9 @@
             <Grid.RowDefinitions>
                 <RowDefinition x:Name="PageHeaderRowDefinition" Height="Auto" />
                 <RowDefinition Height="Auto" />
-                <RowDefinition Height="2*" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
             <Grid x:Name="PageHeaderRow" Grid.Row="0" Margin="0,0,0,20">
@@ -44,107 +44,15 @@
                 </StackPanel>
             </Grid>
 
-            <Border Grid.Row="1"
-                    Style="{StaticResource App.CardStyle}"
-                    Padding="15"
-                    Margin="0,0,0,15">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-
-                    <StackPanel Grid.Column="0" Orientation="Horizontal">
-                        <Button x:Name="RefreshButton"
-                                Click="RefreshButton_Click"
-                                Style="{StaticResource App.Button.Ghost}"
-                                Margin="0,0,10,0"
-                                ToolTip="Re-scan the project folder from disk">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="🔄" Foreground="{StaticResource Status.Info}" Margin="0,0,5,0" />
-                                <TextBlock Text="Refresh from Disk" Foreground="{StaticResource Text.Secondary}" />
-                            </StackPanel>
-                        </Button>
-                        <Button x:Name="SelectAllButton" Click="SelectAllButton_Click" Style="{StaticResource App.Button.Ghost}" Margin="10,0">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="☑️" Foreground="{StaticResource Status.Success}" Margin="0,0,5,0" />
-                                <TextBlock Text="Select All" Foreground="{StaticResource Text.Secondary}" />
-                            </StackPanel>
-                        </Button>
-                        <Button x:Name="DeselectAllButton" Click="DeselectAllButton_Click" Style="{StaticResource App.Button.Ghost}" Margin="10,0">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="⬜" Foreground="{StaticResource Status.Error}" Margin="0,0,5,0" />
-                                <TextBlock Text="Deselect All" Foreground="{StaticResource Text.Secondary}" />
-                            </StackPanel>
-                        </Button>
-                    </StackPanel>
-
-                    <StackPanel Grid.Column="1" Orientation="Horizontal">
-                        <TextBlock Text="Total Files: " Foreground="{StaticResource Text.Muted}" VerticalAlignment="Center" />
-                        <TextBlock x:Name="TotalFilesText" Text="0" Foreground="{StaticResource Text.Primary}" FontWeight="Bold" VerticalAlignment="Center" Margin="5,0,15,0" />
-                        <TextBlock Text="Selected: " Foreground="{StaticResource Text.Muted}" VerticalAlignment="Center" />
-                        <TextBlock x:Name="SelectedFilesText" Text="0" Foreground="{StaticResource Status.Success}" FontWeight="Bold" VerticalAlignment="Center" Margin="5,0,0,0" />
-                    </StackPanel>
-                </Grid>
-            </Border>
-
-            <Border Grid.Row="2" Style="{StaticResource App.CardStyle}">
-                <TreeView x:Name="FileTreeView"
-                          Background="Transparent"
-                          BorderThickness="0"
-                          Padding="10"
-                          VirtualizingStackPanel.IsVirtualizing="True"
-                          VirtualizingStackPanel.VirtualizationMode="Recycling"
-                          behaviors:ContextMenuSelectionBehavior.Enable="True"
-                          MouseRightButtonUp="FileTreeView_MouseRightButtonUp">
-                    <TreeView.ItemContainerStyle>
-                        <Style TargetType="{x:Type TreeViewItem}">
-                            <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
-                            <Setter Property="Foreground" Value="{StaticResource Text.Secondary}" />
-                            <Setter Property="FontSize" Value="14" />
-                            <Setter Property="Padding" Value="4,2" />
-                        </Style>
-                    </TreeView.ItemContainerStyle>
-                    <TreeView.ItemTemplate>
-                        <HierarchicalDataTemplate ItemsSource="{Binding Children}">
-                            <StackPanel Orientation="Horizontal" Margin="2">
-                                <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}"
-                                          VerticalAlignment="Center"
-                                          Margin="0,0,8,0"
-                                          Click="ItemCheckBox_Click" />
-                                <TextBlock Text="{Binding Icon}"
-                                           Foreground="{Binding IconColor}"
-                                           Margin="0,0,6,0"
-                                           FontFamily="Segoe UI Emoji" />
-                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
-                                <TextBlock Text="{Binding SizeDisplay}"
-                                           FontSize="11"
-                                           Foreground="{StaticResource Text.Muted}"
-                                           Margin="10,0,0,0"
-                                           VerticalAlignment="Center"
-                                           Visibility="{Binding SizeVisibility}" />
-                                <TextBlock Text="{Binding UploadBadgeText}"
-                                           FontSize="12"
-                                           FontWeight="Bold"
-                                           Margin="8,0,0,0"
-                                           VerticalAlignment="Center"
-                                           Foreground="{Binding UploadBadgeBrush}"
-                                           Visibility="{Binding UploadBadgeVisibility}" />
-                            </StackPanel>
-                        </HierarchicalDataTemplate>
-                    </TreeView.ItemTemplate>
-                </TreeView>
-            </Border>
-
-            <!-- Process + actions: stacked so narrow docks never clip under buttons -->
+            <!-- Upload actions stay above the file tree so the bottom Terminal dock cannot cover them -->
             <Border x:Name="UploadProcessSection"
-                    Grid.Row="3"
+                    Grid.Row="1"
                     Background="{StaticResource Surface.Card}"
                     BorderBrush="{StaticResource Border.Subtle}"
                     BorderThickness="1"
                     CornerRadius="10"
                     Padding="10"
-                    Margin="0,12,0,0">
+                    Margin="0,0,0,10">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -257,6 +165,100 @@
                                 Click="StartUploadButton_Click" />
                     </Grid>
                 </Grid>
+            </Border>
+
+            <Border Grid.Row="2"
+                    Style="{StaticResource App.CardStyle}"
+                    Padding="15"
+                    Margin="0,0,0,10">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" Orientation="Horizontal">
+                        <Button x:Name="RefreshButton"
+                                Click="RefreshButton_Click"
+                                Style="{StaticResource App.Button.Ghost}"
+                                Margin="0,0,10,0"
+                                ToolTip="Re-scan the project folder from disk">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="🔄" Foreground="{StaticResource Status.Info}" Margin="0,0,5,0" />
+                                <TextBlock Text="Refresh from Disk" Foreground="{StaticResource Text.Secondary}" />
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="SelectAllButton" Click="SelectAllButton_Click" Style="{StaticResource App.Button.Ghost}" Margin="10,0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="☑️" Foreground="{StaticResource Status.Success}" Margin="0,0,5,0" />
+                                <TextBlock Text="Select All" Foreground="{StaticResource Text.Secondary}" />
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="DeselectAllButton" Click="DeselectAllButton_Click" Style="{StaticResource App.Button.Ghost}" Margin="10,0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="⬜" Foreground="{StaticResource Status.Error}" Margin="0,0,5,0" />
+                                <TextBlock Text="Deselect All" Foreground="{StaticResource Text.Secondary}" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <TextBlock Text="Total Files: " Foreground="{StaticResource Text.Muted}" VerticalAlignment="Center" />
+                        <TextBlock x:Name="TotalFilesText" Text="0" Foreground="{StaticResource Text.Primary}" FontWeight="Bold" VerticalAlignment="Center" Margin="5,0,15,0" />
+                        <TextBlock Text="Selected: " Foreground="{StaticResource Text.Muted}" VerticalAlignment="Center" />
+                        <TextBlock x:Name="SelectedFilesText" Text="0" Foreground="{StaticResource Status.Success}" FontWeight="Bold" VerticalAlignment="Center" Margin="5,0,0,0" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Border Grid.Row="3" Style="{StaticResource App.CardStyle}">
+                <TreeView x:Name="FileTreeView"
+                          Background="Transparent"
+                          BorderThickness="0"
+                          Padding="10"
+                          Focusable="True"
+                          VirtualizingStackPanel.IsVirtualizing="True"
+                          VirtualizingStackPanel.VirtualizationMode="Recycling"
+                          behaviors:ContextMenuSelectionBehavior.Enable="True"
+                          PreviewKeyDown="FileTreeView_PreviewKeyDown"
+                          MouseRightButtonUp="FileTreeView_MouseRightButtonUp">
+                    <TreeView.ItemContainerStyle>
+                        <Style TargetType="{x:Type TreeViewItem}">
+                            <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+                            <Setter Property="Foreground" Value="{StaticResource Text.Secondary}" />
+                            <Setter Property="FontSize" Value="14" />
+                            <Setter Property="Padding" Value="4,2" />
+                        </Style>
+                    </TreeView.ItemContainerStyle>
+                    <TreeView.ItemTemplate>
+                        <HierarchicalDataTemplate ItemsSource="{Binding Children}">
+                            <StackPanel Orientation="Horizontal" Margin="2">
+                                <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}"
+                                          VerticalAlignment="Center"
+                                          Margin="0,0,8,0"
+                                          Click="ItemCheckBox_Click" />
+                                <TextBlock Text="{Binding Icon}"
+                                           Foreground="{Binding IconColor}"
+                                           Margin="0,0,6,0"
+                                           FontFamily="Segoe UI Emoji" />
+                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding SizeDisplay}"
+                                           FontSize="11"
+                                           Foreground="{StaticResource Text.Muted}"
+                                           Margin="10,0,0,0"
+                                           VerticalAlignment="Center"
+                                           Visibility="{Binding SizeVisibility}" />
+                                <TextBlock Text="{Binding UploadBadgeText}"
+                                           FontSize="12"
+                                           FontWeight="Bold"
+                                           Margin="8,0,0,0"
+                                           VerticalAlignment="Center"
+                                           Foreground="{Binding UploadBadgeBrush}"
+                                           Visibility="{Binding UploadBadgeVisibility}" />
+                            </StackPanel>
+                        </HierarchicalDataTemplate>
+                    </TreeView.ItemTemplate>
+                </TreeView>
             </Border>
 
             <Border x:Name="UploadLogSection"
