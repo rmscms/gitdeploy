@@ -27,8 +27,13 @@ namespace GitDeployPro.Pages
             LastCheckText.Text = globalConfig.LastUpdateCheckUtc.HasValue
                 ? $"Last automatic check: {globalConfig.LastUpdateCheckUtc.Value.ToLocalTime():yyyy-MM-dd HH:mm}"
                 : "Last automatic check: never";
-            InstallPathText.Text = $"Install path: {AppInstallPaths.ExecutablePath}";
-            RunningPathText.Text = $"Running from: {Environment.ProcessPath ?? "(unknown)"}";
+            var registered = AppInstallPaths.TryReadRegistryInstallDirectory();
+            InstallPathText.Text = string.IsNullOrWhiteSpace(registered)
+                ? $"Install path (default): {AppInstallPaths.ExecutablePath}"
+                : $"Install path: {AppInstallPaths.ExecutablePath}";
+            RunningPathText.Text =
+                $"Running from: {Environment.ProcessPath ?? "(unknown)"}" +
+                (AppInstallPaths.IsRunningFromInstallPath() ? " (installed)" : " (portable)");
         }
 
         private async void CheckForUpdatesButton_Click(object sender, RoutedEventArgs e)

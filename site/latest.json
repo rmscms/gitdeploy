@@ -1,9 +1,9 @@
 {
-  "version": "1.4.6",
-  "fileName": "GitDeployPro-1.4.6.exe",
-  "downloadUrl": "versions/GitDeployPro-1.4.6.exe",
-  "sha256": "6A7004D40CA7FAE6B8C48EF141111C57AA9618E02A8041AAA3B302E13AA15243",
-  "releaseNotes": "- Stable LocalAppData install + Desktop shortcut\n- Background update download footer with Restart to apply\n- AutoStart refreshes to install path after update\n- About shows install path",
+  "version": "1.4.7",
+  "fileName": "GitDeployPro-1.4.7.exe",
+  "downloadUrl": "versions/GitDeployPro-1.4.7.exe",
+  "sha256": "CBEB70D8E59DDEEA6D1E128355334B8496661434DD4807049CF81324A4136238",
+  "releaseNotes": "- First-install dialog to choose install folder (other drives when C: is full)\n- Install path stored in registry; updates overwrite the same EXE\n- Run portable without installing\n- About shows install vs portable path",
   "mandatory": false,
-  "publishedUtc": "2026-07-26T09:57:32Z"
+  "publishedUtc": "2026-07-27T05:09:13Z"
 }

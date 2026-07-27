@@ -1,8 +1,8 @@
 # Windows Desktop Auto-Update Guide (Own HTTP/HTTPS Server)
 
-Reusable guide for adding **self-hosted automatic updates** to Windows desktop apps (WPF / WinForms / .NET single-file EXE).
+Reusable guide for **self-hosted automatic updates** on Windows desktop apps (WPF / WinForms / .NET single-file EXE).
 
-This matches the GitDeployPro implementation and is meant to be copied into other Windows projects.
+This matches the **GitDeployPro** implementation (from **1.4.6** onward) and can be copied into other Windows projects.
 
 ---
 
@@ -10,43 +10,55 @@ This matches the GitDeployPro implementation and is meant to be copied into othe
 
 - Publish release files on **your own server**.
 - Each **app/product** has its own update URL baked into code (`UpdateOptions.BaseUrl`) — **not** a Settings textbox.
-- Different apps → different folders/domains; users never edit the URL.
 - Checks run:
   1. On startup (if the interval elapsed)
   2. Automatically every **12 hours** (configurable constant)
-  3. Manually via **Check for updates now**
+  3. Manually via **Check for updates now** (About / Settings)
 - Support two modes:
-  - **Optional update** → user can choose Later
-  - **Mandatory update** → user must Update or Exit
+  - **Optional update** → Later is allowed
+  - **Mandatory update** → user must download/install or Exit
+- User can **keep using the app** while the package downloads (footer progress), then **Restart** to apply.
 
 ---
 
-## 2. What you host on the server
+## 2. GitDeployPro server mapping (`site/` ↔ host)
 
-Per-app base URL (compile-time constant), for example:
+| Local repo | Uploaded to server | Public URL |
+|------------|--------------------|------------|
+| `site/` | `gitdeploy/` | `https://app.nitron.pro/gitdeploy/` |
+| `site/latest.json` | `gitdeploy/latest.json` | `https://app.nitron.pro/gitdeploy/latest.json` |
+| `site/versions/*` | `gitdeploy/versions/*` | `https://app.nitron.pro/gitdeploy/versions/...` |
 
-```text
-https://updates.example.com/gitdeploypro/
-https://updates.example.com/other-app/
+- Do **not** create a nested `site/gitdeploy/` folder — `site` already *is* the server root for this product.
+- App constant:
+
+```csharp
+// Services/Update/UpdateOptions.cs
+public const string BaseUrl = "https://app.nitron.pro/gitdeploy";
 ```
 
-Upload:
+Upload layout example:
 
 ```text
-gitdeploypro/
+gitdeploy/                    ← contents of local site/
   latest.json
-  GitDeployPro-1.4.4.exe
+  index.html
+  versions/
+    GitDeployPro-1.4.6.exe
+    GitDeployPro-1.4.6.zip
 ```
 
-### 2.1 `latest.json` contract
+---
+
+## 3. `latest.json` contract
 
 ```json
 {
-  "version": "1.4.4",
-  "fileName": "GitDeployPro-1.4.4.exe",
-  "downloadUrl": "GitDeployPro-1.4.4.exe",
+  "version": "1.4.6",
+  "fileName": "GitDeployPro-1.4.6.exe",
+  "downloadUrl": "versions/GitDeployPro-1.4.6.exe",
   "sha256": "PUT_HEX_SHA256_HERE",
-  "releaseNotes": "- Critical fix\n- UI polish",
+  "releaseNotes": "- Stable LocalAppData install\n- Background update footer",
   "mandatory": false,
   "publishedUtc": "2026-07-26T10:00:00Z"
 }
@@ -55,118 +67,229 @@ gitdeploypro/
 | Field | Required | Description |
 |--------|----------|-------------|
 | `version` | Yes | `Major.Minor.Patch` |
-| `fileName` | Yes | Published EXE name |
+| `fileName` | Yes | Published distribution EXE name (versioned for the website/feed) |
 | `downloadUrl` | Yes | Absolute URL or relative to BaseUrl |
-| `sha256` | Yes | SHA-256 of EXE bytes |
-| `releaseNotes` | No | Shown in dialog |
-| `mandatory` | No | Default `false`; `true` forces update |
+| `sha256` | Yes | SHA-256 of the **download EXE** bytes |
+| `releaseNotes` | No | Shown in dialog / site |
+| `mandatory` | No | Default `false` |
 
-### 2.2 Optional vs mandatory
-
-| `mandatory` | Buttons | Can keep working? |
-|-------------|---------|-------------------|
-| `false` | Update now / Later | Yes |
-| `true` | Update now / Exit | No |
-
-### 2.3 SHA-256 (PowerShell)
+### SHA-256 (PowerShell)
 
 ```powershell
-Get-FileHash -Algorithm SHA256 .\GitDeployPro-1.4.4.exe | Format-List
+Get-FileHash -Algorithm SHA256 .\GitDeployPro-1.4.6.exe | Format-List
+```
+
+### Optional vs mandatory (UX)
+
+| `mandatory` | Dialog secondary | After “Download update” |
+|-------------|------------------|-------------------------|
+| `false` | Later | Footer download → Restart when ready |
+| `true` | Exit | Same download footer; long-term use requires install |
+
+---
+
+## 4. Stable install home (choosable on first install)
+
+The app is still distributed as a **portable** ZIP/EXE. On **first install** for a Windows user, a dialog lets them pick the install folder (important when C: is full). After that, updates overwrite a **stable** EXE name (no version in the filename):
+
+```text
+{InstallDirectory}\GitDeployPro.exe
+```
+
+Default `InstallDirectory`:
+
+```text
+%LocalAppData%\GitDeployPro
+```
+
+User may Browse to another parent (e.g. `D:\Apps`) → install into `D:\Apps\GitDeployPro`.
+
+### Registry source of truth
+
+```text
+HKCU\Software\GitDeployPro
+  InstallDirectory = C:\Users\...\AppData\Local\GitDeployPro   (or D:\Apps\GitDeployPro)
+```
+
+Mirrored in global config for About display after the app runs from the install path.
+
+### How we detect first install vs already installed
+
+| Situation | How we know | What happens |
+|-----------|-------------|--------------|
+| Already installed and running from it | `ProcessPath` equals `{InstallDirectory}\GitDeployPro.exe` | No dialog |
+| Already installed, portable ZIP launched again | Registry `InstallDirectory` set **and** that folder has `GitDeployPro.exe` | No dialog; relaunch installed EXE (copy newer portable over it if version higher) |
+| First install | Registry missing/empty **or** saved folder has no EXE | Show install-location dialog |
+| User chose **Run portable** | No registry write | Next portable launch still shows the dialog until they Install |
+| Dev / debugger / `bin` | Path under `bin`/`obj`/`.tmp_build` or debugger attached | Skip dialog |
+
+Clearing the registry key or deleting the install folder makes the next portable launch look like a first install again.
+
+### First-install dialog buttons
+
+- **Install here** — write registry, copy EXE, Desktop shortcut, refresh Autostart, relaunch from install path
+- **Run portable (this time)** — continue without installing; do not write `InstallDirectory`
+
+### Rules
+
+1. Every update **overwrites** `{InstallDirectory}\GitDeployPro.exe`.
+2. Website/ZIP may still ship **versioned** names (`GitDeployPro-1.4.6.exe`); updater copies into the stable install name.
+3. Do **not** auto-delete old versioned Desktop EXEs; user may delete leftovers manually.
+4. Desktop gets a **shortcut only** (`GitDeploy Pro.lnk` → install EXE).
+5. v1 has **no** “change install location” after install; reinstall portable once if the user must move.
+
+### Desktop shortcut
+
+| Item | Value |
+|------|--------|
+| Path | `%USERPROFILE%\Desktop\GitDeploy Pro.lnk` |
+| Target | `{InstallDirectory}\GitDeployPro.exe` |
+| When | Created/updated on install and after update apply if missing/wrong |
+
+Implementation: `Services/DesktopShortcutService.cs`, `AppInstallPaths.cs`, `AppInstallMigrator.cs`, `Windows/InstallLocationWindow`
+
+### Where is my version?
+
+| Question | Answer |
+|----------|--------|
+| Where does the running app live? | About → Install path (from registry / chosen folder) |
+| Where is the Desktop entry? | `GitDeploy Pro.lnk` shortcut |
+| Where does download stage? | `{InstallDirectory}\update\` (`package.exe` + `pending.json`) |
+| About page | Shows install path + “Open install folder” |
+
+**Legacy confusion (pre-1.4.6):** updater overwrote `Environment.ProcessPath` in place. Replaced by stable install-directory overwrite.
+
+---
+
+## 5. Windows startup (AutoStart)
+
+- Registry: `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` value `GitDeployPro`
+- Settings checkbox: Launch when Windows starts
+- Settings button: **Use this version** (points Run at current EXE)
+- After install / update apply: if Launch-on-startup is enabled (or already registered), code calls `AutoStartService.RefreshToInstallPath(...)` so Run points at the chosen install EXE
+
+Implementation: `Services/AutoStartService.cs`
+
+---
+
+## 6. Update UX flow (background download + footer)
+
+```text
+Check latest.json
+        │
+        ▼
+Update available dialog  →  Later / Exit / Download update
+        │
+        ▼
+MainWindow footer: Downloading x%   (app stays usable)
+        │
+        ▼
+Footer: Update ready → Restart now / Later
+        │
+        ▼
+Apply: copy into LocalAppData EXE → refresh shortcut/startup → relaunch
+```
+
+### Why Restart is required
+
+Windows cannot safely overwrite a locked running EXE. Download + SHA verify happen while the app runs; replace happens after exit (helper CMD when already running from install path).
+
+### UI pieces
+
+| Piece | Role |
+|-------|------|
+| `UpdateAvailableWindow` | Prompt; primary = **Download update** |
+| `MainWindow` footer bar | Progress / ready / cancel; stays inside window (not under taskbar) |
+| `UpdateProgressWindow` | Fallback only if owner is not MainWindow |
+| About / Settings | Manual **Check for updates now** |
+
+### Staging files
+
+```text
+%LocalAppData%\GitDeployPro\update\
+  package.exe      ← verified download
+  pending.json     ← version, sha256, notes, mandatory
+  apply-update.cmd ← temporary helper (deleted after run)
 ```
 
 ---
 
-## 3. App-side architecture
-
-```text
-UpdateOptions.BaseUrl  (per app, in code)
-        │
-        ▼
-Startup + 12h timer + Check now
-        │
-        ▼
-GET {BaseUrl}/latest.json
-        │
-   optional → Update / Later
-   mandatory → Update / Exit
-        │
-Download → SHA-256 → helper replaces EXE → relaunch
-```
-
-### 3.1 Recommended files
+## 7. App-side files (GitDeployPro)
 
 ```text
 Services/Update/
   UpdateOptions.cs
   UpdateManifest.cs
   UpdateCheckResult.cs
-  AppUpdateService.cs
+  PendingUpdateState.cs
+  AppInstallPaths.cs
+  AppInstallMigrator.cs
+  AppUpdateService.cs          ← check, DownloadOnlyAsync, ApplyPendingAndRestartAsync
+  AppUpdateCoordinator.cs      ← dialog + handoff to MainWindow footer
+Services/
+  DesktopShortcutService.cs
+  AutoStartService.cs
 Windows/
   UpdateAvailableWindow.xaml(.cs)
-  UpdateProgressWindow.xaml(.cs)
+  UpdateProgressWindow.xaml(.cs)   ← legacy/fallback
+Pages/
+  AboutPage.xaml(.cs)              ← version, install path, check now
+MainWindow.xaml(.cs)               ← footer bar + migration on Loaded
 ```
 
-### 3.2 Persist last check
+### Persist last check
 
-Store `LastUpdateCheckUtc` in global app config so reopening within 12 hours does not spam the network. Manual check ignores this gate.
+Store `LastUpdateCheckUtc` in global config. Manual check ignores the 12h gate.
 
 ---
 
-## 4. Per-app constant (not Settings)
+## 8. Per-app constant (not Settings)
 
 ```csharp
 public static class UpdateOptions
 {
-    // Change per product. Empty string disables update checks.
-    public const string BaseUrl = "https://updates.example.com/gitdeploypro";
+    // Change per product. Empty / invalid disables update checks.
+    public const string BaseUrl = "https://app.nitron.pro/gitdeploy";
     public const double CheckIntervalHours = 12;
 }
 ```
 
-Settings UI only needs:
+---
 
-- Current version label
-- Last checked time (optional)
-- **Check for updates now** button
+## 9. Publishing / release checklist (GitDeployPro)
+
+When the user asks for **نسخه جدید** / **ریلیز کن**:
+
+1. Bump `Version` / `AssemblyVersion` / `FileVersion` in `GitDeployPro.csproj`
+2. `dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true`
+3. Name artifacts `GitDeployPro-X.Y.Z.exe` + `.zip`
+4. Copy into `releases/X.Y.Z/` and `site/versions/`
+5. Update `site/latest.json` (version, sha256, `downloadUrl` like `versions/GitDeployPro-X.Y.Z.exe`)
+6. Add a **static** changelog block for that version at the top of `site/index.html` (do not rely only on JS)
+7. Git commit + annotated tag `X.Y.Z` + push commit and tag to GitHub
+8. Upload local `site/` contents to server `gitdeploy/`
+
+Website download button reads `latest.json` via `site/assets/site.js` (prefers ZIP under `versions/` for browsers).
 
 ---
 
-## 5. Periodic check
+## 10. Copying to another Windows app
 
-- Persist `LastUpdateCheckUtc` after every successful check attempt (or completed fetch).
-- Startup: check only if `UtcNow - LastUpdateCheckUtc >= 12h` (or never checked).
-- While running: `DispatcherTimer` every 15–30 minutes; when due, run the same check.
-- Manual Check now: always fetch.
-
----
-
-## 6. Apply update (Windows single-file)
-
-1. Download to `%TEMP%\<AppName>-update\<fileName>`
-2. Verify SHA-256
-3. Write CMD helper that waits for PID exit, copies over `Environment.ProcessPath`, relaunches
-4. Start helper, then exit app
-
-Never overwrite the running EXE in-process.
+1. Copy this guide + `Services/Update/*` + shortcut/autostart helpers + update UI
+2. Change `UpdateOptions.BaseUrl` and product folder/EXE names in `AppInstallPaths`
+3. Wire MainWindow migration + footer + About check
+4. Host a **separate** server folder per product
+5. Keep the **JSON contract identical** across apps
 
 ---
 
-## 7. Publishing checklist
+## 11. Quick troubleshooting
 
-1. Bump `.csproj` version
-2. `dotnet publish` single-file win-x64
-3. Compute SHA-256
-4. Upload EXE + update `latest.json`
-5. Set `mandatory: true` only for critical releases
-6. Verify with an older build
-
----
-
-## 8. Copying to another Windows app
-
-1. Copy this guide + `Services/Update/*` + update windows
-2. Change only `UpdateOptions.BaseUrl` (and file name prefix)
-3. Wire startup timer + Check now
-4. Host a separate folder on your server for that product
-
-Keep the **JSON contract identical** across apps.
+| Symptom | Likely cause |
+|---------|----------------|
+| “Where did the new version go?” | Look at About → Install path (LocalAppData), not Desktop EXE name |
+| Startup opens old portable | Run Settings → Use this version, or re-enable Launch on startup after update |
+| SmartScreen on first run | Unsigned EXE; More info → Run anyway; code signing is separate |
+| Download fails quickly | Network / wrong `latest.json` URL / SHA mismatch |
+| Footer says ready but Restart fails | Pending package missing under `...\GitDeployPro\update\` |
+| Site download shows old version | `latest.json` or `versions/` not uploaded; hard-refresh browser |
