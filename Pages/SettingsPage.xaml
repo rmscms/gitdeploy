@@ -228,6 +228,44 @@
                                     </StackPanel>
                                 </StackPanel>
                             </Border>
+
+                            <Border Margin="0,18,0,0"
+                                    Background="{StaticResource Status.ErrorSurface}"
+                                    BorderBrush="{StaticResource Status.Error}"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    Padding="14">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                        <TextBlock Text="⚠"
+                                                   FontSize="20"
+                                                   VerticalAlignment="Center"
+                                                   Margin="0,0,10,0" />
+                                        <TextBlock Text="Danger Zone"
+                                                   Style="{StaticResource App.SectionTitleTextStyle}"
+                                                   Foreground="{StaticResource Status.Error}"
+                                                   VerticalAlignment="Center" />
+                                    </StackPanel>
+                                    <TextBlock Text="Remove this project from GitDeploy Pro only. Your project files stay on disk and can be opened again later."
+                                               Foreground="{StaticResource Text.Secondary}"
+                                               TextWrapping="Wrap"
+                                               Margin="0,0,0,10" />
+                                    <TextBlock x:Name="DangerProjectPathText"
+                                               Foreground="{StaticResource Text.Muted}"
+                                               FontFamily="{StaticResource FontFamily.Mono}"
+                                               FontSize="11"
+                                               TextWrapping="Wrap"
+                                               Margin="0,0,0,12"
+                                               Text="No project selected." />
+                                    <Button x:Name="RemoveProjectFromAppButton"
+                                            Content="Remove project from app"
+                                            Height="34"
+                                            HorizontalAlignment="Left"
+                                            Padding="14,0"
+                                            Style="{StaticResource App.Button.Danger}"
+                                            Click="RemoveProjectFromAppButton_Click" />
+                                </StackPanel>
+                            </Border>
                         </StackPanel>
                     </Border>
                 </Grid>

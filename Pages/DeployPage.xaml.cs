@@ -85,6 +85,10 @@ namespace GitDeployPro.Pages
             _configService = new ConfigurationService();
             _projectConfig = new ProjectConfig();
             DeployRemoteWorkspace.EditorModeChanged += DeployRemoteWorkspace_EditorModeChanged;
+            if (DirectUploadDock != null)
+            {
+                DirectUploadDock.EditorModeChanged += DirectUploadDock_EditorModeChanged;
+            }
             Loaded += DeployPage_Loaded;
             SizeChanged += DeployPage_SizeChanged;
             Unloaded += DeployPage_Unloaded;
@@ -124,6 +128,11 @@ namespace GitDeployPro.Pages
         {
             DeployRemoteWorkspace.NotifyHostTeardown();
             DeployRemoteWorkspace.EditorModeChanged -= DeployRemoteWorkspace_EditorModeChanged;
+            if (DirectUploadDock != null)
+            {
+                DirectUploadDock.EditorModeChanged -= DirectUploadDock_EditorModeChanged;
+                DirectUploadDock.TryCloseLocalEditor(force: true);
+            }
             Loaded -= DeployPage_Loaded;
             SizeChanged -= DeployPage_SizeChanged;
             Unloaded -= DeployPage_Unloaded;
@@ -138,7 +147,45 @@ namespace GitDeployPro.Pages
         {
             // Host editor in the center Deploy area; FTP tree stays as in-control sidebar.
             // Unloaded disconnect is gated by NotifyHostTeardown so reparent is safe.
+            if (e.IsOpen)
+            {
+                DirectUploadDock?.TryCloseLocalEditor(force: true);
+            }
+
             SetRemoteEditorOverlay(e.IsOpen);
+        }
+
+        private void DirectUploadDock_EditorModeChanged(object? sender, LocalEditorModeChangedEventArgs e)
+        {
+            SetLocalDirectUploadEditorOverlay(e.IsOpen);
+        }
+
+        private void SetLocalDirectUploadEditorOverlay(bool enable)
+        {
+            if (DirectUploadDock == null || CenterEditorOverlayHost == null)
+            {
+                return;
+            }
+
+            if (enable)
+            {
+                if (_isRemoteEditorOverlayActive)
+                {
+                    SetRemoteEditorOverlay(false);
+                }
+
+                DirectUploadDock.HostLocalEditorIn(CenterEditorOverlayHost);
+                CenterEditorOverlayHost.Visibility = Visibility.Visible;
+                System.Windows.Controls.Panel.SetZIndex(CenterEditorOverlayHost, 40);
+                return;
+            }
+
+            DirectUploadDock.RestoreLocalEditorHome();
+            if (!_isRemoteEditorOverlayActive)
+            {
+                CenterEditorOverlayHost.Child = null;
+                CenterEditorOverlayHost.Visibility = Visibility.Collapsed;
+            }
         }
 
         private void DetachDeployPage_Click(object sender, RoutedEventArgs e)

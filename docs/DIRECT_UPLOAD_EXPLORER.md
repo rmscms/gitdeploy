@@ -44,8 +44,15 @@ Folders inherit the “dirtiest” child state (conflict → modified → untrac
 
 Mapped highlight is **background**; git status is **name color** — both can apply on the same row.
 
-## Legend
+## Context menus
 
-The explorer shows a short legend above the tree:
+Right-click a folder or file:
 
-`green name = clean · red = changed · blue = untracked · grey = ignored · green background = path mapping`
+- **New Folder** — create a local folder, then refresh the tree (empty folders stay visible)
+- **New File** — ask for name + extension, create an empty file, open the in-app editor
+- **Edit** (files) — open the local AvalonEdit panel; Save writes to disk only
+
+On the Deploy page dock, the local editor hosts in the center overlay (same area as FTP remote edit).
+
+Note: Git does not track empty folders. An empty new folder appears in the tree (often as untracked) but git status colors for content appear after you add a file inside it.
+

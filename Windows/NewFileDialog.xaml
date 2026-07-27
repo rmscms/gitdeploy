@@ -1,0 +1,72 @@
+<mah:MetroWindow x:Class="GitDeployPro.Windows.NewFileDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
+        Title="New File"
+        Height="230"
+        Width="460"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="{StaticResource Surface.Base}"
+        Foreground="{StaticResource Text.Primary}"
+        WindowTitleBrush="{StaticResource Surface.Card}"
+        NonActiveWindowTitleBrush="{StaticResource Surface.Card}">
+    <Grid Margin="20,16,20,18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0"
+                   Text="File name"
+                   Foreground="{StaticResource Text.Primary}"
+                   FontSize="13"
+                   FontWeight="SemiBold"
+                   Margin="0,0,0,6" />
+        <TextBox x:Name="NameTextBox"
+                 Grid.Row="1"
+                 Height="32"
+                 Padding="8,6"
+                 FontSize="13"
+                 Margin="0,0,0,12"
+                 KeyDown="Input_KeyDown" />
+
+        <TextBlock Grid.Row="2"
+                   Text="Extension (e.g. php, txt, json)"
+                   Foreground="{StaticResource Text.Primary}"
+                   FontSize="13"
+                   FontWeight="SemiBold"
+                   Margin="0,0,0,6" />
+        <TextBox x:Name="ExtensionTextBox"
+                 Grid.Row="3"
+                 Height="32"
+                 Padding="8,6"
+                 FontSize="13"
+                 Text="txt"
+                 Margin="0,0,0,16"
+                 KeyDown="Input_KeyDown" />
+
+        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="Create"
+                    Width="90"
+                    Height="32"
+                    Margin="0,0,10,0"
+                    Style="{StaticResource App.Button.Primary}"
+                    FontSize="13"
+                    FontWeight="SemiBold"
+                    IsDefault="True"
+                    Click="OkButton_Click" />
+            <Button Content="Cancel"
+                    Width="90"
+                    Height="32"
+                    Style="{StaticResource App.Button.Ghost}"
+                    FontSize="13"
+                    FontWeight="SemiBold"
+                    IsCancel="True"
+                    Click="CancelButton_Click" />
+        </StackPanel>
+    </Grid>
+</mah:MetroWindow>

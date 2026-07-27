@@ -50,6 +50,9 @@ namespace GitDeployPro.Services.Update
         public static string PendingPackagePath =>
             Path.Combine(UpdateStagingDirectory, "package.exe");
 
+        public static string WhatsNewPath =>
+            Path.Combine(UpdateStagingDirectory, "whats-new.json");
+
         public static bool HasRegisteredInstall()
         {
             var dir = TryReadRegistryInstallDirectory();

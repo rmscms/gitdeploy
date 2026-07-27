@@ -87,18 +87,27 @@ namespace GitDeployPro.Services.Remote
             {
                 displayName = "/";
             }
+            else
+            {
+                // Prefer last segment for mapped roots like /gitdeploy → show "/gitdeploy"
+                // Keep leading slash so it reads as the browse root.
+                if (!displayName.StartsWith('/'))
+                {
+                    displayName = "/" + displayName;
+                }
+            }
 
             var visual = DirectoryVisual;
             var node = new RemoteTreeNode
             {
                 Name = displayName,
-                FullPath = path.TrimEnd('/'),
+                FullPath = string.IsNullOrWhiteSpace(path.TrimEnd('/')) ? "/" : path.TrimEnd('/'),
                 IsDirectory = true,
-                SizeLabel = "dir",
+                SizeLabel = "root",
                 ModifiedLabel = "—",
                 IconGlyph = visual.IconGlyph,
                 IconColor = visual.IconColor,
-                BadgeText = visual.BadgeText,
+                BadgeText = "ROOT",
                 BadgeBackground = visual.BadgeBackground,
                 BadgeBorder = visual.BadgeBorder,
                 BadgeForeground = visual.BadgeForeground

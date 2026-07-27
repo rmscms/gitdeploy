@@ -4,11 +4,13 @@
       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
       xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
       xmlns:behaviors="clr-namespace:GitDeployPro.Behaviors"
+      xmlns:local="clr-namespace:GitDeployPro.Controls"
       mc:Ignorable="d"
       Background="{StaticResource Surface.Base}"
       d:DesignHeight="600"
       d:DesignWidth="800">
 
+    <Grid>
     <ScrollViewer x:Name="RootScrollViewer"
                   VerticalScrollBarVisibility="Auto"
                   HorizontalScrollBarVisibility="Disabled"
@@ -235,13 +237,30 @@
                               VirtualizingStackPanel.VirtualizationMode="Recycling"
                               behaviors:ContextMenuSelectionBehavior.Enable="True"
                               PreviewKeyDown="FileTreeView_PreviewKeyDown"
-                              MouseRightButtonUp="FileTreeView_MouseRightButtonUp">
+                              MouseRightButtonUp="FileTreeView_MouseRightButtonUp"
+                              MouseDoubleClick="FileTreeView_MouseDoubleClick">
+                    <TreeView.Resources>
+                        <!-- Dark selection (avoid Windows default white highlight). -->
+                        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#2A3A52" />
+                        <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#243247" />
+                        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#E8EEF8" />
+                        <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="#E8EEF8" />
+                    </TreeView.Resources>
                     <TreeView.ItemContainerStyle>
                         <Style TargetType="{x:Type TreeViewItem}">
                             <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
                             <Setter Property="Foreground" Value="{StaticResource Text.Secondary}" />
+                            <Setter Property="Background" Value="Transparent" />
                             <Setter Property="FontSize" Value="14" />
                             <Setter Property="Padding" Value="4,2" />
+                            <Style.Triggers>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter Property="Background" Value="#2A3A52" />
+                                </Trigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="#1E2A3C" />
+                                </Trigger>
+                            </Style.Triggers>
                         </Style>
                     </TreeView.ItemContainerStyle>
                     <TreeView.ItemTemplate>
@@ -335,4 +354,9 @@
             </Border>
         </Grid>
     </ScrollViewer>
+
+    <local:LocalFileEditorControl x:Name="LocalEditor"
+                                  Visibility="Collapsed"
+                                  Panel.ZIndex="60" />
+    </Grid>
 </UserControl>

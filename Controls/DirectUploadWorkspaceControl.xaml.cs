@@ -16,6 +16,7 @@ using System.Windows.Media;
 using GitDeployPro.Services;
 using FluentFTP;
 using GitDeployPro.Models;
+using GitDeployPro.Windows;
 
 namespace GitDeployPro.Controls
 {
@@ -40,6 +41,8 @@ namespace GitDeployPro.Controls
         private CancellationTokenSource? _cancellationTokenSource;
         private const string SessionFileName = ".gitdeploy.session";
 
+        public event EventHandler<LocalEditorModeChangedEventArgs>? EditorModeChanged;
+
         private static readonly HashSet<string> HardExcludeNames = new(StringComparer.OrdinalIgnoreCase)
         {
             ".git", ".vs", "Desktop.ini", "Thumbs.db",
@@ -60,7 +63,17 @@ namespace GitDeployPro.Controls
             FileTreeView.ItemsSource = _items;
 
             Loaded += DirectUploadWorkspaceControl_Loaded;
+            if (LocalEditor != null)
+            {
+                LocalEditor.EditorModeChanged += (_, args) => EditorModeChanged?.Invoke(this, args);
+            }
         }
+
+        public void HostLocalEditorIn(Decorator host) => LocalEditor?.HostIn(host);
+
+        public void RestoreLocalEditorHome() => LocalEditor?.RestoreHome();
+
+        public bool TryCloseLocalEditor(bool force = false) => LocalEditor?.TryClose(force) ?? true;
 
         private static void OnCompactModeChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
@@ -334,11 +347,8 @@ namespace GitDeployPro.Controls
                         child.Parent = item;
                     }
 
-                    // Keep empty folders visible when they are soft-ignored (e.g. empty build out dirs).
-                    if (item.Children.Any() || softIgnored)
-                    {
-                        items.Add(item);
-                    }
+                    // Always show folders (including empty ones created via New Folder).
+                    items.Add(item);
                 }
 
                 foreach (var file in dirInfo.GetFiles())
@@ -629,6 +639,34 @@ namespace GitDeployPro.Controls
             _ = PasteClipboardFilesAsync();
         }
 
+        private void FileTreeView_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            if (_isUploading)
+            {
+                return;
+            }
+
+            var treeItem = FindParent<TreeViewItem>(e.OriginalSource as DependencyObject);
+            if (treeItem?.DataContext is not FileSystemItem item)
+            {
+                return;
+            }
+
+            if (item.IsFolder)
+            {
+                return;
+            }
+
+            // Ignore double-click on checkbox.
+            if (FindParent<System.Windows.Controls.CheckBox>(e.OriginalSource as DependencyObject) != null)
+            {
+                return;
+            }
+
+            e.Handled = true;
+            OpenLocalFileInEditor(item.FullPath);
+        }
+
         private void FileTreeView_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
         {
             var treeItem = FindParent<TreeViewItem>(e.OriginalSource as DependencyObject);
@@ -642,6 +680,23 @@ namespace GitDeployPro.Controls
 
             var actions = new List<AppContextMenuAction>();
             var canPaste = !_isUploading && System.Windows.Clipboard.ContainsFileDropList();
+
+            actions.Add(new AppContextMenuAction
+            {
+                Id = "new-folder",
+                Label = "New Folder",
+                IconGlyph = "📁",
+                IsEnabled = !_isUploading,
+                Execute = _ => CreateLocalFolder(item)
+            });
+            actions.Add(new AppContextMenuAction
+            {
+                Id = "new-file",
+                Label = "New File",
+                IconGlyph = "📄",
+                IsEnabled = !_isUploading,
+                Execute = _ => _ = CreateLocalFileAsync(item)
+            });
 
             if (item.IsFolder)
             {
@@ -671,6 +726,14 @@ namespace GitDeployPro.Controls
             }
             else
             {
+                actions.Add(new AppContextMenuAction
+                {
+                    Id = "edit-file",
+                    Label = "Edit",
+                    IconGlyph = "✏",
+                    IsEnabled = !_isUploading,
+                    Execute = _ => OpenLocalFileInEditor(item.FullPath)
+                });
                 actions.Add(new AppContextMenuAction
                 {
                     Id = "upload-file",
@@ -707,6 +770,190 @@ namespace GitDeployPro.Controls
             {
                 e.Handled = true;
             }
+        }
+
+        private static string ResolveCreateParentDirectory(FileSystemItem item)
+        {
+            if (item.IsFolder)
+            {
+                return item.FullPath;
+            }
+
+            return Path.GetDirectoryName(item.FullPath) ?? item.FullPath;
+        }
+
+        private FileSystemItem? FindFolderItemByPath(string folderPath)
+        {
+            string target;
+            try
+            {
+                target = Path.GetFullPath(folderPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            }
+            catch
+            {
+                return null;
+            }
+
+            FileSystemItem? Search(IEnumerable<FileSystemItem> items)
+            {
+                foreach (var entry in items)
+                {
+                    if (!entry.IsFolder)
+                    {
+                        continue;
+                    }
+
+                    string full;
+                    try
+                    {
+                        full = Path.GetFullPath(entry.FullPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                    }
+                    catch
+                    {
+                        continue;
+                    }
+
+                    if (string.Equals(full, target, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return entry;
+                    }
+
+                    var nested = Search(entry.Children);
+                    if (nested != null)
+                    {
+                        return nested;
+                    }
+                }
+
+                return null;
+            }
+
+            return Search(_items);
+        }
+
+        private void CreateLocalFolder(FileSystemItem contextItem)
+        {
+            if (_isUploading)
+            {
+                return;
+            }
+
+            var parentDir = ResolveCreateParentDirectory(contextItem);
+            var dialog = new InputDialog("Enter folder name:", "New Folder", "new-folder");
+            if (WindowOwnerService.ShowDialogOwned(dialog, this) != true)
+            {
+                return;
+            }
+
+            var name = (dialog.ResponseText ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(name)
+                || name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0
+                || name.Contains('/')
+                || name.Contains('\\'))
+            {
+                ModernMessageBox.Show("Enter a valid folder name without path separators.", "New Folder", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var destination = Path.Combine(parentDir, name);
+            try
+            {
+                if (Directory.Exists(destination))
+                {
+                    ModernMessageBox.Show("A folder with that name already exists.", "New Folder", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                Directory.CreateDirectory(destination);
+                var refreshTarget = FindFolderItemByPath(parentDir) ?? (contextItem.IsFolder ? contextItem : contextItem.Parent);
+                if (refreshTarget != null)
+                {
+                    refreshTarget.IsExpanded = true;
+                    _ = RefreshFolderAsync(refreshTarget).ContinueWith(_ =>
+                    {
+                        Dispatcher.Invoke(() =>
+                        {
+                            var created = FindFolderItemByPath(destination);
+                            if (created != null && created.GitState == GitItemState.None)
+                            {
+                                created.GitState = GitItemState.Untracked;
+                            }
+                        });
+                    }, TaskScheduler.Default);
+                }
+                else
+                {
+                    _ = RefreshFromDiskAsync();
+                }
+
+                StatusText.Text = $"Created folder {name}";
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show($"Could not create folder:\n{ex.Message}", "Direct Upload", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private async Task CreateLocalFileAsync(FileSystemItem contextItem)
+        {
+            if (_isUploading)
+            {
+                return;
+            }
+
+            var parentDir = ResolveCreateParentDirectory(contextItem);
+            var dialog = new NewFileDialog();
+            if (WindowOwnerService.ShowDialogOwned(dialog, this) != true
+                || string.IsNullOrWhiteSpace(dialog.FileName))
+            {
+                return;
+            }
+
+            var fileName = dialog.FileName.Trim();
+            var destination = Path.Combine(parentDir, fileName);
+            try
+            {
+                if (File.Exists(destination))
+                {
+                    ModernMessageBox.Show("A file with that name already exists.", "New File", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                await File.WriteAllTextAsync(destination, FileStarterTemplates.GetStarterContent(fileName));
+
+                var refreshTarget = FindFolderItemByPath(parentDir) ?? (contextItem.IsFolder ? contextItem : contextItem.Parent);
+                if (refreshTarget != null)
+                {
+                    await RefreshFolderAsync(refreshTarget);
+                }
+                else
+                {
+                    await RefreshFromDiskAsync();
+                }
+
+                StatusText.Text = $"Created file {fileName}";
+                OpenLocalFileInEditor(destination);
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show($"Could not create file:\n{ex.Message}", "Direct Upload", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void OpenLocalFileInEditor(string fullPath)
+        {
+            if (LocalEditor == null)
+            {
+                return;
+            }
+
+            if (!LocalEditor.TryOpenFile(fullPath, out var error))
+            {
+                ModernMessageBox.Show($"Could not open file:\n{error}", "Direct Upload", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            StatusText.Text = $"Editing {Path.GetFileName(fullPath)}";
         }
 
         private FileSystemItem? ResolvePasteTargetFolder()
