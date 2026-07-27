@@ -37,9 +37,15 @@ namespace GitDeployPro.Services
             public bool LaunchOnStartup { get; set; }
 
             /// <summary>
-            /// One-time notice after migrating portable EXE into LocalAppData.
+            /// One-time notice after migrating portable EXE into the install folder.
             /// </summary>
             public bool HasShownInstallMigrationNotice { get; set; }
+
+            /// <summary>
+            /// Mirror of HKCU install directory for About/Settings display.
+            /// </summary>
+            public string InstallDirectory { get; set; } = "";
+
             public bool ShowBackupSchedulerLocalhostWarning { get; set; } = true;
             public bool MinimizeToTray { get; set; } = true;
             public bool EnablePerformanceSampling { get; set; }

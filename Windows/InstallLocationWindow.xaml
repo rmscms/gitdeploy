@@ -1,0 +1,89 @@
+<Window x:Class="GitDeployPro.Windows.InstallLocationWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Install GitDeploy Pro"
+        Width="520"
+        Height="340"
+        MinWidth="480"
+        MinHeight="300"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize"
+        Background="{StaticResource Surface.Base}"
+        ShowInTaskbar="True">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0"
+                   Text="Choose install location"
+                   FontSize="20"
+                   FontWeight="SemiBold"
+                   Foreground="{StaticResource Text.Primary}" />
+
+        <TextBlock Grid.Row="1"
+                   Margin="0,8,0,0"
+                   TextWrapping="Wrap"
+                   FontSize="13"
+                   Foreground="{StaticResource Text.Secondary}"
+                   Text="Pick a folder for GitDeploy Pro (useful when C: is full). Updates will always overwrite the same EXE in this folder." />
+
+        <Grid Grid.Row="2" Margin="0,18,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox x:Name="PathTextBox"
+                     IsReadOnly="True"
+                     VerticalContentAlignment="Center"
+                     Height="34" />
+            <Button Grid.Column="1"
+                    Content="Browse…"
+                    MinWidth="96"
+                    Height="34"
+                    Margin="10,0,0,0"
+                    Style="{StaticResource App.Button.Ghost}"
+                    Click="BrowseButton_Click" />
+        </Grid>
+
+        <TextBlock x:Name="FreeSpaceText"
+                   Grid.Row="3"
+                   Margin="0,10,0,0"
+                   FontSize="12"
+                   Foreground="{StaticResource Text.Muted}"
+                   TextWrapping="Wrap"
+                   Text="" />
+
+        <TextBlock x:Name="StatusText"
+                   Grid.Row="4"
+                   Margin="0,10,0,0"
+                   FontSize="12"
+                   Foreground="{StaticResource Status.Warning}"
+                   TextWrapping="Wrap"
+                   Text="" />
+
+        <StackPanel Grid.Row="5"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Margin="0,16,0,0">
+            <Button x:Name="PortableButton"
+                    Content="Run portable"
+                    MinWidth="120"
+                    Height="34"
+                    Margin="0,0,8,0"
+                    Style="{StaticResource App.Button.Ghost}"
+                    Click="PortableButton_Click" />
+            <Button x:Name="InstallButton"
+                    Content="Install here"
+                    MinWidth="120"
+                    Height="34"
+                    Style="{StaticResource App.Button.Primary}"
+                    Click="InstallButton_Click" />
+        </StackPanel>
+    </Grid>
+</Window>
