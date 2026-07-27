@@ -1,9 +1,9 @@
 {
-  "version": "1.4.7",
-  "fileName": "GitDeployPro-1.4.7.exe",
-  "downloadUrl": "versions/GitDeployPro-1.4.7.exe",
-  "sha256": "CBEB70D8E59DDEEA6D1E128355334B8496661434DD4807049CF81324A4136238",
-  "releaseNotes": "- First-install dialog to choose install folder (other drives when C: is full)\n- Install path stored in registry; updates overwrite the same EXE\n- Run portable without installing\n- About shows install vs portable path",
+  "version": "1.4.8",
+  "fileName": "GitDeployPro-1.4.8.exe",
+  "downloadUrl": "versions/GitDeployPro-1.4.8.exe",
+  "sha256": "AD864A268D861CDC7AB966C14943FD9409B67E7F757767E5143C37CD3450CCFC",
+  "releaseNotes": "- Direct Upload shows the full project tree; mapped folder highlighted in green\n- Gitignored files stay visible (muted + ignored badge)\n- Tortoise-style git status colors on tree rows\n- Uploads under mapped folder still use mapped remote path",
   "mandatory": false,
-  "publishedUtc": "2026-07-27T05:09:13Z"
+  "publishedUtc": "2026-07-27T07:16:19Z"
 }

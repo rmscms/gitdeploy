@@ -212,16 +212,30 @@
             </Border>
 
             <Border Grid.Row="3" Style="{StaticResource App.CardStyle}">
-                <TreeView x:Name="FileTreeView"
-                          Background="Transparent"
-                          BorderThickness="0"
-                          Padding="10"
-                          Focusable="True"
-                          VirtualizingStackPanel.IsVirtualizing="True"
-                          VirtualizingStackPanel.VirtualizationMode="Recycling"
-                          behaviors:ContextMenuSelectionBehavior.Enable="True"
-                          PreviewKeyDown="FileTreeView_PreviewKeyDown"
-                          MouseRightButtonUp="FileTreeView_MouseRightButtonUp">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0"
+                               Margin="10,8,10,4"
+                               FontSize="11"
+                               Foreground="{StaticResource Text.Muted}"
+                               TextWrapping="Wrap"
+                               Text="Legend: green name = clean · red = changed · blue = untracked · grey = ignored · green background = path mapping" />
+
+                    <TreeView x:Name="FileTreeView"
+                              Grid.Row="1"
+                              Background="Transparent"
+                              BorderThickness="0"
+                              Padding="10"
+                              Focusable="True"
+                              VirtualizingStackPanel.IsVirtualizing="True"
+                              VirtualizingStackPanel.VirtualizationMode="Recycling"
+                              behaviors:ContextMenuSelectionBehavior.Enable="True"
+                              PreviewKeyDown="FileTreeView_PreviewKeyDown"
+                              MouseRightButtonUp="FileTreeView_MouseRightButtonUp">
                     <TreeView.ItemContainerStyle>
                         <Style TargetType="{x:Type TreeViewItem}">
                             <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
@@ -232,33 +246,59 @@
                     </TreeView.ItemContainerStyle>
                     <TreeView.ItemTemplate>
                         <HierarchicalDataTemplate ItemsSource="{Binding Children}">
-                            <StackPanel Orientation="Horizontal" Margin="2">
-                                <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}"
-                                          VerticalAlignment="Center"
-                                          Margin="0,0,8,0"
-                                          Click="ItemCheckBox_Click" />
-                                <TextBlock Text="{Binding Icon}"
-                                           Foreground="{Binding IconColor}"
-                                           Margin="0,0,6,0"
-                                           FontFamily="Segoe UI Emoji" />
-                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
-                                <TextBlock Text="{Binding SizeDisplay}"
-                                           FontSize="11"
-                                           Foreground="{StaticResource Text.Muted}"
-                                           Margin="10,0,0,0"
-                                           VerticalAlignment="Center"
-                                           Visibility="{Binding SizeVisibility}" />
-                                <TextBlock Text="{Binding UploadBadgeText}"
-                                           FontSize="12"
-                                           FontWeight="Bold"
-                                           Margin="8,0,0,0"
-                                           VerticalAlignment="Center"
-                                           Foreground="{Binding UploadBadgeBrush}"
-                                           Visibility="{Binding UploadBadgeVisibility}" />
-                            </StackPanel>
+                            <Border Background="{Binding RowBackground}"
+                                    CornerRadius="4"
+                                    Padding="4,2"
+                                    Margin="0,1">
+                                <StackPanel Orientation="Horizontal">
+                                    <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}"
+                                              VerticalAlignment="Center"
+                                              Margin="0,0,8,0"
+                                              Click="ItemCheckBox_Click" />
+                                    <TextBlock Text="{Binding Icon}"
+                                               Foreground="{Binding IconColor}"
+                                               Margin="0,0,6,0"
+                                               FontFamily="Segoe UI Emoji" />
+                                    <TextBlock Text="{Binding Name}"
+                                               Foreground="{Binding NameBrush}"
+                                               VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding SizeDisplay}"
+                                               FontSize="11"
+                                               Foreground="{StaticResource Text.Muted}"
+                                               Margin="10,0,0,0"
+                                               VerticalAlignment="Center"
+                                               Visibility="{Binding SizeVisibility}" />
+                                    <Border Background="{StaticResource Status.SuccessSurface}"
+                                            CornerRadius="3"
+                                            Padding="5,1"
+                                            Margin="8,0,0,0"
+                                            VerticalAlignment="Center"
+                                            Visibility="{Binding MappedBadgeVisibility}">
+                                        <TextBlock Text="{Binding MappedBadgeText}"
+                                                   FontSize="10"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{StaticResource Status.Success}" />
+                                    </Border>
+                                    <TextBlock Text="{Binding GitBadgeText}"
+                                               FontSize="10"
+                                               FontWeight="SemiBold"
+                                               Margin="8,0,0,0"
+                                               VerticalAlignment="Center"
+                                               Foreground="{Binding GitBadgeBrush}"
+                                               Visibility="{Binding GitBadgeVisibility}" />
+                                    <TextBlock Text="{Binding UploadBadgeText}"
+                                               FontSize="12"
+                                               FontWeight="Bold"
+                                               Margin="8,0,0,0"
+                                               VerticalAlignment="Center"
+                                               Foreground="{Binding UploadBadgeBrush}"
+                                               Visibility="{Binding UploadBadgeVisibility}" />
+                                </StackPanel>
+                            </Border>
                         </HierarchicalDataTemplate>
                     </TreeView.ItemTemplate>
                 </TreeView>
+                </Grid>
             </Border>
 
             <Border x:Name="UploadLogSection"

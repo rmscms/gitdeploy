@@ -267,6 +267,91 @@ namespace GitDeployPro.Services
             return await GetUncommittedCountAsync() > 0;
         }
 
+        /// <summary>
+        /// Builds a relative-path map of working-tree overlay states for UI (Direct Upload explorer).
+        /// Tracked clean files come from ls-files; dirty/untracked/ignored from porcelain.
+        /// </summary>
+        public async Task<Dictionary<string, GitItemState>> GetWorkingTreeOverlayAsync(string? repoRoot = null)
+        {
+            var result = new Dictionary<string, GitItemState>(StringComparer.OrdinalIgnoreCase);
+            var root = string.IsNullOrWhiteSpace(repoRoot) ? _workingDirectory : repoRoot;
+            if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(Path.Combine(root, ".git")))
+            {
+                return result;
+            }
+
+            try
+            {
+                var lsFiles = await RunGitCommandAsync("ls-files -z", root);
+                foreach (var path in lsFiles.Split('\0', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    var normalized = NormalizeGitPath(path);
+                    if (string.IsNullOrWhiteSpace(normalized) || IsInternalMetadataPath(normalized))
+                    {
+                        continue;
+                    }
+
+                    result[normalized] = GitItemState.Clean;
+                }
+
+                var porcelain = await RunGitCommandAsync("status --porcelain=v1 -uall --ignored=matching", root);
+                foreach (var rawLine in porcelain.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    if (rawLine.Length < 4)
+                    {
+                        continue;
+                    }
+
+                    var xy = rawLine.Substring(0, 2);
+                    var pathPart = rawLine.Substring(3).Trim();
+                    if (pathPart.Contains(" -> "))
+                    {
+                        pathPart = pathPart.Split(new[] { " -> " }, StringSplitOptions.None).Last();
+                    }
+
+                    var path = NormalizeGitPath(pathPart.Trim('"').TrimEnd('/'));
+                    if (string.IsNullOrWhiteSpace(path) || IsInternalMetadataPath(path))
+                    {
+                        continue;
+                    }
+
+                    result[path] = MapPorcelainToGitItemState(xy);
+                }
+            }
+            catch
+            {
+                // No git / command failure: leave overlay empty so UI stays neutral.
+            }
+
+            return result;
+        }
+
+        private static GitItemState MapPorcelainToGitItemState(string xy)
+        {
+            if (string.IsNullOrEmpty(xy))
+            {
+                return GitItemState.Modified;
+            }
+
+            if (xy == "??")
+            {
+                return GitItemState.Untracked;
+            }
+
+            if (xy == "!!")
+            {
+                return GitItemState.Ignored;
+            }
+
+            // Unmerged / conflict codes
+            if (xy is "UU" or "AA" or "DD" or "AU" or "UA" or "DU" or "UD")
+            {
+                return GitItemState.Conflicted;
+            }
+
+            return GitItemState.Modified;
+        }
+
         public async Task<List<FileChange>> GetUncommittedChangesAsync(bool includeDiff = true)
         {
             var output = await RunGitCommandAsync("status --porcelain");

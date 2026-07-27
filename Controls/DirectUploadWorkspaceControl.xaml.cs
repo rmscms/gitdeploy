@@ -29,13 +29,22 @@ namespace GitDeployPro.Controls
                 new PropertyMetadata(false, OnCompactModeChanged));
 
         private ConfigurationService _configService;
+        private readonly GitService _gitService = new GitService();
         private string _projectPath = string.Empty;
         private string _scanRootPath = string.Empty;
+        private string _mappedLocalRoot = string.Empty;
+        private string _profileRemoteBasePath = "/";
         private string _activeRemoteBasePath = "/";
         private ObservableCollection<FileSystemItem> _items;
         private bool _isUploading = false;
         private CancellationTokenSource? _cancellationTokenSource;
         private const string SessionFileName = ".gitdeploy.session";
+
+        private static readonly HashSet<string> HardExcludeNames = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ".git", ".vs", "Desktop.ini", "Thumbs.db",
+            ".gitdeploy.config", ".gitdeploy.session", ".gitdeploy.history"
+        };
 
         public bool CompactMode
         {
@@ -174,7 +183,11 @@ namespace GitDeployPro.Controls
                 var profile = ResolveConnectionProfile(config.ConnectionProfileId);
                 var mapping = GetPrimaryMapping(profile);
                 var roots = ResolveRoots(config, mapping);
-                _scanRootPath = roots.localRoot;
+                _mappedLocalRoot = mapping != null && !string.Equals(roots.localRoot, _projectPath, StringComparison.OrdinalIgnoreCase)
+                    ? roots.localRoot
+                    : string.Empty;
+                _scanRootPath = _projectPath;
+                _profileRemoteBasePath = NormalizeRemoteBase(profile?.RemotePath ?? config.RemotePath);
                 _activeRemoteBasePath = roots.remoteRoot;
 
                 UpdateConnectionInfoBanner(config, skipProjectRefresh: true, profileOverride: profile, mappingOverride: mapping);
@@ -184,41 +197,26 @@ namespace GitDeployPro.Controls
 
                 _items.Clear();
 
-                var scanRoot = Directory.Exists(_scanRootPath) ? _scanRootPath : _projectPath;
-
-                var wrapWithMappingRoot = mapping != null;
+                var projectRoot = _projectPath;
+                var mappedLocal = _mappedLocalRoot;
                 await Task.Run(() =>
                 {
-                    var rootItems = ScanDirectory(scanRoot);
+                    var rootItems = ScanDirectory(projectRoot);
                     Dispatcher.Invoke(() =>
                     {
-                        if (wrapWithMappingRoot)
+                        foreach (var item in rootItems)
                         {
-                            // Virtual "./" parent so one checkbox selects the mapped folder contents.
-                            var mappingRoot = new FileSystemItem
-                            {
-                                Name = "./",
-                                FullPath = scanRoot,
-                                IsFolder = true,
-                                IsExpanded = true
-                            };
-                            foreach (var item in rootItems)
-                            {
-                                item.Parent = mappingRoot;
-                                mappingRoot.Children.Add(item);
-                            }
-
-                            _items.Add(mappingRoot);
+                            _items.Add(item);
                         }
-                        else
+
+                        if (!string.IsNullOrEmpty(mappedLocal))
                         {
-                            foreach (var item in rootItems)
-                            {
-                                _items.Add(item);
-                            }
+                            MarkMappedFolder(_items, mappedLocal);
                         }
                     });
                 });
+
+                await ApplyGitOverlayAsync();
 
                 UpdateStats();
                 StatusText.Text = "Ready.";
@@ -231,108 +229,126 @@ namespace GitDeployPro.Controls
             }
         }
 
-        private List<FileSystemItem> ScanDirectory(string path)
+        private (HashSet<string> softExactNames, List<string> softPatterns) LoadSoftIgnoreRules()
         {
-            var items = new List<FileSystemItem>();
-            
-            // Standard ignore list (exact names)
-            var ignoredNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-            {
-                ".git", ".vs", "bin", "obj", ".idea", ".vscode",
-                ".gitdeploy.config", ".gitdeploy.session", ".gitdeploy.history", "Desktop.ini", "Thumbs.db"
-            };
+            var softExactNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var softPatterns = new List<string>();
 
-            // Pattern-based ignore list (for *.zip, *.log, etc.)
-            var ignorePatterns = new List<string>();
-
-            // Load .gitignore patterns if exists in root
             try
             {
                 string gitIgnorePath = Path.Combine(_projectPath, ".gitignore");
-                if (File.Exists(gitIgnorePath))
+                if (!File.Exists(gitIgnorePath))
                 {
-                    var lines = File.ReadAllLines(gitIgnorePath);
-                    foreach (var line in lines)
+                    return (softExactNames, softPatterns);
+                }
+
+                foreach (var line in File.ReadAllLines(gitIgnorePath))
+                {
+                    var trimmed = line.Trim();
+                    if (string.IsNullOrWhiteSpace(trimmed) || trimmed.StartsWith("#") || trimmed.StartsWith("!"))
                     {
-                        var trimmed = line.Trim();
-                        if (string.IsNullOrWhiteSpace(trimmed) || trimmed.StartsWith("#")) continue;
-                        
-                        // Check if it's a pattern (contains * or ?)
-                        if (trimmed.Contains("*") || trimmed.Contains("?"))
+                        continue;
+                    }
+
+                    if (trimmed.Contains('*') || trimmed.Contains('?'))
+                    {
+                        var clean = trimmed.TrimStart('/', '\\');
+                        if (!string.IsNullOrWhiteSpace(clean))
                         {
-                            var clean = trimmed.TrimStart('/', '\\');
-                            if (!string.IsNullOrWhiteSpace(clean))
-                            {
-                                ignorePatterns.Add(clean);
-                            }
+                            softPatterns.Add(clean);
                         }
-                        else
+                    }
+                    else
+                    {
+                        var clean = trimmed.TrimStart('/', '\\').TrimEnd('/', '\\');
+                        if (!string.IsNullOrWhiteSpace(clean) && !HardExcludeNames.Contains(clean))
                         {
-                            // Simple cleanup for exact name matching
-                            var clean = trimmed.TrimStart('/', '\\').TrimEnd('/', '\\');
-                            if (!string.IsNullOrWhiteSpace(clean))
-                            {
-                                ignoredNames.Add(clean);
-                            }
+                            softExactNames.Add(clean);
                         }
                     }
                 }
             }
-            catch { }
-
-            // Helper method to check if a name matches any pattern
-            bool IsIgnored(string name)
+            catch
             {
-                if (ignoredNames.Contains(name)) return true;
-                
-                foreach (var pattern in ignorePatterns)
-                {
-                    if (MatchesPattern(name, pattern)) return true;
-                }
-                
-                return false;
+                // ignore unreadable .gitignore
             }
+
+            return (softExactNames, softPatterns);
+        }
+
+        private bool IsSoftIgnoredName(string name, HashSet<string> softExactNames, List<string> softPatterns)
+        {
+            if (softExactNames.Contains(name))
+            {
+                return true;
+            }
+
+            foreach (var pattern in softPatterns)
+            {
+                if (MatchesPattern(name, pattern))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private List<FileSystemItem> ScanDirectory(string path)
+        {
+            var (softExactNames, softPatterns) = LoadSoftIgnoreRules();
+            return ScanDirectory(path, softExactNames, softPatterns);
+        }
+
+        private List<FileSystemItem> ScanDirectory(string path, HashSet<string> softExactNames, List<string> softPatterns)
+        {
+            var items = new List<FileSystemItem>();
 
             try
             {
                 var dirInfo = new DirectoryInfo(path);
 
-                // Directories
                 foreach (var dir in dirInfo.GetDirectories())
                 {
-                    if (IsIgnored(dir.Name) || dir.Attributes.HasFlag(FileAttributes.Hidden))
+                    if (HardExcludeNames.Contains(dir.Name) || dir.Attributes.HasFlag(FileAttributes.Hidden))
+                    {
                         continue;
+                    }
 
+                    var softIgnored = IsSoftIgnoredName(dir.Name, softExactNames, softPatterns);
                     var item = new FileSystemItem
                     {
                         Name = dir.Name,
                         FullPath = dir.FullName,
                         IsFolder = true,
                         Icon = "📁",
-                        IconColor = GetThemeBrush("Status.Warning", System.Windows.Media.Brushes.Gold)
+                        IconColor = GetThemeBrush("Status.Warning", System.Windows.Media.Brushes.Gold),
+                        GitState = softIgnored ? GitItemState.Ignored : GitItemState.None
                     };
 
-                    // Recursive call
-                    item.Children = new ObservableCollection<FileSystemItem>(ScanDirectory(dir.FullName));
-                    
-                    // Hook up parent checking logic
-                    foreach(var child in item.Children)
+                    item.Children = new ObservableCollection<FileSystemItem>(
+                        ScanDirectory(dir.FullName, softExactNames, softPatterns));
+
+                    foreach (var child in item.Children)
                     {
                         child.Parent = item;
                     }
 
-                    if (item.Children.Any())
+                    // Keep empty folders visible when they are soft-ignored (e.g. empty build out dirs).
+                    if (item.Children.Any() || softIgnored)
                     {
                         items.Add(item);
                     }
                 }
 
-                // Files
                 foreach (var file in dirInfo.GetFiles())
                 {
-                    if (IsIgnored(file.Name) || file.Attributes.HasFlag(FileAttributes.Hidden))
+                    if (HardExcludeNames.Contains(file.Name) || file.Attributes.HasFlag(FileAttributes.Hidden))
+                    {
                         continue;
+                    }
 
+                    var softIgnored = IsSoftIgnoredName(file.Name, softExactNames, softPatterns);
                     var item = new FileSystemItem
                     {
                         Name = file.Name,
@@ -340,7 +356,8 @@ namespace GitDeployPro.Controls
                         IsFolder = false,
                         Icon = "📄",
                         IconColor = GetThemeBrush("Text.Secondary", System.Windows.Media.Brushes.WhiteSmoke),
-                        Size = file.Length
+                        Size = file.Length,
+                        GitState = softIgnored ? GitItemState.Ignored : GitItemState.None
                     };
                     items.Add(item);
                 }
@@ -350,6 +367,186 @@ namespace GitDeployPro.Controls
 
             return items;
         }
+
+        private static void ClearMappedFolderFlags(IEnumerable<FileSystemItem> items)
+        {
+            foreach (var item in items)
+            {
+                item.IsMappedFolder = false;
+                if (item.Children != null && item.Children.Count > 0)
+                {
+                    ClearMappedFolderFlags(item.Children);
+                }
+            }
+        }
+
+        private static void MarkMappedFolder(IEnumerable<FileSystemItem> items, string mappedLocalRoot)
+        {
+            ClearMappedFolderFlags(items);
+
+            string target;
+            try
+            {
+                target = Path.GetFullPath(mappedLocalRoot).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            }
+            catch
+            {
+                return;
+            }
+
+            MarkMappedFolderCore(items, target);
+        }
+
+        private static bool MarkMappedFolderCore(IEnumerable<FileSystemItem> items, string target)
+        {
+            foreach (var item in items)
+            {
+                if (!item.IsFolder)
+                {
+                    continue;
+                }
+
+                string full;
+                try
+                {
+                    full = Path.GetFullPath(item.FullPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                }
+                catch
+                {
+                    continue;
+                }
+
+                if (string.Equals(full, target, StringComparison.OrdinalIgnoreCase))
+                {
+                    item.IsMappedFolder = true;
+                    item.IsExpanded = true;
+                    return true;
+                }
+
+                if (item.Children != null && item.Children.Count > 0 && MarkMappedFolderCore(item.Children, target))
+                {
+                    item.IsExpanded = true;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private async Task ApplyGitOverlayAsync()
+        {
+            if (string.IsNullOrWhiteSpace(_projectPath) || !Directory.Exists(_projectPath))
+            {
+                return;
+            }
+
+            Dictionary<string, GitItemState> overlay;
+            try
+            {
+                GitService.SetWorkingDirectory(_projectPath);
+                overlay = await _gitService.GetWorkingTreeOverlayAsync(_projectPath);
+            }
+            catch
+            {
+                return;
+            }
+
+            ApplyOverlayToItems(_items, _projectPath, overlay);
+            BubbleFolderGitState(_items);
+        }
+
+        private static void ApplyOverlayToItems(
+            IEnumerable<FileSystemItem> items,
+            string projectRoot,
+            Dictionary<string, GitItemState> overlay)
+        {
+            foreach (var item in items)
+            {
+                string relative;
+                try
+                {
+                    relative = Path.GetRelativePath(projectRoot, item.FullPath).Replace("\\", "/");
+                }
+                catch
+                {
+                    relative = item.Name;
+                }
+
+                if (overlay.TryGetValue(relative, out var state))
+                {
+                    item.GitState = state;
+                }
+                else if (item.GitState != GitItemState.Ignored)
+                {
+                    // Keep soft-ignore from scan; otherwise leave as None until folder bubble.
+                    if (!item.IsFolder && overlay.Count > 0)
+                    {
+                        // Tracked clean files are already in overlay; remaining files stay None/Untracked via porcelain.
+                    }
+                }
+
+                if (item.Children != null && item.Children.Count > 0)
+                {
+                    ApplyOverlayToItems(item.Children, projectRoot, overlay);
+                }
+            }
+        }
+
+        private static void BubbleFolderGitState(IEnumerable<FileSystemItem> items)
+        {
+            foreach (var item in items)
+            {
+                if (item.Children == null || item.Children.Count == 0)
+                {
+                    continue;
+                }
+
+                BubbleFolderGitState(item.Children);
+
+                if (!item.IsFolder)
+                {
+                    continue;
+                }
+
+                var bubbled = AggregateChildGitState(item.Children);
+                if (bubbled != GitItemState.None)
+                {
+                    // Prefer conflict/dirty from children; keep Ignored only if folder itself is ignored and children are not dirtier.
+                    if (IsDirtier(bubbled, item.GitState))
+                    {
+                        item.GitState = bubbled;
+                    }
+                }
+            }
+        }
+
+        private static GitItemState AggregateChildGitState(IEnumerable<FileSystemItem> children)
+        {
+            var best = GitItemState.None;
+            foreach (var child in children)
+            {
+                if (IsDirtier(child.GitState, best))
+                {
+                    best = child.GitState;
+                }
+            }
+
+            return best;
+        }
+
+        /// <summary>Higher rank = dirtier / more important for folder inheritance.</summary>
+        private static int GitStateRank(GitItemState state) => state switch
+        {
+            GitItemState.Conflicted => 5,
+            GitItemState.Modified => 4,
+            GitItemState.Untracked => 3,
+            GitItemState.Clean => 2,
+            GitItemState.Ignored => 1,
+            _ => 0
+        };
+
+        private static bool IsDirtier(GitItemState candidate, GitItemState current) =>
+            GitStateRank(candidate) > GitStateRank(current);
 
         private bool MatchesPattern(string name, string pattern)
         {
@@ -781,6 +978,13 @@ namespace GitDeployPro.Controls
                 folder.IsExpanded = wasExpanded || folder.Children.Count > 0;
                 folder.CheckParentStatus();
                 folder.RefreshUploadStateFromChildren();
+
+                if (!string.IsNullOrEmpty(_mappedLocalRoot))
+                {
+                    MarkMappedFolder(_items, _mappedLocalRoot);
+                }
+
+                await ApplyGitOverlayAsync();
                 UpdateStats();
                 StatusText.Text = $"Refreshed {folder.Name}.";
             }
@@ -1022,17 +1226,17 @@ namespace GitDeployPro.Controls
                     StatusText.Text = "Connecting...";
                     await client.AutoConnect(token);
 
-                    // Use _activeRemoteBasePath which was calculated in LoadProjectFilesAsync
-                    // This already includes RemotePath + mapping.RemotePath (if mapping exists)
-                    string remoteBasePath = !string.IsNullOrWhiteSpace(_activeRemoteBasePath)
+                    // Prefer mapped remote when uploading under the mapped local folder;
+                    // otherwise use the connection profile remote root.
+                    string defaultRemoteBase = !string.IsNullOrWhiteSpace(_activeRemoteBasePath)
                         ? _activeRemoteBasePath
+                        : NormalizeRemoteBase(config.RemotePath);
+                    string profileRemoteBase = !string.IsNullOrWhiteSpace(_profileRemoteBasePath)
+                        ? _profileRemoteBasePath
                         : NormalizeRemoteBase(config.RemotePath);
 
                     int processed = 0;
                     int skipped = 0;
-                    
-                    // Define relativeSource before loop
-                    var relativeSource = !string.IsNullOrEmpty(_scanRootPath) ? _scanRootPath : _projectPath;
 
                     foreach (var file in filesToUpload)
                     {
@@ -1043,9 +1247,9 @@ namespace GitDeployPro.Controls
 
                         try
                         {
-                            // Calculate relative path from scan root (which includes mapping's LocalPath)
-                            string relativePath = Path.GetRelativePath(relativeSource, file.FullPath).Replace("\\", "/");
-                            
+                            ResolveUploadPaths(file.FullPath, profileRemoteBase, defaultRemoteBase,
+                                out string relativePath, out string remoteBasePath);
+
                             // Check Session Skip
                             if (resumeSession && uploadedFiles.Contains(relativePath))
                             {
@@ -1122,8 +1326,8 @@ namespace GitDeployPro.Controls
                         }
                         catch (Exception fileEx)
                         {
-                            // Calculate remote path same way as upload logic
-                            string relativePath = Path.GetRelativePath(relativeSource, file.FullPath).Replace("\\", "/");
+                            ResolveUploadPaths(file.FullPath, profileRemoteBase, defaultRemoteBase,
+                                out string relativePath, out string remoteBasePath);
                             string remotePath = CombineRemotePaths(remoteBasePath, relativePath);
                             
                             Dispatcher.Invoke(() =>
@@ -1275,6 +1479,37 @@ namespace GitDeployPro.Controls
                 index++;
             }
             return $"{value:0.##} {units[index]}";
+        }
+
+        private void ResolveUploadPaths(
+            string localFullPath,
+            string profileRemoteBase,
+            string mappedRemoteBase,
+            out string relativePath,
+            out string remoteBasePath)
+        {
+            var projectRoot = !string.IsNullOrEmpty(_projectPath) ? _projectPath : _scanRootPath;
+
+            // Mapping local is a subfolder of the project.
+            if (!string.IsNullOrEmpty(_mappedLocalRoot) && IsSameOrNestedPath(_mappedLocalRoot, localFullPath))
+            {
+                relativePath = Path.GetRelativePath(_mappedLocalRoot, localFullPath).Replace("\\", "/");
+                remoteBasePath = mappedRemoteBase;
+                return;
+            }
+
+            relativePath = Path.GetRelativePath(projectRoot, localFullPath).Replace("\\", "/");
+
+            // Outside mapped local folder → profile remote only.
+            // When mapping has no distinct local folder (maps whole project), use mapped remote.
+            if (!string.IsNullOrEmpty(_mappedLocalRoot))
+            {
+                remoteBasePath = profileRemoteBase;
+            }
+            else
+            {
+                remoteBasePath = mappedRemoteBase;
+            }
         }
 
         private PathMapping? GetPrimaryMapping(ConnectionProfile? profile)
@@ -1557,6 +1792,8 @@ namespace GitDeployPro.Controls
         private bool? _isChecked = false;
         private bool _isExpanded;
         private UploadState _uploadState = UploadState.Pending;
+        private GitItemState _gitState = GitItemState.None;
+        private bool _isMappedFolder;
 
         private static System.Windows.Media.Brush GetThemeBrush(string resourceKey, System.Windows.Media.Brush fallback)
         {
@@ -1580,6 +1817,80 @@ namespace GitDeployPro.Controls
 
         public ObservableCollection<FileSystemItem> Children { get; set; } = new ObservableCollection<FileSystemItem>();
         public FileSystemItem? Parent { get; set; }
+
+        public GitItemState GitState
+        {
+            get => _gitState;
+            set
+            {
+                if (_gitState != value)
+                {
+                    _gitState = value;
+                    OnPropertyChanged(nameof(GitState));
+                    OnPropertyChanged(nameof(NameBrush));
+                    OnPropertyChanged(nameof(GitBadgeText));
+                    OnPropertyChanged(nameof(GitBadgeVisibility));
+                    OnPropertyChanged(nameof(GitBadgeBrush));
+                }
+            }
+        }
+
+        public bool IsMappedFolder
+        {
+            get => _isMappedFolder;
+            set
+            {
+                if (_isMappedFolder != value)
+                {
+                    _isMappedFolder = value;
+                    OnPropertyChanged(nameof(IsMappedFolder));
+                    OnPropertyChanged(nameof(RowBackground));
+                    OnPropertyChanged(nameof(MappedBadgeText));
+                    OnPropertyChanged(nameof(MappedBadgeVisibility));
+                }
+            }
+        }
+
+        public System.Windows.Media.Brush NameBrush => GitState switch
+        {
+            GitItemState.Clean => GetThemeBrush("Status.Success", System.Windows.Media.Brushes.LightGreen),
+            GitItemState.Modified => GetThemeBrush("Status.Error", System.Windows.Media.Brushes.OrangeRed),
+            GitItemState.Untracked => GetThemeBrush("Status.Info", System.Windows.Media.Brushes.DeepSkyBlue),
+            GitItemState.Ignored => GetThemeBrush("Text.Muted", System.Windows.Media.Brushes.Gray),
+            GitItemState.Conflicted => GetThemeBrush("Status.Warning", System.Windows.Media.Brushes.Orange),
+            _ => GetThemeBrush("Text.Secondary", System.Windows.Media.Brushes.WhiteSmoke)
+        };
+
+        public string GitBadgeText => GitState switch
+        {
+            GitItemState.Ignored => "ignored",
+            GitItemState.Conflicted => "!",
+            GitItemState.Modified => "M",
+            GitItemState.Untracked => "?",
+            _ => string.Empty
+        };
+
+        public Visibility GitBadgeVisibility =>
+            string.IsNullOrEmpty(GitBadgeText) ? Visibility.Collapsed : Visibility.Visible;
+
+        public System.Windows.Media.Brush GitBadgeBrush => GitState switch
+        {
+            GitItemState.Ignored => GetThemeBrush("Text.Muted", System.Windows.Media.Brushes.Gray),
+            GitItemState.Conflicted => GetThemeBrush("Status.Warning", System.Windows.Media.Brushes.Orange),
+            GitItemState.Modified => GetThemeBrush("Status.Error", System.Windows.Media.Brushes.OrangeRed),
+            GitItemState.Untracked => GetThemeBrush("Status.Info", System.Windows.Media.Brushes.DeepSkyBlue),
+            _ => GetThemeBrush("Text.Muted", System.Windows.Media.Brushes.Gray)
+        };
+
+        public string MappedBadgeText => IsMappedFolder ? "mapped" : string.Empty;
+
+        public Visibility MappedBadgeVisibility =>
+            IsMappedFolder ? Visibility.Visible : Visibility.Collapsed;
+
+        public System.Windows.Media.Brush RowBackground =>
+            IsMappedFolder
+                ? GetThemeBrush("Status.SuccessSurface", new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x20, 0x38, 0x2C)))
+                : System.Windows.Media.Brushes.Transparent;
 
         public bool? IsChecked
         {
