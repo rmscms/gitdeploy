@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Windows;
 using GitDeployPro.Services.Update;
 
@@ -20,9 +21,12 @@ namespace GitDeployPro.Windows
 
             var current = result.CurrentVersion?.ToString() ?? "?";
             var remote = result.RemoteVersion?.ToString() ?? result.Manifest?.Version ?? "?";
-            var notes = string.IsNullOrWhiteSpace(result.Manifest?.ReleaseNotes)
-                ? "No release notes provided."
-                : result.Manifest!.ReleaseNotes.Trim();
+            var items = result.Manifest?.ResolveChangelogItems();
+            var notes = items != null && items.Count > 0
+                ? string.Join("\n", items.Select(i => "• " + i))
+                : (string.IsNullOrWhiteSpace(result.Manifest?.ReleaseNotes)
+                    ? "No release notes provided."
+                    : result.Manifest!.ReleaseNotes.Trim());
 
             if (result.IsMandatory)
             {

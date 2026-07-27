@@ -40,13 +40,22 @@
     return `versions/${raw}`;
   };
 
-  const formatNotes = (notes) => {
+  const formatNotes = (manifest) => {
+    const fromArray = Array.isArray(manifest.changelog)
+      ? manifest.changelog
+          .map((line) => String(line || "").trim())
+          .filter(Boolean)
+      : [];
+    if (fromArray.length > 0) {
+      return fromArray;
+    }
+    const notes = manifest.releaseNotes;
     if (!notes) {
       return ["Latest release."];
     }
     return String(notes)
       .split(/\r?\n/)
-      .map((line) => line.replace(/^\s*[-*]\s*/, "").trim())
+      .map((line) => line.replace(/^\s*[-*•]\s*/, "").trim())
       .filter(Boolean);
   };
 
@@ -60,7 +69,7 @@
     .then((manifest) => {
       const version = String(manifest.version || "").trim() || "unknown";
       const href = resolveDownloadHref(manifest);
-      const notes = formatNotes(manifest.releaseNotes);
+      const notes = formatNotes(manifest);
 
       if (downloadBlurb) {
         downloadBlurb.textContent = `Self-contained Windows x64 build v${version}. Auto-update feed uses the same latest.json on this host.`;

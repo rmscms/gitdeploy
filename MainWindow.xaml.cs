@@ -87,7 +87,32 @@ namespace GitDeployPro
             new AutoStartService().RefreshToInstallPath(global.LaunchOnStartup);
 
             RestorePendingUpdateFooterIfAny();
+            TryShowWhatsNewAfterUpdate();
             await AppUpdateCoordinator.RunAutomaticCheckAsync(this);
+        }
+
+        private void TryShowWhatsNewAfterUpdate()
+        {
+            try
+            {
+                var payload = _updateService.ConsumeWhatsNewIfNeeded();
+                if (payload == null)
+                {
+                    return;
+                }
+
+                var version = AppUpdateService.NormalizeVersionString(payload.Version);
+                var window = new WhatsNewWindow(version, payload.ResolveChangelogItems())
+                {
+                    Owner = this
+                };
+                WindowOwnerService.ShowDialogOwned(window, this);
+                _updateService.MarkWhatsNewSeen(version);
+            }
+            catch
+            {
+                // Non-fatal
+            }
         }
 
         public void RestorePendingUpdateFooterIfAny()
@@ -625,6 +650,24 @@ namespace GitDeployPro
             using var scope = PerformanceSampler.Instance.BeginScope("navigation", "navigate", "dashboard");
             LoadRecentProjects();
             NavigateToPage(new DashboardPage(), "dashboard");
+        }
+
+        /// <summary>
+        /// Refresh recent projects after removing one from the app (disk files untouched).
+        /// </summary>
+        public void ApplyProjectListChange(string? nextProjectPath)
+        {
+            if (!string.IsNullOrWhiteSpace(nextProjectPath) && Directory.Exists(nextProjectPath))
+            {
+                SwitchProject(nextProjectPath);
+                return;
+            }
+
+            LoadRecentProjects();
+            ProjectNameText.Text = "Select Project";
+            ProjectInitialText.Text = "?";
+            ProjectAvatarBorder.Background = System.Windows.Media.Brushes.Gray;
+            NavigateToDashboard();
         }
 
         private void Dashboard_Click(object sender, RoutedEventArgs e) => NavigateToDashboard();

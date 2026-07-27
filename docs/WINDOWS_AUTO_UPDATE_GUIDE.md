@@ -54,13 +54,17 @@ gitdeploy/                    ← contents of local site/
 
 ```json
 {
-  "version": "1.4.6",
-  "fileName": "GitDeployPro-1.4.6.exe",
-  "downloadUrl": "versions/GitDeployPro-1.4.6.exe",
+  "version": "1.4.9",
+  "fileName": "GitDeployPro-1.4.9.exe",
+  "downloadUrl": "versions/GitDeployPro-1.4.9.exe",
   "sha256": "PUT_HEX_SHA256_HERE",
-  "releaseNotes": "- Stable LocalAppData install\n- Background update footer",
+  "releaseNotes": "- Feature A\n- Fix B",
+  "changelog": [
+    "Feature A",
+    "Fix B"
+  ],
   "mandatory": false,
-  "publishedUtc": "2026-07-26T10:00:00Z"
+  "publishedUtc": "2026-07-27T10:00:00Z"
 }
 ```
 
@@ -70,8 +74,34 @@ gitdeploy/                    ← contents of local site/
 | `fileName` | Yes | Published distribution EXE name (versioned for the website/feed) |
 | `downloadUrl` | Yes | Absolute URL or relative to BaseUrl |
 | `sha256` | Yes | SHA-256 of the **download EXE** bytes |
-| `releaseNotes` | No | Shown in dialog / site |
+| `releaseNotes` | No | Plain multiline string (legacy / short text). Prefer keeping in sync with `changelog` |
+| `changelog` | Yes (for UX) | **Array of bullet strings for THIS version only** — single source of truth |
 | `mandatory` | No | Default `false` |
+| `publishedUtc` | Yes | ISO-8601 UTC |
+
+### Changelog single source of truth (important)
+
+**Write the release notes once — in `latest.json` only for the current version.**
+
+| Consumer | Reads from |
+|----------|------------|
+| Website `index.html` (Latest slot) | `latest.json` → `changelog` (fallback: split `releaseNotes`) |
+| Desktop app “What’s new” modal | Same `latest.json` payload (cached at download / after apply) |
+
+Rules:
+
+1. **`latest.json` holds only the latest version’s changelog** — do **not** grow a history array of old releases inside it (that bloats the feed).
+2. Older versions on the website may keep **optional static** HTML cards for history, but the **live “Latest”** card must always be filled from `latest.json`.
+3. On each release, **overwrite** `changelog` / `releaseNotes` with the new version’s bullets (same text you would have pasted into `index.html`).
+4. After the user downloads an update and **Restarts**, the app should show a **nice What’s New modal** with that version’s `changelog` items (once per applied version).
+
+```text
+Release time:
+  edit latest.json.changelog  ──►  site.js fills Latest card
+                              └──►  app stores notes with pending update
+Restart after apply:
+  app shows What’s New modal from stored / fetched changelog
+```
 
 ### SHA-256 (PowerShell)
 
@@ -264,12 +294,24 @@ When the user asks for **نسخه جدید** / **ریلیز کن**:
 2. `dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true`
 3. Name artifacts `GitDeployPro-X.Y.Z.exe` + `.zip`
 4. Copy into `releases/X.Y.Z/` and `site/versions/`
-5. Update `site/latest.json` (version, sha256, `downloadUrl` like `versions/GitDeployPro-X.Y.Z.exe`)
-6. Add a **static** changelog block for that version at the top of `site/index.html` (do not rely only on JS)
-7. Git commit + annotated tag `X.Y.Z` + push commit and tag to GitHub
-8. Upload local `site/` contents to server `gitdeploy/`
+5. Update `site/latest.json`:
+   - `version`, `sha256`, `downloadUrl` (e.g. `versions/GitDeployPro-X.Y.Z.exe`)
+   - **`changelog`**: bullet array for **this version only** (overwrite previous)
+   - `releaseNotes`: same bullets as a `\n`-joined string (compat)
+   - `publishedUtc`
+6. Website **Latest** changelog slot reads from `latest.json` (do not duplicate the live latest by hand in HTML)
+7. Optional: keep older static HTML cards for archive only — not required for the live latest card
+8. Git commit + annotated tag `X.Y.Z` + push commit and tag to GitHub
+9. Upload local `site/` contents to server `gitdeploy/`
 
 Website download button reads `latest.json` via `site/assets/site.js` (prefers ZIP under `versions/` for browsers).
+
+### Post-update What’s New (product behavior)
+
+1. User downloads update in background → Restart applies package
+2. On first launch of the new version, show a polished **What’s New** modal listing `changelog` items for that version
+3. Mark version as “seen” locally so the modal does not spam every startup
+4. Content must match what `index.html` shows for Latest (both from `latest.json`)
 
 ---
 
@@ -277,9 +319,9 @@ Website download button reads `latest.json` via `site/assets/site.js` (prefers Z
 
 1. Copy this guide + `Services/Update/*` + shortcut/autostart helpers + update UI
 2. Change `UpdateOptions.BaseUrl` and product folder/EXE names in `AppInstallPaths`
-3. Wire MainWindow migration + footer + About check
+3. Wire MainWindow migration + footer + About check + What’s New modal
 4. Host a **separate** server folder per product
-5. Keep the **JSON contract identical** across apps
+5. Keep the **JSON contract identical** across apps (including `changelog` array)
 
 ---
 
@@ -293,3 +335,5 @@ Website download button reads `latest.json` via `site/assets/site.js` (prefers Z
 | Download fails quickly | Network / wrong `latest.json` URL / SHA mismatch |
 | Footer says ready but Restart fails | Pending package missing under `...\GitDeployPro\update\` |
 | Site download shows old version | `latest.json` or `versions/` not uploaded; hard-refresh browser |
+| Latest changelog empty on site | `changelog` / `releaseNotes` missing in `latest.json`; JS not loading feed |
+| What’s New empty after update | Notes not saved with pending package; or modal mark-seen fired too early |

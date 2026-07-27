@@ -123,6 +123,8 @@
                             </TreeView.Resources>
                             <TreeView.ItemContainerStyle>
                                 <Style TargetType="TreeViewItem">
+                                    <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+                                    <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}" />
                                     <Setter Property="Margin" Value="0,1,0,1" />
                                     <Setter Property="Padding" Value="2" />
                                     <Setter Property="FontSize" Value="12" />

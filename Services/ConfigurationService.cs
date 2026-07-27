@@ -50,6 +50,9 @@ namespace GitDeployPro.Services
             public bool MinimizeToTray { get; set; } = true;
             public bool EnablePerformanceSampling { get; set; }
             public DateTime? LastUpdateCheckUtc { get; set; }
+
+            /// <summary>Last version for which the What's New modal was shown.</summary>
+            public string LastSeenWhatsNewVersion { get; set; } = "";
         }
 
         public class RecentProjectEntry
@@ -305,6 +308,64 @@ namespace GitDeployPro.Services
 
             config.LastProjectPath = normalizedPath;
             SaveGlobalConfig(config);
+        }
+
+        /// <summary>
+        /// Removes a project from the app recent list / last project only.
+        /// Does not delete any files on disk.
+        /// </summary>
+        /// <returns>The next LastProjectPath after removal (may be empty).</returns>
+        public string RemoveRecentProject(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return LoadGlobalConfig().LastProjectPath ?? string.Empty;
+            }
+
+            var config = LoadGlobalConfig();
+            config.RecentProjects ??= new List<RecentProjectEntry>();
+
+            string normalizedPath;
+            try
+            {
+                normalizedPath = Path.GetFullPath(path);
+            }
+            catch
+            {
+                normalizedPath = path;
+            }
+
+            config.RecentProjects = config.RecentProjects
+                .Where(p => !string.Equals(p.Path, normalizedPath, StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(p => p.LastOpenedUtc)
+                .Take(10)
+                .ToList();
+
+            if (string.Equals(config.LastProjectPath, normalizedPath, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(TryNormalizePath(config.LastProjectPath), normalizedPath, StringComparison.OrdinalIgnoreCase))
+            {
+                config.LastProjectPath = config.RecentProjects.FirstOrDefault()?.Path ?? string.Empty;
+            }
+
+            SaveGlobalConfig(config);
+            return config.LastProjectPath ?? string.Empty;
+        }
+
+        private static string TryNormalizePath(string? path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return string.Empty;
+            }
+
+            try
+            {
+                return Path.GetFullPath(path);
+            }
+            catch
+            {
+                return path;
+            }
         }
 
         public void UpdateGlobalConfig(Action<GlobalConfig> update)

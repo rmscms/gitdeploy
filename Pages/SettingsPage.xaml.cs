@@ -43,6 +43,10 @@ namespace GitDeployPro.Pages
                 {
                     await ReloadSettingsForPath(globalConfig.LastProjectPath);
                 }
+                else
+                {
+                    UpdateDangerZoneUi(null);
+                }
                 var startupEnabled = _autoStartService.IsEnabled();
                 LaunchOnStartupCheckBox.IsChecked = startupEnabled;
                 ShowBackupLocalhostWarningCheckBox.IsChecked = globalConfig.ShowBackupSchedulerLocalhostWarning;
@@ -126,6 +130,76 @@ namespace GitDeployPro.Pages
             
             GitService.SetWorkingDirectory(path);
             await LoadGitInfo(projectConfig);
+            UpdateDangerZoneUi(path);
+        }
+
+        private void UpdateDangerZoneUi(string? path)
+        {
+            if (DangerProjectPathText == null || RemoveProjectFromAppButton == null)
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
+            {
+                DangerProjectPathText.Text = "No project selected.";
+                RemoveProjectFromAppButton.IsEnabled = false;
+                return;
+            }
+
+            DangerProjectPathText.Text = path;
+            RemoveProjectFromAppButton.IsEnabled = true;
+        }
+
+        private void RemoveProjectFromAppButton_Click(object sender, RoutedEventArgs e)
+        {
+            var path = (LocalPathTextBox?.Text ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                ModernMessageBox.Show("No project is selected.", "Danger Zone", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var confirm = ModernMessageBox.Show(
+                $"Remove this project from GitDeploy Pro?\n\n{path}\n\nFiles on disk will NOT be deleted. You can open the folder again later.",
+                "Remove project from app",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+
+            if (!confirm)
+            {
+                return;
+            }
+
+            try
+            {
+                var nextPath = _configService.RemoveRecentProject(path);
+                if (System.Windows.Application.Current.MainWindow is MainWindow mainWindow)
+                {
+                    mainWindow.ApplyProjectListChange(nextPath);
+                }
+
+                if (!string.IsNullOrWhiteSpace(nextPath) && Directory.Exists(nextPath))
+                {
+                    _ = ReloadSettingsForPath(nextPath);
+                }
+                else
+                {
+                    LocalPathTextBox.Text = string.Empty;
+                    UpdateDangerZoneUi(null);
+                    ConnectionProfileComboBox.SelectedItem = null;
+                }
+
+                ModernMessageBox.Show(
+                    "Project removed from the app. Disk files were kept.",
+                    "Danger Zone",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show($"Could not remove project:\n{ex.Message}", "Danger Zone", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         private async Task LoadGitInfo(ProjectConfig config)

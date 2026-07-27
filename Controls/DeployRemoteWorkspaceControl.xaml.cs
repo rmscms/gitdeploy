@@ -322,10 +322,15 @@ namespace GitDeployPro.Controls
                 return;
             }
 
-            if (!_editorUsingFallback || !allowRecovery)
+            if (!_editorUsingFallback)
             {
                 EditorWebView.Visibility = Visibility.Visible;
                 EditorFallbackTextBox.Visibility = Visibility.Collapsed;
+            }
+            else if (allowRecovery)
+            {
+                // Keep the simple editor visible, but allow WebView2/Monaco to initialize behind it.
+                EditorWebView.Visibility = Visibility.Visible;
             }
 
             try
@@ -341,7 +346,6 @@ namespace GitDeployPro.Controls
 
                 if (!_editorWebReady && EditorWebView.CoreWebView2 != null)
                 {
-                    EditorWebView.Visibility = Visibility.Visible;
                     EditorWebView.CoreWebView2.NavigateToString(_codeEditorHtmlTemplate ?? "<html><body>Editor template missing.</body></html>");
                 }
             }
@@ -436,6 +440,8 @@ namespace GitDeployPro.Controls
             EditorWebView.Visibility = Visibility.Collapsed;
             EditorFallbackTextBox.Visibility = Visibility.Visible;
             _lastEditorRecoveryAttemptUtc = DateTime.MinValue;
+            // Retry promotion more aggressively after each open while fallback is active.
+            _ = TryRecoverEditorHostAsync();
         }
 
         private async Task TryRecoverEditorHostAsync()
@@ -446,7 +452,7 @@ namespace GitDeployPro.Controls
             }
 
             var now = DateTime.UtcNow;
-            if (now - _lastEditorRecoveryAttemptUtc < TimeSpan.FromSeconds(6))
+            if (now - _lastEditorRecoveryAttemptUtc < TimeSpan.FromSeconds(2))
             {
                 return;
             }
@@ -455,7 +461,14 @@ namespace GitDeployPro.Controls
             _lastEditorRecoveryAttemptUtc = now;
             try
             {
-                await EnsureEditorHostAsync(allowRecovery: true, waitMs: 3000);
+                await EnsureEditorHostAsync(allowRecovery: true, waitMs: 8000);
+                // Give navigation/ready message a moment, then promote if possible.
+                var waitStart = DateTime.UtcNow;
+                while (!_editorWebReady && DateTime.UtcNow - waitStart < TimeSpan.FromSeconds(8))
+                {
+                    await Task.Delay(120);
+                }
+
                 if (_editorWebReady)
                 {
                     await PromoteFallbackToWebEditorAsync();
@@ -1130,13 +1143,8 @@ namespace GitDeployPro.Controls
             {
                 var entries = await ExecuteRemoteAsync(service => service.ListDirectoryAsync(root), "Load root");
                 var nodes = _treeBuilder.BuildNodes(entries);
-                RootNodes.Clear();
-                foreach (var node in nodes)
-                {
-                    RootNodes.Add(node);
-                }
-
-                SetStatus($"Loaded {RootNodes.Count} item(s) from {root}", success: true);
+                PopulateRootTree(root, nodes);
+                SetStatus($"Loaded {nodes.Count} item(s) from {root}", success: true);
                 AddLog($"Root loaded from {root}");
                 UpdateMappingBanner();
             }
@@ -1145,6 +1153,131 @@ namespace GitDeployPro.Controls
                 EndRemoteLoading();
                 UpdateRemoteBrowserVisualState();
             }
+        }
+
+        /// <summary>
+        /// Always wrap remote listing under a clickable root folder so New File/Folder
+        /// works at the mapped (or profile) remote root.
+        /// </summary>
+        private void PopulateRootTree(string remoteRoot, IReadOnlyList<RemoteTreeNode> children)
+        {
+            var rootNode = _treeBuilder.CreateRootFolderNode(remoteRoot);
+            rootNode.Children.Clear();
+            foreach (var child in children)
+            {
+                rootNode.Children.Add(child);
+            }
+
+            rootNode.IsLoaded = true;
+            rootNode.IsExpanded = true;
+
+            RootNodes.Clear();
+            RootNodes.Add(rootNode);
+
+            // Force-expand after the TreeViewItem container exists.
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (RootNodes.Count == 0)
+                {
+                    return;
+                }
+
+                RootNodes[0].IsExpanded = true;
+                if (RemoteTreeView.ItemContainerGenerator.ContainerFromItem(RootNodes[0]) is TreeViewItem tvi)
+                {
+                    tvi.IsExpanded = true;
+                    tvi.UpdateLayout();
+                }
+            }), System.Windows.Threading.DispatcherPriority.Loaded);
+        }
+
+        private RemoteTreeNode? FindNodeByPath(string? remotePath)
+        {
+            if (string.IsNullOrWhiteSpace(remotePath))
+            {
+                return null;
+            }
+
+            var target = remotePath.TrimEnd('/');
+            if (string.IsNullOrWhiteSpace(target))
+            {
+                target = "/";
+            }
+
+            foreach (var node in EnumerateNodes(RootNodes))
+            {
+                var path = (node.FullPath ?? string.Empty).TrimEnd('/');
+                if (string.IsNullOrWhiteSpace(path))
+                {
+                    path = "/";
+                }
+
+                if (string.Equals(path, target, StringComparison.OrdinalIgnoreCase))
+                {
+                    return node;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Refresh one folder's children in place (same idea as delete) — no full FTP tree restart.
+        /// </summary>
+        private async Task RefreshFolderInPlaceAsync(string folderPath)
+        {
+            var folder = FindNodeByPath(folderPath);
+            if (folder == null && RootNodes.Count > 0 && IsBrowseRootNode(RootNodes[0]))
+            {
+                var rootPath = (RootNodes[0].FullPath ?? string.Empty).TrimEnd('/');
+                var wanted = (folderPath ?? string.Empty).TrimEnd('/');
+                if (string.IsNullOrWhiteSpace(wanted)) wanted = "/";
+                if (string.IsNullOrWhiteSpace(rootPath)) rootPath = "/";
+                if (string.Equals(rootPath, wanted, StringComparison.OrdinalIgnoreCase))
+                {
+                    folder = RootNodes[0];
+                }
+            }
+
+            if (folder == null)
+            {
+                // Last resort: refresh browse-root children only.
+                if (RootNodes.Count > 0)
+                {
+                    folder = RootNodes[0];
+                }
+                else
+                {
+                    return;
+                }
+            }
+
+            folder.IsExpanded = true;
+            await LoadChildrenAsync(folder);
+            folder.IsExpanded = true;
+            UpdateRemoteBrowserVisualState();
+        }
+
+        private bool IsBrowseRootNode(RemoteTreeNode node)
+        {
+            if (node == null || _currentProfile == null)
+            {
+                return false;
+            }
+
+            var root = RemotePathResolver.BuildRemoteRoot(_currentProfile).TrimEnd('/');
+            var path = (node.FullPath ?? string.Empty).TrimEnd('/');
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                path = "/";
+            }
+
+            if (string.IsNullOrWhiteSpace(root))
+            {
+                root = "/";
+            }
+
+            return string.Equals(root, path, StringComparison.OrdinalIgnoreCase);
         }
 
         private async Task LoadChildrenAsync(RemoteTreeNode node)
@@ -1465,6 +1598,7 @@ namespace GitDeployPro.Controls
 
         private IReadOnlyList<AppContextMenuAction> BuildRemoteContextActions(RemoteTreeNode node)
         {
+            var isRoot = IsBrowseRootNode(node);
             var actions = new List<AppContextMenuAction>
             {
                 new()
@@ -1477,9 +1611,24 @@ namespace GitDeployPro.Controls
                 },
                 new()
                 {
+                    Id = "new-folder",
+                    Label = "New Folder",
+                    IconGlyph = "📁",
+                    Execute = _ => _ = CreateRemoteFolderAsync(node)
+                },
+                new()
+                {
+                    Id = "new-file",
+                    Label = "New File",
+                    IconGlyph = "📄",
+                    Execute = _ => _ = CreateRemoteFileAsync(node)
+                },
+                new()
+                {
                     Id = "download",
                     Label = node.IsDirectory ? "Download Folder" : "Download File",
                     IconGlyph = "⬇",
+                    IsEnabled = !isRoot,
                     Execute = _ => _ = DownloadNodeAsync(node)
                 },
                 AppContextMenuAction.Separator("remote-action-separator"),
@@ -1488,6 +1637,7 @@ namespace GitDeployPro.Controls
                     Id = "rename",
                     Label = "Rename",
                     IconGlyph = "✏",
+                    IsEnabled = !isRoot,
                     Execute = _ => _ = RenameNodeAsync(node)
                 },
                 new()
@@ -1495,6 +1645,7 @@ namespace GitDeployPro.Controls
                     Id = "move",
                     Label = "Move",
                     IconGlyph = "➡",
+                    IsEnabled = !isRoot,
                     Execute = _ => _ = MoveNodeAsync(node)
                 },
                 new()
@@ -1503,10 +1654,158 @@ namespace GitDeployPro.Controls
                     Label = "Delete",
                     IconGlyph = "🗑",
                     IsDestructive = true,
+                    IsEnabled = !isRoot,
                     Execute = _ => _ = DeleteNodeAsync(node)
                 }
             };
             return actions;
+        }
+
+        private string ResolveRemoteParentDirectory(RemoteTreeNode node)
+        {
+            var root = RemotePathResolver.BuildRemoteRoot(_currentProfile);
+            if (node.IsDirectory)
+            {
+                return RemotePathResolver.EnsureTrailingSlash(node.FullPath).TrimEnd('/');
+            }
+
+            return RemotePathResolver.GetParentDirectory(node.FullPath, root).TrimEnd('/');
+        }
+
+        private async Task CreateRemoteFolderAsync(RemoteTreeNode node)
+        {
+            if (_isBusy || _remoteService == null || !_remoteService.IsConnected || _currentProfile == null)
+            {
+                return;
+            }
+
+            var dialog = new InputDialog("Enter folder name:", "New Folder", "new-folder")
+            {
+                Owner = Window.GetWindow(this)
+            };
+
+            if (WindowOwnerService.ShowDialogOwned(dialog, this) != true)
+            {
+                return;
+            }
+
+            var name = (dialog.ResponseText ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(name)
+                || name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0
+                || name.Contains('/')
+                || name.Contains('\\'))
+            {
+                ModernMessageBox.Show("Enter a valid folder name without path separators.", "New Folder", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var parent = ResolveRemoteParentDirectory(node);
+            var destination = RemotePathResolver.CombineRemotePaths(parent, name);
+
+            _isBusy = true;
+            UpdateUiState();
+            try
+            {
+                await ExecuteRemoteAsync(
+                    service => service.EnsureDirectoryAsync(destination),
+                    $"Create folder {name}");
+
+                // Refresh only the parent folder — do not restart the whole FTP tree.
+                var parentNode = node.IsDirectory ? node : FindParentNode(node) ?? FindNodeByPath(parent);
+                if (parentNode != null)
+                {
+                    parentNode.IsExpanded = true;
+                    await LoadChildrenAsync(parentNode);
+                    parentNode.IsExpanded = true;
+                    UpdateRemoteBrowserVisualState();
+                }
+                else
+                {
+                    await RefreshFolderInPlaceAsync(parent);
+                }
+
+                SetStatus($"Created folder {name}", success: true);
+                AddLog($"Created folder {destination}");
+            }
+            catch (Exception ex)
+            {
+                SetStatus($"Create folder failed: {ex.Message}", warning: true);
+                AddLog($"Create folder failed: {ex.Message}");
+                ModernMessageBox.Show($"Could not create folder:\n{ex.Message}", "Remote workspace", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                _isBusy = false;
+                UpdateUiState();
+            }
+        }
+
+        private async Task CreateRemoteFileAsync(RemoteTreeNode node)
+        {
+            if (_isBusy || _remoteService == null || !_remoteService.IsConnected || _currentProfile == null)
+            {
+                return;
+            }
+
+            var dialog = new NewFileDialog();
+            if (WindowOwnerService.ShowDialogOwned(dialog, this) != true
+                || string.IsNullOrWhiteSpace(dialog.FileName))
+            {
+                return;
+            }
+
+            var fileName = dialog.FileName.Trim();
+            var parent = ResolveRemoteParentDirectory(node);
+            var destination = RemotePathResolver.CombineRemotePaths(parent, fileName).TrimEnd('/');
+
+            _isBusy = true;
+            UpdateUiState();
+            try
+            {
+                var starter = FileStarterTemplates.GetStarterContent(fileName);
+                await ExecuteRemoteAsync(
+                    service => service.UploadTextFileAsync(destination, starter),
+                    $"Create file {fileName}");
+
+                var parentNode = node.IsDirectory ? node : FindParentNode(node) ?? FindNodeByPath(parent);
+                RemoteTreeNode? createdNode = null;
+                if (parentNode != null)
+                {
+                    parentNode.IsExpanded = true;
+                    await LoadChildrenAsync(parentNode);
+                    parentNode.IsExpanded = true;
+                    createdNode = FindNodeByPath(destination);
+                    UpdateRemoteBrowserVisualState();
+                }
+                else
+                {
+                    await RefreshFolderInPlaceAsync(parent);
+                    createdNode = FindNodeByPath(destination);
+                }
+
+                SetStatus($"Created file {fileName}", success: true);
+                AddLog($"Created file {destination}");
+
+                createdNode ??= new RemoteTreeNode
+                {
+                    Name = fileName,
+                    FullPath = destination,
+                    IsDirectory = false,
+                    IconGlyph = "📄"
+                };
+
+                _isBusy = false;
+                UpdateUiState();
+                await OpenFileAsync(createdNode);
+            }
+            catch (Exception ex)
+            {
+                SetStatus($"Create file failed: {ex.Message}", warning: true);
+                AddLog($"Create file failed: {ex.Message}");
+                ModernMessageBox.Show($"Could not create file:\n{ex.Message}", "Remote workspace", MessageBoxButton.OK, MessageBoxImage.Error);
+                _isBusy = false;
+                UpdateUiState();
+            }
         }
 
         private string ResolveDefaultDownloadRoot()
@@ -1815,11 +2114,7 @@ namespace GitDeployPro.Controls
             var root = RemotePathResolver.BuildRemoteRoot(_currentProfile);
             var entries = await ExecuteRemoteAsync(service => service.ListDirectoryAsync(root), "Refresh root after delete");
             var nodes = _treeBuilder.BuildNodes(entries);
-            RootNodes.Clear();
-            foreach (var node in nodes)
-            {
-                RootNodes.Add(node);
-            }
+            PopulateRootTree(root, nodes);
 
             UpdateRemoteBrowserVisualState();
         }

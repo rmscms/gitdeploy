@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Reflection;
 using System.Security.Cryptography;
@@ -217,7 +219,8 @@ namespace GitDeployPro.Services.Update
                 Sha256 = manifest.Sha256?.Trim() ?? string.Empty,
                 FileName = fileName,
                 Mandatory = manifest.Mandatory,
-                ReleaseNotes = manifest.ReleaseNotes ?? string.Empty
+                ReleaseNotes = manifest.ReleaseNotes ?? string.Empty,
+                Changelog = manifest.ResolveChangelogItems().ToList()
             };
 
             var json = JsonConvert.SerializeObject(state, Formatting.Indented);
@@ -233,6 +236,8 @@ namespace GitDeployPro.Services.Update
         {
             var pending = GetPendingUpdate()
                 ?? throw new InvalidOperationException("No pending update package was found.");
+
+            WriteWhatsNewFromPending(pending);
 
             Directory.CreateDirectory(AppInstallPaths.InstallDirectory);
             var destExe = AppInstallPaths.ExecutablePath;
@@ -425,6 +430,110 @@ endlocal
             }
 
             return $"{trimmed}.0.0";
+        }
+
+        private void WriteWhatsNewFromPending(PendingUpdateState pending)
+        {
+            try
+            {
+                Directory.CreateDirectory(AppInstallPaths.UpdateStagingDirectory);
+                var payload = new WhatsNewState
+                {
+                    Version = pending.Version?.Trim() ?? string.Empty,
+                    ReleaseNotes = pending.ReleaseNotes ?? string.Empty,
+                    Changelog = pending.ResolveChangelogItems().ToList()
+                };
+                var json = JsonConvert.SerializeObject(payload, Formatting.Indented);
+                File.WriteAllText(AppInstallPaths.WhatsNewPath, json, Encoding.UTF8);
+            }
+            catch
+            {
+                // Non-fatal: update can still apply without the modal payload.
+            }
+        }
+
+        public WhatsNewState? TryGetPendingWhatsNew()
+        {
+            try
+            {
+                var path = AppInstallPaths.WhatsNewPath;
+                if (!File.Exists(path))
+                {
+                    return null;
+                }
+
+                var json = File.ReadAllText(path);
+                var state = JsonConvert.DeserializeObject<WhatsNewState>(json);
+                if (state == null || string.IsNullOrWhiteSpace(state.Version))
+                {
+                    return null;
+                }
+
+                return state;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        public void ClearPendingWhatsNew()
+        {
+            try
+            {
+                if (File.Exists(AppInstallPaths.WhatsNewPath))
+                {
+                    File.Delete(AppInstallPaths.WhatsNewPath);
+                }
+            }
+            catch
+            {
+                // ignore
+            }
+        }
+
+        /// <summary>
+        /// Shows What's New once after an applied update when notes are available.
+        /// </summary>
+        public WhatsNewState? ConsumeWhatsNewIfNeeded()
+        {
+            var pending = TryGetPendingWhatsNew();
+            if (pending == null)
+            {
+                return null;
+            }
+
+            var current = NormalizeVersionString(GetCurrentVersion().ToString());
+            var pendingVersion = NormalizeVersionString(pending.Version);
+            if (!string.Equals(current, pendingVersion, StringComparison.OrdinalIgnoreCase))
+            {
+                // Stale payload from a different build — drop it.
+                ClearPendingWhatsNew();
+                return null;
+            }
+
+            var lastSeen = _configService.LoadGlobalConfig().LastSeenWhatsNewVersion ?? string.Empty;
+            if (string.Equals(NormalizeVersionString(lastSeen), pendingVersion, StringComparison.OrdinalIgnoreCase))
+            {
+                ClearPendingWhatsNew();
+                return null;
+            }
+
+            if (pending.ResolveChangelogItems().Count == 0 && string.IsNullOrWhiteSpace(pending.ReleaseNotes))
+            {
+                MarkWhatsNewSeen(pendingVersion);
+                ClearPendingWhatsNew();
+                return null;
+            }
+
+            return pending;
+        }
+
+        public void MarkWhatsNewSeen(string version)
+        {
+            var normalized = NormalizeVersionString(version);
+            _configService.UpdateGlobalConfig(cfg => cfg.LastSeenWhatsNewVersion = normalized);
+            ClearPendingWhatsNew();
         }
 
         private static HttpClient CreateClient()
