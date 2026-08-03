@@ -30,7 +30,7 @@ namespace GitDeployPro.Pages
         private const double RemoteWideBreakpoint = 1500;
         private const double RemoteMediumBreakpoint = 1100;
         private const double RemoteNarrowBreakpoint = 900;
-        private const double RailWidth = 40;
+        private const double RailWidth = 44;
         private const double SplitterWidth = 8;
         private const double MainColumnMinWidth = 280;
         private const double RemoteDockMinWidth = 260;
@@ -796,27 +796,35 @@ namespace GitDeployPro.Pages
                 var tab = new Border
                 {
                     Tag = sessionId,
-                    Height = 26,
-                    Margin = new Thickness(0, 0, 1, 0),
-                    Padding = new Thickness(8, 0, 2, 0),
-                    Background = System.Windows.Media.Brushes.Transparent,
-                    BorderThickness = new Thickness(0, 0, 0, 2),
-                    BorderBrush = isActive
-                        ? (System.Windows.Media.Brush)FindResource("Status.Warning")
+                    Height = 28,
+                    Margin = new Thickness(0, 0, 4, 0),
+                    Padding = new Thickness(10, 0, 4, 0),
+                    CornerRadius = new CornerRadius(6),
+                    Background = isActive
+                        ? (System.Windows.Media.Brush)FindResource("Surface.Raised")
                         : System.Windows.Media.Brushes.Transparent,
+                    BorderThickness = isActive ? new Thickness(1) : new Thickness(0),
+                    BorderBrush = isActive
+                        ? (System.Windows.Media.Brush)FindResource("Border.Subtle")
+                        : System.Windows.Media.Brushes.Transparent,
+                    VerticalAlignment = VerticalAlignment.Center,
                     Cursor = System.Windows.Input.Cursors.Hand,
                     ToolTip = session.IsLocal
                         ? "Local terminal session"
                         : $"Server: {session.Title}"
                 };
 
-                var content = new StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal };
+                var content = new StackPanel
+                {
+                    Orientation = System.Windows.Controls.Orientation.Horizontal,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
                 content.Children.Add(new TextBlock
                 {
                     Text = session.Title,
                     VerticalAlignment = VerticalAlignment.Center,
                     Margin = new Thickness(0, 0, 4, 0),
-                    FontSize = 11,
+                    FontSize = 12,
                     FontWeight = isActive ? FontWeights.SemiBold : FontWeights.Normal,
                     Foreground = (System.Windows.Media.Brush)FindResource(
                         isActive ? "Text.Primary" : "Text.Secondary")
@@ -834,6 +842,7 @@ namespace GitDeployPro.Pages
                     BorderThickness = new Thickness(0),
                     Foreground = (System.Windows.Media.Brush)FindResource("Text.Muted"),
                     Cursor = System.Windows.Input.Cursors.Hand,
+                    VerticalAlignment = VerticalAlignment.Center,
                     ToolTip = "Close session"
                 };
                 close.Click += CloseDeployTerminalSession_Click;
@@ -1467,13 +1476,14 @@ namespace GitDeployPro.Pages
                 return;
             }
 
-            // Tiny shell: left drawer overlay (never full-page).
+            // Tiny shell: left drawer overlay (never full-page). Reserve left rail like remote overlay.
             ClearLeftDockColumnConstraints();
             LeftDockColumn.Width = new GridLength(0);
             LeftSplitterColumn.Width = new GridLength(0);
             LeftDockSplitter.Visibility = Visibility.Collapsed;
             Grid.SetColumn(LeftDockContainer, 0);
             Grid.SetColumnSpan(LeftDockContainer, 7);
+            LeftDockContainer.Margin = new Thickness(RailWidth + 8, 0, 0, 0);
             LeftDockContainer.HorizontalAlignment = System.Windows.HorizontalAlignment.Left;
             LeftDockContainer.Width = Math.Min(420, Math.Max(LeftDockMinWidth, GetEffectiveShellWidth() * 0.42));
             System.Windows.Controls.Panel.SetZIndex(LeftDockContainer, 14);
@@ -1496,6 +1506,7 @@ namespace GitDeployPro.Pages
         {
             Grid.SetColumn(LeftDockContainer, 1);
             Grid.SetColumnSpan(LeftDockContainer, 1);
+            LeftDockContainer.Margin = new Thickness(0);
             LeftDockContainer.HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch;
             LeftDockContainer.Width = double.NaN;
             System.Windows.Controls.Panel.SetZIndex(LeftDockContainer, 1);
@@ -1748,7 +1759,7 @@ namespace GitDeployPro.Pages
 
             Grid.SetColumn(RemoteWorkspaceContainer, 0);
             Grid.SetColumnSpan(RemoteWorkspaceContainer, 7);
-            RemoteWorkspaceContainer.Margin = new Thickness(0, 0, RailWidth, 0);
+            RemoteWorkspaceContainer.Margin = new Thickness(0, 0, RailWidth + 8, 0);
             RemoteWorkspaceContainer.HorizontalAlignment = System.Windows.HorizontalAlignment.Right;
             RemoteWorkspaceContainer.VerticalAlignment = System.Windows.VerticalAlignment.Stretch;
             RemoteWorkspaceContainer.Width = overlayWidth;

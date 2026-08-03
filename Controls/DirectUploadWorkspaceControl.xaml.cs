@@ -565,6 +565,8 @@ namespace GitDeployPro.Controls
 
                 // In-place merge keeps expanded folders / checkboxes / TreeView containers stable.
                 MergeTreeItems(_items, rootItems, parent: null);
+                // Theme brushes must be applied on the UI thread (live palette brushes are not BG-safe).
+                RefreshTreeThemeBrushes(_items);
 
                 if (!string.IsNullOrEmpty(mappedLocal))
                 {
@@ -765,6 +767,7 @@ namespace GitDeployPro.Controls
                     }
 
                     var softIgnored = IsSoftIgnoredName(dir.Name, softExactNames, softPatterns);
+                    // Do not touch live WPF palette brushes here — ScanDirectory runs on a worker thread.
                     var item = new FileSystemItem
                     {
                         Name = dir.Name,
@@ -773,7 +776,7 @@ namespace GitDeployPro.Controls
                         Icon = "📁",
                         IconColor = ThemeService.Instance.GetTokenBrush(
                             "directUpload.folderIcon",
-                            GetThemeColor("Status.Warning", System.Windows.Media.Colors.Orange)),
+                            System.Windows.Media.Colors.Orange),
                         GitState = softIgnored ? GitItemState.Ignored : GitItemState.None
                     };
 
@@ -805,7 +808,7 @@ namespace GitDeployPro.Controls
                         Icon = "📄",
                         IconColor = ThemeService.Instance.GetTokenBrush(
                             "directUpload.fileIcon",
-                            GetThemeColor("Text.Secondary", System.Windows.Media.Colors.LightGray)),
+                            System.Windows.Media.Colors.LightGray),
                         Size = file.Length,
                         GitState = softIgnored ? GitItemState.Ignored : GitItemState.None
                     };
@@ -813,7 +816,7 @@ namespace GitDeployPro.Controls
                 }
             }
             catch (UnauthorizedAccessException) { }
-            catch (Exception) { }
+            catch (IOException) { }
 
             return items;
         }
@@ -2204,6 +2207,7 @@ namespace GitDeployPro.Controls
 
                 // Keep nested open folders; only add/remove/update children in place.
                 MergeTreeItems(folder.Children, children, folder);
+                RefreshTreeThemeBrushes(folder.Children);
                 folder.IsExpanded = wasExpanded;
                 folder.CheckParentStatus();
                 folder.RefreshUploadStateFromChildren();
@@ -3126,7 +3130,8 @@ namespace GitDeployPro.Controls
         public string FullPath { get; set; } = "";
         public bool IsFolder { get; set; }
         public string Icon { get; set; } = "";
-        public System.Windows.Media.Brush IconColor { get; set; } = GetThemeBrush("Text.Primary", System.Windows.Media.Brushes.White);
+        // Default must stay thread-safe: ScanDirectory constructs items on a worker thread.
+        public System.Windows.Media.Brush IconColor { get; set; } = System.Windows.Media.Brushes.White;
         public long Size { get; set; }
         
         public string SizeDisplay => IsFolder ? "" : FormatSize(Size);

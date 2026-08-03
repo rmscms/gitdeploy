@@ -16,42 +16,64 @@
             <Setter Property="Cursor" Value="Hand" />
         </Style>
         <Style x:Key="DeployDockTabButtonStyle" TargetType="Button" BasedOn="{StaticResource App.Button.Ghost}">
-            <Setter Property="Height" Value="26" />
-            <Setter Property="Padding" Value="10,0" />
-            <Setter Property="Margin" Value="0,0,1,0" />
-            <Setter Property="FontSize" Value="11" />
-            <Setter Property="BorderThickness" Value="0,0,0,2" />
-            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="MinWidth" Value="36" />
+            <Setter Property="Padding" Value="12,0" />
+            <Setter Property="Margin" Value="0,0,4,0" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="Foreground" Value="{StaticResource Text.Secondary}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="TabChrome"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="TabChrome" Property="Background" Value="{StaticResource State.Hover}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
         <Style x:Key="DeployDockTabButtonActiveStyle" TargetType="Button" BasedOn="{StaticResource DeployDockTabButtonStyle}">
             <Setter Property="Foreground" Value="{StaticResource Text.Primary}" />
             <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="BorderBrush" Value="{StaticResource Status.Warning}" />
-            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Background" Value="{StaticResource Surface.Raised}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Border.Subtle}" />
+            <Setter Property="BorderThickness" Value="1" />
         </Style>
         <Style x:Key="DeploySessionTabButtonStyle" TargetType="Button" BasedOn="{StaticResource App.Button.Ghost}">
-            <Setter Property="Height" Value="26" />
-            <Setter Property="Padding" Value="8,0,4,0" />
-            <Setter Property="Margin" Value="0,0,1,0" />
-            <Setter Property="FontSize" Value="11" />
-            <Setter Property="BorderThickness" Value="0,0,0,2" />
-            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="Padding" Value="10,0,6,0" />
+            <Setter Property="Margin" Value="0,0,4,0" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="Foreground" Value="{StaticResource Text.Secondary}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
     </Page.Resources>
 
-    <Grid x:Name="DeployShellRoot" Margin="6">
+    <Grid x:Name="DeployShellRoot" Margin="8,6,8,6">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition x:Name="LeftRailColumn" Width="40" />
+            <ColumnDefinition x:Name="LeftRailColumn" Width="44" MinWidth="44" MaxWidth="44" />
             <ColumnDefinition x:Name="LeftDockColumn" Width="0" />
             <ColumnDefinition x:Name="LeftSplitterColumn" Width="0" />
             <ColumnDefinition x:Name="DeployMainColumn" Width="*" MinWidth="280" />
             <ColumnDefinition x:Name="DeployRemoteSplitterColumn" Width="0" />
             <ColumnDefinition x:Name="DeployRemotePanelColumn" Width="0" />
-            <ColumnDefinition x:Name="RightRailColumn" Width="40" />
+            <ColumnDefinition x:Name="RightRailColumn" Width="44" MinWidth="44" MaxWidth="44" />
         </Grid.ColumnDefinitions>
 
         <!-- Left icon rail (above terminal maximize overlay so it stays clickable) -->
@@ -150,7 +172,7 @@
                       Visibility="Collapsed" />
 
         <!-- Center workspace (bottom Logs/Terminal lives in full-width overlay below) -->
-        <Grid x:Name="CenterWorkspace" Grid.Column="3" Margin="6,0,6,0">
+        <Grid x:Name="CenterWorkspace" Grid.Column="3" Margin="10,0,10,0">
             <Grid x:Name="CenterContentHost" Margin="0,0,0,28">
             <ScrollViewer x:Name="CenterContentScrollViewer"
                           VerticalScrollBarVisibility="Auto"
@@ -570,7 +592,7 @@
               Height="160"
               MinHeight="28"
               MaxHeight="900"
-              Margin="40,0,40,0"
+              Margin="52,0,52,0"
               VerticalAlignment="Bottom"
               Panel.ZIndex="55">
             <Grid.RowDefinitions>
@@ -593,10 +615,11 @@
                     Background="{StaticResource Surface.Card}"
                     BorderBrush="{StaticResource Border.Subtle}"
                     BorderThickness="0,1,0,0"
+                    CornerRadius="8,8,0,0"
                     Padding="0">
                 <Grid>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="28" />
+                        <RowDefinition Height="36" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
@@ -604,9 +627,9 @@
                             Background="{StaticResource Surface.Shell}"
                             BorderBrush="{StaticResource Border.Subtle}"
                             BorderThickness="0,0,0,1"
-                            Padding="6,0,6,0">
+                            Padding="8,4">
                         <Grid>
-                            <DockPanel LastChildFill="False">
+                            <DockPanel LastChildFill="False" VerticalAlignment="Center">
                                 <StackPanel DockPanel.Dock="Right"
                                             Orientation="Horizontal"
                                             VerticalAlignment="Center">
@@ -618,8 +641,8 @@
                                     <Button x:Name="BottomCollapseButton"
                                             Content="−"
                                             Style="{StaticResource DeployRailButtonStyle}"
-                                            Width="24"
-                                            Height="22"
+                                            Width="28"
+                                            Height="28"
                                             Margin="4,0,0,0"
                                             FontSize="14"
                                             ToolTip="Collapse bottom panel"
@@ -629,7 +652,7 @@
                                 <ScrollViewer HorizontalScrollBarVisibility="Auto"
                                               VerticalScrollBarVisibility="Disabled"
                                               VerticalAlignment="Center">
-                                    <StackPanel Orientation="Horizontal">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                         <Button x:Name="BottomLogsTabButton"
                                                 Content="Logs"
                                                 Style="{StaticResource DeployDockTabButtonStyle}"
@@ -640,7 +663,7 @@
                                                     VerticalAlignment="Center" />
                                         <Button x:Name="NewTerminalTabButton"
                                                 Content="+"
-                                                Width="26"
+                                                Width="28"
                                                 Style="{StaticResource DeployDockTabButtonStyle}"
                                                 FontSize="14"
                                                 FontWeight="Bold"
@@ -648,9 +671,9 @@
                                                 Click="NewTerminalTabButton_Click" />
                                         <Button x:Name="NewTerminalMenuButton"
                                                 Content="▾"
-                                                Width="22"
+                                                Width="28"
                                                 Style="{StaticResource DeployDockTabButtonStyle}"
-                                                FontSize="10"
+                                                FontSize="11"
                                                 ToolTip="New terminal session…"
                                                 Click="NewTerminalMenuButton_Click" />
                                         <Popup x:Name="NewTerminalPickerPopup"
