@@ -767,22 +767,10 @@
                         <Border x:Name="BottomLogsPanel"
                                 Grid.Row="0"
                                 Style="{StaticResource App.LogContainerStyle}"
-                                Padding="0">
+                                Padding="0"
+                                ClipToBounds="True">
                             <TextBox x:Name="LogTextBox"
-                                     Background="Transparent"
-                                     BorderThickness="0"
-                                     IsReadOnly="True"
-                                     IsReadOnlyCaretVisible="False"
-                                     AcceptsReturn="True"
-                                     TextWrapping="Wrap"
-                                     VerticalScrollBarVisibility="Auto"
-                                     HorizontalScrollBarVisibility="Auto"
-                                     FontFamily="{StaticResource FontFamily.Mono}"
-                                     FontSize="12"
-                                     Foreground="{StaticResource Log.Success}"
-                                     CaretBrush="{StaticResource Text.Primary}"
-                                     SelectionBrush="{StaticResource Accent.Primary}"
-                                     Padding="10,8"
+                                     Style="{StaticResource App.LogTextBox}"
                                      Text="Waiting for deployment...">
                                 <TextBox.ContextMenu>
                                     <ContextMenu>
