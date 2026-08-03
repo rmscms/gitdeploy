@@ -371,6 +371,9 @@
               typingEnabled = !!message.enabled;
               term.options.disableStdin = !typingEnabled;
               break;
+            case 'fit':
+              pushResize();
+              break;
             case 'paste':
               if (typeof message.text === 'string' && message.text.length > 0) {
                 if (typingEnabled) {

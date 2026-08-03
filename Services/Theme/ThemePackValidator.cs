@@ -113,6 +113,10 @@ namespace GitDeployPro.Services.Theme
                 ValidateColorOrRef(result, "deploy.terminal.statusDisconnected", terminal.StatusDisconnected, allowRef: true);
                 ValidateColorOrRef(result, "deploy.terminal.statusConnecting", terminal.StatusConnecting, allowRef: true);
                 ValidateColorOrRef(result, "deploy.terminal.statusError", terminal.StatusError, allowRef: true);
+                ValidateColorOrRef(result, "deploy.terminal.presetsDrawerBackground", terminal.PresetsDrawerBackground, allowRef: true);
+                ValidateColorOrRef(result, "deploy.terminal.presetsDrawerBorder", terminal.PresetsDrawerBorder, allowRef: true);
+                ValidateColorOrRef(result, "deploy.terminal.presetsHeaderForeground", terminal.PresetsHeaderForeground, allowRef: true);
+                ValidateColorOrRef(result, "deploy.terminal.presetsChipBackground", terminal.PresetsChipBackground, allowRef: true);
                 if (terminal.Xterm != null)
                 {
                     foreach (var kv in terminal.Xterm)

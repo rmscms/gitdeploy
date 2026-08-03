@@ -281,6 +281,10 @@ namespace GitDeployPro.Services.Theme
             pack.Deploy.Terminal.StatusDisconnected ??= defaults.Deploy.Terminal.StatusDisconnected;
             pack.Deploy.Terminal.StatusConnecting ??= defaults.Deploy.Terminal.StatusConnecting;
             pack.Deploy.Terminal.StatusError ??= defaults.Deploy.Terminal.StatusError;
+            pack.Deploy.Terminal.PresetsDrawerBackground ??= defaults.Deploy.Terminal.PresetsDrawerBackground;
+            pack.Deploy.Terminal.PresetsDrawerBorder ??= defaults.Deploy.Terminal.PresetsDrawerBorder;
+            pack.Deploy.Terminal.PresetsHeaderForeground ??= defaults.Deploy.Terminal.PresetsHeaderForeground;
+            pack.Deploy.Terminal.PresetsChipBackground ??= defaults.Deploy.Terminal.PresetsChipBackground;
 
             return pack;
         }

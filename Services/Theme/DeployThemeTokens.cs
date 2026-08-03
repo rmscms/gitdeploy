@@ -85,6 +85,10 @@ namespace GitDeployPro.Services.Theme
             ResolveValue(tokens, "terminal.statusDisconnected", terminal.StatusDisconnected, resolvePalette);
             ResolveValue(tokens, "terminal.statusConnecting", terminal.StatusConnecting, resolvePalette);
             ResolveValue(tokens, "terminal.statusError", terminal.StatusError, resolvePalette);
+            ResolveValue(tokens, "terminal.presetsDrawerBackground", terminal.PresetsDrawerBackground, resolvePalette);
+            ResolveValue(tokens, "terminal.presetsDrawerBorder", terminal.PresetsDrawerBorder, resolvePalette);
+            ResolveValue(tokens, "terminal.presetsHeaderForeground", terminal.PresetsHeaderForeground, resolvePalette);
+            ResolveValue(tokens, "terminal.presetsChipBackground", terminal.PresetsChipBackground, resolvePalette);
             AddMap("terminal.xterm", terminal.Xterm);
             tokens.TerminalTextPresets = terminal.TextPresets?.Count > 0
                 ? terminal.TextPresets.ToArray()

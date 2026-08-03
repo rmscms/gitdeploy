@@ -36,7 +36,16 @@ Palette references use `@Key` form, for example `"@Accent.Primary"`.
 | `deploy.ftp.chrome` | Remote tree selection, overlays, skeletons |
 | `deploy.ftp.fileTypes` | Per-type icon/badge colors (`php`, `js`, `directory`, …) |
 | `deploy.logs` | Log accents |
-| `deploy.terminal` | Host bg, status LEDs, xterm theme, text presets |
+| `deploy.terminal` | Host bg, status LEDs, presets drawer chrome, xterm theme, text presets |
+
+### Useful `deploy.terminal` drawer keys
+
+| Key | Purpose |
+|-----|---------|
+| `presetsDrawerBackground` | Saved-commands drawer panel |
+| `presetsDrawerBorder` | Drawer bottom/edge border |
+| `presetsHeaderForeground` | “Saved commands” title |
+| `presetsChipBackground` | Chip around preset combo / actions |
 | `deploy.editor` | WebView2 / Monaco / AvalonEdit / SQL completion & syntax |
 | `deploy.diff` | Diff line backgrounds |
 

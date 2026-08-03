@@ -197,6 +197,10 @@ namespace GitDeployPro.Services.Theme
                 StatusDisconnected = "#808080",
                 StatusConnecting = "#FF4500",
                 StatusError = "#FF0000",
+                PresetsDrawerBackground = isDark ? "#0A0A0A" : "@Surface.Card",
+                PresetsDrawerBorder = "@Border.Subtle",
+                PresetsHeaderForeground = "@Text.Primary",
+                PresetsChipBackground = isDark ? "#141414" : "@Surface.Raised",
                 Xterm = new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase)
                 {
                     ["background"] = isDark ? "#000000" : "#1e1e1e",
@@ -280,6 +284,8 @@ namespace GitDeployPro.Services.Theme
                 "logs.background", "logs.foreground", "logs.success", "logs.warning", "logs.error",
                 "terminal.hostBackground", "terminal.statusConnected", "terminal.statusDisconnected",
                 "terminal.statusConnecting", "terminal.statusError",
+                "terminal.presetsDrawerBackground", "terminal.presetsDrawerBorder",
+                "terminal.presetsHeaderForeground", "terminal.presetsChipBackground",
                 "terminal.xterm.background", "terminal.xterm.foreground", "terminal.xterm.cursor",
                 "terminal.xterm.selectionBackground",
                 "editor.webviewBackground", "editor.monacoTheme", "editor.fallbackBackground",

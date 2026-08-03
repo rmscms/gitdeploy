@@ -105,6 +105,18 @@ namespace GitDeployPro.Services.Theme
         [JsonProperty("statusError")]
         public string? StatusError { get; set; }
 
+        [JsonProperty("presetsDrawerBackground")]
+        public string? PresetsDrawerBackground { get; set; }
+
+        [JsonProperty("presetsDrawerBorder")]
+        public string? PresetsDrawerBorder { get; set; }
+
+        [JsonProperty("presetsHeaderForeground")]
+        public string? PresetsHeaderForeground { get; set; }
+
+        [JsonProperty("presetsChipBackground")]
+        public string? PresetsChipBackground { get; set; }
+
         [JsonProperty("xterm")]
         public Dictionary<string, string> Xterm { get; set; } = new(System.StringComparer.OrdinalIgnoreCase);
 
