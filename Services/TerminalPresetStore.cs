@@ -29,6 +29,21 @@ namespace GitDeployPro.Services
             PresetsChanged?.Invoke();
         }
 
+        public static string LoadUiMode()
+        {
+            var mode = _configService.LoadGlobalConfig().TerminalPresetsUiMode;
+            return string.Equals(mode, "float", StringComparison.OrdinalIgnoreCase) ? "float" : "dock";
+        }
+
+        public static void SaveUiMode(string mode)
+        {
+            var normalized = string.Equals(mode, "float", StringComparison.OrdinalIgnoreCase) ? "float" : "dock";
+            _configService.UpdateGlobalConfig(cfg =>
+            {
+                cfg.TerminalPresetsUiMode = normalized;
+            });
+        }
+
         private static TerminalCommandPreset ClonePreset(TerminalCommandPreset preset)
         {
             return new TerminalCommandPreset

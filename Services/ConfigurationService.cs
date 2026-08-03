@@ -32,6 +32,12 @@ namespace GitDeployPro.Services
             public List<RecentProjectEntry> RecentProjects { get; set; } = new();
             public string DefaultSshKeyPath { get; set; } = "";
             public List<TerminalCommandPreset> TerminalPresets { get; set; } = new();
+
+            /// <summary>
+            /// Saved-commands UI: "dock" (strip above terminal) or "float" (helper tool window).
+            /// </summary>
+            public string TerminalPresetsUiMode { get; set; } = "dock";
+
             public List<BackupSchedule> BackupSchedules { get; set; } = new();
             public List<BackupHistoryEntry> BackupHistory { get; set; } = new();
             public bool LaunchOnStartup { get; set; }

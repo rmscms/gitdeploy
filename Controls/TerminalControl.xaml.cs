@@ -6,7 +6,6 @@ using GitDeployPro.Windows;
 using Microsoft.Web.WebView2.Core;
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -63,7 +62,11 @@ namespace GitDeployPro.Controls
         private bool _disposed;
         private bool _suppressTerminalTargetSelectionChanged;
         private string _activeTerminalTargetId = string.Empty;
-        private ObservableCollection<TerminalCommandPreset> _commandPresets = new();
+        private SavedCommandsWindow? _savedCommandsWindow;
+        private string _presetsUiMode = SavedCommandsPanel.ModeDock;
+        private bool _presetsUiOpen;
+        private bool _suppressPresetsToggle;
+        private bool _dockedPresetsWired;
 
         public bool ShowCommandBar
         {
@@ -75,11 +78,13 @@ namespace GitDeployPro.Controls
         {
             InitializeComponent();
             _configService = new ConfigurationService();
+            _presetsUiMode = SavedCommandsPanel.NormalizeMode(TerminalPresetStore.LoadUiMode());
 
             Loaded += TerminalControl_Loaded;
             Unloaded += TerminalControl_Unloaded;
             ThemeService.Instance.ThemeChanged += OnDeployThemeChanged;
             ApplyHostBackgroundFromTheme();
+            WireDockedSavedCommandsPanel();
         }
 
         private void OnDeployThemeChanged(object? sender, EventArgs e)
@@ -91,6 +96,8 @@ namespace GitDeployPro.Controls
             }
 
             ApplyHostBackgroundFromTheme();
+            DockedSavedCommandsPanel?.ApplyTheme();
+            _savedCommandsWindow?.ApplyTheme();
             _ = ApplyXtermThemeAsync();
         }
 
@@ -169,27 +176,215 @@ namespace GitDeployPro.Controls
 
             CommandBarPanel.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
             CommandBarRow.Height = visible ? new GridLength(28) : new GridLength(0);
-
-            if (!visible && PresetEditToggle != null)
-            {
-                PresetEditToggle.IsChecked = false;
-                ApplyPresetEditVisibility(false);
-            }
         }
 
-        private void PresetEditToggle_Checked(object sender, RoutedEventArgs e) => ApplyPresetEditVisibility(true);
-
-        private void PresetEditToggle_Unchecked(object sender, RoutedEventArgs e) => ApplyPresetEditVisibility(false);
-
-        private void ApplyPresetEditVisibility(bool visible)
+        private void WireDockedSavedCommandsPanel()
         {
-            if (PresetEditPanel == null || PresetEditRowDef == null)
+            if (DockedSavedCommandsPanel == null || _dockedPresetsWired)
             {
                 return;
             }
 
-            PresetEditPanel.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
-            PresetEditRowDef.Height = visible ? GridLength.Auto : new GridLength(0);
+            _dockedPresetsWired = true;
+            DockedSavedCommandsPanel.InjectCommand = InjectCommandText;
+            DockedSavedCommandsPanel.CloseRequested += (_, _) => SetPresetsUiOpen(false);
+            DockedSavedCommandsPanel.PresentationModeRequested += (_, mode) => SetPresetsUiMode(mode, keepOpen: true);
+            DockedSavedCommandsPanel.SetPresentationMode(_presetsUiMode);
+        }
+
+        private void PresetsDrawerToggle_Checked(object sender, RoutedEventArgs e)
+        {
+            if (_suppressPresetsToggle)
+            {
+                return;
+            }
+
+            SetPresetsUiOpen(true);
+        }
+
+        private void PresetsDrawerToggle_Unchecked(object sender, RoutedEventArgs e)
+        {
+            if (_suppressPresetsToggle)
+            {
+                return;
+            }
+
+            SetPresetsUiOpen(false);
+        }
+
+        private void SetPresetsUiMode(string mode, bool keepOpen)
+        {
+            _presetsUiMode = SavedCommandsPanel.NormalizeMode(mode);
+            TerminalPresetStore.SaveUiMode(_presetsUiMode);
+            DockedSavedCommandsPanel?.SetPresentationMode(_presetsUiMode);
+            _savedCommandsWindow?.SetPresentationMode(_presetsUiMode);
+
+            if (keepOpen || _presetsUiOpen)
+            {
+                ApplyPresetsPresentation(open: true);
+            }
+        }
+
+        private void SetPresetsUiOpen(bool open)
+        {
+            _presetsUiOpen = open;
+            ApplyPresetsPresentation(open);
+
+            _suppressPresetsToggle = true;
+            try
+            {
+                if (PresetsDrawerToggle != null && PresetsDrawerToggle.IsChecked != open)
+                {
+                    PresetsDrawerToggle.IsChecked = open;
+                }
+            }
+            finally
+            {
+                _suppressPresetsToggle = false;
+            }
+        }
+
+        private void ApplyPresetsPresentation(bool open)
+        {
+            var useFloat = open && _presetsUiMode == SavedCommandsPanel.ModeFloat;
+            var useDock = open && !useFloat;
+
+            ApplyDockedPresetsVisibility(useDock);
+
+            if (useFloat)
+            {
+                ShowSavedCommandsWindow();
+            }
+            else
+            {
+                HideSavedCommandsWindow();
+            }
+        }
+
+        private void ApplyDockedPresetsVisibility(bool visible)
+        {
+            if (PresetsDrawerPanel == null || PresetsDrawerRowDef == null)
+            {
+                return;
+            }
+
+            PresetsDrawerPanel.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+            PresetsDrawerRowDef.Height = visible ? GridLength.Auto : new GridLength(0);
+            if (visible)
+            {
+                DockedSavedCommandsPanel?.ApplyTheme();
+                DockedSavedCommandsPanel?.Reload();
+                DockedSavedCommandsPanel?.SetPresentationMode(_presetsUiMode);
+            }
+
+            UpdateLayout();
+            _ = RequestTerminalFitAsync();
+        }
+
+        private void ShowSavedCommandsWindow()
+        {
+            if (_savedCommandsWindow == null)
+            {
+                _savedCommandsWindow = new SavedCommandsWindow
+                {
+                    InjectCommand = InjectCommandText
+                };
+                _savedCommandsWindow.CloseRequested += (_, _) => SetPresetsUiOpen(false);
+                _savedCommandsWindow.PresentationModeRequested += (_, mode) => SetPresetsUiMode(mode, keepOpen: true);
+                _savedCommandsWindow.Closed += SavedCommandsWindow_Closed;
+            }
+
+            _savedCommandsWindow.SetPresentationMode(SavedCommandsPanel.ModeFloat);
+            _savedCommandsWindow.Reload();
+            _savedCommandsWindow.ApplyTheme();
+
+            if (!_savedCommandsWindow.IsVisible)
+            {
+                PositionSavedCommandsWindow(_savedCommandsWindow);
+                WindowOwnerService.ShowOwned(_savedCommandsWindow, this, centerOnOwner: false);
+            }
+            else
+            {
+                _savedCommandsWindow.Activate();
+            }
+        }
+
+        private void HideSavedCommandsWindow()
+        {
+            if (_savedCommandsWindow?.IsVisible == true)
+            {
+                _savedCommandsWindow.Hide();
+            }
+        }
+
+        private void CloseSavedCommandsWindow()
+        {
+            if (_savedCommandsWindow == null)
+            {
+                return;
+            }
+
+            var window = _savedCommandsWindow;
+            _savedCommandsWindow = null;
+            _presetsUiOpen = false;
+            window.Closed -= SavedCommandsWindow_Closed;
+            try
+            {
+                window.Close();
+            }
+            catch
+            {
+                // ignore
+            }
+        }
+
+        private void SavedCommandsWindow_Closed(object? sender, EventArgs e)
+        {
+            if (ReferenceEquals(sender, _savedCommandsWindow))
+            {
+                _savedCommandsWindow = null;
+            }
+
+            if (_presetsUiOpen && _presetsUiMode == SavedCommandsPanel.ModeFloat)
+            {
+                SetPresetsUiOpen(false);
+            }
+        }
+
+        private void PositionSavedCommandsWindow(Window window)
+        {
+            try
+            {
+                var owner = WindowOwnerService.ResolveOwner(this);
+                if (owner != null)
+                {
+                    window.WindowStartupLocation = WindowStartupLocation.Manual;
+                    window.Left = owner.Left + Math.Max(24, owner.ActualWidth - window.Width - 36);
+                    window.Top = owner.Top + 72;
+                    return;
+                }
+
+                var screen = System.Windows.SystemParameters.WorkArea;
+                window.Left = screen.Right - window.Width - 24;
+                window.Top = screen.Top + 72;
+            }
+            catch
+            {
+                window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            }
+        }
+
+        private async Task RequestTerminalFitAsync()
+        {
+            try
+            {
+                await Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.Loaded);
+                await PostTerminalMessageAsync(new { type = "fit" });
+            }
+            catch
+            {
+                // Ignore fit races while WebView is still initializing.
+            }
         }
 
         public void SetProjectPath(string path)
@@ -312,6 +507,9 @@ namespace GitDeployPro.Controls
             }
 
             ApplyCommandBarVisibility(ShowCommandBar);
+            WireDockedSavedCommandsPanel();
+            DockedSavedCommandsPanel?.SetPresentationMode(_presetsUiMode);
+
             if (ShowCommandBar)
             {
                 if (string.IsNullOrWhiteSpace(_projectPath))
@@ -320,8 +518,6 @@ namespace GitDeployPro.Controls
                 }
 
                 LoadTerminalTargets();
-                LoadCommandPresets();
-                TerminalPresetStore.PresetsChanged += TerminalPresetStore_PresetsChanged;
                 ConfigurationService.ConnectionsChanged -= OnConnectionsChanged;
                 ConfigurationService.ConnectionsChanged += OnConnectionsChanged;
             }
@@ -347,8 +543,8 @@ namespace GitDeployPro.Controls
         private async void TerminalControl_Unloaded(object sender, RoutedEventArgs e)
         {
             ThemeService.Instance.ThemeChanged -= OnDeployThemeChanged;
-            TerminalPresetStore.PresetsChanged -= TerminalPresetStore_PresetsChanged;
             ConfigurationService.ConnectionsChanged -= OnConnectionsChanged;
+            CloseSavedCommandsWindow();
 
             lock (_activeTerminals)
             {
@@ -359,11 +555,6 @@ namespace GitDeployPro.Controls
             ReleaseWebViewBridge();
             _welcomeWritten = false;
             _remoteHistoryConfigured = false;
-        }
-
-        private void TerminalPresetStore_PresetsChanged()
-        {
-            Dispatcher.Invoke(LoadCommandPresets);
         }
 
         private void OnConnectionsChanged(object? sender, EventArgs e)
@@ -512,110 +703,6 @@ namespace GitDeployPro.Controls
             }
 
             await ConnectSelectedTargetAsync();
-        }
-
-        private void LoadCommandPresets()
-        {
-            if (PresetComboBox == null)
-            {
-                return;
-            }
-
-            var previous = PresetComboBox.SelectedValue?.ToString();
-            _commandPresets = TerminalPresetStore.LoadPresets();
-            PresetComboBox.ItemsSource = _commandPresets;
-            if (!string.IsNullOrEmpty(previous))
-            {
-                var match = _commandPresets.FirstOrDefault(p => p.Id == previous);
-                if (match != null)
-                {
-                    PresetComboBox.SelectedItem = match;
-                }
-            }
-
-            if (PresetComboBox.SelectedIndex < 0 && _commandPresets.Count > 0)
-            {
-                PresetComboBox.SelectedIndex = 0;
-            }
-        }
-
-        private void InsertPreset_Click(object sender, RoutedEventArgs e)
-        {
-            if (PresetComboBox.SelectedItem is TerminalCommandPreset preset &&
-                !string.IsNullOrWhiteSpace(preset.Command))
-            {
-                InjectCommandText(preset.Command);
-                return;
-            }
-
-            var typed = (PresetCommandBox.Text ?? string.Empty).Trim();
-            if (!string.IsNullOrWhiteSpace(typed))
-            {
-                InjectCommandText(typed);
-            }
-        }
-
-        private void SendCommand_Click(object sender, RoutedEventArgs e)
-        {
-            var command = (PresetCommandBox.Text ?? string.Empty).Trim();
-            if (string.IsNullOrWhiteSpace(command))
-            {
-                if (PresetComboBox.SelectedItem is TerminalCommandPreset preset)
-                {
-                    command = preset.Command;
-                }
-            }
-
-            if (string.IsNullOrWhiteSpace(command))
-            {
-                return;
-            }
-
-            InjectCommandText(command);
-        }
-
-        private void SavePreset_Click(object sender, RoutedEventArgs e)
-        {
-            var title = (PresetTitleBox.Text ?? string.Empty).Trim();
-            var command = (PresetCommandBox.Text ?? string.Empty).Trim();
-            if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(command))
-            {
-                ModernMessageBox.Show(
-                    "Please enter both a title and a command.",
-                    "Command Presets",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
-                return;
-            }
-
-            var preset = new TerminalCommandPreset
-            {
-                Id = Guid.NewGuid().ToString(),
-                Title = title,
-                Command = command
-            };
-            _commandPresets.Add(preset);
-            TerminalPresetStore.SavePresets(_commandPresets);
-            PresetTitleBox.Text = string.Empty;
-            PresetCommandBox.Text = string.Empty;
-            PresetComboBox.SelectedItem = preset;
-        }
-
-        private void DeletePreset_Click(object sender, RoutedEventArgs e)
-        {
-            if (PresetComboBox.SelectedItem is not TerminalCommandPreset preset)
-            {
-                return;
-            }
-
-            var existing = _commandPresets.FirstOrDefault(p => p.Id == preset.Id);
-            if (existing == null)
-            {
-                return;
-            }
-
-            _commandPresets.Remove(existing);
-            TerminalPresetStore.SavePresets(_commandPresets);
         }
 
         private async void ConnectButton_Click(object sender, RoutedEventArgs e)
@@ -780,8 +867,8 @@ namespace GitDeployPro.Controls
             _disposed = true;
             Loaded -= TerminalControl_Loaded;
             Unloaded -= TerminalControl_Unloaded;
-            TerminalPresetStore.PresetsChanged -= TerminalPresetStore_PresetsChanged;
             ConfigurationService.ConnectionsChanged -= OnConnectionsChanged;
+            CloseSavedCommandsWindow();
 
             lock (_activeTerminals)
             {

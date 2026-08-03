@@ -198,6 +198,10 @@
       "statusDisconnected": "#808080",
       "statusConnecting": "#FF4500",
       "statusError": "#FF0000",
+      "presetsDrawerBackground": "#0A0A0A",
+      "presetsDrawerBorder": "@Border.Subtle",
+      "presetsHeaderForeground": "@Text.Primary",
+      "presetsChipBackground": "#141414",
       "xterm": {
         "background": "#000000",
         "foreground": "#E8E8E8",

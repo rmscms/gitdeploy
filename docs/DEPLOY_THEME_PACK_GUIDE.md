@@ -36,7 +36,7 @@ Open the full guide from Settings → Themes → **Open guide**, or the file `TH
 | `deploy.ftp.chrome` | Remote tree selection, overlays, skeletons |
 | `deploy.ftp.fileTypes` | Per-type icon/badge colors (`php`, `js`, `directory`, …) |
 | `deploy.logs` | Log accents |
-| `deploy.terminal` | Host bg, status LEDs, xterm theme, text presets |
+| `deploy.terminal` | Host bg, status LEDs, presets drawer chrome, xterm theme, text presets |
 | `deploy.editor` | WebView2 / Monaco / AvalonEdit / SQL completion & syntax |
 | `deploy.diff` | Diff line backgrounds |
 

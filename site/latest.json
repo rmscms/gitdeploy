@@ -1,14 +1,14 @@
 {
-  "version": "1.4.12",
-  "fileName": "GitDeployPro-1.4.12.exe",
-  "downloadUrl": "versions/GitDeployPro-1.4.12.exe",
-  "sha256": "3E27285A96D8813DBBB8A1ABB703D64AAEAD2E9097F413D882B485B66AA26680",
-  "releaseNotes": "- Fix Deploy Logs panel showing only one line (override fixed-height TextBox style)\n- Keep ~8 empty rows under the terminal cursor for readability\n- Terminal bottom pad matches theme background (no bright band)",
+  "version": "1.4.13",
+  "fileName": "GitDeployPro-1.4.13.exe",
+  "downloadUrl": "versions/GitDeployPro-1.4.13.exe",
+  "sha256": "9FF3A26675D5DFC70BE6924469EADE9FD95295943E44EB63CBE1FE0457804850",
+  "releaseNotes": "- Terminal Saved commands: compact Dock strip above the terminal (does not cover text)\n- Float mode opens a dark helper window so you can keep typing in the terminal\n- Remember Dock/Float preference; themed presets drawer tokens for Default and Dark",
   "changelog": [
-    "Fix Deploy Logs panel showing only one line (override fixed-height TextBox style)",
-    "Keep ~8 empty rows under the terminal cursor for readability",
-    "Terminal bottom pad matches theme background (no bright band)"
+    "Terminal Saved commands: compact Dock strip above the terminal (does not cover text)",
+    "Float mode opens a dark helper window so you can keep typing in the terminal",
+    "Remember Dock/Float preference; themed presets drawer tokens for Default and Dark"
   ],
   "mandatory": false,
-  "publishedUtc": "2026-08-03T10:44:47Z"
+  "publishedUtc": "2026-08-03T15:20:27Z"
 }
