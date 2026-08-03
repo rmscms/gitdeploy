@@ -1,16 +1,15 @@
 {
-  "version": "1.4.10",
-  "fileName": "GitDeployPro-1.4.10.exe",
-  "downloadUrl": "versions/GitDeployPro-1.4.10.exe",
-  "sha256": "014F10D75286C2DC7E2B750C3C8B39A77DEC5E55615EA0689F61B6AA4C86BB12",
-  "releaseNotes": "- App-wide theme persistence (Default / Dark / custom packs) from Settings and Deploy\n- Material densify across MainWindow and sidebar pages (Database, Terminal, Git, History, Dashboard)\n- Theme pack guide (THEME_PACK_GUIDE.md) ships with the app Themes folder\n- Local terminal ConPTY typing fix and no bright band under the terminal\n- Theme tokens for SQL editor completion and syntax highlighting",
+  "version": "1.4.11",
+  "fileName": "GitDeployPro-1.4.11.exe",
+  "downloadUrl": "versions/GitDeployPro-1.4.11.exe",
+  "sha256": "12F09D72E47588FA46D4A19968B8C6EA20A78D7BFA286740949D9CD4A030C519",
+  "releaseNotes": "- Fix Deploy left rail overlapping content with locked rail width and margins\n- Fix Direct Upload empty tree caused by theme brushes on background scan\n- Polish Logs/Terminal bottom tabs into Material chip style\n- Widen Deploy shell spacing so docks no longer cover the icon rails",
   "changelog": [
-    "App-wide theme persistence (Default / Dark / custom packs) from Settings and Deploy",
-    "Material densify across MainWindow and sidebar pages (Database, Terminal, Git, History, Dashboard)",
-    "Theme pack guide (THEME_PACK_GUIDE.md) ships with the app Themes folder",
-    "Local terminal ConPTY typing fix and no bright band under the terminal",
-    "Theme tokens for SQL editor completion and syntax highlighting"
+    "Fix Deploy left rail overlapping content with locked rail width and margins",
+    "Fix Direct Upload empty tree caused by theme brushes on background scan",
+    "Polish Logs/Terminal bottom tabs into Material chip style",
+    "Widen Deploy shell spacing so docks no longer cover the icon rails"
   ],
   "mandatory": false,
-  "publishedUtc": "2026-08-03T08:35:40Z"
+  "publishedUtc": "2026-08-03T09:22:17Z"
 }
