@@ -34,7 +34,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="ControlBorder" Property="Background" Value="#253043" />
+                                <Setter TargetName="ControlBorder" Property="Background" Value="{StaticResource State.Hover}" />
                                 <Setter Property="Foreground" Value="{StaticResource Text.Primary}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
@@ -68,7 +68,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="ActionBorder" Property="Background" Value="#2D3950" />
+                                <Setter TargetName="ActionBorder" Property="Background" Value="{StaticResource State.Hover}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -109,10 +109,10 @@
 
                     <Border Grid.Row="0"
                             Margin="18,26,18,22"
-                            Background="#1D2B42"
+                            Background="{StaticResource Surface.Raised}"
                             BorderBrush="{StaticResource Border.Strong}"
                             BorderThickness="1"
-                            CornerRadius="14"
+                            CornerRadius="12"
                             Padding="14">
                         <StackPanel>
                             <StackPanel Orientation="Horizontal">

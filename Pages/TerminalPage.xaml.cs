@@ -161,8 +161,8 @@ namespace GitDeployPro.Pages
         {
             var container = new Border
             {
-                Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(30, 30, 30)),
-                BorderBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(62, 62, 66)),
+                Background = GetThemeBrush("Surface.Card", System.Windows.Media.Brushes.Black),
+                BorderBrush = GetThemeBrush("Border.Subtle", System.Windows.Media.Brushes.DimGray),
                 BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(4),
                 Margin = new Thickness(2),
@@ -177,8 +177,8 @@ namespace GitDeployPro.Pages
             // Header
             var header = new Border
             {
-                Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(37, 37, 38)),
-                BorderBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(62, 62, 66)),
+                Background = GetThemeBrush("Surface.Shell", System.Windows.Media.Brushes.Black),
+                BorderBrush = GetThemeBrush("Border.Subtle", System.Windows.Media.Brushes.DimGray),
                 BorderThickness = new Thickness(0, 0, 0, 1)
             };
             Grid.SetRow(header, 0);
@@ -186,7 +186,7 @@ namespace GitDeployPro.Pages
             var titleText = new TextBlock
             {
                 Text = title,
-                Foreground = System.Windows.Media.Brushes.White,
+                Foreground = GetThemeBrush("Text.Primary", System.Windows.Media.Brushes.White),
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(10, 0, 0, 0),
                 FontSize = 12
@@ -197,7 +197,7 @@ namespace GitDeployPro.Pages
                 Width = 30,
                 Height = 28,
                 Background = System.Windows.Media.Brushes.Transparent,
-                Foreground = System.Windows.Media.Brushes.White,
+                Foreground = GetThemeBrush("Text.Primary", System.Windows.Media.Brushes.White),
                 BorderThickness = new Thickness(0),
                 HorizontalAlignment = System.Windows.HorizontalAlignment.Right,
                 Cursor = System.Windows.Input.Cursors.Hand,
@@ -210,7 +210,7 @@ namespace GitDeployPro.Pages
                 Width = 30,
                 Height = 28,
                 Background = System.Windows.Media.Brushes.Transparent,
-                Foreground = System.Windows.Media.Brushes.White,
+                Foreground = GetThemeBrush("Text.Primary", System.Windows.Media.Brushes.White),
                 BorderThickness = new Thickness(0),
                 HorizontalAlignment = System.Windows.HorizontalAlignment.Right,
                 Cursor = System.Windows.Input.Cursors.Hand,
@@ -261,7 +261,7 @@ namespace GitDeployPro.Pages
                 VerticalAlignment = System.Windows.VerticalAlignment.Bottom,
                 Margin = new Thickness(0, 0, 4, 4),
                 Cursor = System.Windows.Input.Cursors.SizeNWSE,
-                Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(60, 60, 60))
+                Background = GetThemeBrush("Border.Strong", System.Windows.Media.Brushes.DimGray)
             };
             resizeThumb.DragDelta += (s, e) =>
             {
@@ -586,6 +586,16 @@ namespace GitDeployPro.Pages
 
             // Prevent WPF page navigation-on-backspace from closing active terminal views.
             e.Handled = true;
+        }
+
+        private static System.Windows.Media.Brush GetThemeBrush(string resourceKey, System.Windows.Media.Brush fallback)
+        {
+            if (string.IsNullOrWhiteSpace(resourceKey))
+            {
+                return fallback;
+            }
+
+            return System.Windows.Application.Current?.TryFindResource(resourceKey) as System.Windows.Media.Brush ?? fallback;
         }
     }
 }

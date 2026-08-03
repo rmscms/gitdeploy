@@ -1,0 +1,239 @@
+{
+  "schema": "gitdeploypro-theme/v1",
+  "id": "default",
+  "displayName": "Default",
+  "version": "1",
+  "author": "GitDeployPro",
+  "palette": {
+    "Surface.Base": "#171A1F",
+    "Surface.Shell": "#1E232C",
+    "Surface.Raised": "#232A35",
+    "Surface.Card": "#29313D",
+    "Surface.Input": "#202733",
+    "Surface.Overlay": "#B5181D25",
+    "Border.Subtle": "#36404F",
+    "Border.Strong": "#4B5A70",
+    "Text.Primary": "#F4F7FF",
+    "Text.Secondary": "#D4DEEE",
+    "Text.Muted": "#95A3BA",
+    "Text.Inverse": "#10131A",
+    "Accent.Primary": "#5C8DFF",
+    "Accent.PrimaryHover": "#78A0FF",
+    "Accent.Secondary": "#7B61FF",
+    "Accent.SecondaryHover": "#9683FF",
+    "Status.Success": "#4CD27E",
+    "Status.Warning": "#FFBF47",
+    "Status.Error": "#FF6C7A",
+    "Status.Info": "#70C2FF",
+    "Status.SuccessSurface": "#20382C",
+    "Status.WarningSurface": "#3A301F",
+    "Status.ErrorSurface": "#3A2228",
+    "Status.InfoSurface": "#1F2F43",
+    "State.Hover": "#1FFFFFFF",
+    "State.Pressed": "#2FFFFFFF",
+    "State.DisabledOverlay": "#AA2D3442",
+    "Shadow.Color": "#66000000",
+    "Log.Success": "#65FFB2"
+  },
+  "deploy": {
+    "shell": {
+      "pageBackground": "@Surface.Base",
+      "railBackground": "@Surface.Shell",
+      "dockBackground": "@Surface.Card",
+      "splitter": "@Border.Strong",
+      "bottomResizeGrip": "@Border.Strong",
+      "bottomResizeBorder": "@Border.Subtle"
+    },
+    "header": {
+      "title": "@Text.Primary",
+      "subtitle": "@Text.Muted"
+    },
+    "branches": {
+      "summaryBackground": "@Surface.Input",
+      "summaryForeground": "@Text.Secondary",
+      "actionBackground": "@Accent.Secondary",
+      "actionForeground": "@Text.Primary",
+      "rollbackBackground": "@Surface.Raised",
+      "pushBadgeBackground": "@Status.WarningSurface",
+      "pushBadgeForeground": "@Status.Warning"
+    },
+    "changedFiles": {
+      "rowBackground": "@Surface.Card",
+      "statusAdded": "#2E7D32",
+      "statusModified": "#FF8F00",
+      "statusDeleted": "#C62828",
+      "statusDefault": "#808080"
+    },
+    "directUpload": {
+      "statusCardBackground": "@Surface.Input",
+      "treeSelection": "#2A3A52",
+      "treeHover": "#1E2A3C",
+      "folderIcon": "@Status.Warning",
+      "fileIcon": "@Text.Secondary",
+      "mappedRowBackground": "@Status.SuccessSurface",
+      "gitClean": "@Status.Success",
+      "gitModified": "@Status.Error",
+      "gitUntracked": "@Status.Info",
+      "gitIgnored": "@Text.Muted",
+      "gitConflicted": "@Status.Warning"
+    },
+    "ftp": {
+      "chrome": {
+        "treeSelection": "#2B65D9",
+        "treeSelectionText": "#FFFFFF",
+        "overlay": "#AF151C26",
+        "skeleton1": "#213D4F66",
+        "skeleton2": "#1B3D4F66",
+        "skeleton3": "#163D4F66"
+      },
+      "fileTypes": {
+        "directory": {
+          "icon": "#FFE7B95B",
+          "badgeBg": "#1F4A391A",
+          "badgeBorder": "#3A7C5E2A",
+          "badgeFg": "#FFE7B95B"
+        },
+        "placeholder": {
+          "icon": "#FF8B96A6",
+          "badgeBg": "#1F2C3440",
+          "badgeBorder": "#3A3D4C5F",
+          "badgeFg": "#FF8B96A6"
+        },
+        "defaultFile": {
+          "icon": "#FFAAB5C4",
+          "badgeBg": "#1F2E3948",
+          "badgeBorder": "#3A3D5268",
+          "badgeFg": "#FFAAB5C4"
+        },
+        "config": {
+          "icon": "#FF74B6F5",
+          "badgeBg": "#1F1E3752",
+          "badgeBorder": "#3A2A4D73",
+          "badgeFg": "#FF74B6F5"
+        },
+        "php": {
+          "icon": "#FFB0A3FF",
+          "badgeBg": "#1F3E3658",
+          "badgeBorder": "#3A5A4B87",
+          "badgeFg": "#FFB0A3FF"
+        },
+        "js": {
+          "icon": "#FFF7DF5E",
+          "badgeBg": "#1F4A4212",
+          "badgeBorder": "#3A7B6A1D",
+          "badgeFg": "#FFF7DF5E"
+        },
+        "ts": {
+          "icon": "#FF74A9FF",
+          "badgeBg": "#1F1A3252",
+          "badgeBorder": "#3A264A75",
+          "badgeFg": "#FF74A9FF"
+        },
+        "css": {
+          "icon": "#FF64D2FF",
+          "badgeBg": "#1F193C50",
+          "badgeBorder": "#3A2A5C75",
+          "badgeFg": "#FF64D2FF"
+        },
+        "html": {
+          "icon": "#FFFFAE72",
+          "badgeBg": "#1F4A2E18",
+          "badgeBorder": "#3A6F4528",
+          "badgeFg": "#FFFFAE72"
+        },
+        "json": {
+          "icon": "#FF7EE2A8",
+          "badgeBg": "#1F1E4030",
+          "badgeBorder": "#3A2D654A",
+          "badgeFg": "#FF7EE2A8"
+        },
+        "sql": {
+          "icon": "#FFFF9A86",
+          "badgeBg": "#1F4C2822",
+          "badgeBorder": "#3A7B3D35",
+          "badgeFg": "#FFFF9A86"
+        },
+        "img": {
+          "icon": "#FFFFA5D6",
+          "badgeBg": "#1F4A203A",
+          "badgeBorder": "#3A75305C",
+          "badgeFg": "#FFFFA5D6"
+        },
+        "zip": {
+          "icon": "#FFC8A879",
+          "badgeBg": "#1F3D2B1F",
+          "badgeBorder": "#3A5D4330",
+          "badgeFg": "#FFC8A879"
+        },
+        "md": {
+          "icon": "#FF8FC4FF",
+          "badgeBg": "#1F1F3755",
+          "badgeBorder": "#3A305079",
+          "badgeFg": "#FF8FC4FF"
+        },
+        "txt": {
+          "icon": "#FFB7C0CD",
+          "badgeBg": "#1F2A3342",
+          "badgeBorder": "#3A3E4D62",
+          "badgeFg": "#FFB7C0CD"
+        },
+        "sh": {
+          "icon": "#FF8EE39A",
+          "badgeBg": "#1F1A3D29",
+          "badgeBorder": "#3A28613F",
+          "badgeFg": "#FF8EE39A"
+        }
+      }
+    },
+    "logs": {
+      "background": "@Surface.Input",
+      "foreground": "@Text.Secondary",
+      "success": "@Log.Success",
+      "warning": "@Status.Warning",
+      "error": "@Status.Error"
+    },
+    "terminal": {
+      "hostBackground": "#0C0C0C",
+      "statusConnected": "#32CD32",
+      "statusDisconnected": "#808080",
+      "statusConnecting": "#FF4500",
+      "statusError": "#FF0000",
+      "xterm": {
+        "background": "#1e1e1e",
+        "foreground": "#d4d4d4",
+        "cursor": "#00ff00",
+        "selectionBackground": "rgba(128,128,128,0.35)"
+      },
+      "textPresets": [
+        "#D4D4D4",
+        "#FFFFFF",
+        "#00FF00",
+        "#00FFFF",
+        "#FFFF00"
+      ]
+    },
+    "editor": {
+      "webviewBackground": "#FF1E1E1E",
+      "monacoTheme": "vs-dark",
+      "fallbackBackground": "#1E1E1E",
+      "fallbackForeground": "@Text.Primary",
+      "completionBackground": "#1E1E1E",
+      "completionListBackground": "#252526",
+      "completionBorder": "@Border.Strong",
+      "syntaxComment": "#6A9955",
+      "syntaxString": "#CE9178",
+      "syntaxKeyword": "#569CD6",
+      "syntaxFunction": "#DCDCAA",
+      "syntaxNumber": "#B5CEA8",
+      "syntaxDataType": "#4EC9B0"
+    },
+    "diff": {
+      "contextBg": "#101010",
+      "hunkBg": "#242424",
+      "metaBg": "#1F2633",
+      "addedBg": "#0F2A1A",
+      "removedBg": "#2A1414",
+      "headerBg": "#1E1E1E"
+    }
+  }
+}

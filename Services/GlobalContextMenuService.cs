@@ -50,6 +50,12 @@ namespace GitDeployPro.Services
                 contextMenu.Style = menuStyle;
             }
 
+            AddActionsToItems(contextMenu.Items, actions);
+            return contextMenu;
+        }
+
+        private static void AddActionsToItems(ItemCollection items, IReadOnlyList<AppContextMenuAction> actions)
+        {
             var hasAnyAction = false;
             var hasPendingSeparator = false;
             foreach (var action in actions)
@@ -72,51 +78,69 @@ namespace GitDeployPro.Services
                         separator.Style = separatorStyle;
                     }
 
-                    contextMenu.Items.Add(separator);
+                    items.Add(separator);
                     hasPendingSeparator = false;
                 }
 
-                var menuItem = new MenuItem
+                var menuItem = CreateMenuItem(action);
+                var children = action.Children?
+                    .Where(child => child != null && child.IsVisible)
+                    .ToList();
+                if (children != null && children.Count > 0)
                 {
-                    Header = action.Label,
-                    IsEnabled = action.IsEnabled,
-                    Tag = action.IsDestructive ? "danger" : null
-                };
-
-                if (System.Windows.Application.Current?.TryFindResource("App.ContextMenuItem") is Style menuItemStyle)
-                {
-                    menuItem.Style = menuItemStyle;
+                    AddActionsToItems(menuItem.Items, children);
                 }
 
-                if (!string.IsNullOrWhiteSpace(action.IconGlyph))
-                {
-                    menuItem.Icon = new TextBlock
-                    {
-                        Text = action.IconGlyph,
-                        FontSize = 12,
-                        VerticalAlignment = VerticalAlignment.Center
-                    };
-                }
-
-                if (action.Command != null)
-                {
-                    menuItem.Command = action.Command;
-                    menuItem.CommandParameter = action.CommandParameter;
-                }
-                else if (action.Execute != null)
-                {
-                    var callbackParameter = action.CommandParameter;
-                    menuItem.Click += (_, _) =>
-                    {
-                        action.Execute(callbackParameter);
-                    };
-                }
-
-                contextMenu.Items.Add(menuItem);
+                items.Add(menuItem);
                 hasAnyAction = true;
             }
+        }
 
-            return contextMenu;
+        private static MenuItem CreateMenuItem(AppContextMenuAction action)
+        {
+            var menuItem = new MenuItem
+            {
+                Header = action.Label,
+                IsEnabled = action.IsEnabled,
+                Tag = action.IsDestructive ? "danger" : null
+            };
+
+            if (System.Windows.Application.Current?.TryFindResource("App.ContextMenuItem") is Style menuItemStyle)
+            {
+                menuItem.Style = menuItemStyle;
+            }
+
+            if (!string.IsNullOrWhiteSpace(action.IconGlyph))
+            {
+                menuItem.Icon = new TextBlock
+                {
+                    Text = action.IconGlyph,
+                    FontSize = 12,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+            }
+
+            var hasChildren = action.Children != null && action.Children.Any(c => c != null && c.IsVisible && !c.IsSeparator);
+            if (hasChildren)
+            {
+                return menuItem;
+            }
+
+            if (action.Command != null)
+            {
+                menuItem.Command = action.Command;
+                menuItem.CommandParameter = action.CommandParameter;
+            }
+            else if (action.Execute != null)
+            {
+                var callbackParameter = action.CommandParameter;
+                menuItem.Click += (_, _) =>
+                {
+                    action.Execute(callbackParameter);
+                };
+            }
+
+            return menuItem;
         }
     }
 }

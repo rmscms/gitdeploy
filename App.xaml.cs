@@ -11,6 +11,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Media3D;
 using GitDeployPro.Services;
+using GitDeployPro.Services.Theme;
 
 namespace GitDeployPro
 {
@@ -23,6 +24,18 @@ namespace GitDeployPro
         {
             PerformanceSampler.Instance.Mark("app", "lifecycle", "startup-begin");
             ConfigureUnhandledExceptions();
+            // Unfreeze palette brushes BEFORE StartupUri windows resolve StaticResource.
+            ThemeService.Instance.Initialize();
+            try
+            {
+                var savedThemeId = new ConfigurationService().ResolveAppThemeId();
+                ThemeService.Instance.ApplyTheme(savedThemeId);
+            }
+            catch
+            {
+                ThemeService.Instance.ApplyTheme(ThemeService.DefaultThemeId);
+            }
+
             base.OnStartup(e);
             RegisterGlobalMouseWheelScrolling();
             Log("Application started.");

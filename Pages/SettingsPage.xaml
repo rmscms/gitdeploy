@@ -1,517 +1,735 @@
 <Page x:Class="GitDeployPro.Pages.SettingsPage"
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
       xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
       Title="SettingsPage"
       Background="{StaticResource Surface.Base}">
+    <Page.Resources>
+        <Style x:Key="Settings.NavButton" TargetType="Button" BasedOn="{StaticResource App.SidebarNavButton}">
+            <Setter Property="Height" Value="38" />
+            <Setter Property="Margin" Value="0,2" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{StaticResource Text.Secondary}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Padding" Value="12,0" />
+        </Style>
+        <Style x:Key="Settings.NavButton.Active" TargetType="Button" BasedOn="{StaticResource Settings.NavButton}">
+            <Setter Property="Background" Value="{StaticResource Surface.Raised}" />
+            <Setter Property="Foreground" Value="{StaticResource Text.Primary}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Accent.Primary}" />
+            <Setter Property="BorderThickness" Value="3,0,0,0" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style x:Key="Settings.Expander" TargetType="Expander">
+            <Setter Property="Foreground" Value="{StaticResource Text.Primary}" />
+            <Setter Property="Background" Value="{StaticResource Surface.Card}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Border.Subtle}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Margin" Value="0,0,0,8" />
+            <Setter Property="IsExpanded" Value="True" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Expander">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8">
+                            <DockPanel>
+                                <ToggleButton x:Name="HeaderToggle"
+                                              DockPanel.Dock="Top"
+                                              IsChecked="{Binding IsExpanded, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                              Background="Transparent"
+                                              BorderThickness="0"
+                                              Padding="12,10"
+                                              Cursor="Hand"
+                                              HorizontalContentAlignment="Stretch">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <ContentPresenter ContentSource="Header" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="1"
+                                                   x:Name="Chevron"
+                                                   Text="▾"
+                                                   FontSize="11"
+                                                   Foreground="{StaticResource Text.Muted}"
+                                                   VerticalAlignment="Center"
+                                                   Margin="10,0,0,0" />
+                                    </Grid>
+                                </ToggleButton>
+                                <ContentPresenter x:Name="ExpandSite"
+                                                  DockPanel.Dock="Bottom"
+                                                  Margin="12,0,12,12"
+                                                  Visibility="Collapsed" />
+                            </DockPanel>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsExpanded" Value="True">
+                                <Setter TargetName="ExpandSite" Property="Visibility" Value="Visible" />
+                                <Setter TargetName="Chevron" Property="Text" Value="▴" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="Settings.ToolbarCard" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource Surface.Card}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Border.Subtle}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="12,10" />
+            <Setter Property="Margin" Value="0,0,0,8" />
+        </Style>
+    </Page.Resources>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto"
-                  HorizontalScrollBarVisibility="Disabled"
-                  CanContentScroll="False">
-    <Grid Margin="{StaticResource Spacing.PageMargin}">
+    <Grid Margin="6">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,20">
-            <TextBlock Text="⚙️" FontSize="36" VerticalAlignment="Center" Margin="0,0,12,0" />
-            <StackPanel>
-                <TextBlock Text="Settings" Style="{StaticResource App.PageTitleTextStyle}" />
-                <TextBlock Text="Project, FTP profiles, and Git defaults in one place."
-                           Style="{StaticResource App.PageSubtitleTextStyle}" />
+        <!-- Header (Deploy-like) -->
+        <Border Grid.Row="0"
+                Background="{StaticResource Surface.Shell}"
+                BorderBrush="{StaticResource Border.Subtle}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="14,10"
+                Margin="0,0,0,8">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <Border Width="34" Height="34" CornerRadius="8"
+                        Background="{StaticResource Surface.Raised}"
+                        BorderBrush="{StaticResource Border.Subtle}"
+                        BorderThickness="1"
+                        Margin="0,0,10,0">
+                    <ui:SymbolIcon Symbol="Settings24"
+                                   FontSize="16"
+                                   Foreground="{StaticResource Accent.Primary}"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" />
+                </Border>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="Settings"
+                               Foreground="{StaticResource Text.Primary}"
+                               FontSize="16"
+                               FontWeight="SemiBold" />
+                    <TextBlock x:Name="SettingsSectionSubtitle"
+                               Text="Project path, startup, updates, and danger zone."
+                               Foreground="{StaticResource Text.Muted}"
+                               FontSize="11" />
+                </StackPanel>
             </StackPanel>
-        </StackPanel>
+        </Border>
 
-        <TabControl Grid.Row="1"
-                    Background="Transparent"
-                    BorderThickness="0"
-                    Margin="0,0,0,18">
-            <TabControl.Resources>
-                <Style TargetType="TabItem" BasedOn="{StaticResource App.TabItemStyle}" />
-            </TabControl.Resources>
+        <!-- Body -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="200" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
 
-            <TabItem Header="General &amp; Local">
-                <Grid Margin="0,18,0,0">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-
-                    <Border Grid.Row="0" Grid.ColumnSpan="2" Style="{StaticResource App.CardStyle}" Margin="0,0,0,14">
-                        <StackPanel>
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
-                                <TextBlock Text="📁" FontSize="22" VerticalAlignment="Center" Margin="0,0,10,0" />
-                                <TextBlock Text="Local Project Path"
-                                           Style="{StaticResource App.SectionTitleTextStyle}"
-                                           VerticalAlignment="Center" />
+            <!-- Sidebar -->
+            <Border Grid.Column="0"
+                    Background="{StaticResource Surface.Shell}"
+                    BorderBrush="{StaticResource Border.Subtle}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="8,12"
+                    Margin="0,0,8,0">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top"
+                               Text="SECTIONS"
+                               FontSize="10"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource Text.Muted}"
+                               Margin="10,0,0,8" />
+                    <StackPanel>
+                        <Button x:Name="NavGeneralButton"
+                                Style="{StaticResource Settings.NavButton.Active}"
+                                Click="SettingsNav_Click"
+                                Tag="general">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="Folder24" FontSize="15" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                <TextBlock Text="General" VerticalAlignment="Center" />
                             </StackPanel>
+                        </Button>
+                        <Button x:Name="NavServerButton"
+                                Style="{StaticResource Settings.NavButton}"
+                                Click="SettingsNav_Click"
+                                Tag="server">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="Cloud24" FontSize="15" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                <TextBlock Text="Server" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="NavGitButton"
+                                Style="{StaticResource Settings.NavButton}"
+                                Click="SettingsNav_Click"
+                                Tag="git">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="BranchFork24" FontSize="15" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                <TextBlock Text="Git" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="NavThemesButton"
+                                Style="{StaticResource Settings.NavButton}"
+                                Click="SettingsNav_Click"
+                                Tag="themes">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="PaintBrush24" FontSize="15" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                <TextBlock Text="Themes" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </DockPanel>
+            </Border>
 
-                            <TextBlock Text="Select Project Folder:" Margin="0,8,0,6" Style="{StaticResource App.MutedTextStyle}" />
+            <!-- Content -->
+            <ScrollViewer Grid.Column="1"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled"
+                          Background="{StaticResource Surface.Base}"
+                          Padding="2,0,2,0">
+                <Grid>
+                    <!-- GENERAL -->
+                    <StackPanel x:Name="SettingsPanelGeneral">
+                        <Border Style="{StaticResource Settings.ToolbarCard}">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <TextBox x:Name="LocalPathTextBox"
-                                         Grid.Column="0"
-                                         Style="{StaticResource App.InputTextBox}" />
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Workspace"
+                                               FontSize="11"
+                                               Foreground="{StaticResource Text.Muted}" />
+                                    <TextBlock x:Name="WorkspacePathHint"
+                                               Text="{Binding Text, ElementName=LocalPathTextBox}"
+                                               FontSize="12"
+                                               FontFamily="{StaticResource FontFamily.Mono}"
+                                               Foreground="{StaticResource Text.Secondary}"
+                                               TextTrimming="CharacterEllipsis"
+                                               Margin="0,2,0,0" />
+                                </StackPanel>
                                 <Button x:Name="BrowseLocalButton"
                                         Grid.Column="1"
                                         Content="Browse"
-                                        Width="90"
-                                        Height="38"
-                                        Margin="10,0,0,0"
+                                        Height="32"
+                                        MinWidth="88"
                                         Style="{StaticResource App.Button.Ghost}"
                                         Click="BrowseLocalButton_Click" />
                             </Grid>
-                        </StackPanel>
-                    </Border>
+                        </Border>
 
-                    <Border Grid.Row="1" Grid.Column="0" Style="{StaticResource App.CardStyle}" Margin="0,0,10,0">
-                        <StackPanel>
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
-                                <TextBlock Text="🔧" FontSize="22" VerticalAlignment="Center" Margin="0,0,10,0" />
-                                <TextBlock Text="Configuration File"
-                                           Style="{StaticResource App.SectionTitleTextStyle}"
-                                           VerticalAlignment="Center" />
+                        <Expander Style="{StaticResource Settings.Expander}" IsExpanded="True">
+                            <Expander.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:SymbolIcon Symbol="FolderOpen24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Accent.Primary}" VerticalAlignment="Center" />
+                                    <StackPanel>
+                                        <TextBlock Text="Local project" FontWeight="SemiBold" FontSize="13" />
+                                        <TextBlock Text="Select the folder GitDeploy Pro manages"
+                                                   FontSize="10"
+                                                   Foreground="{StaticResource Text.Muted}" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Expander.Header>
+                            <StackPanel>
+                                <TextBlock Text="Project folder" Margin="0,0,0,6" Style="{StaticResource App.MutedTextStyle}" FontSize="11" />
+                                <TextBox x:Name="LocalPathTextBox" Style="{StaticResource App.InputTextBox}" />
                             </StackPanel>
+                        </Expander>
 
-                            <TextBlock Text="Git ignore helper for project metadata."
-                                       Style="{StaticResource App.MutedTextStyle}"
-                                       Margin="0,0,0,10" />
+                        <Expander Style="{StaticResource Settings.Expander}" IsExpanded="True">
+                            <Expander.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:SymbolIcon Symbol="Wrench24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Text.Secondary}" VerticalAlignment="Center" />
+                                    <StackPanel>
+                                        <TextBlock Text="Configuration file" FontWeight="SemiBold" FontSize="13" />
+                                        <TextBlock Text="Git ignore helper for project metadata"
+                                                   FontSize="10"
+                                                   Foreground="{StaticResource Text.Muted}" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Expander.Header>
                             <StackPanel Orientation="Horizontal">
                                 <CheckBox x:Name="AddToGitIgnoreCheckBox"
                                           Content="Add config file to .gitignore"
                                           IsChecked="True"
                                           Foreground="{StaticResource Text.Secondary}"
-                                          FontSize="13"
+                                          FontSize="12"
                                           VerticalAlignment="Center"
-                                          Margin="0,6,10,6" />
-
+                                          Margin="0,0,12,0" />
                                 <Button Content="Add Now"
                                         Height="28"
-                                        Padding="10,0"
+                                        Padding="12,0"
                                         Style="{StaticResource App.Button.Ghost}"
                                         Click="AddGitIgnore_Click" />
                             </StackPanel>
-                        </StackPanel>
-                    </Border>
+                        </Expander>
 
-                    <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource App.CardStyle}" Margin="10,0,0,0">
-                        <StackPanel>
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
-                                <TextBlock Text="🚀" FontSize="22" VerticalAlignment="Center" Margin="0,0,10,0" />
-                                <TextBlock Text="Startup behavior"
-                                           Style="{StaticResource App.SectionTitleTextStyle}"
-                                           VerticalAlignment="Center" />
+                        <Expander Style="{StaticResource Settings.Expander}" IsExpanded="False">
+                            <Expander.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:SymbolIcon Symbol="Desktop24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Text.Secondary}" VerticalAlignment="Center" />
+                                    <TextBlock Text="Startup &amp; tray" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Expander.Header>
+                            <StackPanel>
+                                <CheckBox x:Name="LaunchOnStartupCheckBox"
+                                          Content="Launch GitDeploy Pro when Windows starts"
+                                          Foreground="{StaticResource Text.Secondary}"
+                                          FontSize="12" />
+                                <CheckBox x:Name="ShowBackupLocalhostWarningCheckBox"
+                                          Content="Show localhost warning in Backup Scheduler"
+                                          Foreground="{StaticResource Text.Secondary}"
+                                          FontSize="12"
+                                          Margin="0,8,0,0" />
+                                <CheckBox x:Name="MinimizeToTrayCheckBox"
+                                          Content="Minimize and close to system tray"
+                                          Foreground="{StaticResource Text.Secondary}"
+                                          FontSize="12"
+                                          Margin="0,8,0,0" />
                             </StackPanel>
-                            <TextBlock Text="Control launch behavior for daily workflow."
-                                       Style="{StaticResource App.MutedTextStyle}"
-                                       Margin="0,0,0,10" />
-                            <CheckBox x:Name="LaunchOnStartupCheckBox"
-                                      Content="Launch GitDeploy Pro when Windows starts"
-                                      Foreground="{StaticResource Text.Secondary}"
-                                      FontSize="13" />
-                            <CheckBox x:Name="ShowBackupLocalhostWarningCheckBox"
-                                      Content="Show localhost warning in Backup Scheduler (127.0.0.1:3306 / root)"
-                                      Foreground="{StaticResource Text.Secondary}"
-                                      FontSize="13"
-                                      Margin="0,8,0,0" />
-                            <CheckBox x:Name="MinimizeToTrayCheckBox"
-                                      Content="Minimize and close to system tray (use tray icon menu to Exit)"
-                                      Foreground="{StaticResource Text.Secondary}"
-                                      FontSize="13"
-                                      Margin="0,8,0,0" />
+                        </Expander>
 
-                            <Border Background="{StaticResource Surface.Input}"
+                        <Expander Style="{StaticResource Settings.Expander}" IsExpanded="False">
+                            <Expander.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:SymbolIcon Symbol="ArrowUpload24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Text.Secondary}" VerticalAlignment="Center" />
+                                    <TextBlock Text="Software updates" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Expander.Header>
+                            <StackPanel>
+                                <TextBlock x:Name="UpdateVersionText" Text="Current version: -" Foreground="{StaticResource Text.Secondary}" FontSize="12" />
+                                <TextBlock x:Name="UpdateLastCheckText" Text="Last automatic check: never" Foreground="{StaticResource Text.Muted}" FontSize="11" Margin="0,4,0,0" TextWrapping="Wrap" />
+                                <Button x:Name="CheckForUpdatesButton"
+                                        Content="Check for updates now"
+                                        Height="32"
+                                        Margin="0,10,0,0"
+                                        HorizontalAlignment="Left"
+                                        MinWidth="170"
+                                        Style="{StaticResource App.Button.Ghost}"
+                                        Click="CheckForUpdatesButton_Click" />
+                            </StackPanel>
+                        </Expander>
+
+                        <Expander Style="{StaticResource Settings.Expander}" IsExpanded="False">
+                            <Expander.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:SymbolIcon Symbol="Settings24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Text.Secondary}" VerticalAlignment="Center" />
+                                    <TextBlock Text="Windows startup audit" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Expander.Header>
+                            <StackPanel>
+                                <TextBlock x:Name="StartupAuditSummaryText" Text="Startup status will be loaded..." Foreground="{StaticResource Text.Secondary}" FontSize="12" TextWrapping="Wrap" />
+                                <TextBlock x:Name="StartupCurrentExeText" Text="Current exe: -" Foreground="{StaticResource Text.Muted}" FontSize="11" Margin="0,4,0,0" TextWrapping="Wrap" />
+                                <TextBlock x:Name="StartupPrimaryEntryText" Text="Primary startup value: -" Foreground="{StaticResource Text.Muted}" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap" />
+                                <TextBlock Text="Detected GitDeploy startup entries:" Foreground="{StaticResource Text.Muted}" FontSize="11" Margin="0,8,0,4" />
+                                <TextBox x:Name="StartupEntriesTextBox"
+                                         IsReadOnly="True"
+                                         TextWrapping="Wrap"
+                                         VerticalScrollBarVisibility="Auto"
+                                         MinHeight="72"
+                                         MaxHeight="110"
+                                         FontSize="11"
+                                         Background="{StaticResource Surface.Input}"
+                                         BorderBrush="{StaticResource Border.Subtle}"
+                                         Foreground="{StaticResource Text.Secondary}"
+                                         FontFamily="{StaticResource FontFamily.Mono}" />
+                                <WrapPanel Margin="0,10,0,0">
+                                    <Button x:Name="RefreshStartupAuditButton" Content="Refresh" Height="30" Padding="12,0" Margin="0,0,8,8" Style="{StaticResource App.Button.Ghost}" Click="RefreshStartupAuditButton_Click" />
+                                    <Button x:Name="UseCurrentStartupButton" Content="Use this version" Height="30" Padding="12,0" Margin="0,0,8,8" Style="{StaticResource App.Button.Primary}" Click="UseCurrentStartupButton_Click" />
+                                    <Button x:Name="RemoveStartupEntriesButton" Content="Remove startup entries" Height="30" Padding="12,0" Margin="0,0,0,8" Style="{StaticResource App.Button.Ghost}" Click="RemoveStartupEntriesButton_Click" />
+                                </WrapPanel>
+                            </StackPanel>
+                        </Expander>
+
+                        <Expander Style="{StaticResource Settings.Expander}" IsExpanded="False">
+                            <Expander.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:SymbolIcon Symbol="Warning24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Status.Error}" VerticalAlignment="Center" />
+                                    <TextBlock Text="Danger zone" FontWeight="SemiBold" FontSize="13" Foreground="{StaticResource Status.Error}" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Expander.Header>
+                            <Border Background="{StaticResource Status.ErrorSurface}"
                                     BorderBrush="{StaticResource Border.Subtle}"
                                     BorderThickness="1"
-                                    CornerRadius="10"
-                                    Padding="12"
-                                    Margin="0,12,0,0">
+                                    CornerRadius="8"
+                                    Padding="12">
                                 <StackPanel>
-                                    <TextBlock Text="Software updates"
-                                               Foreground="{StaticResource Text.Primary}"
-                                               FontWeight="SemiBold"
-                                               FontSize="13" />
-                                    <TextBlock x:Name="UpdateVersionText"
-                                               Text="Current version: -"
+                                    <TextBlock Text="Remove this project from GitDeploy Pro only. Files stay on disk."
                                                Foreground="{StaticResource Text.Secondary}"
                                                FontSize="12"
-                                               Margin="0,6,0,0" />
-                                    <TextBlock x:Name="UpdateLastCheckText"
-                                               Text="Last automatic check: never"
-                                               Foreground="{StaticResource Text.Muted}"
-                                               FontSize="11"
-                                               Margin="0,4,0,0"
-                                               TextWrapping="Wrap" />
-                                    <Button x:Name="CheckForUpdatesButton"
-                                            Content="Check for updates now"
-                                            Height="34"
-                                            Margin="0,10,0,0"
-                                            HorizontalAlignment="Left"
-                                            MinWidth="180"
-                                            Style="{StaticResource App.Button.Ghost}"
-                                            Click="CheckForUpdatesButton_Click" />
-                                </StackPanel>
-                            </Border>
-
-                            <Border Background="{StaticResource Surface.Input}"
-                                    BorderBrush="{StaticResource Border.Subtle}"
-                                    BorderThickness="1"
-                                    CornerRadius="10"
-                                    Padding="12"
-                                    Margin="0,12,0,0">
-                                <StackPanel>
-                                    <TextBlock Text="Windows startup audit"
-                                               Foreground="{StaticResource Text.Primary}"
-                                               FontWeight="SemiBold"
-                                               FontSize="13" />
-                                    <TextBlock x:Name="StartupAuditSummaryText"
-                                               Text="Startup status will be loaded..."
-                                               Foreground="{StaticResource Text.Secondary}"
-                                               FontSize="12"
-                                               Margin="0,6,0,0"
-                                               TextWrapping="Wrap" />
-                                    <TextBlock x:Name="StartupCurrentExeText"
-                                               Text="Current exe: -"
-                                               Foreground="{StaticResource Text.Muted}"
-                                               FontSize="11"
-                                               Margin="0,4,0,0"
-                                               TextWrapping="Wrap" />
-                                    <TextBlock x:Name="StartupPrimaryEntryText"
-                                               Text="Primary startup value: -"
-                                               Foreground="{StaticResource Text.Muted}"
-                                               FontSize="11"
-                                               Margin="0,2,0,0"
-                                               TextWrapping="Wrap" />
-                                    <TextBlock Text="Detected GitDeploy startup entries:"
-                                               Foreground="{StaticResource Text.Muted}"
-                                               FontSize="11"
-                                               Margin="0,8,0,4" />
-                                    <TextBox x:Name="StartupEntriesTextBox"
-                                             IsReadOnly="True"
-                                             TextWrapping="Wrap"
-                                             VerticalScrollBarVisibility="Auto"
-                                             MinHeight="78"
-                                             MaxHeight="120"
-                                             FontSize="11"
-                                             Foreground="{StaticResource Text.Secondary}"
-                                             FontFamily="{StaticResource FontFamily.Mono}" />
-                                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                                        <Button x:Name="RefreshStartupAuditButton"
-                                                Content="🔄 Refresh"
-                                                Height="30"
-                                                Padding="10,0"
-                                                Margin="0,0,8,0"
-                                                Style="{StaticResource App.Button.Ghost}"
-                                                Click="RefreshStartupAuditButton_Click" />
-                                        <Button x:Name="UseCurrentStartupButton"
-                                                Content="✅ Use this version"
-                                                Height="30"
-                                                Padding="10,0"
-                                                Margin="0,0,8,0"
-                                                Style="{StaticResource App.Button.Primary}"
-                                                Click="UseCurrentStartupButton_Click" />
-                                        <Button x:Name="RemoveStartupEntriesButton"
-                                                Content="🧹 Remove startup entries"
-                                                Height="30"
-                                                Padding="10,0"
-                                                Style="{StaticResource App.Button.Ghost}"
-                                                Click="RemoveStartupEntriesButton_Click" />
-                                    </StackPanel>
-                                </StackPanel>
-                            </Border>
-
-                            <Border Margin="0,18,0,0"
-                                    Background="{StaticResource Status.ErrorSurface}"
-                                    BorderBrush="{StaticResource Status.Error}"
-                                    BorderThickness="1"
-                                    CornerRadius="10"
-                                    Padding="14">
-                                <StackPanel>
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                        <TextBlock Text="⚠"
-                                                   FontSize="20"
-                                                   VerticalAlignment="Center"
-                                                   Margin="0,0,10,0" />
-                                        <TextBlock Text="Danger Zone"
-                                                   Style="{StaticResource App.SectionTitleTextStyle}"
-                                                   Foreground="{StaticResource Status.Error}"
-                                                   VerticalAlignment="Center" />
-                                    </StackPanel>
-                                    <TextBlock Text="Remove this project from GitDeploy Pro only. Your project files stay on disk and can be opened again later."
-                                               Foreground="{StaticResource Text.Secondary}"
                                                TextWrapping="Wrap"
-                                               Margin="0,0,0,10" />
+                                               Margin="0,0,0,8" />
                                     <TextBlock x:Name="DangerProjectPathText"
                                                Foreground="{StaticResource Text.Muted}"
                                                FontFamily="{StaticResource FontFamily.Mono}"
                                                FontSize="11"
                                                TextWrapping="Wrap"
-                                               Margin="0,0,0,12"
+                                               Margin="0,0,0,10"
                                                Text="No project selected." />
                                     <Button x:Name="RemoveProjectFromAppButton"
                                             Content="Remove project from app"
-                                            Height="34"
+                                            Height="32"
                                             HorizontalAlignment="Left"
                                             Padding="14,0"
                                             Style="{StaticResource App.Button.Danger}"
                                             Click="RemoveProjectFromAppButton_Click" />
                                 </StackPanel>
                             </Border>
-                        </StackPanel>
-                    </Border>
-                </Grid>
-            </TabItem>
+                        </Expander>
+                    </StackPanel>
 
-            <TabItem Header="Server (FTP/SFTP)">
-                <Border Style="{StaticResource App.CardStyle}" Margin="0,18,0,0">
-                        <StackPanel>
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
-                                <TextBlock Text="🌐" FontSize="22" VerticalAlignment="Center" Margin="0,0,10,0" />
-                                <TextBlock Text="Server Configuration"
-                                           Style="{StaticResource App.SectionTitleTextStyle}"
-                                           VerticalAlignment="Center" />
-                            </StackPanel>
-
-                            <TextBlock Text="This project uses a central connection profile. No need to enter FTP details manually."
-                                       Foreground="{StaticResource Text.Muted}"
-                                       Margin="0,0,0,14"
-                                       TextWrapping="Wrap" />
-
-                            <Grid Margin="0,0,0,14">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-
-                                <ComboBox x:Name="ConnectionProfileComboBox"
-                                          Grid.Column="0"
-                                          Style="{StaticResource App.InputComboBox}"
-                                          DisplayMemberPath="DisplayName"
-                                          SelectionChanged="ConnectionProfileComboBox_SelectionChanged" />
-
-                                <Button x:Name="ManageConnectionsButton"
-                                        Grid.Column="1"
-                                        Content="📂 Manage Profiles"
-                                        Height="40"
-                                        Width="150"
-                                        Margin="10,0,0,0"
-                                        Style="{StaticResource App.Button.Primary}"
-                                        Click="ManageConnectionsButton_Click" />
-                            </Grid>
-
-                            <Border Style="{StaticResource App.PanelStyle}" Padding="14" Margin="0,10,0,0">
-                                <Grid>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
-                                    </Grid.RowDefinitions>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-
-                                    <TextBlock Text="Host:" Grid.Row="0" Grid.Column="0" Foreground="{StaticResource Text.Muted}" Margin="0,0,10,5" />
-                                    <TextBlock x:Name="PreviewHostText" Grid.Row="0" Grid.Column="1" Foreground="{StaticResource Text.Primary}" FontWeight="SemiBold" Text="-" />
-
-                                    <TextBlock Text="Protocol:" Grid.Row="1" Grid.Column="0" Foreground="{StaticResource Text.Muted}" Margin="0,0,10,5" />
-                                    <TextBlock x:Name="PreviewProtocolText" Grid.Row="1" Grid.Column="1" Foreground="{StaticResource Text.Secondary}" Text="-" />
-
-                                    <TextBlock Text="User:" Grid.Row="2" Grid.Column="0" Foreground="{StaticResource Text.Muted}" Margin="0,0,10,5" />
-                                    <TextBlock x:Name="PreviewUserText" Grid.Row="2" Grid.Column="1" Foreground="{StaticResource Text.Secondary}" Text="-" />
-
-                                    <TextBlock Text="Root Path:" Grid.Row="3" Grid.Column="0" Foreground="{StaticResource Text.Muted}" Margin="0,0,10,0" />
-                                    <TextBlock x:Name="PreviewPathText" Grid.Row="3" Grid.Column="1" Foreground="{StaticResource Status.Success}" Text="-" />
-                                </Grid>
-                            </Border>
-
-                            <StackPanel Margin="0,20,0,0">
-                                <StackPanel Orientation="Horizontal">
-                                    <Button x:Name="ReSetupButton"
-                                            Content="🛠 Re-Run Setup Wizard"
-                                            Height="40"
-                                            Width="190"
-                                            Style="{StaticResource App.Button.Ghost}"
-                                            Click="ReSetupButton_Click" />
+                    <!-- SERVER -->
+                    <StackPanel x:Name="SettingsPanelServer" Visibility="Collapsed">
+                        <Border Style="{StaticResource Settings.ToolbarCard}">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                    <ui:SymbolIcon Symbol="Cloud24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Accent.Primary}" VerticalAlignment="Center" />
+                                    <TextBlock Text="Connection profile" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" />
                                 </StackPanel>
+                                <TextBlock Text="This project uses a central connection profile."
+                                           Foreground="{StaticResource Text.Muted}"
+                                           FontSize="11"
+                                           Margin="0,0,0,10"
+                                           TextWrapping="Wrap" />
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <ComboBox x:Name="ConnectionProfileComboBox"
+                                              Grid.Column="0"
+                                              Height="36"
+                                              Style="{StaticResource App.InputComboBox}"
+                                              DisplayMemberPath="DisplayName"
+                                              SelectionChanged="ConnectionProfileComboBox_SelectionChanged" />
+                                    <Button x:Name="ManageConnectionsButton"
+                                            Grid.Column="1"
+                                            Content="Manage profiles"
+                                            Height="36"
+                                            Margin="8,0,0,0"
+                                            Padding="12,0"
+                                            Style="{StaticResource App.Button.Primary}"
+                                            Click="ManageConnectionsButton_Click" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
 
+                        <Border Style="{StaticResource Settings.ToolbarCard}" Background="{StaticResource Surface.Input}">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="88" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Host" Grid.Row="0" Foreground="{StaticResource Text.Muted}" FontSize="11" Margin="0,0,0,8" />
+                                <TextBlock x:Name="PreviewHostText" Grid.Row="0" Grid.Column="1" Foreground="{StaticResource Text.Primary}" FontWeight="SemiBold" FontSize="12" Text="-" />
+                                <TextBlock Text="Protocol" Grid.Row="1" Foreground="{StaticResource Text.Muted}" FontSize="11" Margin="0,0,0,8" />
+                                <TextBlock x:Name="PreviewProtocolText" Grid.Row="1" Grid.Column="1" Foreground="{StaticResource Text.Secondary}" FontSize="12" Text="-" />
+                                <TextBlock Text="User" Grid.Row="2" Foreground="{StaticResource Text.Muted}" FontSize="11" Margin="0,0,0,8" />
+                                <TextBlock x:Name="PreviewUserText" Grid.Row="2" Grid.Column="1" Foreground="{StaticResource Text.Secondary}" FontSize="12" Text="-" />
+                                <TextBlock Text="Root path" Grid.Row="3" Foreground="{StaticResource Text.Muted}" FontSize="11" />
+                                <TextBlock x:Name="PreviewPathText" Grid.Row="3" Grid.Column="1" Foreground="{StaticResource Status.Success}" FontSize="12" Text="-" />
+                            </Grid>
+                        </Border>
+
+                        <Expander Style="{StaticResource Settings.Expander}" IsExpanded="False">
+                            <Expander.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:SymbolIcon Symbol="Wrench24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Text.Secondary}" VerticalAlignment="Center" />
+                                    <TextBlock Text="Setup wizard &amp; recovery" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Expander.Header>
+                            <StackPanel>
+                                <Button x:Name="ReSetupButton"
+                                        Content="Re-run setup wizard"
+                                        Height="34"
+                                        HorizontalAlignment="Left"
+                                        Padding="14,0"
+                                        Style="{StaticResource App.Button.Ghost}"
+                                        Click="ReSetupButton_Click" />
                                 <Border Background="{StaticResource Status.InfoSurface}"
                                         BorderBrush="{StaticResource Border.Subtle}"
                                         BorderThickness="1"
-                                        CornerRadius="10"
-                                        Padding="14"
-                                        Margin="0,12,0,0">
+                                        CornerRadius="8"
+                                        Padding="12"
+                                        Margin="0,10,0,0">
                                     <StackPanel>
-                                        <TextBlock Text="Reinitialize Project Setup"
+                                        <TextBlock Text="Reinitialize project setup"
                                                    Foreground="{StaticResource Status.Info}"
                                                    FontWeight="SemiBold"
-                                                   FontSize="14" />
-                                        <TextBlock Text="For recovery: remove setup artifacts from this project folder, then run wizard cleanly."
+                                                   FontSize="13" />
+                                        <TextBlock Text="Remove setup artifacts, then run the wizard cleanly."
                                                    Foreground="{StaticResource Text.Secondary}"
+                                                   FontSize="11"
                                                    TextWrapping="Wrap"
                                                    Margin="0,4,0,10" />
-                                        <CheckBox x:Name="ResetGitInSettingsCheckBox"
-                                                  Content="Remove .git folder"
-                                                  Foreground="{StaticResource Text.Primary}"
-                                                  Margin="0,0,0,6" />
-                                        <CheckBox x:Name="ResetConfigInSettingsCheckBox"
-                                                  Content="Remove .gitdeploy.config"
-                                                  Foreground="{StaticResource Text.Primary}"
-                                                  Margin="0,0,0,10" />
+                                        <CheckBox x:Name="ResetGitInSettingsCheckBox" Content="Remove .git folder" Foreground="{StaticResource Text.Primary}" FontSize="12" Margin="0,0,0,6" />
+                                        <CheckBox x:Name="ResetConfigInSettingsCheckBox" Content="Remove .gitdeploy.config" Foreground="{StaticResource Text.Primary}" FontSize="12" Margin="0,0,0,10" />
                                         <Button x:Name="ResetAndRunSetupButton"
-                                                Content="♻ Reset And Run Wizard"
-                                                Height="36"
-                                                Width="200"
+                                                Content="Reset and run wizard"
+                                                Height="34"
                                                 HorizontalAlignment="Left"
+                                                Padding="14,0"
                                                 Style="{StaticResource App.Button.Danger}"
                                                 Click="ResetAndRunSetupButton_Click" />
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
-                        </StackPanel>
-                </Border>
-            </TabItem>
+                        </Expander>
+                    </StackPanel>
 
-            <TabItem Header="Git &amp; GitHub">
-                <Grid Margin="0,18,0,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="1.35*" />
-                        <ColumnDefinition Width="0.65*" />
-                    </Grid.ColumnDefinitions>
-
-                    <Border Grid.Column="0" Style="{StaticResource App.CardStyle}" Margin="0,0,14,0">
-                        <StackPanel>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
-                                    <TextBlock Text="📦" FontSize="22" VerticalAlignment="Center" Margin="0,0,10,0" />
-                                    <TextBlock Text="Git Configuration"
-                                               Style="{StaticResource App.SectionTitleTextStyle}"
-                                               VerticalAlignment="Center" />
+                    <!-- GIT -->
+                    <StackPanel x:Name="SettingsPanelGit" Visibility="Collapsed">
+                        <Expander Style="{StaticResource Settings.Expander}" IsExpanded="True">
+                            <Expander.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:SymbolIcon Symbol="BranchFork24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Accent.Primary}" VerticalAlignment="Center" />
+                                    <StackPanel>
+                                        <TextBlock Text="Git configuration" FontWeight="SemiBold" FontSize="13" />
+                                        <TextBlock Text="Remote, branches, and deploy automation"
+                                                   FontSize="10"
+                                                   Foreground="{StaticResource Text.Muted}" />
+                                    </StackPanel>
                                 </StackPanel>
-
-                                <TextBlock Text="Remote Repository URL (origin):" Margin="0,0,0,6" Style="{StaticResource App.MutedTextStyle}" />
+                            </Expander.Header>
+                            <StackPanel>
+                                <TextBlock Text="Remote repository URL (origin)" Margin="0,0,0,6" Style="{StaticResource App.MutedTextStyle}" FontSize="11" />
                                 <TextBox x:Name="RemoteUrlTextBox"
                                          Style="{StaticResource App.InputTextBox}"
                                          Foreground="{StaticResource Status.Info}"
-                                         Margin="0,0,0,15" />
+                                         Margin="0,0,0,10" />
                                 <Border x:Name="GitPushStatusBadge"
                                         Style="{StaticResource App.StatusBadge.Warning}"
-                                        Margin="0,0,0,15"
+                                        Margin="0,0,0,10"
                                         Visibility="Collapsed">
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="☁️" FontSize="16" Margin="0,0,8,0" Foreground="{StaticResource Status.Warning}" />
+                                        <ui:SymbolIcon Symbol="Cloud24" FontSize="14" Margin="0,0,8,0" Foreground="{StaticResource Status.Warning}" VerticalAlignment="Center" />
                                         <TextBlock x:Name="GitPushStatusText"
                                                    Text="Pending push"
-                                                   FontSize="13"
+                                                   FontSize="12"
                                                    Foreground="{StaticResource Status.Warning}"
                                                    FontWeight="SemiBold" />
                                     </StackPanel>
                                 </Border>
-
                                 <Grid Margin="0,0,0,10">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="15" />
+                                        <ColumnDefinition Width="10" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-
                                     <StackPanel Grid.Column="0">
-                                        <TextBlock Text="Default Source Branch:" Margin="0,0,0,6" Style="{StaticResource App.MutedTextStyle}" />
-                                        <ComboBox x:Name="DefaultSourceBranchComboBox"
-                                                  Style="{StaticResource App.InputComboBox}" />
+                                        <TextBlock Text="Default source branch" Margin="0,0,0,6" Style="{StaticResource App.MutedTextStyle}" FontSize="11" />
+                                        <ComboBox x:Name="DefaultSourceBranchComboBox" Height="36" Style="{StaticResource App.InputComboBox}" />
                                     </StackPanel>
-
                                     <StackPanel Grid.Column="2">
-                                        <TextBlock Text="Default Target Branch:" Margin="0,0,0,6" Style="{StaticResource App.MutedTextStyle}" />
-                                        <ComboBox x:Name="DefaultTargetBranchComboBox"
-                                                  Style="{StaticResource App.InputComboBox}" />
+                                        <TextBlock Text="Default target branch" Margin="0,0,0,6" Style="{StaticResource App.MutedTextStyle}" FontSize="11" />
+                                        <ComboBox x:Name="DefaultTargetBranchComboBox" Height="36" Style="{StaticResource App.InputComboBox}" />
                                     </StackPanel>
                                 </Grid>
-
                                 <Button x:Name="RefreshBranchesButton"
-                                        Content="🔄 Refresh Branches"
-                                        Width="160"
-                                        Height="32"
+                                        Content="Refresh branches"
+                                        Height="30"
                                         HorizontalAlignment="Left"
-                                        Margin="0,0,0,15"
+                                        Padding="12,0"
+                                        Margin="0,0,0,12"
                                         Style="{StaticResource App.Button.Ghost}"
                                         Click="RefreshBranchesButton_Click" />
+                                <CheckBox x:Name="AutoInitGitCheckBox" Content="Auto-init Git if not exists" IsChecked="True" Foreground="{StaticResource Text.Secondary}" FontSize="12" Margin="0,3" />
+                                <CheckBox x:Name="AutoCommitCheckBox" Content="Auto-commit before deploy" IsChecked="True" Foreground="{StaticResource Text.Secondary}" FontSize="12" Margin="0,3" />
+                                <CheckBox x:Name="AutoPushCheckBox" Content="Auto-push after deploy" IsChecked="False" Foreground="{StaticResource Text.Secondary}" FontSize="12" Margin="0,3" />
+                            </StackPanel>
+                        </Expander>
 
-                                <CheckBox x:Name="AutoInitGitCheckBox"
-                                          Content="Auto-init Git if not exists"
-                                          IsChecked="True"
-                                          Foreground="{StaticResource Text.Secondary}"
-                                          FontSize="13"
-                                          Margin="0,6" />
-
-                                <CheckBox x:Name="AutoCommitCheckBox"
-                                          Content="Auto-commit before deploy"
-                                          IsChecked="True"
-                                          Foreground="{StaticResource Text.Secondary}"
-                                          FontSize="13"
-                                          Margin="0,6" />
-
-                                <CheckBox x:Name="AutoPushCheckBox"
-                                          Content="Auto-push after deploy"
-                                          IsChecked="False"
-                                          Foreground="{StaticResource Text.Secondary}"
-                                          FontSize="13"
-                                          Margin="0,6" />
-                        </StackPanel>
-                    </Border>
-
-                    <Border Grid.Column="1" Style="{StaticResource App.CardStyle}" Margin="0,0,0,10">
-                        <StackPanel>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
-                                    <TextBlock Text="🚫" FontSize="22" VerticalAlignment="Center" Margin="0,0,10,0" />
-                                    <TextBlock Text="Ignored Files"
-                                               Style="{StaticResource App.SectionTitleTextStyle}"
-                                               VerticalAlignment="Center" />
+                        <Expander Style="{StaticResource Settings.Expander}" IsExpanded="True">
+                            <Expander.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:SymbolIcon Symbol="DismissCircle24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Text.Secondary}" VerticalAlignment="Center" />
+                                    <StackPanel>
+                                        <TextBlock Text="Ignored files" FontWeight="SemiBold" FontSize="13" />
+                                        <TextBlock Text="Exclude patterns (one per line)"
+                                                   FontSize="10"
+                                                   Foreground="{StaticResource Text.Muted}" />
+                                    </StackPanel>
                                 </StackPanel>
+                            </Expander.Header>
+                            <TextBox x:Name="ExcludePatternsTextBox"
+                                     Style="{StaticResource App.InputTextBox.Multiline}"
+                                     MinHeight="260"
+                                     VerticalScrollBarVisibility="Auto"
+                                     Foreground="{StaticResource Log.Success}"
+                                     FontFamily="{StaticResource FontFamily.Mono}"
+                                     FontSize="12" />
+                        </Expander>
+                    </StackPanel>
 
-                                <TextBlock Text="Exclude patterns (one per line):" Margin="0,0,0,8" Style="{StaticResource App.MutedTextStyle}" />
-                                <TextBox x:Name="ExcludePatternsTextBox"
-                                         Style="{StaticResource App.InputTextBox.Multiline}"
-                                         MinHeight="260"
-                                         VerticalScrollBarVisibility="Auto"
-                                         Foreground="{StaticResource Log.Success}"
-                                         FontFamily="{StaticResource FontFamily.Mono}"
-                                         FontSize="12" />
-                        </StackPanel>
-                    </Border>
+                    <!-- THEMES -->
+                    <StackPanel x:Name="SettingsPanelThemes" Visibility="Collapsed">
+                        <Expander Style="{StaticResource Settings.Expander}" IsExpanded="True">
+                            <Expander.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:SymbolIcon Symbol="PaintBrush24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Accent.Primary}" VerticalAlignment="Center" />
+                                    <StackPanel>
+                                        <TextBlock Text="App theme" FontWeight="SemiBold" FontSize="13" />
+                                        <TextBlock Text="Applies across the whole app and persists after restart"
+                                                   FontSize="10"
+                                                   Foreground="{StaticResource Text.Muted}" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Expander.Header>
+                            <StackPanel>
+                                <Border Background="{StaticResource Surface.Raised}"
+                                        BorderBrush="{StaticResource Border.Subtle}"
+                                        BorderThickness="1"
+                                        CornerRadius="8"
+                                        Padding="12,10"
+                                        Margin="0,0,0,12">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock Text="Theme pack guide"
+                                                       FontWeight="SemiBold"
+                                                       FontSize="12"
+                                                       Foreground="{StaticResource Text.Primary}" />
+                                            <TextBlock Text="THEME_PACK_GUIDE.md ships with the app and lives in your Themes folder for users and tools."
+                                                       FontSize="10"
+                                                       Foreground="{StaticResource Text.Muted}"
+                                                       TextWrapping="Wrap"
+                                                       Margin="0,2,12,0" />
+                                        </StackPanel>
+                                        <Button Grid.Column="1"
+                                                Content="Open guide"
+                                                Style="{StaticResource App.Button.Ghost}"
+                                                Height="32"
+                                                Padding="12,0"
+                                                VerticalAlignment="Center"
+                                                Click="OpenThemeGuide_Click"
+                                                ToolTip="Open THEME_PACK_GUIDE.md" />
+                                    </Grid>
+                                </Border>
+                                <Grid Margin="0,0,0,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <ComboBox x:Name="AppThemeComboBox"
+                                              Height="34"
+                                              DisplayMemberPath="DisplayName"
+                                              Style="{StaticResource App.InputComboBox}"
+                                              SelectionChanged="AppThemeComboBox_SelectionChanged" />
+                                    <Button Grid.Column="1"
+                                            Content="Apply"
+                                            Style="{StaticResource App.Button.Primary}"
+                                            Height="34"
+                                            Margin="8,0,0,0"
+                                            Padding="16,0"
+                                            Click="ApplyAppTheme_Click" />
+                                </Grid>
+                                <ListBox x:Name="ThemePacksListBox"
+                                         MinHeight="200"
+                                         MaxHeight="340"
+                                         DisplayMemberPath="DisplayLabel"
+                                         Background="{StaticResource Surface.Input}"
+                                         BorderBrush="{StaticResource Border.Subtle}"
+                                         Foreground="{StaticResource Text.Primary}"
+                                         Margin="0,0,0,10"
+                                         MouseDoubleClick="ThemePacksListBox_MouseDoubleClick" />
+                                <WrapPanel Margin="0,0,0,8">
+                                    <Button Content="Import theme…"
+                                            Style="{StaticResource App.Button.Secondary}"
+                                            Height="32"
+                                            Margin="0,0,8,8"
+                                            Padding="12,0"
+                                            Click="ImportTheme_Click" />
+                                    <Button Content="Export selected…"
+                                            Style="{StaticResource App.Button.Ghost}"
+                                            Height="32"
+                                            Margin="0,0,8,8"
+                                            Padding="12,0"
+                                            Click="ExportTheme_Click" />
+                                    <Button Content="Delete custom"
+                                            Style="{StaticResource App.Button.Ghost}"
+                                            Height="32"
+                                            Margin="0,0,8,8"
+                                            Padding="12,0"
+                                            Click="DeleteTheme_Click" />
+                                    <Button Content="Open folder"
+                                            Style="{StaticResource App.Button.Ghost}"
+                                            Height="32"
+                                            Margin="0,0,8,8"
+                                            Padding="12,0"
+                                            Click="OpenThemesFolder_Click" />
+                                    <Button Content="Refresh"
+                                            Style="{StaticResource App.Button.Ghost}"
+                                            Height="32"
+                                            Margin="0,0,8,8"
+                                            Padding="12,0"
+                                            Click="RefreshThemes_Click" />
+                                </WrapPanel>
+                                <TextBlock x:Name="ThemePackStatusText"
+                                           Foreground="{StaticResource Text.Muted}"
+                                           FontSize="11"
+                                           FontFamily="{StaticResource FontFamily.Mono}"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Expander>
+                    </StackPanel>
                 </Grid>
-            </TabItem>
-        </TabControl>
+            </ScrollViewer>
+        </Grid>
 
+        <!-- Compact Deploy-style save footer -->
         <Border Grid.Row="2"
                 Background="{StaticResource Surface.Shell}"
-                Padding="20"
-                BorderThickness="0,1,0,0"
                 BorderBrush="{StaticResource Border.Subtle}"
-                Margin="0,0,0,0">
-            <Button Height="50"
-                    FontSize="16"
-                    FontWeight="Bold"
-                    Style="{StaticResource App.Button.Primary}"
-                    Click="SaveSettings_Click">
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <TextBlock Text="💾" FontSize="22" VerticalAlignment="Center" Margin="0,0,12,0" />
-                    <TextBlock Text="SAVE ALL SETTINGS"
-                               FontSize="15"
-                               FontWeight="Bold"
-                               VerticalAlignment="Center" />
-                </StackPanel>
-            </Button>
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="12,8"
+                Margin="0,8,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Changes apply to the current project and global preferences."
+                           Foreground="{StaticResource Text.Muted}"
+                           FontSize="11"
+                           VerticalAlignment="Center"
+                           TextWrapping="Wrap"
+                           Margin="0,0,12,0" />
+                <Button Grid.Column="1"
+                        Height="34"
+                        MinWidth="140"
+                        Padding="14,0"
+                        Style="{StaticResource App.Button.Primary}"
+                        Click="SaveSettings_Click">
+                    <StackPanel Orientation="Horizontal">
+                        <ui:SymbolIcon Symbol="Save24"
+                                       FontSize="14"
+                                       Margin="0,0,8,0"
+                                       VerticalAlignment="Center" />
+                        <TextBlock Text="Save settings"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+            </Grid>
         </Border>
     </Grid>
-    </ScrollViewer>
 </Page>

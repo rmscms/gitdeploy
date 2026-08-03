@@ -11,9 +11,13 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using GitDeployPro.Services;
+using GitDeployPro.Services.Remote;
+using GitDeployPro.Services.Theme;
 using FluentFTP;
 using GitDeployPro.Models;
 using GitDeployPro.Windows;
@@ -38,10 +42,17 @@ namespace GitDeployPro.Controls
         private string _activeRemoteBasePath = "/";
         private ObservableCollection<FileSystemItem> _items;
         private bool _isUploading = false;
+        private bool _isRefreshingFromDisk = false;
+        private bool _uploadPanelManuallyOpen = false;
         private CancellationTokenSource? _cancellationTokenSource;
+        private DispatcherTimer? _autoDiskSyncTimer;
+        private const int AutoDiskSyncSeconds = 10;
         private const string SessionFileName = ".gitdeploy.session";
+        private const string TreeLegendTooltip =
+            "Legend: green = clean · red = changed · blue = untracked · grey = ignored · green background = mapped";
 
         public event EventHandler<LocalEditorModeChangedEventArgs>? EditorModeChanged;
+        public event EventHandler? UploadActionsPanelVisibilityChanged;
 
         private static readonly HashSet<string> HardExcludeNames = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -55,6 +66,11 @@ namespace GitDeployPro.Controls
             set => SetValue(CompactModeProperty, value);
         }
 
+        public bool IsUploadActionsPanelVisible =>
+            UploadProcessSection != null && UploadProcessSection.Visibility == Visibility.Visible;
+
+        public bool IsUploadActionsPanelPinned => _uploadPanelManuallyOpen;
+
         public DirectUploadWorkspaceControl()
         {
             InitializeComponent();
@@ -63,9 +79,40 @@ namespace GitDeployPro.Controls
             FileTreeView.ItemsSource = _items;
 
             Loaded += DirectUploadWorkspaceControl_Loaded;
+            Unloaded += DirectUploadWorkspaceControl_Unloaded;
+            ThemeService.Instance.ThemeChanged += OnDeployThemeChanged;
             if (LocalEditor != null)
             {
                 LocalEditor.EditorModeChanged += (_, args) => EditorModeChanged?.Invoke(this, args);
+            }
+        }
+
+        private void OnDeployThemeChanged(object? sender, EventArgs e)
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(() => OnDeployThemeChanged(sender, e));
+                return;
+            }
+
+            ApplyCompactMode(CompactMode);
+            RefreshTreeThemeBrushes(_items);
+        }
+
+        private static void RefreshTreeThemeBrushes(IEnumerable<FileSystemItem>? items)
+        {
+            if (items == null)
+            {
+                return;
+            }
+
+            foreach (var item in items)
+            {
+                item.ApplyThemeColors();
+                if (item.Children is { Count: > 0 })
+                {
+                    RefreshTreeThemeBrushes(item.Children);
+                }
             }
         }
 
@@ -74,6 +121,45 @@ namespace GitDeployPro.Controls
         public void RestoreLocalEditorHome() => LocalEditor?.RestoreHome();
 
         public bool TryCloseLocalEditor(bool force = false) => LocalEditor?.TryClose(force) ?? true;
+
+        public void ToggleUploadActionsPanel()
+        {
+            if (!CompactMode || UploadProcessSection == null)
+            {
+                return;
+            }
+
+            if (_isUploading)
+            {
+                // Keep progress visible while uploading; ignore hide attempts.
+                return;
+            }
+
+            _uploadPanelManuallyOpen = !_uploadPanelManuallyOpen;
+            ApplyUploadPanelVisibility();
+        }
+
+        public void ShowUploadActionsPanel()
+        {
+            if (!CompactMode)
+            {
+                return;
+            }
+
+            _uploadPanelManuallyOpen = true;
+            ApplyUploadPanelVisibility();
+        }
+
+        public void HideUploadActionsPanel()
+        {
+            if (!CompactMode || _isUploading)
+            {
+                return;
+            }
+
+            _uploadPanelManuallyOpen = false;
+            ApplyUploadPanelVisibility();
+        }
 
         private static void OnCompactModeChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
@@ -92,10 +178,188 @@ namespace GitDeployPro.Controls
 
             PageHeaderRow.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
             UploadLogSection.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
-            ContentRootGrid.Margin = compact ? new Thickness(8) : new Thickness(20);
+            ContentRootGrid.Margin = compact ? new Thickness(4) : new Thickness(20);
             RootScrollViewer.VerticalScrollBarVisibility = compact
                 ? ScrollBarVisibility.Disabled
                 : ScrollBarVisibility.Auto;
+
+            if (ToolbarSection != null)
+            {
+                ToolbarSection.Padding = compact ? new Thickness(6, 4, 6, 4) : new Thickness(15);
+                ToolbarSection.Margin = compact ? new Thickness(0, 0, 0, 6) : new Thickness(0, 0, 0, 10);
+            }
+
+            if (UploadProcessSection != null)
+            {
+                UploadProcessSection.Padding = compact ? new Thickness(6) : new Thickness(10);
+                UploadProcessSection.Margin = compact ? new Thickness(0, 0, 0, 6) : new Thickness(0, 0, 0, 10);
+                UploadProcessSection.CornerRadius = new CornerRadius(compact ? 6 : 10);
+            }
+
+            if (UploadStatusCard != null)
+            {
+                UploadStatusCard.Padding = compact ? new Thickness(8, 6, 8, 6) : new Thickness(10, 8, 10, 8);
+            }
+
+            if (StartUploadButton != null)
+            {
+                StartUploadButton.Height = compact ? 30 : 38;
+            }
+
+            if (StopButton != null)
+            {
+                StopButton.Height = compact ? 30 : 38;
+            }
+
+            if (RefreshButton != null)
+            {
+                RefreshButton.Padding = compact ? new Thickness(6, 2, 6, 2) : new Thickness(10, 4, 10, 4);
+                RefreshButton.Margin = compact ? new Thickness(0, 0, 4, 0) : new Thickness(0, 0, 10, 0);
+            }
+
+            if (SelectAllButton != null)
+            {
+                SelectAllButton.Padding = compact ? new Thickness(6, 2, 6, 2) : new Thickness(10, 4, 10, 4);
+                SelectAllButton.Margin = compact ? new Thickness(2, 0, 2, 0) : new Thickness(10, 0, 10, 0);
+            }
+
+            if (DeselectAllButton != null)
+            {
+                DeselectAllButton.Padding = compact ? new Thickness(6, 2, 6, 2) : new Thickness(10, 4, 10, 4);
+                DeselectAllButton.Margin = compact ? new Thickness(2, 0, 0, 0) : new Thickness(10, 0, 0, 0);
+            }
+
+            if (RefreshButtonLabel != null)
+            {
+                RefreshButtonLabel.Text = compact ? "Refresh" : "Refresh from Disk";
+            }
+
+            if (TreeLegendText != null)
+            {
+                TreeLegendText.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+            }
+
+            if (TreeSection != null)
+            {
+                TreeSection.ToolTip = compact ? TreeLegendTooltip : null;
+            }
+
+            if (FileTreeView != null)
+            {
+                FileTreeView.Padding = compact ? new Thickness(4) : new Thickness(8);
+                FileTreeView.FontSize = compact ? 12 : 13;
+
+                var tokens = ThemeService.Instance.CurrentTokens;
+                var selectedBrush = tokens.GetBrush(
+                    "directUpload.treeSelection",
+                    GetThemeColor("Surface.Raised", System.Windows.Media.Colors.DimGray));
+                var hoverBrush = tokens.GetBrush(
+                    "directUpload.treeHover",
+                    GetThemeColor("Surface.Shell", System.Windows.Media.Colors.DarkSlateGray));
+                var itemStyle = new Style(typeof(TreeViewItem));
+                itemStyle.Setters.Add(new Setter(
+                    TreeViewItem.IsExpandedProperty,
+                    new System.Windows.Data.Binding("IsExpanded") { Mode = BindingMode.TwoWay }));
+                itemStyle.Setters.Add(new Setter(
+                    System.Windows.Controls.Control.ForegroundProperty,
+                    GetThemeBrush("Text.Secondary", System.Windows.Media.Brushes.Gray)));
+                itemStyle.Setters.Add(new Setter(
+                    System.Windows.Controls.Control.BackgroundProperty,
+                    System.Windows.Media.Brushes.Transparent));
+                itemStyle.Setters.Add(new Setter(
+                    System.Windows.Controls.Control.FontSizeProperty,
+                    compact ? 12.0 : 13.0));
+                itemStyle.Setters.Add(new Setter(
+                    System.Windows.Controls.Control.PaddingProperty,
+                    compact ? new Thickness(2, 1, 2, 1) : new Thickness(3, 1, 3, 1)));
+
+                var selectedTrigger = new Trigger { Property = TreeViewItem.IsSelectedProperty, Value = true };
+                selectedTrigger.Setters.Add(new Setter(
+                    System.Windows.Controls.Control.BackgroundProperty,
+                    selectedBrush));
+                itemStyle.Triggers.Add(selectedTrigger);
+
+                var hoverTrigger = new Trigger { Property = UIElement.IsMouseOverProperty, Value = true };
+                hoverTrigger.Setters.Add(new Setter(
+                    System.Windows.Controls.Control.BackgroundProperty,
+                    hoverBrush));
+                itemStyle.Triggers.Add(hoverTrigger);
+
+                FileTreeView.ItemContainerStyle = itemStyle;
+            }
+
+            if (!compact)
+            {
+                _uploadPanelManuallyOpen = false;
+            }
+
+            ApplyUploadPanelVisibility();
+        }
+
+        private void ApplyUploadPanelVisibility()
+        {
+            if (UploadProcessSection == null)
+            {
+                return;
+            }
+
+            var previous = UploadProcessSection.Visibility;
+            if (!CompactMode)
+            {
+                UploadProcessSection.Visibility = Visibility.Visible;
+                SetUploadInProgressUi(false);
+            }
+            else
+            {
+                var show = _uploadPanelManuallyOpen || _isUploading;
+                UploadProcessSection.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+                SetUploadInProgressUi(_isUploading);
+            }
+
+            if (previous != UploadProcessSection.Visibility || CompactMode)
+            {
+                UploadActionsPanelVisibilityChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
+        private void SetUploadInProgressUi(bool inProgress)
+        {
+            if (!CompactMode || !inProgress)
+            {
+                if (UploadOptionsPanel != null)
+                {
+                    UploadOptionsPanel.Visibility = Visibility.Visible;
+                }
+
+                if (UploadActionButtonsRow != null)
+                {
+                    UploadActionButtonsRow.Visibility = Visibility.Visible;
+                }
+
+                if (CompactStopButton != null)
+                {
+                    CompactStopButton.Visibility = Visibility.Collapsed;
+                }
+
+                return;
+            }
+
+            // Compact + uploading: progress only, small Stop for cancel.
+            if (UploadOptionsPanel != null)
+            {
+                UploadOptionsPanel.Visibility = Visibility.Collapsed;
+            }
+
+            if (UploadActionButtonsRow != null)
+            {
+                UploadActionButtonsRow.Visibility = Visibility.Collapsed;
+            }
+
+            if (CompactStopButton != null)
+            {
+                CompactStopButton.Visibility = Visibility.Visible;
+                CompactStopButton.IsEnabled = true;
+            }
         }
 
         private System.Windows.Media.Brush GetThemeBrush(string resourceKey, System.Windows.Media.Brush fallback)
@@ -108,14 +372,94 @@ namespace GitDeployPro.Controls
             return System.Windows.Application.Current?.TryFindResource(resourceKey) as System.Windows.Media.Brush ?? fallback;
         }
 
+        private static System.Windows.Media.Color GetThemeColor(string resourceKey, System.Windows.Media.Color fallback)
+        {
+            if (string.IsNullOrWhiteSpace(resourceKey))
+            {
+                return fallback;
+            }
+
+            return System.Windows.Application.Current?.TryFindResource(resourceKey) is System.Windows.Media.SolidColorBrush brush
+                ? brush.Color
+                : fallback;
+        }
+
         private async void DirectUploadWorkspaceControl_Loaded(object sender, RoutedEventArgs e)
         {
             ApplyCompactMode(CompactMode);
             await LoadProjectFilesAsync();
             CheckSessionStatus();
+            EnsureAutoDiskSyncTimer();
+            ApplyAutoDiskSyncState();
+        }
+
+        private void DirectUploadWorkspaceControl_Unloaded(object sender, RoutedEventArgs e)
+        {
+            ThemeService.Instance.ThemeChanged -= OnDeployThemeChanged;
+            StopAutoDiskSyncTimer();
         }
 
         public Task RefreshFromDiskPublicAsync() => RefreshFromDiskAsync();
+
+        private void EnsureAutoDiskSyncTimer()
+        {
+            if (_autoDiskSyncTimer != null)
+            {
+                return;
+            }
+
+            _autoDiskSyncTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromSeconds(AutoDiskSyncSeconds)
+            };
+            _autoDiskSyncTimer.Tick += AutoDiskSyncTimer_Tick;
+        }
+
+        private void StopAutoDiskSyncTimer()
+        {
+            if (_autoDiskSyncTimer == null)
+            {
+                return;
+            }
+
+            _autoDiskSyncTimer.Stop();
+            _autoDiskSyncTimer.Tick -= AutoDiskSyncTimer_Tick;
+            _autoDiskSyncTimer = null;
+        }
+
+        private void AutoDiskSyncCheck_Changed(object sender, RoutedEventArgs e)
+        {
+            ApplyAutoDiskSyncState();
+        }
+
+        private void ApplyAutoDiskSyncState()
+        {
+            EnsureAutoDiskSyncTimer();
+            if (_autoDiskSyncTimer == null || AutoDiskSyncCheck == null)
+            {
+                return;
+            }
+
+            if (AutoDiskSyncCheck.IsChecked == true)
+            {
+                _autoDiskSyncTimer.Start();
+                // Keep status quiet — background sync should feel invisible.
+            }
+            else
+            {
+                _autoDiskSyncTimer.Stop();
+            }
+        }
+
+        private void AutoDiskSyncTimer_Tick(object? sender, EventArgs e)
+        {
+            if (_isUploading || _isRefreshingFromDisk || AutoDiskSyncCheck?.IsChecked != true)
+            {
+                return;
+            }
+
+            _ = RefreshFromDiskAsync(preserveSelection: true, quiet: true);
+        }
 
         private void CheckSessionStatus()
         {
@@ -180,14 +524,18 @@ namespace GitDeployPro.Controls
             }
         }
 
-        private async Task LoadProjectFilesAsync()
+        private async Task LoadProjectFilesAsync(HashSet<string>? restoreCheckedPaths = null, bool quiet = false)
         {
             try
             {
                 var config = LoadCurrentProjectConfig(out bool hasProject);
                 if (!hasProject)
                 {
-                    StatusText.Text = "No project selected.";
+                    if (!quiet)
+                    {
+                        StatusText.Text = "No project selected.";
+                    }
+
                     StartUploadButton.IsEnabled = false;
                     UpdateConnectionInfoBanner(null, skipProjectRefresh: true);
                     return;
@@ -203,42 +551,130 @@ namespace GitDeployPro.Controls
                 _profileRemoteBasePath = NormalizeRemoteBase(profile?.RemotePath ?? config.RemotePath);
                 _activeRemoteBasePath = roots.remoteRoot;
 
-                UpdateConnectionInfoBanner(config, skipProjectRefresh: true, profileOverride: profile, mappingOverride: mapping);
-
-                StatusText.Text = "Scanning files...";
-                StartUploadButton.IsEnabled = false;
-
-                _items.Clear();
+                if (!quiet)
+                {
+                    UpdateConnectionInfoBanner(config, skipProjectRefresh: true, profileOverride: profile, mappingOverride: mapping);
+                    StatusText.Text = "Scanning files...";
+                    StartUploadButton.IsEnabled = false;
+                }
 
                 var projectRoot = _projectPath;
                 var mappedLocal = _mappedLocalRoot;
-                await Task.Run(() =>
-                {
-                    var rootItems = ScanDirectory(projectRoot);
-                    Dispatcher.Invoke(() =>
-                    {
-                        foreach (var item in rootItems)
-                        {
-                            _items.Add(item);
-                        }
+                var hadItems = _items.Count > 0;
+                var rootItems = await Task.Run(() => ScanDirectory(projectRoot));
 
-                        if (!string.IsNullOrEmpty(mappedLocal))
-                        {
-                            MarkMappedFolder(_items, mappedLocal);
-                        }
-                    });
-                });
+                // In-place merge keeps expanded folders / checkboxes / TreeView containers stable.
+                MergeTreeItems(_items, rootItems, parent: null);
+
+                if (!string.IsNullOrEmpty(mappedLocal))
+                {
+                    // Only auto-expand the mapped path on first populate; never fight the user on refresh.
+                    MarkMappedFolder(_items, mappedLocal, expandPath: !hadItems);
+                }
+
+                if (restoreCheckedPaths != null && restoreCheckedPaths.Count > 0)
+                {
+                    RestoreCheckedRelativePaths(_items, restoreCheckedPaths);
+                }
 
                 await ApplyGitOverlayAsync();
 
                 UpdateStats();
-                StatusText.Text = "Ready.";
-                StartUploadButton.IsEnabled = true;
+                if (!quiet)
+                {
+                    StatusText.Text = "Ready.";
+                    StartUploadButton.IsEnabled = true;
+                }
             }
             catch (Exception ex)
             {
-                StatusText.Text = $"Error scanning files: {ex.Message}";
-                StartUploadButton.IsEnabled = true;
+                if (!quiet)
+                {
+                    StatusText.Text = $"Error scanning files: {ex.Message}";
+                    StartUploadButton.IsEnabled = true;
+                }
+            }
+        }
+
+        private static string NormalizeTreePathKey(string path)
+        {
+            try
+            {
+                return Path.GetFullPath(path)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                    .ToLowerInvariant();
+            }
+            catch
+            {
+                return (path ?? string.Empty).Trim().ToLowerInvariant();
+            }
+        }
+
+        /// <summary>
+        /// Merge a fresh disk scan into the live tree without rebuilding nodes that still exist,
+        /// so expanded folders and selection stay put (Explorer-style).
+        /// </summary>
+        private void MergeTreeItems(
+            ObservableCollection<FileSystemItem> target,
+            IReadOnlyList<FileSystemItem> scanned,
+            FileSystemItem? parent)
+        {
+            var existingByPath = new Dictionary<string, FileSystemItem>(StringComparer.OrdinalIgnoreCase);
+            foreach (var item in target)
+            {
+                existingByPath[NormalizeTreePathKey(item.FullPath)] = item;
+            }
+
+            var next = new List<FileSystemItem>(scanned.Count);
+            foreach (var fresh in scanned)
+            {
+                var key = NormalizeTreePathKey(fresh.FullPath);
+                if (existingByPath.TryGetValue(key, out var existing))
+                {
+                    existing.ApplyDiskSnapshot(fresh);
+                    if (existing.IsFolder)
+                    {
+                        MergeTreeItems(existing.Children, fresh.Children.ToList(), existing);
+                    }
+
+                    next.Add(existing);
+                    existingByPath.Remove(key);
+                }
+                else
+                {
+                    fresh.Parent = parent;
+                    if (fresh.Children != null)
+                    {
+                        foreach (var child in fresh.Children)
+                        {
+                            child.Parent = fresh;
+                        }
+                    }
+
+                    next.Add(fresh);
+                }
+            }
+
+            for (var i = target.Count - 1; i >= 0; i--)
+            {
+                if (!next.Contains(target[i]))
+                {
+                    target.RemoveAt(i);
+                }
+            }
+
+            for (var i = 0; i < next.Count; i++)
+            {
+                var item = next[i];
+                var currentIndex = target.IndexOf(item);
+                if (currentIndex < 0)
+                {
+                    target.Insert(Math.Min(i, target.Count), item);
+                }
+                else if (currentIndex != i)
+                {
+                    target.Move(currentIndex, i);
+                }
             }
         }
 
@@ -335,7 +771,9 @@ namespace GitDeployPro.Controls
                         FullPath = dir.FullName,
                         IsFolder = true,
                         Icon = "📁",
-                        IconColor = GetThemeBrush("Status.Warning", System.Windows.Media.Brushes.Gold),
+                        IconColor = ThemeService.Instance.GetTokenBrush(
+                            "directUpload.folderIcon",
+                            GetThemeColor("Status.Warning", System.Windows.Media.Colors.Orange)),
                         GitState = softIgnored ? GitItemState.Ignored : GitItemState.None
                     };
 
@@ -365,7 +803,9 @@ namespace GitDeployPro.Controls
                         FullPath = file.FullName,
                         IsFolder = false,
                         Icon = "📄",
-                        IconColor = GetThemeBrush("Text.Secondary", System.Windows.Media.Brushes.WhiteSmoke),
+                        IconColor = ThemeService.Instance.GetTokenBrush(
+                            "directUpload.fileIcon",
+                            GetThemeColor("Text.Secondary", System.Windows.Media.Colors.LightGray)),
                         Size = file.Length,
                         GitState = softIgnored ? GitItemState.Ignored : GitItemState.None
                     };
@@ -390,7 +830,7 @@ namespace GitDeployPro.Controls
             }
         }
 
-        private static void MarkMappedFolder(IEnumerable<FileSystemItem> items, string mappedLocalRoot)
+        private static void MarkMappedFolder(IEnumerable<FileSystemItem> items, string mappedLocalRoot, bool expandPath = true)
         {
             ClearMappedFolderFlags(items);
 
@@ -404,10 +844,10 @@ namespace GitDeployPro.Controls
                 return;
             }
 
-            MarkMappedFolderCore(items, target);
+            MarkMappedFolderCore(items, target, expandPath);
         }
 
-        private static bool MarkMappedFolderCore(IEnumerable<FileSystemItem> items, string target)
+        private static bool MarkMappedFolderCore(IEnumerable<FileSystemItem> items, string target, bool expandPath)
         {
             foreach (var item in items)
             {
@@ -429,13 +869,21 @@ namespace GitDeployPro.Controls
                 if (string.Equals(full, target, StringComparison.OrdinalIgnoreCase))
                 {
                     item.IsMappedFolder = true;
-                    item.IsExpanded = true;
+                    if (expandPath)
+                    {
+                        item.IsExpanded = true;
+                    }
+
                     return true;
                 }
 
-                if (item.Children != null && item.Children.Count > 0 && MarkMappedFolderCore(item.Children, target))
+                if (item.Children != null && item.Children.Count > 0 && MarkMappedFolderCore(item.Children, target, expandPath))
                 {
-                    item.IsExpanded = true;
+                    if (expandPath)
+                    {
+                        item.IsExpanded = true;
+                    }
+
                     return true;
                 }
             }
@@ -582,25 +1030,133 @@ namespace GitDeployPro.Controls
                 return;
             }
 
-            _ = RefreshFromDiskAsync();
+            _ = RefreshFromDiskAsync(preserveSelection: true, quiet: false);
         }
 
-        private async Task RefreshFromDiskAsync()
+        private Task RefreshFromDiskAsync() => RefreshFromDiskAsync(preserveSelection: true, quiet: false);
+
+        private async Task RefreshFromDiskAsync(bool preserveSelection, bool quiet)
         {
-            RefreshButton.IsEnabled = false;
+            if (_isUploading || _isRefreshingFromDisk)
+            {
+                if (!quiet)
+                {
+                    StatusText.Text = "Wait for upload to finish before refreshing.";
+                }
+
+                return;
+            }
+
+            if (!quiet)
+            {
+                RefreshButton.IsEnabled = false;
+            }
+
+            _isRefreshingFromDisk = true;
+            HashSet<string>? checkedPaths = null;
             try
             {
-                StatusText.Text = "Refreshing from disk...";
-                await LoadProjectFilesAsync();
-                CheckSessionStatus();
-                if (string.Equals(StatusText.Text, "Ready.", StringComparison.Ordinal))
+                // Always keep checkboxes when possible; in-place merge keeps expansion open.
+                if (preserveSelection || quiet)
                 {
-                    StatusText.Text = "Refreshed from disk.";
+                    checkedPaths = CollectCheckedRelativePaths(_items);
+                }
+
+                if (!quiet)
+                {
+                    StatusText.Text = "Refreshing from disk...";
+                }
+
+                await LoadProjectFilesAsync(checkedPaths, quiet);
+
+                if (!quiet)
+                {
+                    CheckSessionStatus();
+                    if (string.Equals(StatusText.Text, "Ready.", StringComparison.Ordinal)
+                        || string.Equals(StatusText.Text, "Refreshing from disk...", StringComparison.Ordinal))
+                    {
+                        StatusText.Text = "Refreshed from disk.";
+                    }
                 }
             }
             finally
             {
-                RefreshButton.IsEnabled = !_isUploading;
+                _isRefreshingFromDisk = false;
+                if (!quiet)
+                {
+                    RefreshButton.IsEnabled = !_isUploading;
+                }
+            }
+        }
+
+        private HashSet<string> CollectCheckedRelativePaths(IEnumerable<FileSystemItem> items)
+        {
+            var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            CollectCheckedRelativePaths(items, paths);
+            return paths;
+        }
+
+        private void CollectCheckedRelativePaths(IEnumerable<FileSystemItem> items, HashSet<string> paths)
+        {
+            var root = !string.IsNullOrEmpty(_projectPath) ? _projectPath : _scanRootPath;
+            foreach (var item in items)
+            {
+                if (item.IsChecked == true && !string.IsNullOrWhiteSpace(item.FullPath) && !string.IsNullOrEmpty(root))
+                {
+                    try
+                    {
+                        var relative = Path.GetRelativePath(root, item.FullPath).Replace('\\', '/');
+                        if (!string.IsNullOrWhiteSpace(relative) && relative != ".")
+                        {
+                            paths.Add(relative);
+                        }
+                    }
+                    catch
+                    {
+                        // Ignore path mapping errors.
+                    }
+                }
+
+                if (item.Children != null && item.Children.Count > 0)
+                {
+                    CollectCheckedRelativePaths(item.Children, paths);
+                }
+            }
+        }
+
+        private void RestoreCheckedRelativePaths(IEnumerable<FileSystemItem> items, HashSet<string> checkedPaths)
+        {
+            var root = !string.IsNullOrEmpty(_projectPath) ? _projectPath : _scanRootPath;
+            foreach (var item in items)
+            {
+                if (item.Children != null && item.Children.Count > 0)
+                {
+                    RestoreCheckedRelativePaths(item.Children, checkedPaths);
+                }
+
+                if (string.IsNullOrEmpty(root) || string.IsNullOrWhiteSpace(item.FullPath))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    var relative = Path.GetRelativePath(root, item.FullPath).Replace('\\', '/');
+                    if (!checkedPaths.Contains(relative))
+                    {
+                        continue;
+                    }
+
+                    // Only restore leaves / empty folders so parent cascade does not over-select.
+                    if (!item.IsFolder || item.Children == null || item.Children.Count == 0)
+                    {
+                        item.IsChecked = true;
+                    }
+                }
+                catch
+                {
+                    // Ignore.
+                }
             }
         }
 
@@ -766,9 +1322,440 @@ namespace GitDeployPro.Controls
                 });
             }
 
+            if (IsProjectGitRepository())
+            {
+                actions.Add(AppContextMenuAction.Separator("git-separator"));
+                actions.Add(BuildGitContextMenu(item));
+            }
+
+            actions.Add(AppContextMenuAction.Separator("delete-separator"));
+            actions.Add(new AppContextMenuAction
+            {
+                Id = "delete-local",
+                Label = "Delete",
+                IconGlyph = "🗑",
+                IsEnabled = !_isUploading,
+                IsDestructive = true,
+                Execute = _ => _ = DeleteLocalItemAsync(item)
+            });
+
             if (GlobalContextMenuService.ShowMenu(treeItem, actions, item, PlacementMode.MousePoint))
             {
                 e.Handled = true;
+            }
+        }
+
+        private bool IsProjectGitRepository()
+        {
+            if (string.IsNullOrWhiteSpace(_projectPath) || !Directory.Exists(_projectPath))
+            {
+                return false;
+            }
+
+            try
+            {
+                GitService.SetWorkingDirectory(_projectPath);
+                return _gitService.IsGitRepository();
+            }
+            catch
+            {
+                return Directory.Exists(Path.Combine(_projectPath, ".git"));
+            }
+        }
+
+        private AppContextMenuAction BuildGitContextMenu(FileSystemItem item)
+        {
+            var relative = TryGetProjectRelativePath(item.FullPath);
+            var hasRelative = !string.IsNullOrWhiteSpace(relative);
+            var gitEnabled = !_isUploading && IsProjectGitRepository();
+
+            var children = new List<AppContextMenuAction>
+            {
+                new()
+                {
+                    Id = "git-commit-this",
+                    Label = item.IsFolder ? "Commit this folder…" : "Commit this file…",
+                    IconGlyph = "📝",
+                    IsEnabled = gitEnabled && hasRelative,
+                    Execute = _ => _ = GitCommitPathAsync(item)
+                },
+                new()
+                {
+                    Id = "git-commit-all",
+                    Label = "Commit all changes…",
+                    IconGlyph = "📦",
+                    IsEnabled = gitEnabled,
+                    Execute = _ => _ = GitCommitAllAsync()
+                },
+                AppContextMenuAction.Separator("git-remote-sep"),
+                new()
+                {
+                    Id = "git-push",
+                    Label = "Push",
+                    IconGlyph = "☁",
+                    IsEnabled = gitEnabled,
+                    Execute = _ => _ = GitPushAsync()
+                },
+                new()
+                {
+                    Id = "git-pull",
+                    Label = "Pull",
+                    IconGlyph = "⬇",
+                    IsEnabled = gitEnabled,
+                    Execute = _ => _ = GitPullAsync()
+                },
+                AppContextMenuAction.Separator("git-ignore-sep"),
+                new()
+                {
+                    Id = "git-ignore",
+                    Label = "Add to .gitignore",
+                    IconGlyph = "🚫",
+                    IsEnabled = gitEnabled && hasRelative,
+                    Execute = _ => _ = GitAddToIgnoreAsync(item)
+                },
+                new()
+                {
+                    Id = "git-discard",
+                    Label = "Discard local changes",
+                    IconGlyph = "↺",
+                    IsEnabled = gitEnabled && hasRelative && !item.IsFolder,
+                    IsDestructive = true,
+                    Execute = _ => _ = GitDiscardPathAsync(item)
+                }
+            };
+
+            return new AppContextMenuAction
+            {
+                Id = "git-menu",
+                Label = "Git",
+                IconGlyph = "🌿",
+                IsEnabled = gitEnabled,
+                Children = children
+            };
+        }
+
+        private string? TryGetProjectRelativePath(string fullPath)
+        {
+            if (string.IsNullOrWhiteSpace(fullPath) || string.IsNullOrWhiteSpace(_projectPath))
+            {
+                return null;
+            }
+
+            try
+            {
+                var relative = Path.GetRelativePath(_projectPath, fullPath).Replace('\\', '/');
+                if (string.IsNullOrWhiteSpace(relative) || relative == "." || relative.StartsWith("..", StringComparison.Ordinal))
+                {
+                    return null;
+                }
+
+                return relative.TrimStart('/');
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private async Task GitCommitPathAsync(FileSystemItem item)
+        {
+            if (_isUploading || !IsProjectGitRepository())
+            {
+                return;
+            }
+
+            var relative = TryGetProjectRelativePath(item.FullPath);
+            if (string.IsNullOrWhiteSpace(relative))
+            {
+                ModernMessageBox.Show("This path is outside the project root.", "Git", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var dialog = new InputDialog(
+                $"Commit message for {(item.IsFolder ? "folder" : "file")}:\n{relative}",
+                "Commit",
+                $"update {Path.GetFileName(relative.TrimEnd('/'))}");
+            if (WindowOwnerService.ShowDialogOwned(dialog, this) != true)
+            {
+                return;
+            }
+
+            var message = (dialog.ResponseText ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(message))
+            {
+                message = $"update {Path.GetFileName(relative.TrimEnd('/'))}";
+            }
+
+            try
+            {
+                GitService.SetWorkingDirectory(_projectPath);
+                StatusText.Text = $"Committing {relative}…";
+                await _gitService.CommitSpecificPathsAsync(new[] { relative }, message);
+                StatusText.Text = $"Committed {relative}.";
+                await ApplyGitOverlayAsync();
+                ModernMessageBox.Show($"Committed:\n{relative}", "Git", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                StatusText.Text = "Commit failed.";
+                ModernMessageBox.Show($"Commit failed:\n{ex.Message}", "Git", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private async Task GitCommitAllAsync()
+        {
+            if (_isUploading || !IsProjectGitRepository())
+            {
+                return;
+            }
+
+            try
+            {
+                GitService.SetWorkingDirectory(_projectPath);
+                var changes = await _gitService.GetUncommittedChangesAsync(includeDiff: false);
+                if (changes.Count == 0)
+                {
+                    ModernMessageBox.Show("No uncommitted changes.", "Git", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                var dialog = new InputDialog(
+                    $"Commit message for {changes.Count} changed file(s):",
+                    "Commit all",
+                    $"update {AppTimeService.LocalNow:yyyy-MM-dd HH:mm}");
+                if (WindowOwnerService.ShowDialogOwned(dialog, this) != true)
+                {
+                    return;
+                }
+
+                var message = (dialog.ResponseText ?? string.Empty).Trim();
+                if (string.IsNullOrWhiteSpace(message))
+                {
+                    message = $"update {AppTimeService.LocalNow:yyyy-MM-dd HH:mm}";
+                }
+
+                StatusText.Text = "Committing all changes…";
+                await _gitService.CommitChangesAsync(message);
+                StatusText.Text = "Committed all changes.";
+                await ApplyGitOverlayAsync();
+                ModernMessageBox.Show($"Committed {changes.Count} file(s).", "Git", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                StatusText.Text = "Commit failed.";
+                ModernMessageBox.Show($"Commit failed:\n{ex.Message}", "Git", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private async Task GitPushAsync()
+        {
+            if (_isUploading || !IsProjectGitRepository())
+            {
+                return;
+            }
+
+            try
+            {
+                GitService.SetWorkingDirectory(_projectPath);
+                StatusText.Text = "Pushing…";
+                var result = await _gitService.PushOrSkipAsync();
+                StatusText.Text = result == PushExecutionResult.PushedToRemote
+                    ? "Push completed."
+                    : "Push skipped (no remote).";
+                ModernMessageBox.Show(
+                    result == PushExecutionResult.PushedToRemote
+                        ? "Pushed to remote successfully."
+                        : "No remote configured. Push skipped.",
+                    "Git",
+                    MessageBoxButton.OK,
+                    result == PushExecutionResult.PushedToRemote ? MessageBoxImage.Information : MessageBoxImage.Warning);
+            }
+            catch (Exception ex)
+            {
+                StatusText.Text = "Push failed.";
+                ModernMessageBox.Show($"Push failed:\n{ex.Message}", "Git", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private async Task GitPullAsync()
+        {
+            if (_isUploading || !IsProjectGitRepository())
+            {
+                return;
+            }
+
+            try
+            {
+                GitService.SetWorkingDirectory(_projectPath);
+                StatusText.Text = "Pulling…";
+                await _gitService.PullAsync();
+                StatusText.Text = "Pull completed.";
+                await RefreshFromDiskAsync(preserveSelection: true, quiet: false);
+                await ApplyGitOverlayAsync();
+                ModernMessageBox.Show("Pulled latest changes from remote.", "Git", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                StatusText.Text = "Pull failed.";
+                ModernMessageBox.Show($"Pull failed:\n{ex.Message}", "Git", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private async Task GitAddToIgnoreAsync(FileSystemItem item)
+        {
+            if (_isUploading || !IsProjectGitRepository())
+            {
+                return;
+            }
+
+            var relative = TryGetProjectRelativePath(item.FullPath);
+            if (string.IsNullOrWhiteSpace(relative))
+            {
+                ModernMessageBox.Show("Unable to build .gitignore pattern for this path.", "Git", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var ignoreEntry = item.IsFolder
+                ? relative.TrimEnd('/') + "/"
+                : relative;
+
+            var confirm = ModernMessageBox.ShowWithResult(
+                $"Add '{ignoreEntry}' to .gitignore?",
+                "Git ignore",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question,
+                "Add",
+                "Cancel");
+            if (confirm != MessageBoxResult.Yes)
+            {
+                return;
+            }
+
+            try
+            {
+                var gitIgnorePath = Path.Combine(_projectPath, ".gitignore");
+                var lines = File.Exists(gitIgnorePath)
+                    ? File.ReadAllLines(gitIgnorePath).ToList()
+                    : new List<string>();
+                var exists = lines.Any(line => string.Equals(line.Trim(), ignoreEntry, StringComparison.OrdinalIgnoreCase));
+                if (!exists)
+                {
+                    lines.Add(ignoreEntry);
+                    File.WriteAllLines(gitIgnorePath, lines);
+                }
+
+                GitService.SetWorkingDirectory(_projectPath);
+                await _gitService.RemovePathFromIndexAsync(ignoreEntry.TrimEnd('/'));
+                await RefreshFromDiskAsync(preserveSelection: true, quiet: true);
+                await ApplyGitOverlayAsync();
+
+                StatusText.Text = exists
+                    ? $"'{ignoreEntry}' already in .gitignore."
+                    : $"Added '{ignoreEntry}' to .gitignore.";
+                ModernMessageBox.Show(StatusText.Text, "Git", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show($"Failed to update .gitignore:\n{ex.Message}", "Git", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private async Task GitDiscardPathAsync(FileSystemItem item)
+        {
+            if (_isUploading || item.IsFolder || !IsProjectGitRepository())
+            {
+                return;
+            }
+
+            var relative = TryGetProjectRelativePath(item.FullPath);
+            if (string.IsNullOrWhiteSpace(relative))
+            {
+                return;
+            }
+
+            var confirm = ModernMessageBox.ShowWithResult(
+                $"Discard local changes to:\n{relative}\n\nThis cannot be undone.",
+                "Discard changes",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning,
+                "Discard",
+                "Cancel");
+            if (confirm != MessageBoxResult.Yes)
+            {
+                return;
+            }
+
+            try
+            {
+                GitService.SetWorkingDirectory(_projectPath);
+                await _gitService.DiscardPathChangesAsync(relative);
+                StatusText.Text = $"Discarded changes: {relative}";
+                await RefreshFromDiskAsync(preserveSelection: true, quiet: true);
+                await ApplyGitOverlayAsync();
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show(
+                    $"Could not discard changes (file may be untracked):\n{ex.Message}",
+                    "Git",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+            }
+        }
+
+        private async Task DeleteLocalItemAsync(FileSystemItem item)
+        {
+            if (_isUploading || item == null || string.IsNullOrWhiteSpace(item.FullPath))
+            {
+                return;
+            }
+
+            var kind = item.IsFolder ? "folder" : "file";
+            var confirm = ModernMessageBox.ShowWithResult(
+                $"Delete this {kind}?\n\n{item.Name}\n{item.FullPath}\n\nThis cannot be undone.",
+                "Delete",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning,
+                "Delete",
+                "Cancel");
+            if (confirm != MessageBoxResult.Yes)
+            {
+                return;
+            }
+
+            try
+            {
+                var parentPath = item.Parent?.FullPath
+                    ?? Path.GetDirectoryName(item.FullPath)
+                    ?? _projectPath;
+
+                if (item.IsFolder)
+                {
+                    if (Directory.Exists(item.FullPath))
+                    {
+                        Directory.Delete(item.FullPath, recursive: true);
+                    }
+                }
+                else if (File.Exists(item.FullPath))
+                {
+                    File.Delete(item.FullPath);
+                }
+
+                var parentFolder = item.Parent ?? FindFolderItemByPath(parentPath ?? string.Empty);
+                if (parentFolder != null)
+                {
+                    await RefreshFolderAsync(parentFolder);
+                }
+                else
+                {
+                    await RefreshFromDiskAsync(preserveSelection: true, quiet: false);
+                }
+
+                StatusText.Text = $"Deleted {item.Name}";
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show($"Delete failed:\n{ex.Message}", "Direct Upload", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -1215,20 +2202,15 @@ namespace GitDeployPro.Controls
                 var path = folder.FullPath;
                 var children = await Task.Run(() => ScanDirectory(path));
 
-                folder.Children.Clear();
-                foreach (var child in children)
-                {
-                    child.Parent = folder;
-                    folder.Children.Add(child);
-                }
-
-                folder.IsExpanded = wasExpanded || folder.Children.Count > 0;
+                // Keep nested open folders; only add/remove/update children in place.
+                MergeTreeItems(folder.Children, children, folder);
+                folder.IsExpanded = wasExpanded;
                 folder.CheckParentStatus();
                 folder.RefreshUploadStateFromChildren();
 
                 if (!string.IsNullOrEmpty(_mappedLocalRoot))
                 {
-                    MarkMappedFolder(_items, _mappedLocalRoot);
+                    MarkMappedFolder(_items, _mappedLocalRoot, expandPath: false);
                 }
 
                 await ApplyGitOverlayAsync();
@@ -1341,6 +2323,10 @@ namespace GitDeployPro.Controls
                 _cancellationTokenSource.Cancel();
                 StatusText.Text = "Stopping upload...";
                 StopButton.IsEnabled = false;
+                if (CompactStopButton != null)
+                {
+                    CompactStopButton.IsEnabled = false;
+                }
             }
         }
 
@@ -1353,21 +2339,32 @@ namespace GitDeployPro.Controls
 
             StatusText.Text = "Collecting selected files...";
             var filesToUpload = new List<FileSystemItem>();
-            CollectSelectedFiles(_items, filesToUpload);
+            var foldersToCreate = new List<FileSystemItem>();
+            CollectSelectedUploadItems(_items, filesToUpload, foldersToCreate);
 
-            if (!filesToUpload.Any())
+            if (!filesToUpload.Any() && !foldersToCreate.Any())
             {
-                ModernMessageBox.Show("No files selected.", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
+                ModernMessageBox.Show("No files or folders selected.", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
                 StatusText.Text = "Ready.";
                 return;
             }
 
-            await UploadSpecificFilesAsync(filesToUpload, skipConfirm: false);
+            await UploadSpecificFilesAsync(filesToUpload, foldersToCreate, skipConfirm: false);
         }
 
         private async Task UploadSpecificFilesAsync(IReadOnlyList<FileSystemItem> filesToUpload, bool skipConfirm)
         {
-            if (_isUploading || filesToUpload == null || filesToUpload.Count == 0)
+            await UploadSpecificFilesAsync(filesToUpload, Array.Empty<FileSystemItem>(), skipConfirm);
+        }
+
+        private async Task UploadSpecificFilesAsync(
+            IReadOnlyList<FileSystemItem> filesToUpload,
+            IReadOnlyList<FileSystemItem> foldersToCreate,
+            bool skipConfirm)
+        {
+            filesToUpload ??= Array.Empty<FileSystemItem>();
+            foldersToCreate ??= Array.Empty<FileSystemItem>();
+            if (_isUploading || (filesToUpload.Count == 0 && foldersToCreate.Count == 0))
             {
                 return;
             }
@@ -1430,8 +2427,9 @@ namespace GitDeployPro.Controls
 
             if (!skipConfirm && !resumeSession)
             {
+                var folderHint = foldersToCreate.Count > 0 ? $" + {foldersToCreate.Count} folder(s)" : string.Empty;
                 var confirm = ModernMessageBox.Show(
-                    $"Start upload of {filesToUpload.Count} files to {config.FtpHost}?",
+                    $"Start upload of {filesToUpload.Count} files{folderHint} to {config.FtpHost}?",
                     "Confirm Upload",
                     MessageBoxButton.YesNo,
                     MessageBoxImage.Question);
@@ -1446,17 +2444,23 @@ namespace GitDeployPro.Controls
             _isUploading = true;
             StartUploadButton.IsEnabled = false;
             StopButton.IsEnabled = true;
+            ApplyUploadPanelVisibility();
             _cancellationTokenSource = new CancellationTokenSource();
             var token = _cancellationTokenSource.Token;
 
+            var progressMax = Math.Max(1, filesToUpload.Count + foldersToCreate.Count);
             UploadProgressBar.Value = 0;
-            UploadProgressBar.Maximum = filesToUpload.Count;
+            UploadProgressBar.Maximum = progressMax;
             
             // Clear and initialize upload log
             if (UploadLogTextBox != null)
             {
                 UploadLogTextBox.Text = $"=== Upload Started at {AppTimeService.LocalNow:yyyy-MM-dd HH:mm:ss} ===" + Environment.NewLine;
                 UploadLogTextBox.Text += $"Total files to upload: {filesToUpload.Count}" + Environment.NewLine;
+                if (foldersToCreate.Count > 0)
+                {
+                    UploadLogTextBox.Text += $"Folders to ensure: {foldersToCreate.Count}" + Environment.NewLine;
+                }
                 UploadLogTextBox.Text += Environment.NewLine;
             }
             
@@ -1484,6 +2488,26 @@ namespace GitDeployPro.Controls
 
                     int processed = 0;
                     int skipped = 0;
+                    int foldersCreated = 0;
+
+                    foreach (var folder in foldersToCreate)
+                    {
+                        if (token.IsCancellationRequested) break;
+
+                        processed++;
+                        Dispatcher.Invoke(() => UploadProgressBar.Value = processed);
+
+                        ResolveUploadPaths(folder.FullPath, profileRemoteBase, defaultRemoteBase,
+                            out string relativePath, out string remoteBasePath);
+                        string remotePath = CombineRemotePaths(remoteBasePath, relativePath);
+                        StatusText.Text = $"Creating folder: {folder.Name}";
+                        AddUploadLog($"[{AppTimeService.LocalNow:HH:mm:ss}] Ensure folder: {folder.Name}");
+                        AddUploadLog($"  → Remote Path: {remotePath}");
+                        await FtpDirectoryEnsure.EnsureAsync(client, remotePath, token);
+                        foldersCreated++;
+                        AddUploadLog($"  ✓ Folder ready");
+                        AddUploadLog("");
+                    }
 
                     foreach (var file in filesToUpload)
                     {
@@ -1517,7 +2541,7 @@ namespace GitDeployPro.Controls
 
                             // Combine remote base with relative path properly
                             string remotePath = CombineRemotePaths(remoteBasePath, relativePath);
-                            StatusText.Text = $"Uploading ({processed}/{filesToUpload.Count}): {file.Name}";
+                            StatusText.Text = $"Uploading ({processed}/{progressMax}): {file.Name}";
                             Dispatcher.Invoke(() => 
                             {
                                 file.UploadState = UploadState.InProgress;
@@ -1542,12 +2566,8 @@ namespace GitDeployPro.Controls
 
                             Dispatcher.Invoke(() => UpdateUploadDetailText(file.Name, 0, 0, fileSize));
 
-                            // Create directory
-                            string remoteDir = Path.GetDirectoryName(remotePath)?.Replace("\\", "/");
-                            if (!string.IsNullOrEmpty(remoteDir) && !await client.DirectoryExists(remoteDir, token))
-                            {
-                                await client.CreateDirectory(remoteDir, token);
-                            }
+                            // Create parent directories segment-by-segment (nested new folders).
+                            await FtpDirectoryEnsure.EnsureParentOfFileAsync(client, remotePath, token);
 
                             // Upload
                             var existsMode = OverwriteCheck.IsChecked == true ? FtpRemoteExists.Overwrite : FtpRemoteExists.Skip;
@@ -1629,7 +2649,7 @@ namespace GitDeployPro.Controls
                         if (!skipConfirm)
                         {
                             ModernMessageBox.Show(
-                                $"Upload Complete!\nUploaded: {processed - skipped}\nSkipped: {skipped}",
+                                $"Upload Complete!\nUploaded: {processed - skipped - foldersCreated}\nFolders: {foldersCreated}\nSkipped: {skipped}",
                                 "Success",
                                 MessageBoxButton.OK,
                                 MessageBoxImage.Information);
@@ -1656,6 +2676,10 @@ namespace GitDeployPro.Controls
                 _isUploading = false;
                 StartUploadButton.IsEnabled = true;
                 StopButton.IsEnabled = false;
+                if (CompactStopButton != null)
+                {
+                    CompactStopButton.IsEnabled = false;
+                }
                 _cancellationTokenSource?.Dispose();
                 _cancellationTokenSource = null;
                 CheckSessionStatus();
@@ -1663,23 +2687,41 @@ namespace GitDeployPro.Controls
                 {
                     UploadDetailText.Text = string.Empty;
                 }
+
+                ApplyUploadPanelVisibility();
+            }
+        }
+
+        private void CollectSelectedUploadItems(
+            IEnumerable<FileSystemItem> items,
+            List<FileSystemItem> files,
+            List<FileSystemItem> emptyFolders)
+        {
+            foreach (var item in items)
+            {
+                if (item.IsFolder)
+                {
+                    if (item.Children != null && item.Children.Any())
+                    {
+                        CollectSelectedUploadItems(item.Children, files, emptyFolders);
+                    }
+                    else if (item.IsChecked == true)
+                    {
+                        // Empty checked folders must still be created on the remote.
+                        emptyFolders.Add(item);
+                    }
+                }
+                else if (item.IsChecked == true)
+                {
+                    files.Add(item);
+                }
             }
         }
 
         private void CollectSelectedFiles(IEnumerable<FileSystemItem> items, List<FileSystemItem> collector)
         {
-            foreach (var item in items)
-            {
-                if (!item.IsFolder && item.IsChecked == true)
-                {
-                    collector.Add(item);
-                }
-                
-                if (item.Children != null && item.Children.Any())
-                {
-                    CollectSelectedFiles(item.Children, collector);
-                }
-            }
+            var folders = new List<FileSystemItem>();
+            CollectSelectedUploadItems(items, collector, folders);
         }
 
         private void ResetUploadIndicators(IEnumerable<FileSystemItem> files)
@@ -1973,19 +3015,19 @@ namespace GitDeployPro.Controls
             if (!skipProjectRefresh && !TryRefreshProjectPath())
             {
                 ConnectionInfoText.Text = "No project selected. Choose a project in Settings.";
-                ConnectionInfoText.Foreground = GetThemeBrush("Status.Warning", new SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 183, 77)));
+                ConnectionInfoText.Foreground = GetThemeBrush("Status.Warning", System.Windows.Media.Brushes.Orange);
                 return;
             }
 
             if (string.IsNullOrWhiteSpace(_projectPath) || !Directory.Exists(_projectPath))
             {
                 ConnectionInfoText.Text = "No project selected. Choose a project in Settings.";
-                ConnectionInfoText.Foreground = GetThemeBrush("Status.Warning", new SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 183, 77)));
+                ConnectionInfoText.Foreground = GetThemeBrush("Status.Warning", System.Windows.Media.Brushes.Orange);
                 return;
             }
 
             var effectiveConfig = config ?? _configService.LoadProjectConfig(_projectPath);
-            var accentBrush = GetThemeBrush("Status.Info", new SolidColorBrush(System.Windows.Media.Color.FromRgb(129, 212, 250)));
+            var accentBrush = GetThemeBrush("Status.Info", System.Windows.Media.Brushes.SkyBlue);
 
             ConnectionProfile? profile = profileOverride ?? ResolveConnectionProfile(effectiveConfig.ConnectionProfileId);
             if (profile != null)
@@ -2020,7 +3062,7 @@ namespace GitDeployPro.Controls
             else
             {
                 ConnectionInfoText.Text = "No connection selected. Open Settings → Connection Manager to assign one.";
-                ConnectionInfoText.Foreground = GetThemeBrush("Status.Error", new SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 138, 101)));
+                ConnectionInfoText.Foreground = GetThemeBrush("Status.Error", System.Windows.Media.Brushes.Salmon);
             }
         }
     }
@@ -2052,6 +3094,34 @@ namespace GitDeployPro.Controls
             return System.Windows.Application.Current?.TryFindResource(resourceKey) as System.Windows.Media.Brush ?? fallback;
         }
 
+        private static System.Windows.Media.Brush GetTokenOrTheme(string tokenPath, string resourceKey, System.Windows.Media.Brush fallback)
+        {
+            try
+            {
+                if (ThemeService.Instance.CurrentTokens.Colors.TryGetValue(tokenPath, out var color))
+                {
+                    return new SolidColorBrush(color);
+                }
+            }
+            catch
+            {
+                // ThemeService may not be ready in design-time.
+            }
+
+            return GetThemeBrush(resourceKey, fallback);
+        }
+
+        public void ApplyThemeColors()
+        {
+            IconColor = IsFolder
+                ? GetTokenOrTheme("directUpload.folderIcon", "Status.Warning", System.Windows.Media.Brushes.Gold)
+                : GetTokenOrTheme("directUpload.fileIcon", "Text.Secondary", System.Windows.Media.Brushes.WhiteSmoke);
+            OnPropertyChanged(nameof(IconColor));
+            OnPropertyChanged(nameof(NameBrush));
+            OnPropertyChanged(nameof(GitBadgeBrush));
+            OnPropertyChanged(nameof(RowBackground));
+        }
+
         public string Name { get; set; } = "";
         public string FullPath { get; set; } = "";
         public bool IsFolder { get; set; }
@@ -2061,6 +3131,52 @@ namespace GitDeployPro.Controls
         
         public string SizeDisplay => IsFolder ? "" : FormatSize(Size);
         public Visibility SizeVisibility => IsFolder ? Visibility.Collapsed : Visibility.Visible;
+
+        /// <summary>Update disk-backed fields without resetting expand/check UI state.</summary>
+        public void ApplyDiskSnapshot(FileSystemItem snapshot)
+        {
+            if (snapshot == null)
+            {
+                return;
+            }
+
+            if (!string.Equals(Name, snapshot.Name, StringComparison.Ordinal))
+            {
+                Name = snapshot.Name;
+                OnPropertyChanged(nameof(Name));
+            }
+
+            if (!string.Equals(FullPath, snapshot.FullPath, StringComparison.OrdinalIgnoreCase))
+            {
+                FullPath = snapshot.FullPath;
+                OnPropertyChanged(nameof(FullPath));
+            }
+
+            if (Size != snapshot.Size)
+            {
+                Size = snapshot.Size;
+                OnPropertyChanged(nameof(Size));
+                OnPropertyChanged(nameof(SizeDisplay));
+            }
+
+            if (!string.Equals(Icon, snapshot.Icon, StringComparison.Ordinal))
+            {
+                Icon = snapshot.Icon;
+                OnPropertyChanged(nameof(Icon));
+            }
+
+            if (!Equals(IconColor, snapshot.IconColor))
+            {
+                IconColor = snapshot.IconColor;
+                OnPropertyChanged(nameof(IconColor));
+            }
+
+            // Soft-ignore from scan; live git overlay will refine other states afterward.
+            if (snapshot.GitState == GitItemState.Ignored || GitState == GitItemState.Ignored)
+            {
+                GitState = snapshot.GitState;
+            }
+        }
 
         public ObservableCollection<FileSystemItem> Children { get; set; } = new ObservableCollection<FileSystemItem>();
         public FileSystemItem? Parent { get; set; }
@@ -2100,11 +3216,11 @@ namespace GitDeployPro.Controls
 
         public System.Windows.Media.Brush NameBrush => GitState switch
         {
-            GitItemState.Clean => GetThemeBrush("Status.Success", System.Windows.Media.Brushes.LightGreen),
-            GitItemState.Modified => GetThemeBrush("Status.Error", System.Windows.Media.Brushes.OrangeRed),
-            GitItemState.Untracked => GetThemeBrush("Status.Info", System.Windows.Media.Brushes.DeepSkyBlue),
-            GitItemState.Ignored => GetThemeBrush("Text.Muted", System.Windows.Media.Brushes.Gray),
-            GitItemState.Conflicted => GetThemeBrush("Status.Warning", System.Windows.Media.Brushes.Orange),
+            GitItemState.Clean => GetTokenOrTheme("directUpload.gitClean", "Status.Success", System.Windows.Media.Brushes.LightGreen),
+            GitItemState.Modified => GetTokenOrTheme("directUpload.gitModified", "Status.Error", System.Windows.Media.Brushes.OrangeRed),
+            GitItemState.Untracked => GetTokenOrTheme("directUpload.gitUntracked", "Status.Info", System.Windows.Media.Brushes.DeepSkyBlue),
+            GitItemState.Ignored => GetTokenOrTheme("directUpload.gitIgnored", "Text.Muted", System.Windows.Media.Brushes.Gray),
+            GitItemState.Conflicted => GetTokenOrTheme("directUpload.gitConflicted", "Status.Warning", System.Windows.Media.Brushes.Orange),
             _ => GetThemeBrush("Text.Secondary", System.Windows.Media.Brushes.WhiteSmoke)
         };
 
@@ -2122,10 +3238,10 @@ namespace GitDeployPro.Controls
 
         public System.Windows.Media.Brush GitBadgeBrush => GitState switch
         {
-            GitItemState.Ignored => GetThemeBrush("Text.Muted", System.Windows.Media.Brushes.Gray),
-            GitItemState.Conflicted => GetThemeBrush("Status.Warning", System.Windows.Media.Brushes.Orange),
-            GitItemState.Modified => GetThemeBrush("Status.Error", System.Windows.Media.Brushes.OrangeRed),
-            GitItemState.Untracked => GetThemeBrush("Status.Info", System.Windows.Media.Brushes.DeepSkyBlue),
+            GitItemState.Ignored => GetTokenOrTheme("directUpload.gitIgnored", "Text.Muted", System.Windows.Media.Brushes.Gray),
+            GitItemState.Conflicted => GetTokenOrTheme("directUpload.gitConflicted", "Status.Warning", System.Windows.Media.Brushes.Orange),
+            GitItemState.Modified => GetTokenOrTheme("directUpload.gitModified", "Status.Error", System.Windows.Media.Brushes.OrangeRed),
+            GitItemState.Untracked => GetTokenOrTheme("directUpload.gitUntracked", "Status.Info", System.Windows.Media.Brushes.DeepSkyBlue),
             _ => GetThemeBrush("Text.Muted", System.Windows.Media.Brushes.Gray)
         };
 
@@ -2136,7 +3252,10 @@ namespace GitDeployPro.Controls
 
         public System.Windows.Media.Brush RowBackground =>
             IsMappedFolder
-                ? GetThemeBrush("Status.SuccessSurface", new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x20, 0x38, 0x2C)))
+                ? GetTokenOrTheme(
+                    "directUpload.mappedRowBackground",
+                    "Status.SuccessSurface",
+                    System.Windows.Media.Brushes.DarkSeaGreen)
                 : System.Windows.Media.Brushes.Transparent;
 
         public bool? IsChecked

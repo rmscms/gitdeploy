@@ -22,9 +22,9 @@ namespace GitDeployPro.Pages
         private const int MaxHitsPerPath = 60;
         private const int MaxIndexedHits = 30000;
 
-        private static readonly SolidColorBrush AddedBrush = CreateFrozenBrush(46, 125, 50);
-        private static readonly SolidColorBrush ModifiedBrush = CreateFrozenBrush(255, 143, 0);
-        private static readonly SolidColorBrush DeletedBrush = CreateFrozenBrush(198, 40, 40);
+        private static readonly SolidColorBrush AddedBrush = ResolveStatusBrush("Status.Success", 46, 125, 50);
+        private static readonly SolidColorBrush ModifiedBrush = ResolveStatusBrush("Status.Warning", 255, 143, 0);
+        private static readonly SolidColorBrush DeletedBrush = ResolveStatusBrush("Status.Error", 198, 40, 40);
 
         private readonly HistoryService _historyService;
         private readonly GitService _gitService;
@@ -779,10 +779,19 @@ namespace GitDeployPro.Pages
             };
         }
 
-        private static SolidColorBrush CreateFrozenBrush(byte red, byte green, byte blue)
+        private static SolidColorBrush ResolveStatusBrush(string resourceKey, byte red, byte green, byte blue)
         {
+            if (System.Windows.Application.Current?.TryFindResource(resourceKey) is SolidColorBrush themedBrush)
+            {
+                return themedBrush;
+            }
+
             var brush = new SolidColorBrush(System.Windows.Media.Color.FromRgb(red, green, blue));
-            brush.Freeze();
+            if (brush.CanFreeze)
+            {
+                brush.Freeze();
+            }
+
             return brush;
         }
 

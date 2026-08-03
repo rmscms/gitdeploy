@@ -67,6 +67,22 @@ namespace GitDeployPro.Services
             }
         }
 
+        public async Task DiscardPathChangesAsync(string relativePath)
+        {
+            if (string.IsNullOrWhiteSpace(relativePath) || !IsGitRepository())
+            {
+                throw new ArgumentException("A valid repository path is required.", nameof(relativePath));
+            }
+
+            var normalized = NormalizeGitPath(relativePath);
+            if (string.IsNullOrWhiteSpace(normalized))
+            {
+                throw new ArgumentException("Path is invalid.", nameof(relativePath));
+            }
+
+            await RunGitCommandAsync($"restore --source=HEAD --staged --worktree -- {QuoteGitArgument(normalized)}");
+        }
+
         public async Task InitRepoAsync(List<string> branches, string remoteUrl)
         {
             if (IsGitRepository()) return;
@@ -459,6 +475,86 @@ namespace GitDeployPro.Services
                     throw new Exception("Conflict detected during rollback. The operation was aborted. Please resolve conflicts manually or try rolling back a more recent commit.");
                 }
                 throw;
+            }
+        }
+
+        /// <summary>
+        /// Undo one file's change introduced by <paramref name="commitHash"/> (restore parent version),
+        /// then create a new commit. Does not rewrite history.
+        /// </summary>
+        public async Task RevertFileFromCommitAsync(string commitHash, CommitFileChangeInfo file, string? commitMessage = null)
+        {
+            if (string.IsNullOrWhiteSpace(commitHash))
+            {
+                throw new ArgumentException("Commit hash is required.", nameof(commitHash));
+            }
+
+            if (file == null)
+            {
+                throw new ArgumentNullException(nameof(file));
+            }
+
+            var status = await GetUncommittedChangesAsync(includeDiff: false);
+            if (status.Count > 0)
+            {
+                throw new Exception("You have uncommitted changes. Please commit or stash them before rolling back.");
+            }
+
+            var path = NormalizeGitPath(string.IsNullOrWhiteSpace(file.Path) ? (file.OldPath ?? string.Empty) : file.Path);
+            var oldPath = NormalizeGitPath(file.OldPath ?? string.Empty);
+            if (string.IsNullOrWhiteSpace(path) && string.IsNullOrWhiteSpace(oldPath))
+            {
+                throw new ArgumentException("File path is required.", nameof(file));
+            }
+
+            var shortHash = commitHash.Length > 8 ? commitHash[..8] : commitHash;
+            var message = string.IsNullOrWhiteSpace(commitMessage)
+                ? $"Rollback {path} from {shortHash}"
+                : commitMessage.Trim().Replace("\"", "\\\"");
+
+            if (file.Type == ChangeType.Added)
+            {
+                // File did not exist before that commit — remove it.
+                var removePath = QuoteGitArgument(path);
+                try
+                {
+                    await RunGitCommandAsync($"rm -f -- {removePath}");
+                }
+                catch
+                {
+                    // Already missing on disk; still stage deletion if tracked.
+                    await RunGitCommandAsync($"rm --cached -f -- {removePath}");
+                }
+            }
+            else
+            {
+                // Restore content from parent of the selected commit.
+                var restorePath = QuoteGitArgument(!string.IsNullOrWhiteSpace(oldPath) ? oldPath : path);
+                await RunGitCommandAsync($"checkout {commitHash}^ -- {restorePath}");
+
+                // Renames: drop the new path if it still exists separately.
+                if (!string.IsNullOrWhiteSpace(oldPath)
+                    && !string.IsNullOrWhiteSpace(path)
+                    && !string.Equals(oldPath, path, StringComparison.OrdinalIgnoreCase))
+                {
+                    try
+                    {
+                        await RunGitCommandAsync($"rm -f -- {QuoteGitArgument(path)}");
+                    }
+                    catch
+                    {
+                        // Ignore if new path is already gone.
+                    }
+                }
+            }
+
+            try
+            {
+                await RunGitCommandAsync($"commit -m \"{message}\"");
+            }
+            catch (GitCommandException ex) when (IsNothingToCommitError(ex))
+            {
+                throw new Exception("Nothing to roll back for this file (working tree already matches the parent version).");
             }
         }
 

@@ -69,8 +69,10 @@ namespace GitDeployPro.Services.Terminal
                 return;
             }
 
-            await _process!.StandardInput.WriteAsync(data);
-            await _process.StandardInput.FlushAsync();
+            // xterm sends '\r' for Enter; redirected cmd.exe expects NewLine.
+            var payload = data.Replace("\r\n", "\n").Replace('\r', '\n');
+            await _process!.StandardInput.WriteAsync(payload.AsMemory(), cancellationToken);
+            await _process.StandardInput.FlushAsync(cancellationToken);
         }
 
         public Task SendInterruptAsync(CancellationToken cancellationToken = default)

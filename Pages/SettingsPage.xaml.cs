@@ -9,8 +9,10 @@ using FluentFTP;
 using GitDeployPro.Controls;
 using GitDeployPro.Models;
 using GitDeployPro.Services;
+using GitDeployPro.Services.Theme;
 using GitDeployPro.Services.Update;
 using GitDeployPro.Windows;
+using System.Diagnostics;
 using System.Windows.Forms; // For FolderBrowserDialog
 
 namespace GitDeployPro.Pages
@@ -31,7 +33,72 @@ namespace GitDeployPro.Pages
             InitializeComponent();
             _configService = new ConfigurationService();
             _gitService = new GitService();
+            ShowSettingsSection("general");
             LoadSettings();
+        }
+
+        private void SettingsNav_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is System.Windows.Controls.Button button && button.Tag is string section)
+            {
+                ShowSettingsSection(section);
+            }
+        }
+
+        private void ShowSettingsSection(string section)
+        {
+            section = (section ?? "general").Trim().ToLowerInvariant();
+
+            if (SettingsPanelGeneral != null)
+            {
+                SettingsPanelGeneral.Visibility = section == "general" ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            if (SettingsPanelServer != null)
+            {
+                SettingsPanelServer.Visibility = section == "server" ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            if (SettingsPanelGit != null)
+            {
+                SettingsPanelGit.Visibility = section == "git" ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            if (SettingsPanelThemes != null)
+            {
+                SettingsPanelThemes.Visibility = section == "themes" ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            SetNavActive(NavGeneralButton, section == "general");
+            SetNavActive(NavServerButton, section == "server");
+            SetNavActive(NavGitButton, section == "git");
+            SetNavActive(NavThemesButton, section == "themes");
+
+            if (SettingsSectionSubtitle != null)
+            {
+                SettingsSectionSubtitle.Text = section switch
+                {
+                    "server" => "FTP/SFTP connection profile and setup recovery.",
+                    "git" => "Remote, branches, deploy automation, and ignore patterns.",
+                    "themes" => "Import Deploy theme packs and manage custom skins.",
+                    _ => "Project path, startup, updates, and danger zone."
+                };
+            }
+
+            if (section == "themes")
+            {
+                RefreshThemePacksList();
+            }
+        }
+
+        private void SetNavActive(System.Windows.Controls.Button? button, bool active)
+        {
+            if (button == null)
+            {
+                return;
+            }
+
+            button.Style = (Style)FindResource(active ? "Settings.NavButton.Active" : "Settings.NavButton");
         }
 
         private async void LoadSettings()
@@ -58,12 +125,281 @@ namespace GitDeployPro.Pages
 
                 RefreshStartupAudit();
                 RefreshUpdateStatus(globalConfig);
+                RefreshThemePacksList();
             }
             catch (Exception ex)
             {
                 ModernMessageBox.Show($"Error loading settings: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
+
+        private bool _suppressAppThemeComboChange;
+
+        private sealed class ThemeListItem
+        {
+            public string Id { get; init; } = "";
+            public string DisplayName { get; init; } = "";
+            public string DisplayLabel { get; init; } = "";
+            public bool IsBuiltIn { get; init; }
+            public AppThemeInfo Theme { get; init; } = null!;
+        }
+
+        private void RefreshThemePacksList()
+        {
+            try
+            {
+                ThemeService.Instance.Initialize();
+                ThemeService.Instance.ReloadCustomThemes();
+                var activeId = _configService.ResolveAppThemeId();
+                var items = ThemeService.Instance.Themes
+                    .Select(t =>
+                    {
+                        var active = string.Equals(t.Id, activeId, StringComparison.OrdinalIgnoreCase)
+                                     || string.Equals(t.Id, ThemeService.Instance.CurrentThemeId, StringComparison.OrdinalIgnoreCase);
+                        var kind = t.IsBuiltIn ? "built-in" : "custom";
+                        return new ThemeListItem
+                        {
+                            Id = t.Id,
+                            DisplayName = t.DisplayName,
+                            DisplayLabel = active
+                                ? $"{t.DisplayName} ({kind}) · active"
+                                : $"{t.DisplayName} ({kind})",
+                            IsBuiltIn = t.IsBuiltIn,
+                            Theme = t
+                        };
+                    })
+                    .ToList();
+                if (ThemePacksListBox != null)
+                {
+                    ThemePacksListBox.ItemsSource = items;
+                }
+
+                _suppressAppThemeComboChange = true;
+                try
+                {
+                    if (AppThemeComboBox != null)
+                    {
+                        AppThemeComboBox.ItemsSource = ThemeService.Instance.Themes.ToList();
+                        AppThemeComboBox.SelectedItem = ThemeService.Instance.FindTheme(activeId)
+                                                       ?? ThemeService.Instance.Themes.FirstOrDefault();
+                    }
+                }
+                finally
+                {
+                    _suppressAppThemeComboChange = false;
+                }
+
+                if (ThemePackStatusText != null)
+                {
+                    ThemePackStatusText.Text =
+                        $"Active: {ThemeService.Instance.CurrentThemeId}  ·  Guide: {ThemePackStore.GuideFileName}  ·  Folder: {ThemePackStore.Instance.ThemesDirectory}  ·  {items.Count} theme(s)";
+                }
+            }
+            catch (Exception ex)
+            {
+                if (ThemePackStatusText != null)
+                {
+                    ThemePackStatusText.Text = "Failed to load themes: " + ex.Message;
+                }
+            }
+        }
+
+        private void ApplySelectedAppTheme(string? themeId)
+        {
+            if (string.IsNullOrWhiteSpace(themeId))
+            {
+                return;
+            }
+
+            ThemeService.Instance.ApplyTheme(themeId);
+            _configService.SetAppThemeId(themeId);
+            RefreshThemePacksList();
+        }
+
+        private void AppThemeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_suppressAppThemeComboChange)
+            {
+                return;
+            }
+
+            if (AppThemeComboBox?.SelectedItem is AppThemeInfo info)
+            {
+                ApplySelectedAppTheme(info.Id);
+            }
+        }
+
+        private void ApplyAppTheme_Click(object sender, RoutedEventArgs e)
+        {
+            var themeId = AppThemeComboBox?.SelectedItem is AppThemeInfo info
+                ? info.Id
+                : (ThemePacksListBox?.SelectedItem as ThemeListItem)?.Id;
+            ApplySelectedAppTheme(themeId);
+        }
+
+        private void ThemePacksListBox_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (ThemePacksListBox?.SelectedItem is ThemeListItem item)
+            {
+                ApplySelectedAppTheme(item.Id);
+            }
+        }
+
+        private void ImportTheme_Click(object sender, RoutedEventArgs e)
+        {
+            using var dialog = new OpenFileDialog
+            {
+                Title = "Import theme pack",
+                Filter = "Theme pack (*.json)|*.json|All files (*.*)|*.*",
+                CheckFileExists = true,
+                Multiselect = false
+            };
+
+            if (dialog.ShowDialog() != DialogResult.OK)
+            {
+                return;
+            }
+
+            try
+            {
+                var imported = ThemeService.Instance.ImportThemeFile(dialog.FileName);
+                RefreshThemePacksList();
+                ModernMessageBox.Show(
+                    $"Imported theme \"{imported.DisplayName}\". Select it above and click Apply to use app-wide.",
+                    "Theme imported",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show(ex.Message, "Import theme failed", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void ExportTheme_Click(object sender, RoutedEventArgs e)
+        {
+            if (ThemePacksListBox?.SelectedItem is not ThemeListItem item)
+            {
+                ModernMessageBox.Show("Select a theme to export.", "Export theme", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            using var dialog = new SaveFileDialog
+            {
+                Title = "Export Deploy theme pack",
+                Filter = "Theme pack (*.json)|*.json",
+                FileName = item.DisplayName.Replace(' ', '-') + ".json",
+                OverwritePrompt = true
+            };
+
+            if (dialog.ShowDialog() != DialogResult.OK)
+            {
+                return;
+            }
+
+            try
+            {
+                var pack = ThemeService.Instance.GetExportPack(item.Id);
+                ThemePackStore.Instance.ExportTheme(pack, dialog.FileName);
+                ModernMessageBox.Show("Theme exported.", "Export theme", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show(ex.Message, "Export theme failed", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void DeleteTheme_Click(object sender, RoutedEventArgs e)
+        {
+            if (ThemePacksListBox?.SelectedItem is not ThemeListItem item)
+            {
+                ModernMessageBox.Show("Select a custom theme to delete.", "Delete theme", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            if (item.IsBuiltIn)
+            {
+                ModernMessageBox.Show("Built-in themes cannot be deleted.", "Delete theme", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var confirm = ModernMessageBox.ShowWithResult(
+                $"Delete custom theme \"{item.DisplayName}\"?",
+                "Delete theme",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+            if (confirm != MessageBoxResult.Yes)
+            {
+                return;
+            }
+
+            try
+            {
+                ThemeService.Instance.DeleteCustomTheme(item.Id);
+                _configService.SetAppThemeId(ThemeService.Instance.CurrentThemeId);
+                RefreshThemePacksList();
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show(ex.Message, "Delete theme failed", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void OpenThemesFolder_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                ThemeService.Instance.Initialize();
+                var dir = ThemePackStore.Instance.ThemesDirectory;
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = dir,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show(ex.Message, "Open folder failed", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void OpenThemeGuide_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                ThemeService.Instance.Initialize();
+                ThemePackStore.Instance.EnsureSeeded();
+                var path = ThemePackStore.Instance.GuidePath;
+                if (!File.Exists(path))
+                {
+                    var bundled = Path.Combine(AppContext.BaseDirectory, "Themes", "Packs", ThemePackStore.GuideFileName);
+                    path = File.Exists(bundled) ? bundled : path;
+                }
+
+                if (!File.Exists(path))
+                {
+                    ModernMessageBox.Show(
+                        "Theme guide was not found. Use Open folder and look for THEME_PACK_GUIDE.md.",
+                        "Open guide",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+                    return;
+                }
+
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = path,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show(ex.Message, "Open guide failed", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void RefreshThemes_Click(object sender, RoutedEventArgs e)
+            => RefreshThemePacksList();
 
         private void RefreshUpdateStatus(ConfigurationService.GlobalConfig? globalConfig = null)
         {

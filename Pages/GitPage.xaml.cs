@@ -26,7 +26,7 @@ namespace GitDeployPro.Pages
                 if (!_gitService.IsGitRepository())
                 {
                     RemoteUrlText.Text = "Not a Git Repository";
-                    RemoteUrlText.Foreground = System.Windows.Media.Brushes.Gray;
+                    RemoteUrlText.Foreground = GetThemeBrush("Text.Muted", System.Windows.Media.Brushes.Gray);
                     DisableControls();
                     return;
                 }
@@ -36,11 +36,12 @@ namespace GitDeployPro.Pages
                 if (string.IsNullOrEmpty(remote))
                 {
                     RemoteUrlText.Text = "No remote 'origin' configured";
-                    RemoteUrlText.Foreground = System.Windows.Media.Brushes.Orange;
+                    RemoteUrlText.Foreground = GetThemeBrush("Status.Warning", System.Windows.Media.Brushes.Orange);
                 }
                 else
                 {
                     RemoteUrlText.Text = remote;
+                    RemoteUrlText.Foreground = GetThemeBrush("Status.Info", System.Windows.Media.Brushes.DeepSkyBlue);
                 }
 
                 // Load Current Branch
@@ -52,7 +53,12 @@ namespace GitDeployPro.Pages
                 TagsListBox.Items.Clear();
                 if (tags.Count == 0)
                 {
-                    TagsListBox.Items.Add(new ListBoxItem { Content = "No tags found", IsEnabled = false, Foreground = System.Windows.Media.Brushes.Gray });
+                    TagsListBox.Items.Add(new ListBoxItem
+                    {
+                        Content = "No tags found",
+                        IsEnabled = false,
+                        Foreground = GetThemeBrush("Text.Muted", System.Windows.Media.Brushes.Gray)
+                    });
                 }
                 else
                 {
@@ -66,6 +72,16 @@ namespace GitDeployPro.Pages
             {
                 ModernMessageBox.Show($"Error loading Git data: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
+        }
+
+        private static System.Windows.Media.Brush GetThemeBrush(string resourceKey, System.Windows.Media.Brush fallback)
+        {
+            if (string.IsNullOrWhiteSpace(resourceKey))
+            {
+                return fallback;
+            }
+
+            return System.Windows.Application.Current?.TryFindResource(resourceKey) as System.Windows.Media.Brush ?? fallback;
         }
 
         private void DisableControls()

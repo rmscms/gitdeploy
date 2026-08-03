@@ -232,8 +232,9 @@
         </Border>
 
         <!-- Terminal screen -->
-        <Grid Grid.Row="3" Background="#0C0C0C">
-            <wv:WebView2 x:Name="TerminalWebView" />
+        <Grid x:Name="TerminalHostGrid" Grid.Row="3" Background="#0C0C0C">
+            <wv:WebView2 x:Name="TerminalWebView"
+                         DefaultBackgroundColor="#FF0C0C0C" />
 
             <Border x:Name="TypingOverlay"
                     Background="#66000000"

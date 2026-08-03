@@ -1,16 +1,16 @@
 {
-  "version": "1.4.9",
-  "fileName": "GitDeployPro-1.4.9.exe",
-  "downloadUrl": "versions/GitDeployPro-1.4.9.exe",
-  "sha256": "14759B62A1ABF7BEC706074E566C0D0FB0577F55851E361CB318C59F15D6D144",
-  "releaseNotes": "- Create folder/file from FTP and Direct Upload context menus with language starter templates\n- Direct Upload local editor (simple then Monaco) and double-click to edit\n- FTP mapped root folder for create-at-root; create refreshes in place\n- Settings Danger Zone removes a project from the app without deleting disk files\n- What's New modal after update; site Latest changelog reads from latest.json",
+  "version": "1.4.10",
+  "fileName": "GitDeployPro-1.4.10.exe",
+  "downloadUrl": "versions/GitDeployPro-1.4.10.exe",
+  "sha256": "014F10D75286C2DC7E2B750C3C8B39A77DEC5E55615EA0689F61B6AA4C86BB12",
+  "releaseNotes": "- App-wide theme persistence (Default / Dark / custom packs) from Settings and Deploy\n- Material densify across MainWindow and sidebar pages (Database, Terminal, Git, History, Dashboard)\n- Theme pack guide (THEME_PACK_GUIDE.md) ships with the app Themes folder\n- Local terminal ConPTY typing fix and no bright band under the terminal\n- Theme tokens for SQL editor completion and syntax highlighting",
   "changelog": [
-    "Create folder/file from FTP and Direct Upload context menus with language starter templates",
-    "Direct Upload local editor (simple then Monaco) and double-click to edit",
-    "FTP mapped root folder for create-at-root; create refreshes in place",
-    "Settings Danger Zone removes a project from the app without deleting disk files",
-    "What's New modal after update; site Latest changelog reads from latest.json"
+    "App-wide theme persistence (Default / Dark / custom packs) from Settings and Deploy",
+    "Material densify across MainWindow and sidebar pages (Database, Terminal, Git, History, Dashboard)",
+    "Theme pack guide (THEME_PACK_GUIDE.md) ships with the app Themes folder",
+    "Local terminal ConPTY typing fix and no bright band under the terminal",
+    "Theme tokens for SQL editor completion and syntax highlighting"
   ],
   "mandatory": false,
-  "publishedUtc": "2026-07-27T08:54:38Z"
+  "publishedUtc": "2026-08-03T08:35:40Z"
 }

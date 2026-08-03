@@ -327,11 +327,7 @@ namespace GitDeployPro.Services.Remote
                 return;
             }
 
-            var normalized = RemotePathResolver.EnsureTrailingSlash(remoteDirectoryPath);
-            if (!await _client!.DirectoryExists(normalized, cancellationToken))
-            {
-                await _client.CreateDirectory(normalized, cancellationToken);
-            }
+            await FtpDirectoryEnsure.EnsureAsync(_client!, remoteDirectoryPath, cancellationToken);
         }
 
         public async Task<RemoteFileStat> GetFileStatAsync(string remotePath, CancellationToken cancellationToken = default)

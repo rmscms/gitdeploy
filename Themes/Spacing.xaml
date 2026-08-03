@@ -2,15 +2,15 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Thickness x:Key="Spacing.PageMargin">30</Thickness>
     <Thickness x:Key="Spacing.SectionMargin">0,0,0,20</Thickness>
-    <Thickness x:Key="Spacing.CardPadding">20</Thickness>
-    <Thickness x:Key="Spacing.CardPaddingDense">14</Thickness>
-    <Thickness x:Key="Spacing.CardMargin">0,0,0,15</Thickness>
-    <Thickness x:Key="Spacing.StackGap">0,0,0,10</Thickness>
-    <Thickness x:Key="Spacing.ButtonPadding">14,8</Thickness>
-    <Thickness x:Key="Spacing.ButtonPaddingDense">10,6</Thickness>
+    <Thickness x:Key="Spacing.CardPadding">16</Thickness>
+    <Thickness x:Key="Spacing.CardPaddingDense">12</Thickness>
+    <Thickness x:Key="Spacing.CardMargin">0,0,0,12</Thickness>
+    <Thickness x:Key="Spacing.StackGap">0,0,0,8</Thickness>
+    <Thickness x:Key="Spacing.ButtonPadding">12,6</Thickness>
+    <Thickness x:Key="Spacing.ButtonPaddingDense">10,4</Thickness>
 
-    <CornerRadius x:Key="Radius.Card">14</CornerRadius>
-    <CornerRadius x:Key="Radius.Input">10</CornerRadius>
-    <CornerRadius x:Key="Radius.Button">10</CornerRadius>
+    <CornerRadius x:Key="Radius.Card">12</CornerRadius>
+    <CornerRadius x:Key="Radius.Input">8</CornerRadius>
+    <CornerRadius x:Key="Radius.Button">8</CornerRadius>
     <CornerRadius x:Key="Radius.Chip">999</CornerRadius>
 </ResourceDictionary>

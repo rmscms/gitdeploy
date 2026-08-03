@@ -220,9 +220,11 @@ namespace GitDeployPro.Services.Terminal
                 _processInformation.hThread = IntPtr.Zero;
             }
 
+            // Anonymous CreatePipe handles are not overlapped; FileStream(isAsync: true) throws
+            // "Handle does not support asynchronous operations" and forces the non-interactive fallback.
             var outputHandle = new SafeFileHandle(_ptyOutputReader, ownsHandle: false);
             _outputReader = new StreamReader(
-                new FileStream(outputHandle, FileAccess.Read, bufferSize: 4096, isAsync: true),
+                new FileStream(outputHandle, FileAccess.Read, bufferSize: 4096, isAsync: false),
                 new UTF8Encoding(false, false),
                 detectEncodingFromByteOrderMarks: false,
                 bufferSize: 4096,
@@ -230,7 +232,7 @@ namespace GitDeployPro.Services.Terminal
 
             var inputHandle = new SafeFileHandle(_ptyInputWriter, ownsHandle: false);
             _inputWriter = new StreamWriter(
-                new FileStream(inputHandle, FileAccess.Write, bufferSize: 4096, isAsync: true),
+                new FileStream(inputHandle, FileAccess.Write, bufferSize: 4096, isAsync: false),
                 new UTF8Encoding(false))
             {
                 AutoFlush = true

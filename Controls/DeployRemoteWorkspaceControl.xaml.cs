@@ -17,6 +17,7 @@ using System.Windows.Media;
 using GitDeployPro.Models;
 using GitDeployPro.Services;
 using GitDeployPro.Services.Remote;
+using GitDeployPro.Services.Theme;
 using GitDeployPro.Windows;
 using Microsoft.Web.WebView2.Core;
 using Forms = System.Windows.Forms;
@@ -93,7 +94,112 @@ namespace GitDeployPro.Controls
             ResetUploadFeedback();
             UpdateRemoteBrowserVisualState();
             ConfigurationService.ConnectionsChanged += OnConnectionsChanged;
+            ThemeService.Instance.ThemeChanged += OnDeployThemeChanged;
             Unloaded += DeployRemoteWorkspaceControl_Unloaded;
+            ApplyFtpChromeTheme();
+        }
+
+        private void OnDeployThemeChanged(object? sender, EventArgs e)
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(() => OnDeployThemeChanged(sender, e));
+                return;
+            }
+
+            ApplyFtpChromeTheme();
+            RemoteTreeBuilder.ApplyThemeToNodes(RootNodes);
+            _ = ApplyEditorThemeAsync();
+        }
+
+        private void ApplyFtpChromeTheme()
+        {
+            var tokens = ThemeService.Instance.CurrentTokens;
+            var selection = tokens.GetColor(
+                "ftp.chrome.treeSelection",
+                (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#2B65D9"));
+            var selectionText = tokens.GetColor(
+                "ftp.chrome.treeSelectionText",
+                System.Windows.Media.Colors.White);
+            var overlay = tokens.GetColor(
+                "ftp.chrome.overlay",
+                (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#AF151C26"));
+            var sk1 = tokens.GetColor(
+                "ftp.chrome.skeleton1",
+                (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#213D4F66"));
+            var sk2 = tokens.GetColor(
+                "ftp.chrome.skeleton2",
+                (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#1B3D4F66"));
+            var sk3 = tokens.GetColor(
+                "ftp.chrome.skeleton3",
+                (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#163D4F66"));
+
+            if (RemoteTreeView?.Resources != null)
+            {
+                RemoteTreeView.Resources[System.Windows.SystemColors.HighlightBrushKey] = new SolidColorBrush(selection);
+                RemoteTreeView.Resources[System.Windows.SystemColors.InactiveSelectionHighlightBrushKey] = new SolidColorBrush(selection);
+                RemoteTreeView.Resources[System.Windows.SystemColors.HighlightTextBrushKey] = new SolidColorBrush(selectionText);
+                RemoteTreeView.Resources[System.Windows.SystemColors.InactiveSelectionHighlightTextBrushKey] = new SolidColorBrush(selectionText);
+            }
+
+            if (RemoteLoadingOverlay != null)
+            {
+                RemoteLoadingOverlay.Background = new SolidColorBrush(overlay);
+            }
+
+            // Skeleton bars are anonymous in XAML; tint the loading card children when present.
+            if (RemoteLoadingOverlay?.Child is Border card
+                && card.Child is StackPanel panel
+                && panel.Children.Count > 0
+                && panel.Children[^1] is StackPanel skeleton)
+            {
+                var brushes = new[]
+                {
+                    new SolidColorBrush(sk1),
+                    new SolidColorBrush(sk2),
+                    new SolidColorBrush(sk3)
+                };
+                for (var i = 0; i < skeleton.Children.Count && i < brushes.Length; i++)
+                {
+                    if (skeleton.Children[i] is Border bar)
+                    {
+                        bar.Background = brushes[i];
+                    }
+                }
+            }
+
+            if (EditorWebView != null)
+            {
+                var webBg = tokens.GetHex("editor.webviewBackground", "#FF1E1E1E");
+                if (!webBg.StartsWith("#", StringComparison.Ordinal))
+                {
+                    webBg = "#" + webBg;
+                }
+
+                try
+                {
+                    EditorWebView.DefaultBackgroundColor = System.Drawing.ColorTranslator.FromHtml(
+                        webBg.Length == 9 ? "#" + webBg[3..] : webBg);
+                }
+                catch
+                {
+                    // ignore invalid hex
+                }
+            }
+        }
+
+        private async Task ApplyEditorThemeAsync()
+        {
+            if (!_editorWebReady || EditorWebView?.CoreWebView2 == null)
+            {
+                return;
+            }
+
+            var tokens = ThemeService.Instance.CurrentTokens;
+            var theme = tokens.MonacoTheme.Replace("\"", "");
+            var bg = tokens.GetHex("editor.webviewBackground", "#1E1E1E").Replace("\"", "");
+            await EditorWebView.CoreWebView2.ExecuteScriptAsync(
+                $"window.__setTheme && window.__setTheme(\"{theme}\", \"{bg}\");");
         }
 
         /// <summary>
@@ -103,6 +209,7 @@ namespace GitDeployPro.Controls
         {
             _isHostTeardown = true;
             ConfigurationService.ConnectionsChanged -= OnConnectionsChanged;
+            ThemeService.Instance.ThemeChanged -= OnDeployThemeChanged;
         }
 
         private void OnConnectionsChanged(object? sender, EventArgs e)
@@ -346,6 +453,7 @@ namespace GitDeployPro.Controls
 
                 if (!_editorWebReady && EditorWebView.CoreWebView2 != null)
                 {
+                    ApplyFtpChromeTheme();
                     EditorWebView.CoreWebView2.NavigateToString(_codeEditorHtmlTemplate ?? "<html><body>Editor template missing.</body></html>");
                 }
             }
@@ -376,6 +484,7 @@ namespace GitDeployPro.Controls
             _editorWebReady = true;
             await SetEditorEditableAsync(true);
             await ApplyEditorFontSizeAsync();
+            await ApplyEditorThemeAsync();
 
             if (_editorUsingFallback)
             {
