@@ -6,67 +6,73 @@
 
     <ScrollViewer VerticalScrollBarVisibility="Auto"
                   HorizontalScrollBarVisibility="Disabled">
-        <Grid Margin="{StaticResource Spacing.PageMargin}">
+        <Grid Margin="6">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,20">
-                <TextBlock Text="ℹ️" FontSize="36" VerticalAlignment="Center" Margin="0,0,12,0" />
+            <Border Grid.Row="0"
+                    Background="{StaticResource Surface.Shell}"
+                    BorderBrush="{StaticResource Border.Subtle}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="14,10"
+                    Margin="0,0,0,8">
                 <StackPanel>
-                    <TextBlock Text="About" Style="{StaticResource App.PageTitleTextStyle}" />
+                    <TextBlock Text="About"
+                               Foreground="{StaticResource Text.Primary}"
+                               FontSize="16"
+                               FontWeight="SemiBold" />
                     <TextBlock Text="App version and software updates."
-                               Style="{StaticResource App.PageSubtitleTextStyle}" />
+                               Foreground="{StaticResource Text.Muted}"
+                               FontSize="12"
+                               Margin="0,2,0,0" />
                 </StackPanel>
-            </StackPanel>
+            </Border>
 
             <Border Grid.Row="1"
                     Style="{StaticResource App.CardStyle}"
-                    Padding="20"
                     MaxWidth="560"
                     HorizontalAlignment="Left">
                 <StackPanel>
                     <TextBlock Text="GitDeploy Pro"
-                               FontSize="22"
+                               FontSize="18"
                                FontWeight="SemiBold"
                                Foreground="{StaticResource Text.Primary}" />
                     <TextBlock x:Name="VersionText"
                                Text="Version: -"
-                               Margin="0,10,0,0"
-                               FontSize="14"
-                               Foreground="{StaticResource Text.Secondary}" />
+                               Margin="0,8,0,0"
+                               Style="{StaticResource App.BodyTextStyle}" />
                     <TextBlock x:Name="LastCheckText"
                                Text="Last automatic check: never"
-                               Margin="0,6,0,0"
-                               FontSize="12"
-                               Foreground="{StaticResource Text.Muted}"
+                               Margin="0,4,0,0"
+                               Style="{StaticResource App.CaptionTextStyle}"
                                TextWrapping="Wrap" />
                     <TextBlock x:Name="InstallPathText"
                                Text="Install path: -"
-                               Margin="0,10,0,0"
-                               FontSize="12"
+                               Margin="0,8,0,0"
+                               Style="{StaticResource App.CaptionTextStyle}"
                                Foreground="{StaticResource Text.Secondary}"
                                TextWrapping="Wrap" />
                     <TextBlock x:Name="RunningPathText"
                                Text="Running from: -"
                                Margin="0,4,0,0"
-                               FontSize="11"
-                               Foreground="{StaticResource Text.Muted}"
+                               Style="{StaticResource App.CaptionTextStyle}"
                                TextWrapping="Wrap" />
 
-                    <StackPanel Orientation="Horizontal" Margin="0,18,0,0">
+                    <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
                         <Button x:Name="CheckForUpdatesButton"
                                 Content="Check for updates now"
-                                Height="36"
-                                MinWidth="200"
+                                Height="34"
+                                MinWidth="180"
                                 Style="{StaticResource App.Button.Primary}"
                                 Click="CheckForUpdatesButton_Click" />
                         <Button x:Name="OpenInstallFolderButton"
                                 Content="Open install folder"
-                                Height="36"
-                                Margin="10,0,0,0"
-                                MinWidth="150"
+                                Height="34"
+                                Margin="8,0,0,0"
+                                MinWidth="140"
                                 Style="{StaticResource App.Button.Ghost}"
                                 Click="OpenInstallFolderButton_Click" />
                     </StackPanel>

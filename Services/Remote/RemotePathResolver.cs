@@ -104,6 +104,14 @@ namespace GitDeployPro.Services.Remote
             return EnsureTrailingSlash(parent);
         }
 
+        /// <summary>
+        /// Parent of a remote Unix path without using Windows <see cref="Path.GetDirectoryName"/>.
+        /// </summary>
+        public static string GetDirectoryPath(string remoteFileOrDirectoryPath)
+        {
+            return FtpDirectoryEnsure.GetParentDirectory(remoteFileOrDirectoryPath);
+        }
+
         public static string GetRelativeRemotePath(string remoteRoot, string remotePath)
         {
             var normalizedRoot = EnsureTrailingSlash(remoteRoot).TrimEnd('/');

@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using GitDeployPro.Services.Theme;
 using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Rendering;
 using ICSharpCode.AvalonEdit.Highlighting;
@@ -10,6 +11,8 @@ namespace GitDeployPro.Controls
 {
     public partial class DiffViewer : System.Windows.Controls.UserControl
     {
+        private readonly DiffHighlightColorizer _diffColorizer = new();
+
         public DiffViewer()
         {
             InitializeComponent();
@@ -18,8 +21,15 @@ namespace GitDeployPro.Controls
             DiffEditor.Options.EnableEmailHyperlinks = false;
             DiffEditor.Options.HighlightCurrentLine = false;
             DiffEditor.Options.ConvertTabsToSpaces = true;
-            DiffEditor.TextArea.TextView.LineTransformers.Add(new DiffHighlightColorizer());
+            DiffEditor.TextArea.TextView.LineTransformers.Add(_diffColorizer);
+            ThemeService.Instance.ThemeChanged += OnThemeChanged;
+            Unloaded += (_, _) => ThemeService.Instance.ThemeChanged -= OnThemeChanged;
             UpdateEmptyState();
+        }
+
+        private void OnThemeChanged(object? sender, System.EventArgs e)
+        {
+            DiffEditor.TextArea.TextView.Redraw();
         }
 
         public static readonly DependencyProperty TitleProperty =
@@ -144,32 +154,45 @@ namespace GitDeployPro.Controls
                 string text = CurrentContext.Document.GetText(line);
                 if (string.IsNullOrEmpty(text)) return;
 
-                var color = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#101010");
+                var tokens = ThemeService.Instance.CurrentTokens;
+                var color = tokens.GetColor(
+                    "diff.contextBg",
+                    (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#101010"));
                 var foreground = System.Windows.Media.Brushes.White;
 
                 if (text.StartsWith("+++ ") || text.StartsWith("--- ") || text.StartsWith("index"))
                 {
-                    color = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#242424");
+                    color = tokens.GetColor(
+                        "diff.hunkBg",
+                        (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#242424"));
                     foreground = System.Windows.Media.Brushes.LightGray;
                 }
                 else if (text.StartsWith("@@"))
                 {
-                    color = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#1F2633");
+                    color = tokens.GetColor(
+                        "diff.metaBg",
+                        (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#1F2633"));
                     foreground = System.Windows.Media.Brushes.LightSkyBlue;
                 }
                 else if (text.StartsWith("+"))
                 {
-                    color = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#0F2A1A");
+                    color = tokens.GetColor(
+                        "diff.addedBg",
+                        (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#0F2A1A"));
                     foreground = System.Windows.Media.Brushes.LightGreen;
                 }
                 else if (text.StartsWith("-"))
                 {
-                    color = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#2A1414");
+                    color = tokens.GetColor(
+                        "diff.removedBg",
+                        (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#2A1414"));
                     foreground = System.Windows.Media.Brushes.IndianRed;
                 }
                 else if (text.StartsWith("diff --git"))
                 {
-                    color = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#1E1E1E");
+                    color = tokens.GetColor(
+                        "diff.headerBg",
+                        (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#1E1E1E"));
                     foreground = System.Windows.Media.Brushes.Orange;
                 }
 

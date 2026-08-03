@@ -25,8 +25,8 @@
                 Grid.Row="0"
                 Panel.ZIndex="6"
                 Style="{StaticResource App.CardStyle}"
-                Padding="10"
-                Margin="0,0,0,10">
+                Padding="8"
+                Margin="0,0,0,6">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -41,8 +41,8 @@
 
                     <ComboBox x:Name="ConnectionComboBox"
                               Grid.Column="0"
-                              MinHeight="34"
-                              Margin="0,0,8,0"
+                              MinHeight="30"
+                              Margin="0,0,6,0"
                               Style="{StaticResource App.InputComboBox}"
                               DisplayMemberPath="Name"
                               SelectionChanged="ConnectionComboBox_SelectionChanged" />
@@ -50,24 +50,24 @@
                     <Button x:Name="ConnectButton"
                             Grid.Column="1"
                             Content="Connect"
-                            MinWidth="88"
-                            Height="34"
-                            Margin="0,0,8,0"
+                            MinWidth="80"
+                            Height="30"
+                            Margin="0,0,6,0"
                             Style="{StaticResource App.Button.Primary}"
                             Click="ConnectButton_Click" />
 
                     <Button x:Name="RefreshButton"
                             Grid.Column="2"
                             Content="Refresh"
-                            MinWidth="82"
-                            Height="34"
+                            MinWidth="72"
+                            Height="30"
                             Style="{StaticResource App.Button.Ghost}"
                             Click="RefreshButton_Click" />
                 </Grid>
 
                 <TextBlock Grid.Row="1"
                            x:Name="StatusTextBlock"
-                           Margin="0,8,0,0"
+                           Margin="0,6,0,0"
                            Foreground="{StaticResource Text.Muted}"
                            FontSize="11"
                            Text="Remote workspace is idle." />
@@ -78,7 +78,7 @@
               Grid.Row="1">
             <Border x:Name="RemoteBrowserPanel"
                     Style="{StaticResource App.CardStyle}"
-                    Padding="8"
+                    Padding="6"
                     Visibility="Visible">
                 <Grid>
                     <Grid.RowDefinitions>
@@ -86,15 +86,15 @@
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <StackPanel Margin="0,0,0,8">
+                    <StackPanel Margin="0,0,0,6">
                         <TextBlock Text="Remote files"
-                                   FontSize="13"
+                                   FontSize="12"
                                    FontWeight="SemiBold"
                                    Foreground="{StaticResource Text.Primary}" />
                         <Border x:Name="MappingBanner"
-                                Margin="0,8,0,0"
-                                Padding="10,8"
-                                CornerRadius="8"
+                                Margin="0,6,0,0"
+                                Padding="8,6"
+                                CornerRadius="6"
                                 Background="{StaticResource Surface.Input}"
                                 BorderBrush="{StaticResource Border.Subtle}"
                                 BorderThickness="1"

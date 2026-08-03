@@ -8,6 +8,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using GitDeployPro.Services;
+using GitDeployPro.Services.Theme;
 using ICSharpCode.AvalonEdit.Highlighting;
 using Microsoft.Web.WebView2.Core;
 using WpfPanel = System.Windows.Controls.Panel;
@@ -54,6 +55,9 @@ namespace GitDeployPro.Controls
         {
             InitializeComponent();
             Visibility = Visibility.Collapsed;
+            ThemeService.Instance.ThemeChanged += OnDeployThemeChanged;
+            Unloaded += (_, _) => ThemeService.Instance.ThemeChanged -= OnDeployThemeChanged;
+            ApplyEditorChromeTheme();
             CodeEditor.TextChanged += (_, _) =>
             {
                 if (_suppressTextChanged || string.IsNullOrEmpty(_filePath) || !_usingSimpleEditor)
@@ -63,6 +67,64 @@ namespace GitDeployPro.Controls
 
                 SetDirty(!string.Equals(CodeEditor.Text, _originalContent, StringComparison.Ordinal));
             };
+        }
+
+        private void OnDeployThemeChanged(object? sender, EventArgs e)
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(() => OnDeployThemeChanged(sender, e));
+                return;
+            }
+
+            ApplyEditorChromeTheme();
+            _ = ApplyMonacoThemeAsync();
+        }
+
+        private void ApplyEditorChromeTheme()
+        {
+            var tokens = ThemeService.Instance.CurrentTokens;
+            var fallbackBg = tokens.GetBrush(
+                "editor.fallbackBackground",
+                (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#1E1E1E"));
+            var fallbackFg = tokens.GetBrush(
+                "editor.fallbackForeground",
+                (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#F4F7FF"));
+            if (CodeEditor != null)
+            {
+                CodeEditor.Background = fallbackBg;
+                CodeEditor.Foreground = fallbackFg;
+            }
+
+            if (EditorWebView != null)
+            {
+                var webBg = tokens.GetHex("editor.webviewBackground", "#FF1E1E1E");
+                try
+                {
+                    EditorWebView.DefaultBackgroundColor = System.Drawing.ColorTranslator.FromHtml(
+                        webBg.Length == 9 && webBg.StartsWith("#", StringComparison.Ordinal)
+                            ? "#" + webBg[3..]
+                            : webBg);
+                }
+                catch
+                {
+                    // ignore
+                }
+            }
+        }
+
+        private async Task ApplyMonacoThemeAsync()
+        {
+            if (!_monacoReady || EditorWebView?.CoreWebView2 == null)
+            {
+                return;
+            }
+
+            var tokens = ThemeService.Instance.CurrentTokens;
+            var theme = tokens.MonacoTheme.Replace("\"", "");
+            var bg = tokens.GetHex("editor.webviewBackground", "#1E1E1E").Replace("\"", "");
+            await EditorWebView.CoreWebView2.ExecuteScriptAsync(
+                $"window.__setTheme && window.__setTheme(\"{theme}\", \"{bg}\");");
         }
 
         public bool IsOpen => Visibility == Visibility.Visible && !string.IsNullOrEmpty(_filePath);
@@ -410,6 +472,7 @@ namespace GitDeployPro.Controls
             }
 
             _monacoReady = true;
+            _ = ApplyMonacoThemeAsync();
             // PromoteToMonacoAsync is already waiting on readiness; avoid re-entry here.
         }
 

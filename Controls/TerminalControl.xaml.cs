@@ -1,6 +1,7 @@
 using GitDeployPro.Models;
 using GitDeployPro.Services;
 using GitDeployPro.Services.Terminal;
+using GitDeployPro.Services.Theme;
 using GitDeployPro.Windows;
 using Microsoft.Web.WebView2.Core;
 using System;
@@ -77,6 +78,78 @@ namespace GitDeployPro.Controls
 
             Loaded += TerminalControl_Loaded;
             Unloaded += TerminalControl_Unloaded;
+            ThemeService.Instance.ThemeChanged += OnDeployThemeChanged;
+            ApplyHostBackgroundFromTheme();
+        }
+
+        private void OnDeployThemeChanged(object? sender, EventArgs e)
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(() => OnDeployThemeChanged(sender, e));
+                return;
+            }
+
+            ApplyHostBackgroundFromTheme();
+            _ = ApplyXtermThemeAsync();
+        }
+
+        private void ApplyHostBackgroundFromTheme()
+        {
+            var host = TerminalHostGrid ?? TerminalWebView?.Parent as Grid;
+            var color = ThemeService.Instance.GetTokenColor(
+                "terminal.hostBackground",
+                (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#0C0C0C"));
+
+            if (host != null)
+            {
+                host.Background = new SolidColorBrush(color);
+            }
+
+            if (TerminalWebView != null)
+            {
+                try
+                {
+                    TerminalWebView.DefaultBackgroundColor = System.Drawing.Color.FromArgb(
+                        color.A, color.R, color.G, color.B);
+                }
+                catch
+                {
+                    // ignore invalid color conversion
+                }
+            }
+        }
+
+        private async Task ApplyXtermThemeAsync()
+        {
+            ApplyHostBackgroundFromTheme();
+
+            var tokens = ThemeService.Instance.CurrentTokens;
+            var theme = new Dictionary<string, string>
+            {
+                ["background"] = tokens.GetString("terminal.xterm.background", tokens.GetHex("terminal.xterm.background", "#0c0c0c")),
+                ["foreground"] = tokens.GetString("terminal.xterm.foreground", tokens.GetHex("terminal.xterm.foreground", "#d4d4d4")),
+                ["cursor"] = tokens.GetString("terminal.xterm.cursor", tokens.GetHex("terminal.xterm.cursor", "#00ff00")),
+                ["selectionBackground"] = tokens.GetString("terminal.xterm.selectionBackground", "rgba(128,128,128,0.35)")
+            };
+
+            // Prefer resolved hex when Color map has values.
+            if (tokens.Colors.ContainsKey("terminal.xterm.background"))
+            {
+                theme["background"] = tokens.GetHex("terminal.xterm.background", theme["background"]);
+            }
+
+            if (tokens.Colors.ContainsKey("terminal.xterm.foreground"))
+            {
+                theme["foreground"] = tokens.GetHex("terminal.xterm.foreground", theme["foreground"]);
+            }
+
+            if (tokens.Colors.ContainsKey("terminal.xterm.cursor"))
+            {
+                theme["cursor"] = tokens.GetHex("terminal.xterm.cursor", theme["cursor"]);
+            }
+
+            await PostTerminalMessageAsync(new { type = "setTheme", theme });
         }
 
         private static void OnShowCommandBarChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -273,6 +346,7 @@ namespace GitDeployPro.Controls
 
         private async void TerminalControl_Unloaded(object sender, RoutedEventArgs e)
         {
+            ThemeService.Instance.ThemeChanged -= OnDeployThemeChanged;
             TerminalPresetStore.PresetsChanged -= TerminalPresetStore_PresetsChanged;
             ConfigurationService.ConnectionsChanged -= OnConnectionsChanged;
 
@@ -633,6 +707,7 @@ namespace GitDeployPro.Controls
                 _isConnected = true;
                 _isLocal = isLocal;
                 SetConnectedStatus(statusText);
+                await FocusTerminalAsync();
                 if (!isLocal)
                 {
                     await ConfigureRemoteHistorySyncAsync();
@@ -999,6 +1074,7 @@ namespace GitDeployPro.Controls
             await PostTerminalMessageAsync(new { type = "setTypingEnabled", enabled = _typingEnabled });
             await PostTerminalMessageAsync(new { type = "setFontSize", value = GetCurrentFontSize() });
             await PostTerminalMessageAsync(new { type = "setForeground", value = GetCurrentTextColorHex() });
+            await ApplyXtermThemeAsync();
             TypingOverlay.Visibility = _typingEnabled ? Visibility.Collapsed : Visibility.Visible;
         }
 
@@ -1132,20 +1208,26 @@ namespace GitDeployPro.Controls
 
             await WriteToTerminalAsync($"\r\n[error] {caption}: {message}\r\n");
             StatusText.Text = $"{caption}: {message}";
-            StatusIndicator.Background = System.Windows.Media.Brushes.OrangeRed;
+            StatusIndicator.Background = ThemeService.Instance.GetTokenBrush(
+                "terminal.statusError",
+                System.Windows.Media.Colors.Red);
         }
 
         private void SetConnectingStatus(string text)
         {
             StatusText.Text = text;
-            StatusIndicator.Background = System.Windows.Media.Brushes.Orange;
+            StatusIndicator.Background = ThemeService.Instance.GetTokenBrush(
+                "terminal.statusConnecting",
+                System.Windows.Media.Colors.OrangeRed);
             ConnectButton.IsEnabled = false;
         }
 
         private void SetConnectedStatus(string text)
         {
             StatusText.Text = text;
-            StatusIndicator.Background = System.Windows.Media.Brushes.LimeGreen;
+            StatusIndicator.Background = ThemeService.Instance.GetTokenBrush(
+                "terminal.statusConnected",
+                System.Windows.Media.Colors.LimeGreen);
             ConnectButton.Content = "Disconnect";
             ConnectButton.Background = System.Windows.Media.Brushes.DarkRed;
             ConnectButton.IsEnabled = true;
@@ -1154,7 +1236,9 @@ namespace GitDeployPro.Controls
         private void SetDisconnectedStatus()
         {
             StatusText.Text = "Disconnected";
-            StatusIndicator.Background = System.Windows.Media.Brushes.Gray;
+            StatusIndicator.Background = ThemeService.Instance.GetTokenBrush(
+                "terminal.statusDisconnected",
+                System.Windows.Media.Colors.Gray);
             ConnectButton.Content = "Connect";
             ConnectButton.Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 122, 204));
             ConnectButton.IsEnabled = true;

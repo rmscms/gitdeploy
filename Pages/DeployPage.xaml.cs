@@ -11,6 +11,8 @@ using System.Windows.Threading;
 using GitDeployPro.Controls;
 using GitDeployPro.Windows;
 using GitDeployPro.Services;
+using GitDeployPro.Services.Remote;
+using GitDeployPro.Services.Theme;
 using GitDeployPro.Models;
 using FluentFTP;
 
@@ -58,6 +60,9 @@ namespace GitDeployPro.Pages
         private bool _logsStripVisible;
         private bool _logsStripAutoShownForDeploy;
         private bool _isResizingBottomDock;
+        private readonly List<DeployTerminalSession> _deployTerminalSessions = new();
+        private readonly List<NewTerminalPickerItem> _newTerminalPickerItems = new();
+        private string? _activeDeployTerminalSessionId;
         private double _bottomDockResizeStartY;
         private double _bottomDockResizeStartHeight;
         private string _remoteWorkspaceProjectPath = string.Empty;
@@ -70,7 +75,9 @@ namespace GitDeployPro.Pages
         private const double BottomDockMinExpandedHeight = 160;
         private RemoteWorkspaceLayoutMode _remoteLayoutMode = RemoteWorkspaceLayoutMode.Wide;
         private bool _compactPanelOpenedByUser;
+        private bool _isBranchDetailsExpanded;
         private bool _isPortrait;
+        private bool _suppressDeployThemeComboChange;
         private int _autoRefreshTickCount;
         private DateTime _lastBranchRefreshUtc = DateTime.MinValue;
         private static readonly TimeSpan BranchRefreshInterval = TimeSpan.FromSeconds(60);
@@ -88,6 +95,7 @@ namespace GitDeployPro.Pages
             if (DirectUploadDock != null)
             {
                 DirectUploadDock.EditorModeChanged += DirectUploadDock_EditorModeChanged;
+                DirectUploadDock.UploadActionsPanelVisibilityChanged += DirectUploadDock_UploadActionsPanelVisibilityChanged;
             }
             Loaded += DeployPage_Loaded;
             SizeChanged += DeployPage_SizeChanged;
@@ -101,6 +109,10 @@ namespace GitDeployPro.Pages
             _isBottomDockCollapsed = false;
             ApplyWorkspaceLayout(force: true);
             ShowBottomLogsTab();
+            UpdateUploadActionsToggleButton();
+            ApplyBranchDetailsVisibility();
+            UpdateBranchSummaryUi();
+            InitializeDeployThemePicker();
         }
 
         private void DeployPage_SizeChanged(object sender, SizeChangedEventArgs e)
@@ -131,8 +143,13 @@ namespace GitDeployPro.Pages
             if (DirectUploadDock != null)
             {
                 DirectUploadDock.EditorModeChanged -= DirectUploadDock_EditorModeChanged;
+                DirectUploadDock.UploadActionsPanelVisibilityChanged -= DirectUploadDock_UploadActionsPanelVisibilityChanged;
                 DirectUploadDock.TryCloseLocalEditor(force: true);
             }
+
+            _ = DisposeAllDeployTerminalSessionsAsync();
+            DetachDeployThemeHandlers();
+
             Loaded -= DeployPage_Loaded;
             SizeChanged -= DeployPage_SizeChanged;
             Unloaded -= DeployPage_Unloaded;
@@ -222,14 +239,36 @@ namespace GitDeployPro.Pages
 
         private void OpenBottomTerminalButton_Click(object sender, RoutedEventArgs e)
         {
+            // PhpStorm-style: same tool icon toggles the tool window closed.
+            if (_bottomTerminalTabActive && !_isBottomDockCollapsed)
+            {
+                CaptureBottomDockHeight();
+                _isBottomDockCollapsed = true;
+                ApplyBottomDockLayout(resetHeight: true);
+                UpdateBottomCollapseButtonUi();
+                UpdateBottomTerminalRailUi();
+                return;
+            }
+
             ShowBottomTerminalTab();
+            _ = EnsureDeployTerminalSessionAsync();
         }
 
         private void OpenBottomLogsButton_Click(object sender, RoutedEventArgs e)
         {
-            if (_bottomTerminalTabActive)
+            if (!_bottomTerminalTabActive && _logsStripVisible && !_isBottomDockCollapsed)
             {
-                // Keep terminal; toggle deploy-log strip above it.
+                CaptureBottomDockHeight();
+                _isBottomDockCollapsed = true;
+                ApplyBottomDockLayout(resetHeight: true);
+                UpdateBottomCollapseButtonUi();
+                UpdateBottomTerminalRailUi();
+                return;
+            }
+
+            if (_bottomTerminalTabActive && !_isBottomDockCollapsed)
+            {
+                // Keep terminal sessions alive; toggle deploy-log strip above them.
                 _logsStripVisible = !_logsStripVisible;
                 _isBottomDockCollapsed = false;
                 if (_logsStripVisible)
@@ -273,6 +312,32 @@ namespace GitDeployPro.Pages
             _ = DirectUploadDock.RefreshFromDiskPublicAsync();
         }
 
+        private void ToggleUploadActionsButton_Click(object sender, RoutedEventArgs e)
+        {
+            DirectUploadDock?.ToggleUploadActionsPanel();
+            UpdateUploadActionsToggleButton();
+        }
+
+        private void DirectUploadDock_UploadActionsPanelVisibilityChanged(object? sender, EventArgs e)
+        {
+            UpdateUploadActionsToggleButton();
+        }
+
+        private void UpdateUploadActionsToggleButton()
+        {
+            if (ToggleUploadActionsButton == null || DirectUploadDock == null)
+            {
+                return;
+            }
+
+            var pinned = DirectUploadDock.IsUploadActionsPanelPinned;
+            var visible = DirectUploadDock.IsUploadActionsPanelVisible;
+            ToggleUploadActionsButton.Opacity = pinned || visible ? 1.0 : 0.7;
+            ToggleUploadActionsButton.ToolTip = pinned
+                ? "Hide upload actions"
+                : "Upload actions";
+        }
+
         private void ToggleBottomDockButton_Click(object sender, RoutedEventArgs e)
         {
             if (!_isBottomDockCollapsed)
@@ -287,8 +352,6 @@ namespace GitDeployPro.Pages
         }
 
         private void BottomLogsTabButton_Click(object sender, RoutedEventArgs e) => ShowBottomLogsTab();
-
-        private void BottomTerminalTabButton_Click(object sender, RoutedEventArgs e) => ShowBottomTerminalTab();
 
         private void ShowBottomLogsTab()
         {
@@ -321,6 +384,518 @@ namespace GitDeployPro.Pages
             ApplyBottomDockLayout(resetHeight: true);
             UpdateBottomTabButtonStyles();
             UpdateBottomCollapseButtonUi();
+        }
+
+        private async void NewTerminalTabButton_Click(object sender, RoutedEventArgs e)
+        {
+            ShowBottomTerminalTab();
+            await OpenLocalDeployTerminalAsync();
+        }
+
+        private void NewTerminalMenuButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (NewTerminalPickerPopup == null)
+            {
+                return;
+            }
+
+            if (NewTerminalPickerPopup.IsOpen)
+            {
+                NewTerminalPickerPopup.IsOpen = false;
+                return;
+            }
+
+            RebuildNewTerminalPickerItems();
+            ApplyNewTerminalPickerFilter(string.Empty);
+            if (NewTerminalSearchBox != null)
+            {
+                NewTerminalSearchBox.Text = string.Empty;
+            }
+
+            NewTerminalPickerPopup.IsOpen = true;
+        }
+
+        private void NewTerminalPickerPopup_Opened(object? sender, EventArgs e)
+        {
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (NewTerminalSearchBox == null)
+                {
+                    return;
+                }
+
+                NewTerminalSearchBox.Focus();
+                Keyboard.Focus(NewTerminalSearchBox);
+                NewTerminalSearchBox.SelectAll();
+            }), DispatcherPriority.Input);
+        }
+
+        private void RebuildNewTerminalPickerItems()
+        {
+            _newTerminalPickerItems.Clear();
+            _newTerminalPickerItems.Add(new NewTerminalPickerItem
+            {
+                Title = "Local Terminal",
+                Subtitle = "cmd / PowerShell on this PC",
+                IsLocal = true
+            });
+
+            var projectProfile = GetActiveConnectionProfile();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            if (projectProfile != null)
+            {
+                seen.Add(projectProfile.Id);
+                _newTerminalPickerItems.Add(new NewTerminalPickerItem
+                {
+                    Title = projectProfile.Name,
+                    Subtitle = BuildConnectionSubtitle(projectProfile, isProjectDefault: true),
+                    Profile = projectProfile
+                });
+            }
+
+            try
+            {
+                foreach (var conn in _configService.LoadConnections().OrderBy(c => c.Name))
+                {
+                    if (conn == null || string.IsNullOrWhiteSpace(conn.Id) || !seen.Add(conn.Id))
+                    {
+                        continue;
+                    }
+
+                    _newTerminalPickerItems.Add(new NewTerminalPickerItem
+                    {
+                        Title = conn.Name,
+                        Subtitle = BuildConnectionSubtitle(conn, isProjectDefault: false),
+                        Profile = conn
+                    });
+                }
+            }
+            catch
+            {
+                // Local option still available.
+            }
+        }
+
+        private static string BuildConnectionSubtitle(ConnectionProfile profile, bool isProjectDefault)
+        {
+            var host = string.IsNullOrWhiteSpace(profile.Host) ? "server" : profile.Host.Trim();
+            var prefix = isProjectDefault ? "Project server · " : string.Empty;
+            return $"{prefix}{host}:{profile.Port}";
+        }
+
+        private void ApplyNewTerminalPickerFilter(string? query)
+        {
+            if (NewTerminalPickerList == null)
+            {
+                return;
+            }
+
+            var q = (query ?? string.Empty).Trim();
+            IEnumerable<NewTerminalPickerItem> filtered = _newTerminalPickerItems;
+            if (!string.IsNullOrEmpty(q))
+            {
+                filtered = _newTerminalPickerItems.Where(item =>
+                    (item.Title?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false)
+                    || (item.Subtitle?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false)
+                    || (item.Profile?.Host?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false)
+                    || (item.Profile?.Username?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false));
+            }
+
+            var list = filtered.ToList();
+            NewTerminalPickerList.ItemsSource = list;
+            NewTerminalPickerList.SelectedIndex = list.Count > 0 ? 0 : -1;
+        }
+
+        private void NewTerminalSearchBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (NewTerminalSearchHint != null)
+            {
+                NewTerminalSearchHint.Visibility = string.IsNullOrEmpty(NewTerminalSearchBox?.Text)
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
+            }
+
+            ApplyNewTerminalPickerFilter(NewTerminalSearchBox?.Text);
+        }
+
+        private void NewTerminalSearchBox_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (e.Key == Key.Escape)
+            {
+                NewTerminalPickerPopup.IsOpen = false;
+                e.Handled = true;
+                return;
+            }
+
+            if (e.Key == Key.Enter)
+            {
+                _ = AcceptSelectedNewTerminalPickerItemAsync();
+                e.Handled = true;
+                return;
+            }
+
+            if (e.Key == Key.Down && NewTerminalPickerList?.Items.Count > 0)
+            {
+                NewTerminalPickerList.Focus();
+                if (NewTerminalPickerList.SelectedIndex < 0)
+                {
+                    NewTerminalPickerList.SelectedIndex = 0;
+                }
+
+                e.Handled = true;
+            }
+        }
+
+        private void NewTerminalPickerList_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                _ = AcceptSelectedNewTerminalPickerItemAsync();
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Escape)
+            {
+                NewTerminalPickerPopup.IsOpen = false;
+                e.Handled = true;
+            }
+        }
+
+        private void NewTerminalPickerList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            _ = AcceptSelectedNewTerminalPickerItemAsync();
+        }
+
+        private void NewTerminalPickerItem_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is ListBoxItem { DataContext: NewTerminalPickerItem item })
+            {
+                NewTerminalPickerList.SelectedItem = item;
+                _ = AcceptSelectedNewTerminalPickerItemAsync();
+                e.Handled = true;
+            }
+        }
+
+        private async Task AcceptSelectedNewTerminalPickerItemAsync()
+        {
+            if (NewTerminalPickerList?.SelectedItem is not NewTerminalPickerItem item)
+            {
+                return;
+            }
+
+            NewTerminalPickerPopup.IsOpen = false;
+            ShowBottomTerminalTab();
+
+            if (item.IsLocal || item.Profile == null)
+            {
+                await OpenLocalDeployTerminalAsync();
+                return;
+            }
+
+            await OpenServerDeployTerminalAsync(item.Profile);
+        }
+
+        private sealed class NewTerminalPickerItem
+        {
+            public string Title { get; init; } = string.Empty;
+            public string Subtitle { get; init; } = string.Empty;
+            public bool IsLocal { get; init; }
+            public ConnectionProfile? Profile { get; init; }
+            public Visibility SubtitleVisibility =>
+                string.IsNullOrWhiteSpace(Subtitle) ? Visibility.Collapsed : Visibility.Visible;
+        }
+
+        private async Task EnsureDeployTerminalSessionAsync()
+        {
+            if (_deployTerminalSessions.Count > 0)
+            {
+                ActivateDeployTerminalSession(_activeDeployTerminalSessionId ?? _deployTerminalSessions[0].Id);
+                return;
+            }
+
+            await OpenLocalDeployTerminalAsync();
+        }
+
+        private async Task OpenLocalDeployTerminalAsync()
+        {
+            var title = NextLocalTerminalTitle();
+            var control = CreateDeployTerminalControl();
+            var session = AddDeployTerminalSession(title, control, isLocal: true, profile: null);
+            ActivateDeployTerminalSession(session.Id);
+            try
+            {
+                await control.ConnectLocal();
+                await control.FocusTerminalAsync();
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show($"Failed to open local terminal:\n{ex.Message}", "Terminal", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private async Task OpenServerDeployTerminalAsync(ConnectionProfile profile)
+        {
+            if (profile == null)
+            {
+                return;
+            }
+
+            var control = CreateDeployTerminalControl();
+            var session = AddDeployTerminalSession(profile.Name, control, isLocal: false, profile);
+            ActivateDeployTerminalSession(session.Id);
+            try
+            {
+                var password = EncryptionService.Decrypt(profile.Password);
+                await control.ConnectAsync(profile.Host, profile.Username, password, profile.Port);
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show($"Failed to open server terminal:\n{ex.Message}", "Terminal", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private TerminalControl CreateDeployTerminalControl()
+        {
+            var control = new TerminalControl
+            {
+                ShowCommandBar = false,
+                Visibility = Visibility.Collapsed
+            };
+            control.SetProjectPath(_projectConfig?.LocalProjectPath ?? string.Empty);
+            if (control.DetachButton != null)
+            {
+                control.DetachButton.Visibility = Visibility.Collapsed;
+            }
+
+            return control;
+        }
+
+        private string NextLocalTerminalTitle()
+        {
+            var localCount = _deployTerminalSessions.Count(s => s.IsLocal);
+            return localCount == 0 ? "Local" : $"Local ({localCount + 1})";
+        }
+
+        private DeployTerminalSession AddDeployTerminalSession(
+            string title,
+            TerminalControl control,
+            bool isLocal,
+            ConnectionProfile? profile)
+        {
+            var session = new DeployTerminalSession
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                Title = title,
+                Control = control,
+                IsLocal = isLocal,
+                Profile = profile
+            };
+
+            DeployTerminalHost.Children.Add(control);
+            _deployTerminalSessions.Add(session);
+            RebuildTerminalSessionTabs();
+            return session;
+        }
+
+        private void ActivateDeployTerminalSession(string sessionId)
+        {
+            if (string.IsNullOrWhiteSpace(sessionId))
+            {
+                return;
+            }
+
+            _activeDeployTerminalSessionId = sessionId;
+            _bottomTerminalTabActive = true;
+            if (!isDeploying)
+            {
+                _logsStripVisible = false;
+            }
+
+            foreach (var session in _deployTerminalSessions)
+            {
+                session.Control.Visibility = session.Id == sessionId
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
+            }
+
+            _isBottomDockCollapsed = false;
+            ApplyBottomContentLayout();
+            ApplyBottomDockLayout(resetHeight: false);
+            UpdateBottomTabButtonStyles();
+            UpdateBottomCollapseButtonUi();
+        }
+
+        private async void CloseDeployTerminalSession_Click(object sender, RoutedEventArgs e)
+        {
+            e.Handled = true;
+            if (sender is not FrameworkElement { Tag: string sessionId })
+            {
+                return;
+            }
+
+            var session = _deployTerminalSessions.FirstOrDefault(s => s.Id == sessionId);
+            if (session == null)
+            {
+                return;
+            }
+
+            var index = _deployTerminalSessions.IndexOf(session);
+            _deployTerminalSessions.Remove(session);
+            DeployTerminalHost.Children.Remove(session.Control);
+            try
+            {
+                await session.Control.DisposeTerminalAsync();
+            }
+            catch
+            {
+                // Best-effort dispose.
+            }
+
+            if (_deployTerminalSessions.Count == 0)
+            {
+                _activeDeployTerminalSessionId = null;
+                if (_bottomTerminalTabActive && !isDeploying)
+                {
+                    ShowBottomLogsTab();
+                }
+                else
+                {
+                    RebuildTerminalSessionTabs();
+                    ApplyBottomContentLayout();
+                    UpdateBottomTabButtonStyles();
+                }
+
+                return;
+            }
+
+            if (string.Equals(_activeDeployTerminalSessionId, sessionId, StringComparison.Ordinal))
+            {
+                var next = _deployTerminalSessions[Math.Max(0, Math.Min(index, _deployTerminalSessions.Count - 1))];
+                ActivateDeployTerminalSession(next.Id);
+            }
+            else
+            {
+                RebuildTerminalSessionTabs();
+            }
+        }
+
+        private void RebuildTerminalSessionTabs()
+        {
+            if (TerminalSessionTabsPanel == null)
+            {
+                return;
+            }
+
+            TerminalSessionTabsPanel.Children.Clear();
+            foreach (var session in _deployTerminalSessions)
+            {
+                var isActive = _bottomTerminalTabActive
+                    && string.Equals(session.Id, _activeDeployTerminalSessionId, StringComparison.Ordinal);
+                var sessionId = session.Id;
+
+                var tab = new Border
+                {
+                    Tag = sessionId,
+                    Height = 26,
+                    Margin = new Thickness(0, 0, 1, 0),
+                    Padding = new Thickness(8, 0, 2, 0),
+                    Background = System.Windows.Media.Brushes.Transparent,
+                    BorderThickness = new Thickness(0, 0, 0, 2),
+                    BorderBrush = isActive
+                        ? (System.Windows.Media.Brush)FindResource("Status.Warning")
+                        : System.Windows.Media.Brushes.Transparent,
+                    Cursor = System.Windows.Input.Cursors.Hand,
+                    ToolTip = session.IsLocal
+                        ? "Local terminal session"
+                        : $"Server: {session.Title}"
+                };
+
+                var content = new StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal };
+                content.Children.Add(new TextBlock
+                {
+                    Text = session.Title,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(0, 0, 4, 0),
+                    FontSize = 11,
+                    FontWeight = isActive ? FontWeights.SemiBold : FontWeights.Normal,
+                    Foreground = (System.Windows.Media.Brush)FindResource(
+                        isActive ? "Text.Primary" : "Text.Secondary")
+                });
+                var close = new System.Windows.Controls.Button
+                {
+                    Content = "×",
+                    Tag = sessionId,
+                    Width = 18,
+                    Height = 18,
+                    FontSize = 12,
+                    Padding = new Thickness(0),
+                    Margin = new Thickness(0, 0, 2, 0),
+                    Background = System.Windows.Media.Brushes.Transparent,
+                    BorderThickness = new Thickness(0),
+                    Foreground = (System.Windows.Media.Brush)FindResource("Text.Muted"),
+                    Cursor = System.Windows.Input.Cursors.Hand,
+                    ToolTip = "Close session"
+                };
+                close.Click += CloseDeployTerminalSession_Click;
+                content.Children.Add(close);
+                tab.Child = content;
+                tab.MouseLeftButtonUp += (_, e) =>
+                {
+                    if (e.OriginalSource is DependencyObject source
+                        && FindParentButton(source) != null)
+                    {
+                        return;
+                    }
+
+                    ActivateDeployTerminalSession(sessionId);
+                };
+                TerminalSessionTabsPanel.Children.Add(tab);
+            }
+        }
+
+        private static System.Windows.Controls.Button? FindParentButton(DependencyObject? node)
+        {
+            while (node != null)
+            {
+                if (node is System.Windows.Controls.Button button)
+                {
+                    return button;
+                }
+
+                node = VisualTreeHelper.GetParent(node);
+            }
+
+            return null;
+        }
+
+        private async Task DisposeAllDeployTerminalSessionsAsync()
+        {
+            var sessions = _deployTerminalSessions.ToList();
+            _deployTerminalSessions.Clear();
+            _activeDeployTerminalSessionId = null;
+            TerminalSessionTabsPanel?.Children.Clear();
+            DeployTerminalHost?.Children.Clear();
+
+            foreach (var session in sessions)
+            {
+                try
+                {
+                    await session.Control.DisposeTerminalAsync();
+                }
+                catch
+                {
+                    // Ignore teardown errors.
+                }
+            }
+        }
+
+        private sealed class DeployTerminalSession
+        {
+            public string Id { get; init; } = string.Empty;
+            public string Title { get; set; } = string.Empty;
+            public TerminalControl Control { get; init; } = null!;
+            public bool IsLocal { get; init; }
+            public ConnectionProfile? Profile { get; init; }
         }
 
         private void ShowDeployLogsForActiveDeploy()
@@ -414,32 +989,39 @@ namespace GitDeployPro.Pages
 
         private void UpdateBottomTabButtonStyles()
         {
-            var activeBg = (System.Windows.Media.Brush)FindResource("Surface.Raised");
-            var idleBg = System.Windows.Media.Brushes.Transparent;
+            var logsFocused = !_bottomTerminalTabActive && _logsStripVisible && !_isBottomDockCollapsed;
+            BottomLogsTabButton.Style = (Style)FindResource(logsFocused
+                ? "DeployDockTabButtonActiveStyle"
+                : "DeployDockTabButtonStyle");
 
-            var logsActive = !_bottomTerminalTabActive || _logsStripVisible || isDeploying;
-            BottomLogsTabButton.FontWeight = logsActive && !_bottomTerminalTabActive ? FontWeights.SemiBold : FontWeights.Normal;
-            BottomTerminalTabButton.FontWeight = _bottomTerminalTabActive ? FontWeights.SemiBold : FontWeights.Normal;
-            BottomLogsTabButton.Background = logsActive ? activeBg : idleBg;
-            BottomTerminalTabButton.Background = _bottomTerminalTabActive ? activeBg : idleBg;
+            RebuildTerminalSessionTabs();
             UpdateBottomTerminalRailUi();
         }
 
         private void UpdateBottomTerminalRailUi()
         {
+            var warningSurface = FindResource("Status.WarningSurface") as System.Windows.Media.Brush
+                ?? System.Windows.Media.Brushes.Transparent;
+            var transparent = System.Windows.Media.Brushes.Transparent;
+
             if (OpenBottomTerminalButton != null)
             {
-                OpenBottomTerminalButton.Opacity = _bottomTerminalTabActive && !_isBottomDockCollapsed ? 1.0 : 0.75;
-                OpenBottomTerminalButton.ToolTip = _bottomTerminalTabActive && !_isBottomDockCollapsed
-                    ? "Terminal (open)"
-                    : "Open Terminal";
+                var terminalOpen = _bottomTerminalTabActive && !_isBottomDockCollapsed;
+                OpenBottomTerminalButton.Opacity = terminalOpen ? 1.0 : 0.75;
+                OpenBottomTerminalButton.Background = terminalOpen ? warningSurface : transparent;
+                OpenBottomTerminalButton.ToolTip = terminalOpen
+                    ? "Hide Terminal"
+                    : "Terminal";
             }
 
             if (OpenBottomLogsButton != null)
             {
                 var logsOpen = (!_bottomTerminalTabActive || _logsStripVisible || isDeploying) && !_isBottomDockCollapsed;
                 OpenBottomLogsButton.Opacity = logsOpen ? 1.0 : 0.75;
-                OpenBottomLogsButton.ToolTip = logsOpen ? "Deploy Logs (open)" : "Deploy Logs";
+                OpenBottomLogsButton.Background = logsOpen && !_bottomTerminalTabActive ? warningSurface : transparent;
+                OpenBottomLogsButton.ToolTip = logsOpen && !_bottomTerminalTabActive
+                    ? "Hide Deploy Logs"
+                    : "Deploy Logs";
             }
         }
 
@@ -489,7 +1071,7 @@ namespace GitDeployPro.Pages
             }
             else
             {
-                height = Math.Max(220, GetPreferredTerminalHeight() * 0.7);
+                height = Math.Max(BottomDockMinExpandedHeight, GetPreferredTerminalHeight() * 0.7);
             }
 
             height = ClampBottomDockHeight(height);
@@ -692,23 +1274,152 @@ namespace GitDeployPro.Pages
 
         private void ApplyPortraitBranchRowTweaks()
         {
-            if (BranchRow == null)
+            DeployMainColumn.MinWidth = MainColumnMinWidth;
+        }
+
+        private void InitializeDeployThemePicker()
+        {
+            if (DeployThemeComboBox == null)
             {
                 return;
             }
 
-            if (_isPortrait || ActualWidth < RemoteNarrowBreakpoint)
+            ThemeService.Instance.Initialize();
+            ThemeService.Instance.ThemesChanged -= ThemeService_ThemesChanged;
+            ThemeService.Instance.ThemesChanged += ThemeService_ThemesChanged;
+            ThemeService.Instance.ThemeChanged -= ThemeService_ThemeChanged;
+            ThemeService.Instance.ThemeChanged += ThemeService_ThemeChanged;
+
+            _suppressDeployThemeComboChange = true;
+            try
             {
-                BranchRow.ColumnDefinitions[4].Width = new GridLength(1, GridUnitType.Star);
-                BranchRow.ColumnDefinitions[4].MinWidth = 140;
-                DeployMainColumn.MinWidth = MainColumnMinWidth;
+                DeployThemeComboBox.ItemsSource = ThemeService.Instance.Themes.ToList();
+                var saved = _configService.ResolveAppThemeId();
+                var theme = ThemeService.Instance.FindTheme(saved) ?? ThemeService.Instance.Themes[0];
+                DeployThemeComboBox.SelectedItem = theme;
+                // Keep combo in sync with the already-applied app theme (do not re-apply unless needed).
+                if (!string.Equals(ThemeService.Instance.CurrentThemeId, theme.Id, StringComparison.OrdinalIgnoreCase))
+                {
+                    ThemeService.Instance.ApplyTheme(theme.Id);
+                }
             }
-            else
+            finally
             {
-                BranchRow.ColumnDefinitions[4].Width = GridLength.Auto;
-                BranchRow.ColumnDefinitions[4].MinWidth = 160;
-                DeployMainColumn.MinWidth = MainColumnMinWidth;
+                _suppressDeployThemeComboChange = false;
             }
+        }
+
+        private void ThemeService_ThemesChanged(object? sender, EventArgs e)
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(() => ThemeService_ThemesChanged(sender, e));
+                return;
+            }
+
+            if (DeployThemeComboBox == null)
+            {
+                return;
+            }
+
+            var selectedId = (DeployThemeComboBox.SelectedItem as AppThemeInfo)?.Id
+                             ?? ThemeService.Instance.CurrentThemeId;
+            _suppressDeployThemeComboChange = true;
+            try
+            {
+                DeployThemeComboBox.ItemsSource = ThemeService.Instance.Themes.ToList();
+                DeployThemeComboBox.SelectedItem = ThemeService.Instance.FindTheme(selectedId)
+                                                  ?? ThemeService.Instance.Themes.FirstOrDefault();
+            }
+            finally
+            {
+                _suppressDeployThemeComboChange = false;
+            }
+        }
+
+        private void ThemeService_ThemeChanged(object? sender, EventArgs e)
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(() => ThemeService_ThemeChanged(sender, e));
+                return;
+            }
+
+            // Refresh status badge brushes bound on DeployFileViewModel.
+            if (FilesListBox != null)
+            {
+                var view = System.Windows.Data.CollectionViewSource.GetDefaultView(FilesListBox.ItemsSource);
+                view?.Refresh();
+            }
+        }
+
+        private void DeployThemeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_suppressDeployThemeComboChange)
+            {
+                return;
+            }
+
+            var themeId = DeployThemeComboBox?.SelectedItem is AppThemeInfo info
+                ? info.Id
+                : DeployThemeComboBox?.SelectedValue as string;
+
+            if (string.IsNullOrWhiteSpace(themeId))
+            {
+                return;
+            }
+
+            ThemeService.Instance.ApplyTheme(themeId);
+            _configService.SetAppThemeId(themeId);
+        }
+
+        private void DetachDeployThemeHandlers()
+        {
+            ThemeService.Instance.ThemesChanged -= ThemeService_ThemesChanged;
+            ThemeService.Instance.ThemeChanged -= ThemeService_ThemeChanged;
+        }
+
+        private void BranchSummaryButton_Click(object sender, RoutedEventArgs e)
+        {
+            _isBranchDetailsExpanded = !_isBranchDetailsExpanded;
+            ApplyBranchDetailsVisibility();
+        }
+
+        private void ApplyBranchDetailsVisibility()
+        {
+            if (BranchDetailsPanel != null)
+            {
+                BranchDetailsPanel.Visibility = _isBranchDetailsExpanded
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
+            }
+
+            if (BranchSummaryChevron != null)
+            {
+                BranchSummaryChevron.Text = _isBranchDetailsExpanded ? " ▴" : " ▾";
+            }
+        }
+
+        private void UpdateBranchSummaryUi()
+        {
+            if (BranchSummaryText == null)
+            {
+                return;
+            }
+
+            var source = (SourceBranchComboBox?.SelectedItem as ComboBoxItem)?.Content?.ToString();
+            var target = (TargetBranchComboBox?.SelectedItem as ComboBoxItem)?.Content?.ToString();
+            if (string.IsNullOrWhiteSpace(source))
+            {
+                source = "—";
+            }
+
+            if (string.IsNullOrWhiteSpace(target))
+            {
+                target = "—";
+            }
+
+            BranchSummaryText.Text = $"{source} → {target}";
         }
 
         private void ApplyLeftDockLayout(bool resetWidth = true)
@@ -1255,6 +1966,8 @@ namespace GitDeployPro.Pages
                     SourceBranchComboBox.SelectedIndex = 0;
                 }
             }
+
+            UpdateBranchSummaryUi();
         }
 
         private void DisableAllButtons()
@@ -1263,6 +1976,7 @@ namespace GitDeployPro.Pages
             TargetBranchComboBox.Items.Clear();
             SourceBranchComboBox.IsEnabled = false;
             TargetBranchComboBox.IsEnabled = false;
+            UpdateBranchSummaryUi();
             if (ActionButton != null) ActionButton.IsEnabled = false;
             if (DeployButton != null)
             {
@@ -1304,10 +2018,148 @@ namespace GitDeployPro.Pages
 
         private void BranchComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            UpdateBranchSummaryUi();
             if (!_isLoaded) return;
 
             ClearCompareContext(clearList: true);
             UpdateActionButtonState();
+        }
+
+        private async void RollbackButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (isDeploying)
+            {
+                ModernMessageBox.Show("Wait for the current deploy to finish before rolling back.", "Rollback", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            try
+            {
+                RollbackButton.IsEnabled = false;
+                StatusText.Text = "Opening rollback preview…";
+                StatusText.Foreground = GetThemeBrush("Text.Muted", System.Windows.Media.Brushes.LightGray);
+
+                var canRedeploy = GetActiveConnectionProfile() != null;
+                var preview = new RollbackPreviewWindow(_gitService, canRedeploy);
+                WindowOwnerService.ShowDialogOwned(preview, this);
+                if (!preview.Confirmed || preview.Entry?.Commit == null)
+                {
+                    StatusText.Text = "Rollback cancelled.";
+                    return;
+                }
+
+                var entry = preview.Entry;
+                var filesForRedeploy = new List<CommitFileChangeInfo>();
+
+                if (preview.Scope == RollbackScope.SingleFile)
+                {
+                    if (preview.SelectedFile == null)
+                    {
+                        StatusText.Text = "Rollback cancelled (no file selected).";
+                        return;
+                    }
+
+                    var filePath = string.IsNullOrWhiteSpace(preview.SelectedFile.Path)
+                        ? preview.SelectedFile.OldPath
+                        : preview.SelectedFile.Path;
+                    AddLog($"↩ Rolling back file {filePath} from {entry.Commit.ShortHash}");
+                    await _gitService.RevertFileFromCommitAsync(entry.Commit.FullHash, preview.SelectedFile);
+                    AddLog("✅ File rollback commit created.");
+                    filesForRedeploy.Add(preview.SelectedFile);
+                }
+                else
+                {
+                    AddLog($"↩ Rolling back commit {entry.Commit.ShortHash}: {entry.Commit.Message}");
+                    await _gitService.RevertCommitAsync(entry.Commit.FullHash);
+                    AddLog("✅ Git revert completed.");
+                    filesForRedeploy.AddRange(entry.ChangedFiles ?? new List<CommitFileChangeInfo>());
+                }
+
+                await SyncLocalBranchesIfNeededAsync();
+                var pushOk = await PushToGithub();
+                AddLog(pushOk
+                    ? "✅ Rollback pushed to remote."
+                    : "⚠️ Rollback committed locally; push had issues.");
+
+                if (preview.RedeployRequested)
+                {
+                    await RedeployRollbackFilesAsync(filesForRedeploy, pushOk);
+                }
+                else
+                {
+                    StatusText.Text = pushOk
+                        ? "Rollback completed (Git + push)."
+                        : "Rollback completed locally; push had issues.";
+                    StatusText.Foreground = GetThemeBrush(
+                        pushOk ? "Status.Success" : "Status.Warning",
+                        pushOk ? System.Windows.Media.Brushes.LightGreen : System.Windows.Media.Brushes.Orange);
+                }
+
+                LoadGitData(includeExpensiveOperations: true, refreshBranches: true);
+            }
+            catch (Exception ex)
+            {
+                AddLog($"❌ Rollback failed: {ex.Message}");
+                ModernMessageBox.Show($"Rollback failed:\n{ex.Message}", "Rollback", MessageBoxButton.OK, MessageBoxImage.Error);
+                StatusText.Text = "Rollback failed.";
+                StatusText.Foreground = GetThemeBrush("Status.Error", System.Windows.Media.Brushes.OrangeRed);
+            }
+            finally
+            {
+                RollbackButton.IsEnabled = true;
+            }
+        }
+
+        private async Task RedeployRollbackFilesAsync(IReadOnlyList<CommitFileChangeInfo> changedFiles, bool pushOk)
+        {
+            var filesToDeploy = changedFiles
+                .Where(f => f.Type != ChangeType.Added)
+                .Select(f => new FileChange
+                {
+                    Name = string.IsNullOrWhiteSpace(f.Path) ? (f.OldPath ?? string.Empty) : f.Path,
+                    Type = f.Type == ChangeType.Deleted ? ChangeType.Added : ChangeType.Modified
+                })
+                .Where(f => !string.IsNullOrWhiteSpace(f.Name))
+                .ToList();
+
+            var restoredFromDelete = changedFiles
+                .Where(f => f.Type == ChangeType.Deleted)
+                .Select(f => new FileChange
+                {
+                    Name = string.IsNullOrWhiteSpace(f.OldPath) ? f.Path : f.OldPath!,
+                    Type = ChangeType.Added
+                })
+                .Where(f => !string.IsNullOrWhiteSpace(f.Name));
+
+            filesToDeploy = filesToDeploy
+                .Concat(restoredFromDelete)
+                .GroupBy(f => f.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(g => g.First())
+                .ToList();
+
+            if (filesToDeploy.Count == 0)
+            {
+                AddLog("ℹ️ No FTP-redeployable files after rollback (likely only new files were undone).");
+                StatusText.Text = "Rollback completed in Git. Nothing to redeploy.";
+                StatusText.Foreground = GetThemeBrush("Status.Success", System.Windows.Media.Brushes.LightGreen);
+                return;
+            }
+
+            AddLog($"🚀 Redeploying {filesToDeploy.Count} rolled-back file(s) to FTP…");
+            var deployResult = await StartDeployProcess(filesToDeploy, isAutoFlow: true, runGitPostSteps: false);
+            if (deployResult.HasFatalError || deployResult.IsCompleteFailure)
+            {
+                AddLog("⛔ FTP redeploy failed after rollback. Git rollback is already done.");
+                StatusText.Text = "Rollback done in Git; FTP redeploy failed.";
+                StatusText.Foreground = GetThemeBrush("Status.Warning", System.Windows.Media.Brushes.Orange);
+                return;
+            }
+
+            AddLog("✅ Rollback redeploy finished.");
+            StatusText.Text = pushOk
+                ? "Rollback completed (Git + FTP)."
+                : "Rollback completed locally + FTP; remote push had issues.";
+            StatusText.Foreground = GetThemeBrush("Status.Success", System.Windows.Media.Brushes.LightGreen);
         }
 
         private void UpdateActionButtonState(int uncommittedCount = -1, int totalCommits = -1)
@@ -1322,7 +2174,9 @@ namespace GitDeployPro.Pages
                 // Primary action: review list first, then one-click send
                 SetActionButton("commit", "📝 COMMIT && REVIEW", "Accent.Secondary", true);
                 string pendingText = uncommittedCount >= 0 ? uncommittedCount.ToString() : "some";
-                StatusText.Text = $"You have {pendingText} pending file(s). Review first, then deploy -> commit -> push.";
+                StatusText.Text = SkipReviewCheckBox?.IsChecked == true
+                    ? $"You have {pendingText} pending file(s). Skip review is on — Deploy → Commit + Push runs immediately."
+                    : $"You have {pendingText} pending file(s). Review first, then deploy -> commit -> push.";
                 StatusText.Foreground = GetThemeBrush("Status.Warning", System.Windows.Media.Brushes.Orange);
                 return;
             }
@@ -1501,10 +2355,37 @@ namespace GitDeployPro.Pages
         {
             if (ActionButton == null) return;
             
-            ActionButton.Content = content;
             ActionButton.Tag = tag;
             ActionButton.Background = ResolveBrush(colorResourceOrHex, "#444444");
             ActionButton.IsEnabled = isEnabled;
+
+            var isCommitAction = string.Equals(tag, "commit", StringComparison.OrdinalIgnoreCase);
+            if (SkipReviewCheckBox != null)
+            {
+                SkipReviewCheckBox.Visibility = isCommitAction ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            if (isCommitAction && SkipReviewCheckBox?.IsChecked == true)
+            {
+                ActionButton.Content = "⚡ DEPLOY → COMMIT + PUSH";
+            }
+            else
+            {
+                ActionButton.Content = content;
+            }
+        }
+
+        private void SkipReviewCheckBox_Changed(object sender, RoutedEventArgs e)
+        {
+            if (ActionButton?.Tag is not string tag
+                || !string.Equals(tag, "commit", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            ActionButton.Content = SkipReviewCheckBox?.IsChecked == true
+                ? "⚡ DEPLOY → COMMIT + PUSH"
+                : "📝 COMMIT && REVIEW";
         }
 
         private async void ActionButton_Click(object sender, RoutedEventArgs e)
@@ -1541,87 +2422,108 @@ namespace GitDeployPro.Pages
                     return;
                 }
 
+                var defaultMessage = $"deploy update {AppTimeService.LocalNow:yyyy-MM-dd HH:mm}";
+
+                // Skip review modal → same as modal "Deploy → Commit + Push".
+                if (SkipReviewCheckBox?.IsChecked == true)
+                {
+                    AddLog("⚡ Skip review enabled — running Deploy → Commit + Push directly.");
+                    await RunDeployCommitPushPipelineAsync(changes, defaultMessage);
+                    return;
+                }
+
                 var commitWindow = new CommitWindow(changes);
-                commitWindow.CommitMessage = $"deploy update {AppTimeService.LocalNow:yyyy-MM-dd HH:mm}";
+                commitWindow.CommitMessage = defaultMessage;
                 WindowOwnerService.ShowDialogOwned(commitWindow, this);
 
-                if (commitWindow.Confirmed)
+                if (!commitWindow.Confirmed)
                 {
-                    if (commitWindow.SyncWithoutDeployRequested)
-                    {
-                        string selectedSyncPath = commitWindow.SyncWithoutDeployPath?.Trim() ?? string.Empty;
-                        if (string.IsNullOrWhiteSpace(selectedSyncPath))
-                        {
-                            ModernMessageBox.Show("No file was selected for sync.", "Sync", MessageBoxButton.OK, MessageBoxImage.Warning);
-                            return;
-                        }
-
-                        AddLog($"🔄 Sync-only mode requested for file: {selectedSyncPath} (no FTP deploy).");
-                        await _gitService.CommitSpecificPathsAsync(new[] { selectedSyncPath }, commitWindow.CommitMessage);
-                        AddLog($"✅ Commit completed for selected file: {selectedSyncPath}");
-                        await SyncLocalBranchesIfNeededAsync();
-                        bool pushSucceededSyncOnly = await PushToGithub();
-                        AddLog(pushSucceededSyncOnly
-                            ? "✅ Single-file sync-only pipeline finished."
-                            : "⚠️ Single-file sync-only pipeline finished with push error.");
-                        StatusText.Text = pushSucceededSyncOnly
-                            ? "Selected file synced without deploy."
-                            : "Selected file synced locally; push had issues.";
-                        StatusText.Foreground = GetThemeBrush(
-                            pushSucceededSyncOnly ? "Status.Success" : "Status.Warning",
-                            pushSucceededSyncOnly ? System.Windows.Media.Brushes.LightGreen : System.Windows.Media.Brushes.Orange);
-                        LoadGitData();
-                        return;
-                    }
-
-                    var filesToDeploy = changes
-                        .Select(c => new FileChange { Name = c.Name, Type = c.Type, DiffPatch = c.DiffPatch })
-                        .ToList();
-
-                    _fileViewModels = filesToDeploy.Select(c => new DeployFileViewModel(c) { IsSelected = true }).ToList();
-                    FilesListBox.ItemsSource = _fileViewModels;
-                    SelectAllCheckBox.IsChecked = true;
-                    SelectFileSilently(-1);
-                    DeployButton.IsEnabled = false;
-                    DeployButton.Visibility = Visibility.Collapsed;
-                    ClearCompareContext(clearList: false);
-
-                    AddLog($"🚀 Step 1/2: Deploying {filesToDeploy.Count} reviewed file(s)...");
-                    var deployResult = await StartDeployProcess(filesToDeploy, isAutoFlow: true, runGitPostSteps: false);
-                    if (deployResult.HasFatalError || deployResult.IsCompleteFailure)
-                    {
-                        AddLog("⛔ Deploy failed. Commit+Push skipped to protect server state.");
-                        StatusText.Text = "Deploy failed. Commit was not created.";
-                        StatusText.Foreground = GetThemeBrush("Status.Error", System.Windows.Media.Brushes.OrangeRed);
-                        return;
-                    }
-
-                    if (deployResult.IsPartialSuccess)
-                    {
-                        var continueAfterWarning = ConfirmContinueGitAfterPartialDeploy(deployResult);
-                        if (!continueAfterWarning)
-                        {
-                            AddLog("⏸ Commit+Push skipped by user after partial deploy warning.");
-                            StatusText.Text = "Partial deploy completed. Commit skipped by user.";
-                            StatusText.Foreground = GetThemeBrush("Status.Warning", System.Windows.Media.Brushes.Orange);
-                            return;
-                        }
-                    }
-
-                    AddLog("📝 Step 2/2: Deploy succeeded, committing and pushing...");
-                    await _gitService.CommitChangesAsync(commitWindow.CommitMessage);
-                    AddLog("✅ Commit completed.");
-                    await SyncLocalBranchesIfNeededAsync();
-                    bool pushSucceeded = await PushToGithub();
-                    AddLog(pushSucceeded ? "✅ Send pipeline finished." : "⚠️ Send pipeline finished with push error.");
-                    await AddDeploymentHistoryRecordAsync(filesToDeploy);
-                    LoadGitData();
+                    return;
                 }
+
+                if (commitWindow.SyncWithoutDeployRequested)
+                {
+                    string selectedSyncPath = commitWindow.SyncWithoutDeployPath?.Trim() ?? string.Empty;
+                    if (string.IsNullOrWhiteSpace(selectedSyncPath))
+                    {
+                        ModernMessageBox.Show("No file was selected for sync.", "Sync", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return;
+                    }
+
+                    AddLog($"🔄 Sync-only mode requested for file: {selectedSyncPath} (no FTP deploy).");
+                    await _gitService.CommitSpecificPathsAsync(new[] { selectedSyncPath }, commitWindow.CommitMessage);
+                    AddLog($"✅ Commit completed for selected file: {selectedSyncPath}");
+                    await SyncLocalBranchesIfNeededAsync();
+                    bool pushSucceededSyncOnly = await PushToGithub();
+                    AddLog(pushSucceededSyncOnly
+                        ? "✅ Single-file sync-only pipeline finished."
+                        : "⚠️ Single-file sync-only pipeline finished with push error.");
+                    StatusText.Text = pushSucceededSyncOnly
+                        ? "Selected file synced without deploy."
+                        : "Selected file synced locally; push had issues.";
+                    StatusText.Foreground = GetThemeBrush(
+                        pushSucceededSyncOnly ? "Status.Success" : "Status.Warning",
+                        pushSucceededSyncOnly ? System.Windows.Media.Brushes.LightGreen : System.Windows.Media.Brushes.Orange);
+                    LoadGitData();
+                    return;
+                }
+
+                await RunDeployCommitPushPipelineAsync(changes, commitWindow.CommitMessage);
             }
             catch (Exception ex)
             {
                 ModernMessageBox.Show($"Send failed: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
+        }
+
+        private async Task RunDeployCommitPushPipelineAsync(List<FileChange> changes, string commitMessage)
+        {
+            var filesToDeploy = changes
+                .Select(c => new FileChange { Name = c.Name, Type = c.Type, DiffPatch = c.DiffPatch })
+                .ToList();
+
+            _fileViewModels = filesToDeploy.Select(c => new DeployFileViewModel(c) { IsSelected = true }).ToList();
+            FilesListBox.ItemsSource = _fileViewModels;
+            SelectAllCheckBox.IsChecked = true;
+            SelectFileSilently(-1);
+            DeployButton.IsEnabled = false;
+            DeployButton.Visibility = Visibility.Collapsed;
+            ClearCompareContext(clearList: false);
+
+            AddLog($"🚀 Step 1/2: Deploying {filesToDeploy.Count} file(s)...");
+            var deployResult = await StartDeployProcess(filesToDeploy, isAutoFlow: true, runGitPostSteps: false);
+            if (deployResult.HasFatalError || deployResult.IsCompleteFailure)
+            {
+                AddLog("⛔ Deploy failed. Commit+Push skipped to protect server state.");
+                StatusText.Text = "Deploy failed. Commit was not created.";
+                StatusText.Foreground = GetThemeBrush("Status.Error", System.Windows.Media.Brushes.OrangeRed);
+                return;
+            }
+
+            if (deployResult.IsPartialSuccess)
+            {
+                var continueAfterWarning = ConfirmContinueGitAfterPartialDeploy(deployResult);
+                if (!continueAfterWarning)
+                {
+                    AddLog("⏸ Commit+Push skipped by user after partial deploy warning.");
+                    StatusText.Text = "Partial deploy completed. Commit skipped by user.";
+                    StatusText.Foreground = GetThemeBrush("Status.Warning", System.Windows.Media.Brushes.Orange);
+                    return;
+                }
+            }
+
+            var message = string.IsNullOrWhiteSpace(commitMessage)
+                ? $"deploy update {AppTimeService.LocalNow:yyyy-MM-dd HH:mm}"
+                : commitMessage.Trim();
+
+            AddLog("📝 Step 2/2: Deploy succeeded, committing and pushing...");
+            await _gitService.CommitChangesAsync(message);
+            AddLog("✅ Commit completed.");
+            await SyncLocalBranchesIfNeededAsync();
+            bool pushSucceeded = await PushToGithub();
+            AddLog(pushSucceeded ? "✅ Send pipeline finished." : "⚠️ Send pipeline finished with push error.");
+            await AddDeploymentHistoryRecordAsync(filesToDeploy);
+            LoadGitData();
         }
 
         private async Task HandleCompare()
@@ -1993,14 +2895,16 @@ namespace GitDeployPro.Pages
                         }
 
                         string localPath = System.IO.Path.Combine(_projectConfig.LocalProjectPath, file.Name);
-                        if (!System.IO.File.Exists(localPath))
+                        bool isLocalDirectory = System.IO.Directory.Exists(localPath);
+                        bool isLocalFile = System.IO.File.Exists(localPath);
+                        if (!isLocalFile && !isLocalDirectory)
                         {
                             result.FailedItems.Add(new DeployFailedItem(file.Name, "Local file missing."));
                             AddLog($"⚠️ Missing local file: {file.Name}");
                             continue;
                         }
 
-                        string relativePath = file.Name.Replace("\\", "/");
+                        string relativePath = file.Name.Replace("\\", "/").TrimEnd('/');
                         string remoteBaseToUse = defaultRemoteBase;
                         string relativeRemote = relativePath;
 
@@ -2022,14 +2926,25 @@ namespace GitDeployPro.Pages
                         }
 
                         string remotePath = $"{remoteBaseToUse.TrimEnd('/')}/{relativeRemote}";
-                        
-                        string remoteDir = System.IO.Path.GetDirectoryName(remotePath)?.Replace("\\", "/");
-                        if (!string.IsNullOrEmpty(remoteDir))
+
+                        if (isLocalDirectory)
                         {
-                             if (!await client.DirectoryExists(remoteDir))
-                             {
-                                 await client.CreateDirectory(remoteDir); 
-                             }
+                            try
+                            {
+                                AddLog($"📁 Ensuring remote folder {file.Name}...");
+                                ProgressText.Text = $"Creating folder {current}/{total}: {file.Name}";
+                                DeployProgressBar.Value = (current * 100) / total;
+                                await FtpDirectoryEnsure.EnsureAsync(client, remotePath);
+                                result.UploadedCount++;
+                                AddLog($"✅ Folder ready {file.Name}");
+                            }
+                            catch (Exception dirEx)
+                            {
+                                result.FailedItems.Add(new DeployFailedItem(file.Name, dirEx.Message));
+                                AddLog($"❌ Folder failed {file.Name}: {dirEx.Message}");
+                            }
+
+                            continue;
                         }
 
                         try
@@ -2038,7 +2953,8 @@ namespace GitDeployPro.Pages
                             ProgressText.Text = $"Uploading {current}/{total}: {file.Name}";
                             DeployProgressBar.Value = (current * 100) / total;
 
-                            await client.UploadFile(localPath, remotePath, FtpRemoteExists.Overwrite);
+                            await FtpDirectoryEnsure.EnsureParentOfFileAsync(client, remotePath);
+                            await client.UploadFile(localPath, remotePath, FtpRemoteExists.Overwrite, createRemoteDir: true);
                             result.UploadedCount++;
                             AddLog($"✅ Uploaded {file.Name}");
                         }
@@ -2515,24 +3431,48 @@ namespace GitDeployPro.Pages
 
         private void AddLog(string message)
         {
-            if (LogTextBlock == null) return;
+            if (LogTextBox == null) return;
 
             Dispatcher.Invoke(() =>
             {
                 var timestamp = AppTimeService.LocalNow.ToString("HH:mm:ss");
                 var newLog = $"[{timestamp}] {message}\n";
-                
-                if (LogTextBlock.Text == "Waiting for deployment...")
+
+                if (LogTextBox.Text == "Waiting for deployment...")
                 {
-                    LogTextBlock.Text = newLog;
+                    LogTextBox.Text = newLog;
                 }
                 else
                 {
-                    LogTextBlock.Text += newLog;
+                    LogTextBox.Text += newLog;
                 }
 
-                LogScrollViewer?.ScrollToEnd();
+                LogTextBox.CaretIndex = LogTextBox.Text.Length;
+                LogTextBox.ScrollToEnd();
             });
+        }
+
+        private void LogCopyMenu_Click(object sender, RoutedEventArgs e)
+        {
+            if (LogTextBox == null)
+            {
+                return;
+            }
+
+            if (LogTextBox.SelectionLength > 0)
+            {
+                LogTextBox.Copy();
+            }
+            else if (!string.IsNullOrEmpty(LogTextBox.Text))
+            {
+                System.Windows.Clipboard.SetText(LogTextBox.Text);
+            }
+        }
+
+        private void LogSelectAllMenu_Click(object sender, RoutedEventArgs e)
+        {
+            LogTextBox?.SelectAll();
+            LogTextBox?.Focus();
         }
 
         private async Task AddDeploymentHistoryRecordAsync(List<FileChange> filesToDeploy)
@@ -2621,9 +3561,9 @@ namespace GitDeployPro.Pages
 
         private void ClearLogs_Click(object sender, RoutedEventArgs e)
         {
-            if (LogTextBlock != null)
+            if (LogTextBox != null)
             {
-                LogTextBlock.Text = "Waiting for deployment...";
+                LogTextBox.Text = "Waiting for deployment...";
                 AddLog("🗑️ Logs cleared");
             }
         }

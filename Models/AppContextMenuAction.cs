@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Windows.Input;
 
 namespace GitDeployPro.Models
@@ -15,6 +16,7 @@ namespace GitDeployPro.Models
         public ICommand? Command { get; init; }
         public object? CommandParameter { get; init; }
         public Action<object?>? Execute { get; init; }
+        public IReadOnlyList<AppContextMenuAction>? Children { get; init; }
 
         public static AppContextMenuAction Separator(string id = "separator")
         {

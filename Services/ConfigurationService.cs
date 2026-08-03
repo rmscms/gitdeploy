@@ -53,6 +53,21 @@ namespace GitDeployPro.Services
 
             /// <summary>Last version for which the What's New modal was shown.</summary>
             public string LastSeenWhatsNewVersion { get; set; } = "";
+
+            /// <summary>
+            /// App-wide theme id (default | dark | custom pack ids). Persists across pages and restarts.
+            /// </summary>
+            public string AppThemeId { get; set; } = "default";
+
+            /// <summary>
+            /// Legacy alias kept in sync with <see cref="AppThemeId"/> for older configs / Deploy UI.
+            /// </summary>
+            public string DeployThemeId { get; set; } = "default";
+
+            /// <summary>
+            /// Custom theme pack filenames under %AppData%\GitDeployPro\Themes\.
+            /// </summary>
+            public List<string> CustomThemeFiles { get; set; } = new();
         }
 
         public class RecentProjectEntry
@@ -249,7 +264,47 @@ namespace GitDeployPro.Services
             config.TerminalPresets ??= new List<TerminalCommandPreset>();
             config.BackupSchedules ??= new List<BackupSchedule>();
             config.BackupHistory ??= new List<BackupHistoryEntry>();
+            MigrateAppThemeId(config, token);
             return config;
+        }
+
+        /// <summary>
+        /// Prefer AppThemeId; migrate from DeployThemeId when the new field was absent.
+        /// Keeps both ids aligned for backward compatibility.
+        /// </summary>
+        private static void MigrateAppThemeId(GlobalConfig config, JToken token)
+        {
+            var appThemeToken = token["AppThemeId"];
+            var hasAppTheme = appThemeToken != null && appThemeToken.Type != JTokenType.Null
+                              && !string.IsNullOrWhiteSpace(appThemeToken.ToString());
+
+            if (!hasAppTheme && !string.IsNullOrWhiteSpace(config.DeployThemeId))
+            {
+                config.AppThemeId = config.DeployThemeId;
+            }
+
+            if (string.IsNullOrWhiteSpace(config.AppThemeId))
+            {
+                config.AppThemeId = "default";
+            }
+
+            config.DeployThemeId = config.AppThemeId;
+        }
+
+        public string ResolveAppThemeId()
+        {
+            var config = LoadGlobalConfig();
+            return string.IsNullOrWhiteSpace(config.AppThemeId) ? "default" : config.AppThemeId;
+        }
+
+        public void SetAppThemeId(string themeId)
+        {
+            var id = string.IsNullOrWhiteSpace(themeId) ? "default" : themeId.Trim();
+            UpdateGlobalConfig(cfg =>
+            {
+                cfg.AppThemeId = id;
+                cfg.DeployThemeId = id;
+            });
         }
 
         public void SaveGlobalConfig(GlobalConfig config)

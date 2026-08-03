@@ -176,6 +176,19 @@
       }
     };
 
+    window.__setTheme = function(themeName, background) {
+      const name = themeName || "vs-dark";
+      if (window.monaco && monaco.editor) {
+        monaco.editor.setTheme(name);
+      }
+      if (background) {
+        document.documentElement.style.background = background;
+        document.body.style.background = background;
+        const container = document.getElementById("container");
+        if (container) container.style.background = background;
+      }
+    };
+
     window.__setEditable = function(enabled) {
       if (!editor) return;
       editor.updateOptions({ readOnly: !enabled });

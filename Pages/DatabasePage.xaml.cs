@@ -15,7 +15,11 @@ using System.Xml;
 using GitDeployPro.Controls;
 using GitDeployPro.Models;
 using GitDeployPro.Services;
+using GitDeployPro.Services.Theme;
 using GitDeployPro.Windows;
+using MediaBrush = System.Windows.Media.Brush;
+using MediaBrushes = System.Windows.Media.Brushes;
+using SolidColorBrush = System.Windows.Media.SolidColorBrush;
 using ICSharpCode.AvalonEdit.CodeCompletion;
 using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Highlighting;
@@ -107,14 +111,22 @@ namespace GitDeployPro.Pages
 
         private IHighlightingDefinition CreateSqlHighlighting()
         {
-            var xshdXml = @"<?xml version=""1.0""?>
+            var tokens = ThemeService.Instance.CurrentTokens;
+            var comment = tokens.GetHex("editor.syntaxComment", "#6A9955");
+            var str = tokens.GetHex("editor.syntaxString", "#CE9178");
+            var keyword = tokens.GetHex("editor.syntaxKeyword", "#569CD6");
+            var function = tokens.GetHex("editor.syntaxFunction", "#DCDCAA");
+            var number = tokens.GetHex("editor.syntaxNumber", "#B5CEA8");
+            var dataType = tokens.GetHex("editor.syntaxDataType", "#4EC9B0");
+
+            var xshdXml = $@"<?xml version=""1.0""?>
 <SyntaxDefinition name=""SQL"" xmlns=""http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008"">
-  <Color name=""Comment"" foreground=""#6A9955"" fontStyle=""italic""/>
-  <Color name=""String"" foreground=""#CE9178""/>
-  <Color name=""Keyword"" foreground=""#569CD6"" fontWeight=""bold""/>
-  <Color name=""Function"" foreground=""#DCDCAA""/>
-  <Color name=""Number"" foreground=""#B5CEA8""/>
-  <Color name=""DataType"" foreground=""#4EC9B0""/>
+  <Color name=""Comment"" foreground=""{comment}"" fontStyle=""italic""/>
+  <Color name=""String"" foreground=""{str}""/>
+  <Color name=""Keyword"" foreground=""{keyword}"" fontWeight=""bold""/>
+  <Color name=""Function"" foreground=""{function}""/>
+  <Color name=""Number"" foreground=""{number}""/>
+  <Color name=""DataType"" foreground=""{dataType}""/>
   
   <RuleSet ignoreCase=""true"">
     <Span color=""Comment"" begin=""--"" />
@@ -208,12 +220,16 @@ namespace GitDeployPro.Pages
             if (!completionData.Any()) return;
 
             _completionWindow = new CompletionWindow(SqlEditor.TextArea);
-            _completionWindow.Background = new System.Windows.Media.SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#1E1E1E"));
-            _completionWindow.Foreground = System.Windows.Media.Brushes.White;
-            _completionWindow.BorderBrush = new System.Windows.Media.SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#3F3F46"));
+            var theme = ThemeService.Instance;
+            _completionWindow.Background = theme.GetTokenBrush("editor.completionBackground",
+                (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#1E1E1E")!);
+            _completionWindow.Foreground = TryFindBrush("Text.Primary") ?? MediaBrushes.White;
+            _completionWindow.BorderBrush = theme.GetTokenBrush("editor.completionBorder",
+                (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#3F3F46")!);
             _completionWindow.BorderThickness = new Thickness(1);
-            _completionWindow.CompletionList.Background = new System.Windows.Media.SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#252526"));
-            _completionWindow.CompletionList.Foreground = System.Windows.Media.Brushes.White;
+            _completionWindow.CompletionList.Background = theme.GetTokenBrush("editor.completionListBackground",
+                (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#252526")!);
+            _completionWindow.CompletionList.Foreground = TryFindBrush("Text.Primary") ?? MediaBrushes.White;
 
             var data = _completionWindow.CompletionList.CompletionData;
             foreach (var item in completionData)
@@ -381,9 +397,10 @@ namespace GitDeployPro.Pages
                 _activeConnection = entry;
 
                 // Update UI
-                StatusIndicator.Fill = new System.Windows.Media.SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#4CAF50"));
+                StatusIndicator.Fill = TryFindBrush("Status.Success") ?? new SolidColorBrush(
+                    (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#4CAF50")!);
                 ConnectionStatusText.Text = $"Connected to {entry.Host}:{entry.Port}";
-                ConnectionStatusText.Foreground = System.Windows.Media.Brushes.White;
+                ConnectionStatusText.Foreground = TryFindBrush("Text.Primary") ?? MediaBrushes.White;
                 ActiveDatabaseText.Text = "";
                 RefreshButton.IsEnabled = true;
                 DisconnectButton.IsEnabled = true;
@@ -656,9 +673,11 @@ namespace GitDeployPro.Pages
             _activeConnection = null;
             RefreshButton.IsEnabled = false;
             DisconnectButton.IsEnabled = false;
-            StatusIndicator.Fill = new System.Windows.Media.SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#666666"));
+            StatusIndicator.Fill = TryFindBrush("Text.Muted") ?? new SolidColorBrush(
+                (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#666666")!);
             ConnectionStatusText.Text = "Not Connected";
-            ConnectionStatusText.Foreground = new System.Windows.Media.SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#A0A0A0"));
+            ConnectionStatusText.Foreground = TryFindBrush("Text.Muted") ?? new SolidColorBrush(
+                (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#A0A0A0")!);
             ActiveDatabaseText.Text = "";
             SelectorBar.Visibility = Visibility.Collapsed;
             DatabaseScrollViewer.Visibility = Visibility.Collapsed;
@@ -675,6 +694,18 @@ namespace GitDeployPro.Pages
             CreateDbCollationCombo.SelectedItem = null;
             CreateDbNameBox?.Clear();
             CreateDbStatusText.Text = string.Empty;
+        }
+
+        private MediaBrush? TryFindBrush(string key)
+        {
+            try
+            {
+                return FindResource(key) as MediaBrush;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         private void SetBusy(bool isBusy, string? message = null)
