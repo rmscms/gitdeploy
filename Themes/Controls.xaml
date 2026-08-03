@@ -197,6 +197,30 @@
         <Setter Property="AcceptsReturn" Value="True" />
     </Style>
 
+    <!-- Full-panel log viewer: must override implicit App.InputTextBox (fixed Height=38, VCenter). -->
+    <Style x:Key="App.LogTextBox" TargetType="TextBox">
+        <Setter Property="Height" Value="Auto" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="VerticalAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Top" />
+        <Setter Property="HorizontalContentAlignment" Value="Left" />
+        <Setter Property="Padding" Value="10,8" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="AcceptsReturn" Value="True" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="IsReadOnly" Value="True" />
+        <Setter Property="IsReadOnlyCaretVisible" Value="False" />
+        <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
+        <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
+        <Setter Property="FontFamily" Value="{StaticResource FontFamily.Mono}" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Foreground" Value="{StaticResource Log.Success}" />
+        <Setter Property="CaretBrush" Value="{StaticResource Text.Primary}" />
+        <Setter Property="SelectionBrush" Value="{StaticResource Accent.Primary}" />
+    </Style>
+
     <Style x:Key="App.InputPasswordBox" TargetType="PasswordBox">
         <Setter Property="Height" Value="38" />
         <Setter Property="Padding" Value="10,0" />

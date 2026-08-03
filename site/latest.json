@@ -1,15 +1,14 @@
 {
-  "version": "1.4.11",
-  "fileName": "GitDeployPro-1.4.11.exe",
-  "downloadUrl": "versions/GitDeployPro-1.4.11.exe",
-  "sha256": "12F09D72E47588FA46D4A19968B8C6EA20A78D7BFA286740949D9CD4A030C519",
-  "releaseNotes": "- Fix Deploy left rail overlapping content with locked rail width and margins\n- Fix Direct Upload empty tree caused by theme brushes on background scan\n- Polish Logs/Terminal bottom tabs into Material chip style\n- Widen Deploy shell spacing so docks no longer cover the icon rails",
+  "version": "1.4.12",
+  "fileName": "GitDeployPro-1.4.12.exe",
+  "downloadUrl": "versions/GitDeployPro-1.4.12.exe",
+  "sha256": "3E27285A96D8813DBBB8A1ABB703D64AAEAD2E9097F413D882B485B66AA26680",
+  "releaseNotes": "- Fix Deploy Logs panel showing only one line (override fixed-height TextBox style)\n- Keep ~8 empty rows under the terminal cursor for readability\n- Terminal bottom pad matches theme background (no bright band)",
   "changelog": [
-    "Fix Deploy left rail overlapping content with locked rail width and margins",
-    "Fix Direct Upload empty tree caused by theme brushes on background scan",
-    "Polish Logs/Terminal bottom tabs into Material chip style",
-    "Widen Deploy shell spacing so docks no longer cover the icon rails"
+    "Fix Deploy Logs panel showing only one line (override fixed-height TextBox style)",
+    "Keep ~8 empty rows under the terminal cursor for readability",
+    "Terminal bottom pad matches theme background (no bright band)"
   ],
   "mandatory": false,
-  "publishedUtc": "2026-08-03T09:22:17Z"
+  "publishedUtc": "2026-08-03T10:44:47Z"
 }

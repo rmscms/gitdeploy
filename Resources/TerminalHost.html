@@ -29,8 +29,16 @@
       flex: 1 1 auto;
       min-height: 0;
       width: 100%;
-      height: 100%;
       background: #0c0c0c;
+    }
+
+    /* Keep ~7–8 empty rows under the cursor so the prompt isn't glued to the bottom edge. */
+    #terminal-pad {
+      flex: 0 0 auto;
+      width: 100%;
+      height: 140px;
+      background: #0c0c0c;
+      pointer-events: none;
     }
 
     .xterm-viewport::-webkit-scrollbar {
@@ -46,6 +54,7 @@
 <body>
   <div id="terminal-wrap">
     <div id="terminal"></div>
+    <div id="terminal-pad" aria-hidden="true"></div>
   </div>
 
   <script>
@@ -207,6 +216,9 @@
       };
 
       const initXtermTerminal = () => {
+        const BOTTOM_PAD_ROWS = 8;
+        const padElement = document.getElementById('terminal-pad');
+
         const term = new Terminal({
           allowProposedApi: false,
           convertEol: false,
@@ -217,7 +229,7 @@
           fontSize: 14,
           scrollback: 10000,
           theme: {
-            background: '#1e1e1e',
+            background: '#0c0c0c',
             foreground: '#d4d4d4',
             cursor: '#00ff00',
             selectionBackground: 'rgba(128, 128, 128, 0.35)'
@@ -227,11 +239,26 @@
         const fitAddon = new FitAddon.FitAddon();
         term.loadAddon(fitAddon);
         term.open(termElement);
+
+        const applyBottomPad = (bg) => {
+          if (!padElement) {
+            return;
+          }
+          const fontSize = (term.options && term.options.fontSize) || 14;
+          const lineHeight = Math.max(16, Math.ceil(fontSize * 1.25));
+          padElement.style.height = `${lineHeight * BOTTOM_PAD_ROWS}px`;
+          if (bg) {
+            padElement.style.background = bg;
+          }
+        };
+
+        applyBottomPad((term.options.theme && term.options.theme.background) || '#0c0c0c');
         fitAddon.fit();
 
         let typingEnabled = true;
 
         const pushResize = () => {
+          applyBottomPad();
           fitAddon.fit();
           post({ type: 'resize', cols: term.cols, rows: term.rows });
         };
@@ -309,7 +336,7 @@
             case 'setFontSize':
               if (typeof message.value === 'number') {
                 term.options.fontSize = message.value;
-                fitAddon.fit();
+                pushResize();
               }
               break;
             case 'setForeground':
@@ -336,7 +363,8 @@
                 document.querySelectorAll('.xterm, .xterm-viewport, .xterm-screen').forEach((el) => {
                   el.style.background = bg;
                 });
-                fitAddon.fit();
+                applyBottomPad(bg);
+                pushResize();
               }
               break;
             case 'setTypingEnabled':
