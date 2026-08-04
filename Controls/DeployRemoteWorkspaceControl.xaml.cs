@@ -1010,9 +1010,12 @@ namespace GitDeployPro.Controls
                 operationLabel);
         }
 
-        private async void ConnectButton_Click(object sender, RoutedEventArgs e)
+        private async void ConnectionToggleButton_Click(object sender, RoutedEventArgs e)
         {
-            if (_isBusy) return;
+            if (_isBusy)
+            {
+                return;
+            }
 
             if (_remoteService != null && _remoteService.IsConnected)
             {
@@ -1027,6 +1030,39 @@ namespace GitDeployPro.Controls
             }
 
             await ConnectAsync(profile, showDialogOnError: true, isAutoConnect: false);
+        }
+
+        private async void EditConnectionButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_isBusy)
+            {
+                return;
+            }
+
+            var manager = new ConnectionManagerWindow
+            {
+                Owner = Window.GetWindow(this)
+            };
+            manager.ShowDialog();
+
+            var previousId = (ConnectionComboBox.SelectedItem as ConnectionProfile)?.Id;
+            await LoadProfilesAsync();
+
+            if (!string.IsNullOrWhiteSpace(previousId))
+            {
+                var match = ConnectionComboBox.Items
+                    .OfType<ConnectionProfile>()
+                    .FirstOrDefault(p => string.Equals(p.Id, previousId, StringComparison.OrdinalIgnoreCase));
+                if (match != null)
+                {
+                    ConnectionComboBox.SelectedItem = match;
+                }
+            }
+
+            if (_remoteService == null || !_remoteService.IsConnected)
+            {
+                _ = TryAutoConnectAsync();
+            }
         }
 
         private async Task ConnectAsync(ConnectionProfile profile, bool showDialogOnError, bool isAutoConnect)
@@ -2773,9 +2809,24 @@ namespace GitDeployPro.Controls
         {
             var connected = _remoteService != null && _remoteService.IsConnected;
 
-            ConnectButton.Content = connected ? "Disconnect" : "Connect";
-            ConnectButton.IsEnabled = !_isBusy && _currentProfile != null;
-            RefreshButton.IsEnabled = !_isBusy;
+            if (EditConnectionButton != null)
+            {
+                EditConnectionButton.IsEnabled = !_isBusy;
+            }
+
+            if (ConnectionToggleButton != null)
+            {
+                ConnectionToggleButton.IsEnabled = !_isBusy && (connected || _currentProfile != null || ConnectionComboBox.SelectedItem != null);
+                ConnectionToggleButton.Opacity = 1.0;
+                ConnectionToggleButton.Content = connected ? "✕" : "⚡";
+                ConnectionToggleButton.ToolTip = connected ? "Disconnect" : "Connect";
+            }
+
+            if (RefreshButton != null)
+            {
+                RefreshButton.IsEnabled = !_isBusy;
+            }
+
             ConnectionComboBox.IsEnabled = !_isBusy;
             RemoteTreeView.IsEnabled = connected && !_isBusy;
             UpdateMappingBanner();

@@ -186,7 +186,8 @@ namespace GitDeployPro.Controls
             }
 
             _dockedPresetsWired = true;
-            DockedSavedCommandsPanel.InjectCommand = InjectCommandText;
+            DockedSavedCommandsPanel.RunCommand = command => InjectCommandText(command, execute: true);
+            DockedSavedCommandsPanel.InsertCommand = command => InjectCommandText(command, execute: false);
             DockedSavedCommandsPanel.CloseRequested += (_, _) => SetPresetsUiOpen(false);
             DockedSavedCommandsPanel.PresentationModeRequested += (_, mode) => SetPresetsUiMode(mode, keepOpen: true);
             DockedSavedCommandsPanel.SetPresentationMode(_presetsUiMode);
@@ -287,7 +288,8 @@ namespace GitDeployPro.Controls
             {
                 _savedCommandsWindow = new SavedCommandsWindow
                 {
-                    InjectCommand = InjectCommandText
+                    RunCommand = command => InjectCommandText(command, execute: true),
+                    InsertCommand = command => InjectCommandText(command, execute: false)
                 };
                 _savedCommandsWindow.CloseRequested += (_, _) => SetPresetsUiOpen(false);
                 _savedCommandsWindow.PresentationModeRequested += (_, mode) => SetPresetsUiMode(mode, keepOpen: true);
@@ -489,9 +491,9 @@ namespace GitDeployPro.Controls
             }
         }
 
-        public void InjectCommandText(string command)
+        public void InjectCommandText(string command, bool execute = true)
         {
-            _ = InjectCommandTextAsync(command);
+            _ = InjectCommandTextAsync(command, execute);
         }
 
         private async void TerminalControl_Loaded(object sender, RoutedEventArgs e)
@@ -699,17 +701,6 @@ namespace GitDeployPro.Controls
             if (_isConnected &&
                 string.Equals(_activeTerminalTargetId, target.Id, StringComparison.OrdinalIgnoreCase))
             {
-                return;
-            }
-
-            await ConnectSelectedTargetAsync();
-        }
-
-        private async void ConnectButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (_isConnected)
-            {
-                await DisconnectAsync();
                 return;
             }
 
@@ -1306,7 +1297,6 @@ namespace GitDeployPro.Controls
             StatusIndicator.Background = ThemeService.Instance.GetTokenBrush(
                 "terminal.statusConnecting",
                 System.Windows.Media.Colors.OrangeRed);
-            ConnectButton.IsEnabled = false;
         }
 
         private void SetConnectedStatus(string text)
@@ -1315,9 +1305,6 @@ namespace GitDeployPro.Controls
             StatusIndicator.Background = ThemeService.Instance.GetTokenBrush(
                 "terminal.statusConnected",
                 System.Windows.Media.Colors.LimeGreen);
-            ConnectButton.Content = "Disconnect";
-            ConnectButton.Background = System.Windows.Media.Brushes.DarkRed;
-            ConnectButton.IsEnabled = true;
         }
 
         private void SetDisconnectedStatus()
@@ -1326,32 +1313,32 @@ namespace GitDeployPro.Controls
             StatusIndicator.Background = ThemeService.Instance.GetTokenBrush(
                 "terminal.statusDisconnected",
                 System.Windows.Media.Colors.Gray);
-            ConnectButton.Content = "Connect";
-            ConnectButton.Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 122, 204));
-            ConnectButton.IsEnabled = true;
         }
 
-        private async Task InjectCommandTextAsync(string command)
+        private async Task InjectCommandTextAsync(string command, bool execute = true)
         {
             if (string.IsNullOrWhiteSpace(command))
             {
                 return;
             }
 
-            // Normalize so we always send a single Enter after the command body.
+            // Normalize trailing newlines; Enter is optional (insert vs run).
             var payload = command.TrimEnd('\r', '\n');
 
             if (_session == null || !_isConnected)
             {
-                await WriteToTerminalAsync($"\r\n> {payload}\r\n");
+                await WriteToTerminalAsync(execute ? $"\r\n> {payload}\r\n" : $"\r\n> {payload}");
                 await FocusTerminalAsync();
                 return;
             }
 
-            // Write body and Enter separately (matches typed Enter from xterm = \r).
             await _session.WriteAsync(payload);
-            await Task.Delay(15);
-            await _session.WriteAsync("\r");
+            if (execute)
+            {
+                await Task.Delay(15);
+                await _session.WriteAsync("\r");
+            }
+
             await FocusTerminalAsync();
         }
 
@@ -1362,8 +1349,12 @@ namespace GitDeployPro.Controls
 
         private void DetachButton_Click(object sender, RoutedEventArgs e)
         {
-            var window = new TerminalWindow(_projectPath ?? string.Empty);
-            WindowOwnerService.ShowOwned(window, this);
+            // Open an extra floating terminal window (independent session).
+            var window = new TerminalWindow(_projectPath ?? string.Empty)
+            {
+                Title = "Terminal • Float"
+            };
+            WindowOwnerService.ShowOwned(window, this, centerOnOwner: false);
         }
 
         private async void ClearButton_Click(object sender, RoutedEventArgs e)

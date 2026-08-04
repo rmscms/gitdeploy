@@ -24,9 +24,6 @@ namespace GitDeployPro
     public partial class MainWindow : Window, INotifyPropertyChanged
     {
         private ConfigurationService _configService;
-        public bool IsSidebarCollapsed => _isSidebarCollapsed;
-        private bool _isSidebarCollapsed;
-        private const double DefaultSidebarWidth = 240;
         private readonly BackupTaskMonitor _taskMonitor = BackupTaskMonitor.Instance;
         private readonly DispatcherTimer _nextRunTimer;
         private DateTime? _nextRunUtc;
@@ -36,7 +33,6 @@ namespace GitDeployPro
         private bool _trayHintShown;
         private bool _minimizeToTrayEnabled = true;
         private string _currentRoute = string.Empty;
-        private bool _sidebarCollapsedBeforeDeploy;
         private readonly DispatcherTimer _updateCheckTimer;
         private CancellationTokenSource? _updateDownloadCts;
         private readonly AppUpdateService _updateService = new();
@@ -50,7 +46,6 @@ namespace GitDeployPro
             using var startupScope = PerformanceSampler.Instance.BeginScope("navigation", "main-window-startup");
             InitializeComponent();
             _configService = new ConfigurationService();
-            SetSidebarCollapsed(false);
             LoadRecentProjects();
             _taskMonitor.PropertyChanged += TaskMonitorOnPropertyChanged;
             BackupScheduleStore.SchedulesChanged += BackupScheduleStoreOnSchedulesChanged;
@@ -66,7 +61,7 @@ namespace GitDeployPro
             Closing += MainWindow_Closing;
             Loaded += MainWindow_Loaded;
 
-            NavigateToPage(new DashboardPage(), "dashboard");
+            NavigateToPage(new DeployPage(), "deploy");
         }
 
         private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
@@ -81,8 +76,8 @@ namespace GitDeployPro
                 return;
             }
 
-            // Ensure shortcut/startup stay aligned when already installed.
-            DesktopShortcutService.EnsureShortcut(AppInstallPaths.ExecutablePath);
+            // Portable leftovers → LocalAppData: recreate Desktop shortcut if missing.
+            DesktopShortcutService.EnsureDefaultShortcut();
             var global = _configService.LoadGlobalConfig();
             new AutoStartService().RefreshToInstallPath(global.LaunchOnStartup);
 
@@ -460,61 +455,66 @@ namespace GitDeployPro
 
         private void ProjectSelectorBtn_Click(object sender, RoutedEventArgs e)
         {
+            CloseNavMenuPopup();
             ProjectMenuPopup.IsOpen = !ProjectMenuPopup.IsOpen;
         }
 
-        private void SidebarToggleButton_Click(object sender, RoutedEventArgs e)
+        private void NavMenuButton_Click(object sender, RoutedEventArgs e)
         {
-            SetSidebarCollapsed(!_isSidebarCollapsed);
-            LogSidebarAction("ToggleButton");
+            if (ProjectMenuPopup.IsOpen)
+            {
+                ProjectMenuPopup.IsOpen = false;
+            }
+
+            NavMenuPopup.IsOpen = !NavMenuPopup.IsOpen;
         }
 
-        private void SidebarToggleButton_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
+        private void NavMenuButton_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
         {
-            SidebarToggleButton.Background = System.Windows.Application.Current?.TryFindResource("State.Hover") as System.Windows.Media.Brush
+            NavMenuButton.Background = System.Windows.Application.Current?.TryFindResource("State.Hover") as System.Windows.Media.Brush
                 ?? new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#35373B"));
         }
 
-        private void SidebarToggleButton_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
+        private void NavMenuButton_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
         {
-            SidebarToggleButton.Background = System.Windows.Media.Brushes.Transparent;
+            NavMenuButton.Background = System.Windows.Media.Brushes.Transparent;
         }
 
-        public void SetSidebarCollapsed(bool collapsed)
+        private void NavMenuPopup_Opened(object sender, EventArgs e)
         {
-            _isSidebarCollapsed = collapsed;
-            SidebarToggleIcon.Text = collapsed ? "☰" : "⮜";
-            SidebarToggleButton.ToolTip = collapsed ? "Show Sidebar" : "Hide Sidebar";
-            SidebarColumn.Width = collapsed ? new GridLength(0) : new GridLength(DefaultSidebarWidth);
-            SidebarPanel.Visibility = collapsed ? Visibility.Collapsed : Visibility.Visible;
-            Grid.SetColumn(SidebarPanel, 0);
-            Grid.SetColumnSpan(SidebarPanel, 1);
-            SidebarPanel.Width = double.NaN;
-            SidebarPanel.HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch;
-            System.Windows.Controls.Panel.SetZIndex(SidebarPanel, 0);
+            HighlightActiveNavRoute();
         }
 
-        private void ApplyDeploySidebarPolicy(string previousRoute, string route)
+        private void HighlightActiveNavRoute()
         {
-            var enteringDeploy = string.Equals(route, "deploy", StringComparison.OrdinalIgnoreCase);
-            var leavingDeploy = string.Equals(previousRoute, "deploy", StringComparison.OrdinalIgnoreCase) && !enteringDeploy;
-
-            if (enteringDeploy && !string.Equals(previousRoute, "deploy", StringComparison.OrdinalIgnoreCase))
+            if (NavMenuItemsPanel == null)
             {
-                _sidebarCollapsedBeforeDeploy = _isSidebarCollapsed;
-                SetSidebarCollapsed(true);
                 return;
             }
 
-            if (leavingDeploy)
+            // Distinct from popup Surface.Raised background so the active row is visible.
+            var activeBrush = System.Windows.Application.Current?.TryFindResource("State.Hover") as System.Windows.Media.Brush
+                ?? new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#35373B"));
+            var transparent = System.Windows.Media.Brushes.Transparent;
+
+            foreach (var child in NavMenuItemsPanel.Children)
             {
-                SetSidebarCollapsed(_sidebarCollapsedBeforeDeploy);
+                if (child is not Button button || button.Tag is not string route)
+                {
+                    continue;
+                }
+
+                var isActive = string.Equals(route, _currentRoute, StringComparison.OrdinalIgnoreCase);
+                button.Background = isActive ? activeBrush : transparent;
             }
         }
 
-        private void LogSidebarAction(string source)
+        private void CloseNavMenuPopup()
         {
-            System.Diagnostics.Debug.WriteLine($"[Sidebar] action={source}, collapsed={_isSidebarCollapsed}, time={AppTimeService.LocalNow:HH:mm:ss}");
+            if (NavMenuPopup != null)
+            {
+                NavMenuPopup.IsOpen = false;
+            }
         }
 
         private void RecentProject_Click(object sender, RoutedEventArgs e)
@@ -683,11 +683,12 @@ namespace GitDeployPro
         private void NavigateToPage(Page page, string route)
         {
             using var scope = PerformanceSampler.Instance.BeginScope("navigation", "navigate", route);
-            var previousRoute = _currentRoute;
             _currentRoute = route ?? string.Empty;
             ContentFrame.Navigate(page);
-            ApplyDeploySidebarPolicy(previousRoute, _currentRoute);
+            CloseNavMenuPopup();
+            HighlightActiveNavRoute();
         }
+
         private void About_Click(object sender, RoutedEventArgs e) => NavigateToPage(new AboutPage(), "about");
 
         private void Minimize_Click(object sender, RoutedEventArgs e)

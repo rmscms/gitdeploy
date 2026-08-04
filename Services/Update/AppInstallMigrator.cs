@@ -32,9 +32,11 @@ namespace GitDeployPro.Services.Update
             // Seamless upgrade: previous LocalAppData install without registry → register it.
             EnsureLegacyDefaultInstallRegistered();
 
+            // Always heal Desktop shortcut when a stable install EXE exists (older portable users).
+            DesktopShortcutService.EnsureDefaultShortcut();
+
             if (AppInstallPaths.IsRunningFromInstallPath())
             {
-                DesktopShortcutService.EnsureShortcut(AppInstallPaths.ExecutablePath);
                 RefreshAutoStartIfEnabled(AppInstallPaths.ExecutablePath);
                 return false;
             }
@@ -96,6 +98,7 @@ namespace GitDeployPro.Services.Update
             if (File.Exists(legacyExe))
             {
                 AppInstallPaths.SetInstallDirectory(AppInstallPaths.DefaultInstallDirectory);
+                DesktopShortcutService.EnsureShortcut(legacyExe);
             }
         }
 
@@ -110,6 +113,7 @@ namespace GitDeployPro.Services.Update
                 {
                     Directory.CreateDirectory(AppInstallPaths.InstallDirectory);
                     File.Copy(currentExe, installExe, overwrite: true);
+                    CopyCompanionAssets(currentExe, AppInstallPaths.InstallDirectory);
                 }
 
                 DesktopShortcutService.EnsureShortcut(installExe);
@@ -135,6 +139,7 @@ namespace GitDeployPro.Services.Update
 
             var installExe = AppInstallPaths.ExecutablePath;
             File.Copy(currentExe, installExe, overwrite: true);
+            CopyCompanionAssets(currentExe, AppInstallPaths.InstallDirectory);
 
             DesktopShortcutService.EnsureShortcut(installExe);
             RefreshAutoStartIfEnabled(installExe);
@@ -174,6 +179,49 @@ namespace GitDeployPro.Services.Update
                 WorkingDirectory = AppInstallPaths.InstallDirectory
             });
             return true;
+        }
+
+        /// <summary>
+        /// Copies optional on-disk companions (Themes/Packs) next to the install EXE when present
+        /// beside the source portable/publish folder. Themes still seed into %AppData% from code.
+        /// </summary>
+        private static void CopyCompanionAssets(string sourceExe, string installDirectory)
+        {
+            try
+            {
+                var sourceDir = Path.GetDirectoryName(Path.GetFullPath(sourceExe));
+                if (string.IsNullOrWhiteSpace(sourceDir) || !Directory.Exists(sourceDir))
+                {
+                    return;
+                }
+
+                var themesSrc = Path.Combine(sourceDir, "Themes");
+                if (!Directory.Exists(themesSrc))
+                {
+                    return;
+                }
+
+                CopyDirectory(themesSrc, Path.Combine(installDirectory, "Themes"));
+            }
+            catch
+            {
+                // Best-effort; missing packs still work via ThemeTokenCatalog → AppData seed.
+            }
+        }
+
+        private static void CopyDirectory(string sourceDir, string destDir)
+        {
+            Directory.CreateDirectory(destDir);
+            foreach (var file in Directory.EnumerateFiles(sourceDir))
+            {
+                var dest = Path.Combine(destDir, Path.GetFileName(file));
+                File.Copy(file, dest, overwrite: true);
+            }
+
+            foreach (var dir in Directory.EnumerateDirectories(sourceDir))
+            {
+                CopyDirectory(dir, Path.Combine(destDir, Path.GetFileName(dir)));
+            }
         }
 
         private static void RefreshAutoStartIfEnabled(string exePath)

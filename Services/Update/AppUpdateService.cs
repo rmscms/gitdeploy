@@ -240,6 +240,11 @@ namespace GitDeployPro.Services.Update
             WriteWhatsNewFromPending(pending);
 
             Directory.CreateDirectory(AppInstallPaths.InstallDirectory);
+            if (!AppInstallPaths.HasRegisteredInstall())
+            {
+                AppInstallPaths.SetInstallDirectory(AppInstallPaths.InstallDirectory);
+            }
+
             var destExe = AppInstallPaths.ExecutablePath;
             var global = _configService.LoadGlobalConfig();
             var autoStart = new AutoStartService();
@@ -248,7 +253,7 @@ namespace GitDeployPro.Services.Update
             if (!AppInstallPaths.IsRunningFromInstallPath())
             {
                 File.Copy(pending.PackagePath, destExe, overwrite: true);
-                DesktopShortcutService.EnsureShortcut(destExe);
+                DesktopShortcutService.EnsureDefaultShortcut();
                 autoStart.RefreshToInstallPath(global.LaunchOnStartup || autoStart.IsEnabled());
                 Process.Start(new ProcessStartInfo
                 {
@@ -261,7 +266,7 @@ namespace GitDeployPro.Services.Update
 
             // Running from install path: replace after exit via helper.
             autoStart.RefreshToInstallPath(global.LaunchOnStartup || autoStart.IsEnabled());
-            DesktopShortcutService.EnsureShortcut(destExe);
+            DesktopShortcutService.EnsureDefaultShortcut();
 
             var helperDir = AppInstallPaths.UpdateStagingDirectory;
             Directory.CreateDirectory(helperDir);

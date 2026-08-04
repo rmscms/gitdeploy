@@ -291,7 +291,8 @@ public static class UpdateOptions
 When the user asks for **نسخه جدید** / **ریلیز کن**:
 
 1. Bump `Version` / `AssemblyVersion` / `FileVersion` in `GitDeployPro.csproj`
-2. `dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true`
+2. `dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true`  
+   (Without `IncludeNativeLibrariesForSelfExtract=true`, WPF/WebView2 natives stay beside the EXE; shipping EXE-only then crashes on clean PCs — GitDeployPro 1.4.13.)
 3. Name artifacts `GitDeployPro-X.Y.Z.exe` + `.zip`
 4. Copy into `releases/X.Y.Z/` and `site/versions/`
 5. Update `site/latest.json`:

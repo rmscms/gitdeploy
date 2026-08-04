@@ -4,21 +4,21 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              mc:Ignorable="d"
-             d:DesignHeight="72"
+             d:DesignHeight="220"
              d:DesignWidth="640">
     <UserControl.Resources>
-        <Style x:Key="SavedCmd.SlimCombo" TargetType="ComboBox" BasedOn="{StaticResource App.InputComboBox}">
-            <Setter Property="Height" Value="24" />
-            <Setter Property="FontSize" Value="11" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
-            <Setter Property="Padding" Value="6,0" />
-        </Style>
         <Style x:Key="SavedCmd.SlimTextBox" TargetType="TextBox" BasedOn="{StaticResource App.InputTextBox}">
             <Setter Property="Height" Value="24" />
             <Setter Property="MinHeight" Value="24" />
             <Setter Property="FontSize" Value="11" />
             <Setter Property="Padding" Value="6,0" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="SavedCmd.SlimCombo" TargetType="ComboBox" BasedOn="{StaticResource App.InputComboBox}">
+            <Setter Property="Height" Value="22" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Padding" Value="6,0" />
         </Style>
         <Style x:Key="SavedCmd.ModeToggle" TargetType="ToggleButton">
             <Setter Property="Height" Value="22" />
@@ -57,7 +57,7 @@
             </Setter>
         </Style>
         <Style x:Key="SavedCmd.Button" TargetType="Button" BasedOn="{StaticResource App.Button.Ghost}">
-            <Setter Property="Height" Value="24" />
+            <Setter Property="Height" Value="22" />
             <Setter Property="MinWidth" Value="0" />
             <Setter Property="Padding" Value="8,0" />
             <Setter Property="FontSize" Value="11" />
@@ -106,20 +106,39 @@
             <Setter Property="Padding" Value="0" />
             <Setter Property="BorderThickness" Value="0" />
         </Style>
+        <Style x:Key="SavedCmd.ActionIcon" TargetType="Button" BasedOn="{StaticResource SavedCmd.IconButton}">
+            <Setter Property="Width" Value="22" />
+            <Setter Property="Height" Value="22" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Margin" Value="0,0,2,0" />
+            <Setter Property="Foreground" Value="{StaticResource Text.Secondary}" />
+        </Style>
+        <Style x:Key="SavedCmd.ActionIcon.Run" TargetType="Button" BasedOn="{StaticResource SavedCmd.ActionIcon}">
+            <Setter Property="Foreground" Value="{StaticResource Accent.Primary}" />
+            <Setter Property="FontWeight" Value="Bold" />
+        </Style>
+        <Style x:Key="SavedCmd.ActionIcon.Danger" TargetType="Button" BasedOn="{StaticResource SavedCmd.ActionIcon}">
+            <Setter Property="Foreground" Value="{StaticResource Status.Error}" />
+        </Style>
+        <Style x:Key="SavedCmd.FavButton" TargetType="Button" BasedOn="{StaticResource SavedCmd.ActionIcon}">
+            <Setter Property="Margin" Value="0,0,4,0" />
+        </Style>
     </UserControl.Resources>
 
     <Border x:Name="RootBorder"
             Background="{StaticResource Surface.Card}"
             BorderBrush="{StaticResource Border.Subtle}"
             BorderThickness="0"
-            Padding="8,4">
+            Padding="8,6">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <DockPanel Grid.Row="0" LastChildFill="True" Margin="0,0,0,4">
+            <!-- Header -->
+            <DockPanel Grid.Row="0" LastChildFill="True" Margin="0,0,0,6">
                 <TextBlock x:Name="TitleText"
                            DockPanel.Dock="Left"
                            Text="Saved commands"
@@ -138,8 +157,7 @@
 
                 <StackPanel DockPanel.Dock="Right"
                             Orientation="Horizontal"
-                            VerticalAlignment="Center"
-                            Margin="6,0,0,0">
+                            VerticalAlignment="Center">
                     <ToggleButton x:Name="DockModeToggle"
                                   Content="Dock"
                                   Style="{StaticResource SavedCmd.ModeToggle}"
@@ -155,38 +173,147 @@
                                   Unchecked="FloatModeToggle_Unchecked" />
                 </StackPanel>
 
-                <StackPanel DockPanel.Dock="Right"
-                            Orientation="Horizontal"
-                            VerticalAlignment="Center"
-                            Margin="6,0,0,0">
-                    <Button Content="Run"
-                            Style="{StaticResource SavedCmd.Button.Primary}"
-                            Margin="0,0,4,0"
-                            Click="Run_Click"
-                            ToolTip="Send selected command" />
-                    <Button Content="Del"
-                            Style="{StaticResource SavedCmd.Button}"
-                            Click="Delete_Click"
-                            ToolTip="Delete selected preset" />
-                </StackPanel>
-
-                <Border x:Name="ChipHost"
-                        Background="{StaticResource Surface.Raised}"
-                        BorderBrush="{StaticResource Border.Subtle}"
-                        BorderThickness="1"
-                        CornerRadius="6"
-                        Padding="2"
-                        VerticalAlignment="Center">
-                    <ComboBox x:Name="PresetComboBox"
-                              Height="24"
-                              Style="{StaticResource SavedCmd.SlimCombo}"
-                              DisplayMemberPath="Title"
-                              SelectedValuePath="Id"
-                              ToolTip="Command presets" />
-                </Border>
+                <TextBlock Text="Favorites only · pin with ★"
+                           FontSize="10.5"
+                           Foreground="{StaticResource Text.Muted}"
+                           VerticalAlignment="Center" />
             </DockPanel>
 
-            <Grid Grid.Row="1">
+            <!-- Favorites table + combo for the rest -->
+            <Border x:Name="ChipHost"
+                    Grid.Row="1"
+                    Background="{StaticResource Surface.Raised}"
+                    BorderBrush="{StaticResource Border.Subtle}"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    Padding="4"
+                    Margin="0,0,0,6"
+                    MinHeight="28">
+                <StackPanel>
+                    <ItemsControl x:Name="QuickList">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,1" MinHeight="24">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="120" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <Button Grid.Column="0"
+                                            Content="★"
+                                            Style="{StaticResource SavedCmd.FavButton}"
+                                            Tag="{Binding Id}"
+                                            ToolTip="Remove from favorites"
+                                            Foreground="{StaticResource Status.Warning}"
+                                            Click="Favorite_Click" />
+
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding Title}"
+                                               FontSize="11"
+                                               FontWeight="SemiBold"
+                                               Foreground="{StaticResource Text.Primary}"
+                                               VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"
+                                               Margin="0,0,6,0"
+                                               ToolTip="{Binding Title}" />
+
+                                    <TextBlock Grid.Column="2"
+                                               Text="{Binding Command}"
+                                               FontSize="10.5"
+                                               FontFamily="{StaticResource FontFamily.Mono}"
+                                               Foreground="{StaticResource Text.Muted}"
+                                               VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"
+                                               Margin="0,0,6,0"
+                                               ToolTip="{Binding Command}" />
+
+                                    <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Button Content="▶"
+                                                Style="{StaticResource SavedCmd.ActionIcon.Run}"
+                                                Tag="{Binding Id}"
+                                                Click="RowRun_Click"
+                                                ToolTip="Run in terminal (Enter)" />
+                                        <Button Content="⤵"
+                                                Style="{StaticResource SavedCmd.ActionIcon}"
+                                                Tag="{Binding Id}"
+                                                Click="RowInsert_Click"
+                                                ToolTip="Insert into terminal (no Enter)" />
+                                        <Button Content="✎"
+                                                Style="{StaticResource SavedCmd.ActionIcon}"
+                                                Tag="{Binding Id}"
+                                                Click="RowEdit_Click"
+                                                ToolTip="Edit command" />
+                                        <Button Content="🗑"
+                                                Style="{StaticResource SavedCmd.ActionIcon.Danger}"
+                                                Tag="{Binding Id}"
+                                                Margin="0"
+                                                Click="RowDelete_Click"
+                                                ToolTip="Delete command" />
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBlock x:Name="QuickListEmptyHint"
+                               Text="No favorites yet. Pick one below and press ★."
+                               FontSize="10.5"
+                               Foreground="{StaticResource Text.Muted}"
+                               Margin="6,4"
+                               Visibility="Collapsed" />
+
+                    <!-- Non-favorites live only in this select -->
+                    <Grid x:Name="MoreCommandsRow"
+                          Margin="2,6,2,2"
+                          Visibility="Collapsed">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0"
+                                   Text="All"
+                                   FontSize="10.5"
+                                   Foreground="{StaticResource Text.Muted}"
+                                   VerticalAlignment="Center"
+                                   Margin="4,0,8,0" />
+                        <ComboBox x:Name="MoreComboBox"
+                                  Grid.Column="1"
+                                  Style="{StaticResource SavedCmd.SlimCombo}"
+                                  DisplayMemberPath="Title"
+                                  SelectedValuePath="Id"
+                                  Margin="0,0,6,0"
+                                  ToolTip="Other saved commands (not favorited)" />
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button Content="★"
+                                    Style="{StaticResource SavedCmd.FavButton}"
+                                    ToolTip="Add to favorites list"
+                                    Click="MoreFavorite_Click" />
+                            <Button Content="▶"
+                                    Style="{StaticResource SavedCmd.ActionIcon.Run}"
+                                    Click="MoreRun_Click"
+                                    ToolTip="Run in terminal (Enter)" />
+                            <Button Content="⤵"
+                                    Style="{StaticResource SavedCmd.ActionIcon}"
+                                    Click="MoreInsert_Click"
+                                    ToolTip="Insert into terminal (no Enter)" />
+                            <Button Content="✎"
+                                    Style="{StaticResource SavedCmd.ActionIcon}"
+                                    Click="MoreEdit_Click"
+                                    ToolTip="Edit command" />
+                            <Button Content="🗑"
+                                    Style="{StaticResource SavedCmd.ActionIcon.Danger}"
+                                    Margin="0"
+                                    Click="MoreDelete_Click"
+                                    ToolTip="Delete selected" />
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- Add / send row -->
+            <Grid Grid.Row="2">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="110" />
                     <ColumnDefinition Width="*" />
@@ -203,15 +330,26 @@
                          Style="{StaticResource SavedCmd.SlimTextBox}"
                          ToolTip="Command to save / send" />
                 <StackPanel Grid.Column="2" Orientation="Horizontal">
-                    <Button Content="Save"
+                    <Button x:Name="SaveButton"
+                            Content="Save"
                             Margin="0,0,4,0"
                             Style="{StaticResource SavedCmd.Button.Secondary}"
                             Click="Save_Click"
                             ToolTip="Save command preset" />
-                    <Button Content="Send"
-                            Style="{StaticResource SavedCmd.Button}"
-                            Click="Send_Click"
-                            ToolTip="Send command box text" />
+                    <Button Content="▶"
+                            Style="{StaticResource SavedCmd.ActionIcon.Run}"
+                            Width="28"
+                            Height="24"
+                            Margin="0,0,2,0"
+                            Click="SendRun_Click"
+                            ToolTip="Run box text in terminal" />
+                    <Button Content="⤵"
+                            Style="{StaticResource SavedCmd.ActionIcon}"
+                            Width="28"
+                            Height="24"
+                            Margin="0"
+                            Click="SendInsert_Click"
+                            ToolTip="Insert box text (no Enter)" />
                 </StackPanel>
             </Grid>
         </Grid>

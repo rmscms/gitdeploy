@@ -14,7 +14,8 @@ namespace GitDeployPro.Windows
         public SavedCommandsWindow()
         {
             InitializeComponent();
-            Panel.InjectCommand = command => InjectCommand?.Invoke(command);
+            Panel.RunCommand = command => RunCommand?.Invoke(command);
+            Panel.InsertCommand = command => InsertCommand?.Invoke(command);
             Panel.CloseRequested += (_, _) => CloseRequested?.Invoke(this, EventArgs.Empty);
             Panel.PresentationModeRequested += (_, mode) => PresentationModeRequested?.Invoke(this, mode);
             ThemeService.Instance.ThemeChanged += OnThemeChanged;
@@ -23,7 +24,8 @@ namespace GitDeployPro.Windows
             ApplyTheme();
         }
 
-        public Action<string>? InjectCommand { get; set; }
+        public Action<string>? RunCommand { get; set; }
+        public Action<string>? InsertCommand { get; set; }
 
         public void SetPresentationMode(string mode) => Panel.SetPresentationMode(mode);
 

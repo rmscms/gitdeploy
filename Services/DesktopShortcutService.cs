@@ -1,18 +1,34 @@
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
+using GitDeployPro.Services.Update;
 
 namespace GitDeployPro.Services
 {
     /// <summary>
-    /// Creates/updates a Desktop .lnk that points at the stable LocalAppData EXE.
+    /// Creates/updates a Desktop .lnk that points at the stable install EXE.
     /// </summary>
     public static class DesktopShortcutService
     {
         public static string GetDesktopShortcutPath()
         {
-            var desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
-            return Path.Combine(desktop, "GitDeploy Pro.lnk");
+            var desktop = ResolveDesktopDirectory();
+            return Path.Combine(desktop, AppInstallPaths.DesktopShortcutFileName);
+        }
+
+        /// <summary>
+        /// If the stable install EXE exists and the Desktop shortcut is missing or points elsewhere,
+        /// create/update <c>GitDeploy Pro.lnk</c>. Covers older portable users after migrate/update.
+        /// </summary>
+        public static void EnsureDefaultShortcut()
+        {
+            var targetExe = TryResolveInstallExecutable();
+            if (targetExe == null)
+            {
+                return;
+            }
+
+            EnsureShortcut(targetExe);
         }
 
         /// <summary>
@@ -42,6 +58,47 @@ namespace GitDeployPro.Services
             {
                 // Best-effort; missing COM / desktop permissions must not break the app.
             }
+        }
+
+        private static string? TryResolveInstallExecutable()
+        {
+            try
+            {
+                if (File.Exists(AppInstallPaths.ExecutablePath))
+                {
+                    return Path.GetFullPath(AppInstallPaths.ExecutablePath);
+                }
+
+                var defaultExe = Path.Combine(
+                    AppInstallPaths.DefaultInstallDirectory,
+                    AppInstallPaths.ExecutableFileName);
+                if (File.Exists(defaultExe))
+                {
+                    return Path.GetFullPath(defaultExe);
+                }
+            }
+            catch
+            {
+            }
+
+            return null;
+        }
+
+        private static string ResolveDesktopDirectory()
+        {
+            var desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+            if (!string.IsNullOrWhiteSpace(desktop) && Directory.Exists(desktop))
+            {
+                return desktop;
+            }
+
+            desktop = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+            if (!string.IsNullOrWhiteSpace(desktop) && Directory.Exists(desktop))
+            {
+                return desktop;
+            }
+
+            return Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         }
 
         private static bool ShortcutAlreadyPointsTo(string shortcutPath, string targetExe)

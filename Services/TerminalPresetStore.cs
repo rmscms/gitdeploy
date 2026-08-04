@@ -50,7 +50,8 @@ namespace GitDeployPro.Services
             {
                 Id = string.IsNullOrWhiteSpace(preset.Id) ? Guid.NewGuid().ToString() : preset.Id,
                 Title = preset.Title ?? string.Empty,
-                Command = preset.Command ?? string.Empty
+                Command = preset.Command ?? string.Empty,
+                IsFavorite = preset.IsFavorite
             };
         }
     }

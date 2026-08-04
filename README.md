@@ -106,7 +106,7 @@ dotnet run
 ## 📤 publishing single exe
 
 ```powershell
-dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
+dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true
 ```
 
 - output: `bin\Release\net8.0-windows\win-x64\publish\GitDeployPro.exe`

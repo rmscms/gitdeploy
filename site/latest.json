@@ -1,14 +1,17 @@
 {
-  "version": "1.4.13",
-  "fileName": "GitDeployPro-1.4.13.exe",
-  "downloadUrl": "versions/GitDeployPro-1.4.13.exe",
-  "sha256": "9FF3A26675D5DFC70BE6924469EADE9FD95295943E44EB63CBE1FE0457804850",
-  "releaseNotes": "- Terminal Saved commands: compact Dock strip above the terminal (does not cover text)\n- Float mode opens a dark helper window so you can keep typing in the terminal\n- Remember Dock/Float preference; themed presets drawer tokens for Default and Dark",
+  "version": "1.4.14",
+  "fileName": "GitDeployPro-1.4.14.exe",
+  "downloadUrl": "versions/GitDeployPro-1.4.14.exe",
+  "sha256": "65AB91D45940C8AAC9618A06CE82CC6AC522D0DCF885CD5EF2023EB6E7C84917",
+  "releaseNotes": "- Fix release EXE so it starts on clean PCs (bundle WPF/WebView2 native libraries; fixes 1.4.13 crash)\n- Auto-create Desktop shortcut when missing after portable/update install\n- On install, copy Themes/Packs next to the install EXE when present\n- Register install path when applying an update from a portable EXE\n- Terminal: Float window icon; remove redundant Disconnect (closing the tab ends the session)\n- Deploy Console polish + compact FTP toolbar icons",
   "changelog": [
-    "Terminal Saved commands: compact Dock strip above the terminal (does not cover text)",
-    "Float mode opens a dark helper window so you can keep typing in the terminal",
-    "Remember Dock/Float preference; themed presets drawer tokens for Default and Dark"
+    "Fix release EXE so it starts on clean PCs (bundle WPF/WebView2 native libraries; fixes 1.4.13 crash)",
+    "Auto-create Desktop shortcut when missing after portable/update install",
+    "On install, copy Themes/Packs next to the install EXE when present",
+    "Register install path when applying an update from a portable EXE",
+    "Terminal: Float window icon; remove redundant Disconnect (closing the tab ends the session)",
+    "Deploy Console polish + compact FTP toolbar icons"
   ],
   "mandatory": false,
-  "publishedUtc": "2026-08-03T15:20:27Z"
+  "publishedUtc": "2026-08-04T08:43:12Z"
 }
