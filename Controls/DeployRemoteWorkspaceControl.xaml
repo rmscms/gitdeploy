@@ -13,6 +13,43 @@
             <Setter Property="BorderBrush" Value="{StaticResource Status.Warning}" />
             <Setter Property="Foreground" Value="{StaticResource Text.Inverse}" />
         </Style>
+        <!-- Compact PhpStorm-like FTP toolbar icons -->
+        <Style x:Key="FtpToolbarIconButtonStyle" TargetType="Button" BasedOn="{StaticResource App.IconButton}">
+            <Setter Property="Width" Value="26" />
+            <Setter Property="Height" Value="26" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0,0,2,0" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{StaticResource Text.Secondary}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bg"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="4"
+                                Width="{TemplateBinding Width}"
+                                Height="{TemplateBinding Height}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bg" Property="Background" Value="{StaticResource State.Hover}" />
+                                <Setter Property="Foreground" Value="{StaticResource Text.Primary}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.4" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </UserControl.Resources>
     <Grid>
         <Grid.RowDefinitions>
@@ -24,9 +61,11 @@
         <Border x:Name="ConnectionPanel"
                 Grid.Row="0"
                 Panel.ZIndex="6"
-                Style="{StaticResource App.CardStyle}"
-                Padding="8"
-                Margin="0,0,0,6">
+                Background="{StaticResource Surface.Shell}"
+                BorderBrush="{StaticResource Border.Subtle}"
+                BorderThickness="0,0,0,1"
+                Padding="6,4"
+                Margin="0">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -36,40 +75,47 @@
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
                     <ComboBox x:Name="ConnectionComboBox"
                               Grid.Column="0"
-                              MinHeight="30"
-                              Margin="0,0,6,0"
+                              Height="26"
+                              MinHeight="26"
+                              Margin="0,0,4,0"
+                              Padding="8,0"
+                              FontSize="12"
+                              VerticalContentAlignment="Center"
                               Style="{StaticResource App.InputComboBox}"
                               DisplayMemberPath="Name"
                               SelectionChanged="ConnectionComboBox_SelectionChanged" />
 
-                    <Button x:Name="ConnectButton"
-                            Grid.Column="1"
-                            Content="Connect"
-                            MinWidth="80"
-                            Height="30"
-                            Margin="0,0,6,0"
-                            Style="{StaticResource App.Button.Primary}"
-                            Click="ConnectButton_Click" />
-
-                    <Button x:Name="RefreshButton"
-                            Grid.Column="2"
-                            Content="Refresh"
-                            MinWidth="72"
-                            Height="30"
-                            Style="{StaticResource App.Button.Ghost}"
-                            Click="RefreshButton_Click" />
+                    <StackPanel Grid.Column="1"
+                                Orientation="Horizontal"
+                                VerticalAlignment="Center">
+                        <Button x:Name="EditConnectionButton"
+                                Style="{StaticResource FtpToolbarIconButtonStyle}"
+                                Content="✎"
+                                ToolTip="Edit connections"
+                                Click="EditConnectionButton_Click" />
+                        <Button x:Name="RefreshButton"
+                                Style="{StaticResource FtpToolbarIconButtonStyle}"
+                                Content="↻"
+                                ToolTip="Refresh"
+                                Click="RefreshButton_Click" />
+                        <Button x:Name="ConnectionToggleButton"
+                                Style="{StaticResource FtpToolbarIconButtonStyle}"
+                                Content="⚡"
+                                Margin="0"
+                                ToolTip="Connect"
+                                Click="ConnectionToggleButton_Click" />
+                    </StackPanel>
                 </Grid>
 
                 <TextBlock Grid.Row="1"
                            x:Name="StatusTextBlock"
-                           Margin="0,6,0,0"
+                           Margin="2,4,0,0"
                            Foreground="{StaticResource Text.Muted}"
-                           FontSize="11"
+                           FontSize="10.5"
                            Text="Remote workspace is idle." />
             </Grid>
         </Border>

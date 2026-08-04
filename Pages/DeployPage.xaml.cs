@@ -53,10 +53,10 @@ namespace GitDeployPro.Pages
         private string _compareSourceBranch = string.Empty;
         private string _compareTargetBranch = string.Empty;
         private bool _suppressFileSelectionModal;
-        private bool _isRemoteWorkspaceCollapsed = true;
-        private bool _isDirectUploadDockCollapsed = true;
+        private bool _isRemoteWorkspaceCollapsed;
+        private bool _isDirectUploadDockCollapsed;
         private bool _isBottomDockCollapsed;
-        private bool _bottomTerminalTabActive;
+        private bool _bottomTerminalTabActive = true;
         private bool _logsStripVisible;
         private bool _logsStripAutoShownForDeploy;
         private bool _isResizingBottomDock;
@@ -70,9 +70,10 @@ namespace GitDeployPro.Pages
         private GridLength _remotePanelLastWidth = new GridLength(420);
         private GridLength _leftDockLastWidth = new GridLength(340);
         private GridLength _bottomDockLastHeight = new GridLength(0);
-        private const double BottomDockTerminalHeightRatio = 0.35;
+        private const double BottomDockTerminalHeightRatio = 0.50;
+        private const double BottomDockTerminalMinRatio = 0.30;
         private const double BottomDockCollapsedHeight = 33;
-        private const double BottomDockMinExpandedHeight = 160;
+        private const double BottomDockMinExpandedHeight = 220;
         private RemoteWorkspaceLayoutMode _remoteLayoutMode = RemoteWorkspaceLayoutMode.Wide;
         private bool _compactPanelOpenedByUser;
         private bool _isBranchDetailsExpanded;
@@ -106,13 +107,33 @@ namespace GitDeployPro.Pages
 
         private void DeployPage_Loaded(object sender, RoutedEventArgs e)
         {
+            // Default Deploy workspace: Direct Upload + FTP + Terminal expanded.
+            _isDirectUploadDockCollapsed = false;
+            _isRemoteWorkspaceCollapsed = false;
             _isBottomDockCollapsed = false;
+            _compactPanelOpenedByUser = true;
+            _bottomDockLastHeight = new GridLength(0);
             ApplyWorkspaceLayout(force: true);
-            ShowBottomLogsTab();
+            ShowBottomTerminalTab();
+            _ = EnsureDeployTerminalSessionAsync();
+            // Re-apply after first real layout so height is based on ActualHeight (min 30% page).
+            Dispatcher.BeginInvoke(new Action(ApplyDefaultTerminalDockHeight), DispatcherPriority.Loaded);
             UpdateUploadActionsToggleButton();
             ApplyBranchDetailsVisibility();
             UpdateBranchSummaryUi();
             InitializeDeployThemePicker();
+        }
+
+        private void ApplyDefaultTerminalDockHeight()
+        {
+            if (_isBottomDockCollapsed || !_bottomTerminalTabActive)
+            {
+                return;
+            }
+
+            var preferred = GetPreferredTerminalHeight();
+            _bottomDockLastHeight = new GridLength(preferred);
+            ApplyBottomDockLayout(resetHeight: true);
         }
 
         private void DeployPage_SizeChanged(object sender, SizeChangedEventArgs e)
@@ -373,9 +394,9 @@ namespace GitDeployPro.Pages
                 _logsStripVisible = false;
             }
 
-            // Prefer ~35% of the page when opening Terminal.
+            // Prefer ~50% of the page when opening Terminal (never below 30%).
             var preferred = GetPreferredTerminalHeight();
-            if (_bottomDockLastHeight.Value < preferred * 0.9)
+            if (_bottomDockLastHeight.Value < preferred * 0.95)
             {
                 _bottomDockLastHeight = new GridLength(preferred);
             }
@@ -662,11 +683,6 @@ namespace GitDeployPro.Pages
                 Visibility = Visibility.Collapsed
             };
             control.SetProjectPath(_projectConfig?.LocalProjectPath ?? string.Empty);
-            if (control.DetachButton != null)
-            {
-                control.DetachButton.Visibility = Visibility.Collapsed;
-            }
-
             return control;
         }
 
@@ -793,61 +809,78 @@ namespace GitDeployPro.Pages
                     && string.Equals(session.Id, _activeDeployTerminalSessionId, StringComparison.Ordinal);
                 var sessionId = session.Id;
 
+                var accent = (System.Windows.Media.Brush)FindResource("Accent.Primary");
                 var tab = new Border
                 {
                     Tag = sessionId,
                     Height = 28,
-                    Margin = new Thickness(0, 0, 4, 0),
-                    Padding = new Thickness(10, 0, 4, 0),
-                    CornerRadius = new CornerRadius(6),
-                    Background = isActive
-                        ? (System.Windows.Media.Brush)FindResource("Surface.Raised")
-                        : System.Windows.Media.Brushes.Transparent,
-                    BorderThickness = isActive ? new Thickness(1) : new Thickness(0),
-                    BorderBrush = isActive
-                        ? (System.Windows.Media.Brush)FindResource("Border.Subtle")
-                        : System.Windows.Media.Brushes.Transparent,
-                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new System.Windows.Thickness(0, 0, 2, 0),
+                    Padding = new System.Windows.Thickness(0),
+                    Background = System.Windows.Media.Brushes.Transparent,
+                    BorderThickness = new System.Windows.Thickness(0),
+                    VerticalAlignment = VerticalAlignment.Stretch,
                     Cursor = System.Windows.Input.Cursors.Hand,
                     ToolTip = session.IsLocal
                         ? "Local terminal session"
                         : $"Server: {session.Title}"
                 };
 
+                var root = new Grid();
                 var content = new StackPanel
                 {
                     Orientation = System.Windows.Controls.Orientation.Horizontal,
-                    VerticalAlignment = VerticalAlignment.Center
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new System.Windows.Thickness(8, 0, 4, 0)
                 };
                 content.Children.Add(new TextBlock
                 {
                     Text = session.Title,
                     VerticalAlignment = VerticalAlignment.Center,
-                    Margin = new Thickness(0, 0, 4, 0),
+                    Margin = new System.Windows.Thickness(0, 0, 2, 0),
                     FontSize = 12,
                     FontWeight = isActive ? FontWeights.SemiBold : FontWeights.Normal,
                     Foreground = (System.Windows.Media.Brush)FindResource(
                         isActive ? "Text.Primary" : "Text.Secondary")
                 });
+
+                // Override App.Button MinWidth (~72) so close stays PhpStorm-tiny.
                 var close = new System.Windows.Controls.Button
                 {
                     Content = "×",
                     Tag = sessionId,
-                    Width = 18,
-                    Height = 18,
-                    FontSize = 12,
-                    Padding = new Thickness(0),
-                    Margin = new Thickness(0, 0, 2, 0),
+                    Width = 14,
+                    Height = 14,
+                    MinWidth = 0,
+                    MinHeight = 0,
+                    MaxWidth = 14,
+                    MaxHeight = 14,
+                    FontSize = 10,
+                    FontWeight = FontWeights.Normal,
+                    Padding = new System.Windows.Thickness(0),
+                    Margin = new System.Windows.Thickness(0),
                     Background = System.Windows.Media.Brushes.Transparent,
-                    BorderThickness = new Thickness(0),
+                    BorderThickness = new System.Windows.Thickness(0),
                     Foreground = (System.Windows.Media.Brush)FindResource("Text.Muted"),
                     Cursor = System.Windows.Input.Cursors.Hand,
                     VerticalAlignment = VerticalAlignment.Center,
-                    ToolTip = "Close session"
+                    HorizontalContentAlignment = System.Windows.HorizontalAlignment.Center,
+                    VerticalContentAlignment = VerticalAlignment.Center,
+                    ToolTip = "Close session",
+                    Template = CreateTerminalTabCloseTemplate()
                 };
                 close.Click += CloseDeployTerminalSession_Click;
                 content.Children.Add(close);
-                tab.Child = content;
+                root.Children.Add(content);
+                root.Children.Add(new Border
+                {
+                    Height = 2,
+                    VerticalAlignment = VerticalAlignment.Bottom,
+                    Margin = new System.Windows.Thickness(8, 0, 8, 0),
+                    CornerRadius = new CornerRadius(1),
+                    Background = isActive ? accent : System.Windows.Media.Brushes.Transparent,
+                    IsHitTestVisible = false
+                });
+                tab.Child = root;
                 tab.MouseLeftButtonUp += (_, e) =>
                 {
                     if (e.OriginalSource is DependencyObject source
@@ -860,6 +893,33 @@ namespace GitDeployPro.Pages
                 };
                 TerminalSessionTabsPanel.Children.Add(tab);
             }
+        }
+
+        private static ControlTemplate CreateTerminalTabCloseTemplate()
+        {
+            var template = new ControlTemplate(typeof(System.Windows.Controls.Button));
+            var borderFactory = new FrameworkElementFactory(typeof(Border));
+            borderFactory.Name = "CloseChrome";
+            borderFactory.SetValue(Border.BackgroundProperty, System.Windows.Media.Brushes.Transparent);
+            borderFactory.SetValue(Border.CornerRadiusProperty, new CornerRadius(2));
+            borderFactory.SetValue(Border.PaddingProperty, new System.Windows.Thickness(0));
+
+            var presenterFactory = new FrameworkElementFactory(typeof(ContentPresenter));
+            presenterFactory.SetValue(ContentPresenter.HorizontalAlignmentProperty, System.Windows.HorizontalAlignment.Center);
+            presenterFactory.SetValue(ContentPresenter.VerticalAlignmentProperty, VerticalAlignment.Center);
+            borderFactory.AppendChild(presenterFactory);
+            template.VisualTree = borderFactory;
+
+            var hover = new Trigger
+            {
+                Property = UIElement.IsMouseOverProperty,
+                Value = true
+            };
+            hover.Setters.Add(new Setter(System.Windows.Controls.Control.ForegroundProperty,
+                System.Windows.Application.Current?.TryFindResource("Text.Primary") as System.Windows.Media.Brush
+                ?? System.Windows.Media.Brushes.White));
+            template.Triggers.Add(hover);
+            return template;
         }
 
         private static System.Windows.Controls.Button? FindParentButton(DependencyObject? node)
@@ -993,7 +1053,9 @@ namespace GitDeployPro.Pages
         private double GetPreferredTerminalHeight()
         {
             var pageHeight = ActualHeight > 0 ? ActualHeight : 800;
-            return Math.Max(BottomDockMinExpandedHeight, pageHeight * BottomDockTerminalHeightRatio);
+            var preferred = pageHeight * BottomDockTerminalHeightRatio;
+            var floor = pageHeight * BottomDockTerminalMinRatio;
+            return Math.Max(BottomDockMinExpandedHeight, Math.Max(floor, preferred));
         }
 
         private void UpdateBottomTabButtonStyles()

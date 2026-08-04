@@ -75,6 +75,37 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <!-- Dense JetBrains-style nav popup rows -->
+        <Style x:Key="NavPopupItemStyle" TargetType="Button" BasedOn="{StaticResource App.Button.Ghost}">
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="Padding" Value="10,0" />
+            <Setter Property="Margin" Value="0,1" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ItemBorder"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="4"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Stretch"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background" Value="{StaticResource State.Hover}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <Border Margin="10"
@@ -89,146 +120,13 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-        <Grid x:Name="ShellRootGrid" Grid.Row="0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition x:Name="SidebarColumn" Width="250" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-
-            <!-- Sidebar -->
-            <Border x:Name="SidebarPanel"
-                    Grid.Column="0"
-                    Background="{StaticResource Surface.Shell}"
-                    BorderBrush="{StaticResource Border.Subtle}"
-                    BorderThickness="0,0,1,0">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-
-                    <Border Grid.Row="0"
-                            Margin="18,26,18,22"
-                            Background="{StaticResource Surface.Raised}"
-                            BorderBrush="{StaticResource Border.Strong}"
-                            BorderThickness="1"
-                            CornerRadius="12"
-                            Padding="14">
-                        <StackPanel>
-                            <StackPanel Orientation="Horizontal">
-                                <Border Width="44"
-                                        Height="44"
-                                        CornerRadius="12"
-                                        Background="{StaticResource Accent.Primary}">
-                                    <TextBlock Text="🚀"
-                                               FontSize="20"
-                                               HorizontalAlignment="Center"
-                                               VerticalAlignment="Center" />
-                                </Border>
-                                <StackPanel Margin="12,2,0,0">
-                                    <TextBlock Text="GitDeploy Pro"
-                                               FontSize="16"
-                                               FontWeight="SemiBold"
-                                               Foreground="{StaticResource Text.Primary}" />
-                                    <TextBlock Text="Hybrid Fluent Workspace"
-                                               FontSize="11"
-                                               Foreground="{StaticResource Text.Muted}" />
-                                </StackPanel>
-                            </StackPanel>
-                        </StackPanel>
-                    </Border>
-
-                    <ScrollViewer Grid.Row="1"
-                                  VerticalScrollBarVisibility="Auto"
-                                  HorizontalScrollBarVisibility="Disabled"
-                                  Padding="10,0,10,12">
-                        <StackPanel>
-                            <Button Style="{StaticResource App.SidebarNavButton}" Click="Dashboard_Click">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="📊" FontSize="15" Margin="0,0,12,0" Foreground="{StaticResource Text.Muted}" />
-                                    <TextBlock Text="Dashboard" FontSize="13" Foreground="{StaticResource Text.Secondary}" />
-                                </StackPanel>
-                            </Button>
-                            <Button Style="{StaticResource App.SidebarNavButton}" Click="Deploy_Click">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="🚀" FontSize="15" Margin="0,0,12,0" Foreground="{StaticResource Text.Muted}" />
-                                    <TextBlock Text="Deploy" FontSize="13" Foreground="{StaticResource Text.Secondary}" />
-                                </StackPanel>
-                            </Button>
-                            <Button Style="{StaticResource App.SidebarNavButton}" Click="DirectUpload_Click">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="📤" FontSize="15" Margin="0,0,12,0" Foreground="{StaticResource Text.Muted}" />
-                                    <TextBlock Text="Direct Upload" FontSize="13" Foreground="{StaticResource Text.Secondary}" />
-                                </StackPanel>
-                            </Button>
-                            <Button Style="{StaticResource App.SidebarNavButton}" Click="Database_Click">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="🛢️" FontSize="15" Margin="0,0,12,0" Foreground="{StaticResource Text.Muted}" />
-                                    <TextBlock Text="Database" FontSize="13" Foreground="{StaticResource Text.Secondary}" />
-                                </StackPanel>
-                            </Button>
-                            <Button Style="{StaticResource App.SidebarNavButton}" Click="Git_Click">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="🐱" FontSize="15" Margin="0,0,12,0" Foreground="{StaticResource Text.Muted}" />
-                                    <TextBlock Text="Git &amp; GitHub" FontSize="13" Foreground="{StaticResource Text.Secondary}" />
-                                </StackPanel>
-                            </Button>
-                            <Button Style="{StaticResource App.SidebarNavButton}" Click="Terminal_Click">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="💻" FontSize="15" Margin="0,0,12,0" Foreground="{StaticResource Text.Muted}" />
-                                    <TextBlock Text="Terminal" FontSize="13" Foreground="{StaticResource Text.Secondary}" />
-                                </StackPanel>
-                            </Button>
-                            <Button Style="{StaticResource App.SidebarNavButton}" Click="BackupScheduler_Click">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="🗓️" FontSize="15" Margin="0,0,12,0" Foreground="{StaticResource Text.Muted}" />
-                                    <TextBlock Text="Backup Plans"
-                                               FontSize="13"
-                                               Foreground="{StaticResource Text.Secondary}"
-                                               VerticalAlignment="Center" />
-                                    <Border Margin="8,0,0,0"
-                                            Padding="8,2"
-                                            CornerRadius="10"
-                                            VerticalAlignment="Center"
-                                            Background="{Binding BackupMenuBadgeBackground, RelativeSource={RelativeSource AncestorType=Window}}">
-                                        <TextBlock Text="{Binding BackupMenuBadgeText, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                   FontSize="11"
-                                                   FontWeight="SemiBold"
-                                                   Foreground="{Binding BackupMenuBadgeForeground, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                   VerticalAlignment="Center"/>
-                                    </Border>
-                                </StackPanel>
-                            </Button>
-                            <Button Style="{StaticResource App.SidebarNavButton}" Click="History_Click">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="📜" FontSize="15" Margin="0,0,12,0" Foreground="{StaticResource Text.Muted}" />
-                                    <TextBlock Text="History" FontSize="13" Foreground="{StaticResource Text.Secondary}" />
-                                </StackPanel>
-                            </Button>
-                            <Button Style="{StaticResource App.SidebarNavButton}" Click="Settings_Click">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="⚙️" FontSize="15" Margin="0,0,12,0" Foreground="{StaticResource Text.Muted}" />
-                                    <TextBlock Text="Settings" FontSize="13" Foreground="{StaticResource Text.Secondary}" />
-                                </StackPanel>
-                            </Button>
-                            <Button Style="{StaticResource App.SidebarNavButton}" Click="About_Click">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="ℹ️" FontSize="15" Margin="0,0,12,0" Foreground="{StaticResource Text.Muted}" />
-                                    <TextBlock Text="About" FontSize="13" Foreground="{StaticResource Text.Secondary}" />
-                                </StackPanel>
-                            </Button>
-                        </StackPanel>
-                    </ScrollViewer>
-                </Grid>
-            </Border>
-
-            <!-- Content area -->
-            <Grid Grid.Column="1" Background="{StaticResource Surface.Base}">
+            <Grid x:Name="ShellRootGrid" Grid.Row="0" Background="{StaticResource Surface.Base}">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="48" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
+                <!-- Compact JetBrains-style title bar -->
                 <Border Grid.Row="0"
                         Background="{StaticResource Surface.Shell}"
                         BorderBrush="{StaticResource Border.Subtle}"
@@ -244,7 +142,7 @@
                                     Orientation="Horizontal"
                                     VerticalAlignment="Center"
                                     Margin="10,0,0,0">
-                            <Button x:Name="SidebarToggleButton"
+                            <Button x:Name="NavMenuButton"
                                     Style="{StaticResource App.IconButton}"
                                     Width="34"
                                     Height="30"
@@ -252,12 +150,11 @@
                                     WindowChrome.IsHitTestVisibleInChrome="True"
                                     Background="Transparent"
                                     Foreground="{StaticResource Text.Primary}"
-                                    Click="SidebarToggleButton_Click"
-                                    MouseEnter="SidebarToggleButton_MouseEnter"
-                                    MouseLeave="SidebarToggleButton_MouseLeave"
-                                    ToolTip="Toggle Sidebar">
-                                <TextBlock x:Name="SidebarToggleIcon"
-                                           Text="☰"
+                                    Click="NavMenuButton_Click"
+                                    MouseEnter="NavMenuButton_MouseEnter"
+                                    MouseLeave="NavMenuButton_MouseLeave"
+                                    ToolTip="Menu">
+                                <TextBlock Text="☰"
                                            FontSize="15"
                                            HorizontalAlignment="Center"
                                            VerticalAlignment="Center" />
@@ -278,24 +175,24 @@
                                             Margin="0,0,8,0"
                                             Background="{StaticResource Accent.Primary}">
                                         <TextBlock x:Name="ProjectInitialText"
-                                                  Text="P"
-                                                  Foreground="{StaticResource Text.Primary}"
-                                                  FontSize="11"
-                                                  FontWeight="Bold"
-                                                  HorizontalAlignment="Center"
-                                                  VerticalAlignment="Center" />
+                                                   Text="P"
+                                                   Foreground="{StaticResource Text.Primary}"
+                                                   FontSize="11"
+                                                   FontWeight="Bold"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center" />
                                     </Border>
                                     <TextBlock x:Name="ProjectNameText"
-                                              Text="MyProject"
-                                              FontSize="13"
-                                              FontWeight="SemiBold"
-                                              Foreground="{StaticResource Text.Primary}"
-                                              VerticalAlignment="Center" />
+                                               Text="MyProject"
+                                               FontSize="13"
+                                               FontWeight="SemiBold"
+                                               Foreground="{StaticResource Text.Primary}"
+                                               VerticalAlignment="Center" />
                                     <TextBlock Text="▼"
-                                              FontSize="10"
-                                              VerticalAlignment="Center"
-                                              Margin="8,2,0,0"
-                                              Foreground="{StaticResource Text.Muted}" />
+                                               FontSize="10"
+                                               VerticalAlignment="Center"
+                                               Margin="8,2,0,0"
+                                               Foreground="{StaticResource Text.Muted}" />
                                 </StackPanel>
                             </Button>
 
@@ -315,6 +212,143 @@
                             </Button>
                         </StackPanel>
 
+                        <!-- Navigation popup (hamburger) -->
+                        <Popup x:Name="NavMenuPopup"
+                               PlacementTarget="{Binding ElementName=NavMenuButton}"
+                               Placement="Bottom"
+                               StaysOpen="False"
+                               AllowsTransparency="True"
+                               PopupAnimation="Fade"
+                               Opened="NavMenuPopup_Opened">
+                            <Border Background="{StaticResource Surface.Raised}"
+                                    BorderThickness="1"
+                                    BorderBrush="{StaticResource Border.Strong}"
+                                    CornerRadius="8"
+                                    Padding="6"
+                                    MinWidth="240">
+                                <Border.Effect>
+                                    <DropShadowEffect BlurRadius="18" Opacity="0.4" Color="Black" ShadowDepth="4" />
+                                </Border.Effect>
+                                <StackPanel x:Name="NavMenuItemsPanel">
+                                    <Button x:Name="NavItemDashboard"
+                                            Style="{StaticResource NavPopupItemStyle}"
+                                            Tag="dashboard"
+                                            Click="Dashboard_Click">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="📊" FontSize="13" Width="22" Margin="0,0,8,0" Foreground="{StaticResource Text.Muted}" />
+                                            <TextBlock Text="Dashboard" FontSize="12.5" Foreground="{StaticResource Text.Primary}" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+                                    <Button x:Name="NavItemDeploy"
+                                            Style="{StaticResource NavPopupItemStyle}"
+                                            Tag="deploy"
+                                            Click="Deploy_Click">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="🚀" FontSize="13" Width="22" Margin="0,0,8,0" Foreground="{StaticResource Text.Muted}" />
+                                            <TextBlock Text="Deploy" FontSize="12.5" Foreground="{StaticResource Text.Primary}" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+                                    <Button x:Name="NavItemDirectUpload"
+                                            Style="{StaticResource NavPopupItemStyle}"
+                                            Tag="direct-upload"
+                                            Click="DirectUpload_Click">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="📤" FontSize="13" Width="22" Margin="0,0,8,0" Foreground="{StaticResource Text.Muted}" />
+                                            <TextBlock Text="Direct Upload" FontSize="12.5" Foreground="{StaticResource Text.Primary}" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+                                    <Button x:Name="NavItemDatabase"
+                                            Style="{StaticResource NavPopupItemStyle}"
+                                            Tag="database"
+                                            Click="Database_Click">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="🛢️" FontSize="13" Width="22" Margin="0,0,8,0" Foreground="{StaticResource Text.Muted}" />
+                                            <TextBlock Text="Database" FontSize="12.5" Foreground="{StaticResource Text.Primary}" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+                                    <Button x:Name="NavItemGit"
+                                            Style="{StaticResource NavPopupItemStyle}"
+                                            Tag="git"
+                                            Click="Git_Click">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="🐱" FontSize="13" Width="22" Margin="0,0,8,0" Foreground="{StaticResource Text.Muted}" />
+                                            <TextBlock Text="Git &amp; GitHub" FontSize="12.5" Foreground="{StaticResource Text.Primary}" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+                                    <Button x:Name="NavItemTerminal"
+                                            Style="{StaticResource NavPopupItemStyle}"
+                                            Tag="terminal"
+                                            Click="Terminal_Click">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="💻" FontSize="13" Width="22" Margin="0,0,8,0" Foreground="{StaticResource Text.Muted}" />
+                                            <TextBlock Text="Terminal" FontSize="12.5" Foreground="{StaticResource Text.Primary}" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+                                    <Button x:Name="NavItemBackup"
+                                            Style="{StaticResource NavPopupItemStyle}"
+                                            Tag="backup-scheduler"
+                                            Click="BackupScheduler_Click">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="🗓️" FontSize="13" Width="22" Margin="0,0,8,0" Foreground="{StaticResource Text.Muted}" />
+                                                <TextBlock Text="Backup Plans"
+                                                           FontSize="12.5"
+                                                           Foreground="{StaticResource Text.Primary}"
+                                                           VerticalAlignment="Center" />
+                                            </StackPanel>
+                                            <Border Grid.Column="1"
+                                                    Margin="10,0,0,0"
+                                                    Padding="7,1"
+                                                    CornerRadius="9"
+                                                    VerticalAlignment="Center"
+                                                    Background="{Binding BackupMenuBadgeBackground, RelativeSource={RelativeSource AncestorType=Window}}">
+                                                <TextBlock Text="{Binding BackupMenuBadgeText, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                           FontSize="10.5"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="{Binding BackupMenuBadgeForeground, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                           VerticalAlignment="Center" />
+                                            </Border>
+                                        </Grid>
+                                    </Button>
+                                    <Button x:Name="NavItemHistory"
+                                            Style="{StaticResource NavPopupItemStyle}"
+                                            Tag="history"
+                                            Click="History_Click">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="📜" FontSize="13" Width="22" Margin="0,0,8,0" Foreground="{StaticResource Text.Muted}" />
+                                            <TextBlock Text="History" FontSize="12.5" Foreground="{StaticResource Text.Primary}" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+
+                                    <Separator Background="{StaticResource Border.Subtle}" Margin="4,6" Height="1" />
+
+                                    <Button x:Name="NavItemSettings"
+                                            Style="{StaticResource NavPopupItemStyle}"
+                                            Tag="settings"
+                                            Click="Settings_Click">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="⚙️" FontSize="13" Width="22" Margin="0,0,8,0" Foreground="{StaticResource Text.Muted}" />
+                                            <TextBlock Text="Settings" FontSize="12.5" Foreground="{StaticResource Text.Primary}" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+                                    <Button x:Name="NavItemAbout"
+                                            Style="{StaticResource NavPopupItemStyle}"
+                                            Tag="about"
+                                            Click="About_Click">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="ℹ️" FontSize="13" Width="22" Margin="0,0,8,0" Foreground="{StaticResource Text.Muted}" />
+                                            <TextBlock Text="About" FontSize="12.5" Foreground="{StaticResource Text.Primary}" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
+                            </Border>
+                        </Popup>
+
+                        <!-- Project recent menu -->
                         <Popup x:Name="ProjectMenuPopup"
                                PlacementTarget="{Binding ElementName=ProjectSelectorBtn}"
                                Placement="Bottom"
@@ -355,19 +389,19 @@
                                                                 Margin="0,0,10,0"
                                                                 Background="{Binding ColorBrush}">
                                                             <TextBlock Text="{Binding Initial}"
-                                                                      Foreground="{StaticResource Text.Primary}"
-                                                                      FontSize="12"
-                                                                      FontWeight="Bold"
-                                                                      HorizontalAlignment="Center"
-                                                                      VerticalAlignment="Center" />
+                                                                       Foreground="{StaticResource Text.Primary}"
+                                                                       FontSize="12"
+                                                                       FontWeight="Bold"
+                                                                       HorizontalAlignment="Center"
+                                                                       VerticalAlignment="Center" />
                                                         </Border>
                                                         <StackPanel VerticalAlignment="Center">
                                                             <TextBlock Text="{Binding Name}" FontSize="13" Foreground="{StaticResource Text.Primary}" />
                                                             <TextBlock Text="{Binding Path}"
-                                                                      FontSize="11"
-                                                                      Foreground="{StaticResource Text.Muted}"
-                                                                      TextTrimming="CharacterEllipsis"
-                                                                      MaxWidth="320" />
+                                                                       FontSize="11"
+                                                                       Foreground="{StaticResource Text.Muted}"
+                                                                       TextTrimming="CharacterEllipsis"
+                                                                       MaxWidth="320" />
                                                         </StackPanel>
                                                     </StackPanel>
                                                 </Button>
@@ -401,7 +435,6 @@
                        ScrollViewer.VerticalScrollBarVisibility="Auto"
                        ScrollViewer.HorizontalScrollBarVisibility="Auto" />
             </Grid>
-        </Grid>
 
             <!-- Update footer stays inside the window client area (above OS taskbar). -->
             <Border x:Name="UpdateFooterBar"

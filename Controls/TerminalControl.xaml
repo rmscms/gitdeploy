@@ -154,16 +154,14 @@
                                   ToolTip="Saved commands (Dock strip or Float helper window)"
                                   Checked="PresetsDrawerToggle_Checked"
                                   Unchecked="PresetsDrawerToggle_Unchecked" />
-                    <Button x:Name="ConnectButton"
-                            Content="Connect"
-                            Click="ConnectButton_Click"
-                            Height="22"
-                            Padding="10,0"
-                            Margin="0,0,4,0"
-                            FontSize="11"
-                            Style="{StaticResource App.Button.Primary}"
-                            Foreground="{StaticResource Text.Primary}"
-                            Cursor="Hand" />
+                    <Button x:Name="DetachButton"
+                            Content="⧉"
+                            Style="{StaticResource Terminal.ToolButton}"
+                            Width="28"
+                            Height="26"
+                            FontSize="13"
+                            Click="DetachButton_Click"
+                            ToolTip="Float: open another terminal window" />
                     <Button x:Name="ClearButton"
                             Content="🧹"
                             Style="{StaticResource Terminal.ToolButton}"
@@ -203,11 +201,6 @@
                         <ComboBoxItem Content="Cyan" Tag="#00FFFF" />
                         <ComboBoxItem Content="Yellow" Tag="#FFFF00" />
                     </ComboBox>
-                    <Button x:Name="DetachButton"
-                            Content="🗖"
-                            Style="{StaticResource Terminal.ToolButton}"
-                            Click="DetachButton_Click"
-                            ToolTip="Pop-out terminal" />
                 </StackPanel>
             </Grid>
         </Border>
