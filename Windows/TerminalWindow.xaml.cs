@@ -289,7 +289,7 @@ namespace GitDeployPro.Windows
             var command = (PresetCommandBox.Text ?? string.Empty).Trim();
             if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(command))
             {
-                System.Windows.MessageBox.Show("Please enter both a title and a command.", "Command Presets", MessageBoxButton.OK, MessageBoxImage.Information);
+                ModernMessageBox.Show("Please enter both a title and a command.", "Command Presets", MessageBoxButton.OK, MessageBoxImage.Information, owner: this);
                 return;
             }
 

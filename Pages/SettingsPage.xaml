@@ -272,6 +272,41 @@
                             </StackPanel>
                         </Expander>
 
+                        <Expander Style="{StaticResource Settings.Expander}" IsExpanded="True">
+                            <Expander.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:SymbolIcon Symbol="Globe24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Accent.Primary}" VerticalAlignment="Center" />
+                                    <StackPanel>
+                                        <TextBlock x:Name="LanguageSectionTitle"
+                                                   Text="Language"
+                                                   FontWeight="SemiBold"
+                                                   FontSize="13" />
+                                        <TextBlock x:Name="LanguageSectionHint"
+                                                   Text="App display language. Default is English."
+                                                   FontSize="10"
+                                                   Foreground="{StaticResource Text.Muted}" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Expander.Header>
+                            <StackPanel>
+                                <TextBlock x:Name="LanguageLabel"
+                                           Text="Language"
+                                           Margin="0,0,0,6"
+                                           Style="{StaticResource App.MutedTextStyle}"
+                                           FontSize="11" />
+                                <ComboBox x:Name="UiLanguageComboBox"
+                                          Height="34"
+                                          Style="{StaticResource App.InputComboBox}"
+                                          SelectionChanged="UiLanguageComboBox_SelectionChanged" />
+                                <TextBlock x:Name="LanguageNoteText"
+                                           Margin="0,8,0,0"
+                                           FontSize="11"
+                                           Foreground="{StaticResource Text.Muted}"
+                                           TextWrapping="Wrap"
+                                           Text="Persian switches the layout to right-to-left." />
+                            </StackPanel>
+                        </Expander>
+
                         <Expander Style="{StaticResource Settings.Expander}" IsExpanded="False">
                             <Expander.Header>
                                 <StackPanel Orientation="Horizontal">

@@ -4,6 +4,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:wv="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+             xmlns:loc="clr-namespace:GitDeployPro.Services.Localization"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d">
     <UserControl.Resources>
@@ -95,18 +96,18 @@
                         <Button x:Name="EditConnectionButton"
                                 Style="{StaticResource FtpToolbarIconButtonStyle}"
                                 Content="✎"
-                                ToolTip="Edit connections"
+                                ToolTip="{loc:T deploy.tip.editConnections}"
                                 Click="EditConnectionButton_Click" />
                         <Button x:Name="RefreshButton"
                                 Style="{StaticResource FtpToolbarIconButtonStyle}"
                                 Content="↻"
-                                ToolTip="Refresh"
+                                ToolTip="{loc:T deploy.tip.refreshRemote}"
                                 Click="RefreshButton_Click" />
                         <Button x:Name="ConnectionToggleButton"
                                 Style="{StaticResource FtpToolbarIconButtonStyle}"
                                 Content="⚡"
                                 Margin="0"
-                                ToolTip="Connect"
+                                ToolTip="{loc:T deploy.tip.connect}"
                                 Click="ConnectionToggleButton_Click" />
                     </StackPanel>
                 </Grid>
@@ -363,6 +364,7 @@
                                     Style="{StaticResource App.Button.Ghost}"
                                     Foreground="{StaticResource Status.Error}"
                                     BorderBrush="{StaticResource Status.Error}"
+                                    ToolTip="{loc:T deploy.tip.closeEditor}"
                                     Click="CloseEditorOverlayButton_Click" />
 
                             <TextBlock x:Name="EditorPathText"
@@ -381,7 +383,7 @@
                                       Style="{StaticResource App.InputComboBox}"
                                       ItemsSource="{Binding EditorFontSizes}"
                                       SelectionChanged="EditorFontSizeComboBox_SelectionChanged"
-                                      ToolTip="Editor font size" />
+                                      ToolTip="{loc:T deploy.tip.editorFont}" />
 
                             <Button x:Name="RevertButton"
                                     Grid.Column="3"
@@ -391,6 +393,7 @@
                                     Margin="6,0,6,0"
                                     Style="{StaticResource App.Button.Ghost}"
                                     IsEnabled="False"
+                                    ToolTip="{loc:T deploy.tip.revert}"
                                     Click="RevertButton_Click" />
 
                             <Button x:Name="SaveUploadButton"
@@ -400,6 +403,7 @@
                                     MinWidth="96"
                                     Style="{StaticResource SaveUploadButtonDefaultStyle}"
                                     IsEnabled="False"
+                                    ToolTip="{loc:T deploy.tip.saveUpload}"
                                     Click="SaveUploadButton_Click" />
                         </Grid>
 
@@ -540,6 +544,7 @@
                                                     Background="Transparent"
                                                     Foreground="{StaticResource Text.Muted}"
                                                     FontSize="10"
+                                                    ToolTip="{loc:T deploy.tip.closeTab}"
                                                     Click="CloseTabButton_Click" />
                                         </Grid>
                                     </Border>

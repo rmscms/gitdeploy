@@ -16,6 +16,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using GitDeployPro.Models;
 using GitDeployPro.Services;
+using GitDeployPro.Services.Localization;
 using GitDeployPro.Services.Remote;
 using GitDeployPro.Services.Theme;
 using GitDeployPro.Windows;
@@ -2819,7 +2820,9 @@ namespace GitDeployPro.Controls
                 ConnectionToggleButton.IsEnabled = !_isBusy && (connected || _currentProfile != null || ConnectionComboBox.SelectedItem != null);
                 ConnectionToggleButton.Opacity = 1.0;
                 ConnectionToggleButton.Content = connected ? "✕" : "⚡";
-                ConnectionToggleButton.ToolTip = connected ? "Disconnect" : "Connect";
+                ConnectionToggleButton.ToolTip = connected
+                    ? Loc.T("deploy.tip.disconnect")
+                    : Loc.T("deploy.tip.connect");
             }
 
             if (RefreshButton != null)

@@ -66,6 +66,11 @@ namespace GitDeployPro.Services
             public string AppThemeId { get; set; } = "default";
 
             /// <summary>
+            /// UI language code: <c>en</c> (default) or <c>fa</c>.
+            /// </summary>
+            public string UiLanguage { get; set; } = "en";
+
+            /// <summary>
             /// Legacy alias kept in sync with <see cref="AppThemeId"/> for older configs / Deploy UI.
             /// </summary>
             public string DeployThemeId { get; set; } = "default";

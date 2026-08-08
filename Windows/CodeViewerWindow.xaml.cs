@@ -93,7 +93,7 @@ namespace GitDeployPro.Windows
             catch (Exception ex)
             {
                 scope.Fail(ex);
-                System.Windows.MessageBox.Show($"Unable to initialize code viewer: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                ModernMessageBox.Show($"Unable to initialize code viewer: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 Close();
             }
         }
@@ -236,7 +236,7 @@ namespace GitDeployPro.Windows
 
             if (!_canSave)
             {
-                System.Windows.MessageBox.Show("Cannot save because original file path is not available.", "Save Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                ModernMessageBox.Show("Cannot save because original file path is not available.", "Save Error", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return false;
             }
 
@@ -249,13 +249,13 @@ namespace GitDeployPro.Windows
                 _content = text;
                 SetDirtyState(false);
                 await CodeWebView.CoreWebView2.ExecuteScriptAsync("window.__markClean && window.__markClean();");
-                System.Windows.MessageBox.Show("File saved successfully.", "Saved", MessageBoxButton.OK, MessageBoxImage.Information);
+                ModernMessageBox.Show("File saved successfully.", "Saved", MessageBoxButton.OK, MessageBoxImage.Information);
                 return true;
             }
             catch (Exception ex)
             {
                 scope.Fail(ex);
-                System.Windows.MessageBox.Show($"Unable to save file: {ex.Message}", "Save Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                ModernMessageBox.Show($"Unable to save file: {ex.Message}", "Save Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 return false;
             }
             finally
