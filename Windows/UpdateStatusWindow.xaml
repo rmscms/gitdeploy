@@ -1,0 +1,146 @@
+<Window x:Class="GitDeployPro.Windows.UpdateStatusWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:GitDeployPro.Services.Localization"
+        Title="Software Update"
+        Width="520"
+        Height="480"
+        MinWidth="460"
+        MinHeight="400"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanMinimize"
+        ShowInTaskbar="True"
+        Background="{StaticResource Surface.Base}"
+        Closing="Window_Closing">
+    <Border Padding="22"
+            Background="{StaticResource Surface.Base}">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- Header -->
+            <DockPanel Grid.Row="0" LastChildFill="True">
+                <Border DockPanel.Dock="Left"
+                        Width="48"
+                        Height="48"
+                        CornerRadius="14"
+                        Margin="0,0,14,0"
+                        Background="{StaticResource Status.SuccessSurface}">
+                    <TextBlock x:Name="HeaderIcon"
+                               Text="⬆"
+                               FontSize="22"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource Accent.Primary}"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center" />
+                </Border>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock x:Name="TitleText"
+                               Text="Update available"
+                               FontSize="22"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource Text.Primary}" />
+                    <TextBlock x:Name="VersionText"
+                               Margin="0,4,0,0"
+                               FontSize="13"
+                               Foreground="{StaticResource Text.Secondary}"
+                               TextWrapping="Wrap"
+                               Text="" />
+                </StackPanel>
+            </DockPanel>
+
+            <TextBlock x:Name="DetailText"
+                       Grid.Row="1"
+                       Margin="0,14,0,0"
+                       FontSize="13"
+                       Foreground="{StaticResource Text.Secondary}"
+                       TextWrapping="Wrap"
+                       Text="Download runs in the background — keep using the app." />
+
+            <!-- Changelog -->
+            <Border Grid.Row="2"
+                    Margin="0,16,0,0"
+                    Background="{StaticResource Surface.Card}"
+                    BorderBrush="{StaticResource Border.Subtle}"
+                    BorderThickness="1"
+                    CornerRadius="12"
+                    Padding="14,12">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="{loc:T update.whatsIncluded}"
+                               FontSize="12"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource Text.Muted}"
+                               Margin="0,0,0,8" />
+                    <ScrollViewer Grid.Row="1"
+                                  VerticalScrollBarVisibility="Auto">
+                        <ItemsControl x:Name="ChangelogList">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <DockPanel Margin="0,0,0,10" LastChildFill="True">
+                                        <TextBlock DockPanel.Dock="Left"
+                                                   Text="•"
+                                                   FontSize="14"
+                                                   FontWeight="Bold"
+                                                   Foreground="{StaticResource Accent.Primary}"
+                                                   Margin="0,0,10,0"
+                                                   VerticalAlignment="Top" />
+                                        <TextBlock Text="{Binding}"
+                                                   FontSize="13"
+                                                   Foreground="{StaticResource Text.Primary}"
+                                                   TextWrapping="Wrap" />
+                                    </DockPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+
+            <!-- Progress -->
+            <StackPanel x:Name="ProgressPanel"
+                        Grid.Row="3"
+                        Margin="0,16,0,0"
+                        Visibility="Collapsed">
+                <ProgressBar x:Name="ProgressBar"
+                             Height="8"
+                             Minimum="0"
+                             Maximum="100"
+                             Value="0" />
+                <TextBlock x:Name="ProgressText"
+                           Margin="0,8,0,0"
+                           FontSize="12"
+                           Foreground="{StaticResource Text.Muted}"
+                           Text="" />
+            </StackPanel>
+
+            <!-- Actions -->
+            <StackPanel Grid.Row="4"
+                        Orientation="Horizontal"
+                        HorizontalAlignment="Right"
+                        Margin="0,18,0,0">
+                <Button x:Name="SecondaryButton"
+                        MinWidth="110"
+                        Height="36"
+                        Margin="0,0,8,0"
+                        Style="{StaticResource App.Button.Ghost}"
+                        Content="Later"
+                        Click="SecondaryButton_Click" />
+                <Button x:Name="PrimaryButton"
+                        MinWidth="130"
+                        Height="36"
+                        Style="{StaticResource App.Button.Primary}"
+                        Content="Download update"
+                        Click="PrimaryButton_Click" />
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

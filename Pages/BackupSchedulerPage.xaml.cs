@@ -583,6 +583,15 @@ namespace GitDeployPro.Pages
             catch (OperationCanceledException)
             {
             }
+            catch
+            {
+                // Probe failures are shown as the in-page localhost warning, not a global Error dialog.
+                if (!cancellationToken.IsCancellationRequested)
+                {
+                    LocalhostConnectionWarningMessage = "Localhost is not connected (127.0.0.1:3306 / root / empty password).";
+                    IsLocalhostConnectionWarningVisible = true;
+                }
+            }
             finally
             {
                 _localhostWarningProbeStarted = false;
@@ -604,20 +613,46 @@ namespace GitDeployPro.Pages
                 UseSshTunnel = false
             };
 
+            Task? connectTask = null;
             try
             {
                 await using var client = new DatabaseClient();
-                await client.ConnectAsync(info).WaitAsync(TimeSpan.FromSeconds(4), cancellationToken).ConfigureAwait(false);
+                connectTask = client.ConnectAsync(info);
+                await connectTask.WaitAsync(TimeSpan.FromSeconds(4), cancellationToken).ConfigureAwait(false);
                 return true;
             }
             catch (OperationCanceledException)
             {
+                ObserveFaultedTask(connectTask);
                 throw;
+            }
+            catch (TimeoutException)
+            {
+                ObserveFaultedTask(connectTask);
+                return false;
             }
             catch
             {
+                ObserveFaultedTask(connectTask);
                 return false;
             }
+        }
+
+        /// <summary>
+        /// WaitAsync can abandon ConnectAsync; observe faults so they never surface as Error dialogs.
+        /// </summary>
+        private static void ObserveFaultedTask(Task? task)
+        {
+            if (task == null)
+            {
+                return;
+            }
+
+            _ = task.ContinueWith(
+                t => _ = t.Exception,
+                CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
         }
 
         private void LoadConnectionProfiles()

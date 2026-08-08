@@ -9,6 +9,7 @@ using FluentFTP;
 using GitDeployPro.Controls;
 using GitDeployPro.Models;
 using GitDeployPro.Services;
+using GitDeployPro.Services.Localization;
 using GitDeployPro.Services.Theme;
 using GitDeployPro.Services.Update;
 using GitDeployPro.Windows;
@@ -28,11 +29,14 @@ namespace GitDeployPro.Pages
             "bin/", "obj/", ".vs/", ".idea/", ".vscode/", ".cursor/", "packages/", "dist/", "build/", "node_modules/", ".env", "*.log", "vendor/", ".gitdeploy.config", ".gitdeploy.history"
         };
 
+        private bool _suppressLanguageComboChange;
+
         public SettingsPage()
         {
             InitializeComponent();
             _configService = new ConfigurationService();
             _gitService = new GitService();
+            LocalizationService.Instance.LanguageChanged += (_, _) => RefreshLanguageUiTexts();
             ShowSettingsSection("general");
             LoadSettings();
         }
@@ -126,11 +130,80 @@ namespace GitDeployPro.Pages
                 RefreshStartupAudit();
                 RefreshUpdateStatus(globalConfig);
                 RefreshThemePacksList();
+                LoadLanguageCombo(globalConfig.UiLanguage);
+                RefreshLanguageUiTexts();
             }
             catch (Exception ex)
             {
                 ModernMessageBox.Show($"Error loading settings: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
+        }
+
+        private void LoadLanguageCombo(string? selectedCode = null)
+        {
+            if (UiLanguageComboBox == null)
+            {
+                return;
+            }
+
+            _suppressLanguageComboChange = true;
+            try
+            {
+                var options = LocalizationService.Instance.GetLanguageOptions().ToList();
+                UiLanguageComboBox.ItemsSource = options;
+                UiLanguageComboBox.DisplayMemberPath = nameof(LocalizationService.LanguageOption.DisplayName);
+                UiLanguageComboBox.SelectedValuePath = nameof(LocalizationService.LanguageOption.Code);
+                var code = string.IsNullOrWhiteSpace(selectedCode)
+                    ? LocalizationService.Instance.Language
+                    : selectedCode;
+                UiLanguageComboBox.SelectedValue = string.Equals(code, LocalizationService.Persian, StringComparison.OrdinalIgnoreCase)
+                    ? LocalizationService.Persian
+                    : LocalizationService.English;
+            }
+            finally
+            {
+                _suppressLanguageComboChange = false;
+            }
+        }
+
+        private void RefreshLanguageUiTexts()
+        {
+            if (LanguageSectionTitle != null)
+            {
+                LanguageSectionTitle.Text = Loc.T("settings.language");
+            }
+
+            if (LanguageSectionHint != null)
+            {
+                LanguageSectionHint.Text = Loc.T("settings.languageHint");
+            }
+
+            if (LanguageLabel != null)
+            {
+                LanguageLabel.Text = Loc.T("settings.language");
+            }
+
+            if (LanguageNoteText != null)
+            {
+                LanguageNoteText.Text = Loc.T("settings.languageNote");
+            }
+
+            // Refresh combo display names for current language.
+            if (!_suppressLanguageComboChange)
+            {
+                LoadLanguageCombo(LocalizationService.Instance.Language);
+            }
+        }
+
+        private void UiLanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_suppressLanguageComboChange || UiLanguageComboBox?.SelectedValue is not string code)
+            {
+                return;
+            }
+
+            LocalizationService.Instance.SetLanguage(code, persist: true, raiseUi: true);
+            RefreshLanguageUiTexts();
         }
 
         private bool _suppressAppThemeComboChange;

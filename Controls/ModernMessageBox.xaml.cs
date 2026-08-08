@@ -20,38 +20,35 @@ namespace GitDeployPro.Controls
             TitleText.Text = title;
             MessageText.Text = message;
 
-            // Set Icon & Color
+            // Icon + status colors from ThemeManager tokens (follow Default/Dark/custom packs).
             switch (image)
             {
-                case MessageBoxImage.Error: 
-                    IconText.Text = "❌"; 
-                    IconText.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(229, 115, 115)); 
-                    TitleText.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(229, 115, 115));
+                case MessageBoxImage.Error:
+                    IconText.Text = "❌";
+                    ApplyStatusBrush(IconText, TitleText, "Status.Error");
                     break;
-                case MessageBoxImage.Warning: 
-                    IconText.Text = "⚠️"; 
-                    IconText.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 183, 77)); 
-                    TitleText.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 183, 77));
+                case MessageBoxImage.Warning:
+                    IconText.Text = "⚠️";
+                    ApplyStatusBrush(IconText, TitleText, "Status.Warning");
                     break;
-                case MessageBoxImage.Question: 
-                    IconText.Text = "❓"; 
-                    IconText.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(100, 181, 246)); 
+                case MessageBoxImage.Question:
+                    IconText.Text = "❓";
+                    ApplyStatusBrush(IconText, null, "Status.Info");
                     break;
-                case MessageBoxImage.Information: 
-                    if (title.Contains("Success"))
+                case MessageBoxImage.Information:
+                    if (title.Contains("Success", System.StringComparison.OrdinalIgnoreCase))
                     {
                         IconText.Text = "✅";
-                        IconText.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(76, 175, 80)); 
-                        TitleText.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(76, 175, 80));
+                        ApplyStatusBrush(IconText, TitleText, "Status.Success");
                     }
                     else
                     {
-                        IconText.Text = "ℹ️"; 
-                        IconText.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(100, 181, 246)); 
+                        IconText.Text = "ℹ️";
+                        ApplyStatusBrush(IconText, null, "Status.Info");
                     }
                     break;
-                default: 
-                    IconText.Text = "📢"; 
+                default:
+                    IconText.Text = "📢";
                     break;
             }
 
@@ -108,6 +105,22 @@ namespace GitDeployPro.Controls
             MessageResult = _cancelResult == MessageBoxResult.None ? MessageBoxResult.Cancel : _cancelResult;
             Result = MessageResult == MessageBoxResult.OK || MessageResult == MessageBoxResult.Yes;
             this.Close();
+        }
+
+        private void ApplyStatusBrush(TextBlock icon, TextBlock? title, string resourceKey)
+        {
+            var brush = TryFindResource(resourceKey) as System.Windows.Media.Brush
+                        ?? System.Windows.Application.Current?.TryFindResource(resourceKey) as System.Windows.Media.Brush;
+            if (brush == null)
+            {
+                return;
+            }
+
+            icon.Foreground = brush;
+            if (title != null)
+            {
+                title.Foreground = brush;
+            }
         }
 
         private static void PrepareOwnerAndPlacement(ModernMessageBox msgBox, Window? owner, DependencyObject? context)

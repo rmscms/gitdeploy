@@ -11,6 +11,7 @@ using System.Windows.Threading;
 using GitDeployPro.Controls;
 using GitDeployPro.Windows;
 using GitDeployPro.Services;
+using GitDeployPro.Services.Localization;
 using GitDeployPro.Services.Remote;
 using GitDeployPro.Services.Theme;
 using GitDeployPro.Models;
@@ -355,8 +356,8 @@ namespace GitDeployPro.Pages
             var visible = DirectUploadDock.IsUploadActionsPanelVisible;
             ToggleUploadActionsButton.Opacity = pinned || visible ? 1.0 : 0.7;
             ToggleUploadActionsButton.ToolTip = pinned
-                ? "Hide upload actions"
-                : "Upload actions";
+                ? Loc.T("deploy.tip.hideUploadActions")
+                : Loc.T("deploy.tip.uploadActions");
         }
 
         private void ToggleBottomDockButton_Click(object sender, RoutedEventArgs e)
@@ -821,8 +822,8 @@ namespace GitDeployPro.Pages
                     VerticalAlignment = VerticalAlignment.Stretch,
                     Cursor = System.Windows.Input.Cursors.Hand,
                     ToolTip = session.IsLocal
-                        ? "Local terminal session"
-                        : $"Server: {session.Title}"
+                        ? Loc.T("deploy.tip.localSession")
+                        : Loc.T("deploy.tip.serverSession", session.Title)
                 };
 
                 var root = new Grid();
@@ -865,7 +866,7 @@ namespace GitDeployPro.Pages
                     VerticalAlignment = VerticalAlignment.Center,
                     HorizontalContentAlignment = System.Windows.HorizontalAlignment.Center,
                     VerticalContentAlignment = VerticalAlignment.Center,
-                    ToolTip = "Close session",
+                    ToolTip = Loc.T("deploy.tip.closeSession"),
                     Template = CreateTerminalTabCloseTemplate()
                 };
                 close.Click += CloseDeployTerminalSession_Click;
@@ -1081,8 +1082,8 @@ namespace GitDeployPro.Pages
                 OpenBottomTerminalButton.Opacity = terminalOpen ? 1.0 : 0.75;
                 OpenBottomTerminalButton.Background = terminalOpen ? warningSurface : transparent;
                 OpenBottomTerminalButton.ToolTip = terminalOpen
-                    ? "Hide Terminal"
-                    : "Terminal";
+                    ? Loc.T("deploy.tip.hideTerminal")
+                    : Loc.T("deploy.tip.terminal");
             }
 
             if (OpenBottomLogsButton != null)
@@ -1091,8 +1092,8 @@ namespace GitDeployPro.Pages
                 OpenBottomLogsButton.Opacity = logsOpen ? 1.0 : 0.75;
                 OpenBottomLogsButton.Background = logsOpen && !_bottomTerminalTabActive ? warningSurface : transparent;
                 OpenBottomLogsButton.ToolTip = logsOpen && !_bottomTerminalTabActive
-                    ? "Hide Deploy Logs"
-                    : "Deploy Logs";
+                    ? Loc.T("deploy.tip.hideLogs")
+                    : Loc.T("deploy.tip.deployLogs");
             }
         }
 
@@ -1104,7 +1105,9 @@ namespace GitDeployPro.Pages
             }
 
             BottomCollapseButton.Content = _isBottomDockCollapsed ? "⬆" : "−";
-            BottomCollapseButton.ToolTip = _isBottomDockCollapsed ? "Expand bottom panel" : "Collapse bottom panel";
+            BottomCollapseButton.ToolTip = _isBottomDockCollapsed
+                ? Loc.T("deploy.tip.expandBottom")
+                : Loc.T("deploy.tip.collapseBottom");
         }
 
         private void ApplyBottomDockLayout(bool resetHeight = true)
@@ -1260,7 +1263,7 @@ namespace GitDeployPro.Pages
                 CenterEditorOverlayHost.Visibility = Visibility.Visible;
                 System.Windows.Controls.Panel.SetZIndex(CenterEditorOverlayHost, 40);
                 ToggleRemoteWorkspaceButton.Content = "✕";
-                ToggleRemoteWorkspaceButton.ToolTip = "Close editor";
+                ToggleRemoteWorkspaceButton.ToolTip = Loc.T("deploy.tip.closeEditorRail");
                 UpdateRemoteToggleButtonUi();
                 return;
             }
@@ -1844,14 +1847,14 @@ namespace GitDeployPro.Pages
             if (_isRemoteEditorOverlayActive)
             {
                 ToggleRemoteWorkspaceButton.Content = "✕";
-                ToggleRemoteWorkspaceButton.ToolTip = "Close editor";
+                ToggleRemoteWorkspaceButton.ToolTip = Loc.T("deploy.tip.closeEditorRail");
                 return;
             }
 
             ToggleRemoteWorkspaceButton.Content = "🗂";
             ToggleRemoteWorkspaceButton.ToolTip = _isRemoteWorkspaceCollapsed
-                ? "Show FTP / Remote Host"
-                : "Hide FTP / Remote Host";
+                ? Loc.T("deploy.tip.showRemote")
+                : Loc.T("deploy.tip.hideRemote");
             ToggleRemoteWorkspaceButton.Opacity = _isRemoteWorkspaceCollapsed ? 0.75 : 1.0;
         }
 
@@ -1859,8 +1862,8 @@ namespace GitDeployPro.Pages
         {
             ToggleDirectUploadDockButton.Opacity = _isDirectUploadDockCollapsed ? 0.75 : 1.0;
             ToggleDirectUploadDockButton.ToolTip = _isDirectUploadDockCollapsed
-                ? "Show Direct Upload"
-                : "Hide Direct Upload";
+                ? Loc.T("deploy.tip.showDirectUpload")
+                : Loc.T("deploy.tip.hideDirectUpload");
         }
 
         private async void LoadGitData(bool includeExpensiveOperations = true, bool refreshBranches = true)
@@ -3444,12 +3447,12 @@ namespace GitDeployPro.Pages
             if (IsFtpDeploymentMode())
             {
                 DeployButton.Content = "🔄 FTP DEPLOY + SYNC";
-                DeployButton.ToolTip = "Upload selected files to FTP/SFTP first, then sync branches.";
+                DeployButton.ToolTip = Loc.T("deploy.tip.deployFtpThenSync");
             }
             else
             {
                 DeployButton.Content = "🔄 SYNC";
-                DeployButton.ToolTip = "Sync selected branch changes locally.";
+                DeployButton.ToolTip = Loc.T("deploy.tip.deploySyncLocal");
             }
         }
 

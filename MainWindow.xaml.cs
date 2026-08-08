@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
@@ -14,6 +14,7 @@ using GitDeployPro.Controls;
 using GitDeployPro.Models;
 using GitDeployPro.Pages;
 using GitDeployPro.Services;
+using GitDeployPro.Services.Localization;
 using GitDeployPro.Services.Update;
 using GitDeployPro.Windows;
 using Button = System.Windows.Controls.Button;
@@ -38,6 +39,7 @@ namespace GitDeployPro
         private readonly AppUpdateService _updateService = new();
         private PendingUpdateState? _readyPendingUpdate;
         private bool _backgroundUpdateInProgress;
+        private UpdateStatusWindow? _updateStatusWindow;
 
         public bool IsBackgroundUpdateInProgress => _backgroundUpdateInProgress;
 
@@ -60,6 +62,14 @@ namespace GitDeployPro
             InitializeTrayIcon();
             Closing += MainWindow_Closing;
             Loaded += MainWindow_Loaded;
+            LocalizationService.Instance.LanguageChanged += (_, _) =>
+            {
+                Dispatcher.InvokeAsync(() =>
+                {
+                    LocalizationService.Instance.ApplyFlowDirection(this);
+                });
+            };
+            LocalizationService.Instance.ApplyFlowDirection(this);
 
             NavigateToPage(new DeployPage(), "deploy");
         }
@@ -127,10 +137,25 @@ namespace GitDeployPro
             ShowUpdateReadyFooter(pending);
         }
 
+        /// <summary>
+        /// Modeless update prompt (does not block the main window).
+        /// </summary>
+        public void ShowUpdateAvailable(UpdateCheckResult result)
+        {
+            if (result?.Manifest == null)
+            {
+                return;
+            }
+
+            var window = EnsureUpdateStatusWindow();
+            window.ShowAvailable(result);
+        }
+
         public void StartBackgroundUpdateDownload(UpdateManifest manifest)
         {
             if (manifest == null || _backgroundUpdateInProgress)
             {
+                EnsureUpdateStatusWindow().Activate();
                 return;
             }
 
@@ -141,14 +166,61 @@ namespace GitDeployPro
         {
             _readyPendingUpdate = pending;
             _backgroundUpdateInProgress = false;
-            UpdateFooterBar.Visibility = Visibility.Visible;
-            UpdateFooterTitle.Text = $"Update {pending.Version} ready";
-            UpdateFooterDetail.Text = "You can keep working. Restart to install the update into LocalAppData.";
-            UpdateFooterProgress.IsIndeterminate = false;
-            UpdateFooterProgress.Value = 100;
-            UpdateFooterCancelButton.Visibility = Visibility.Collapsed;
-            UpdateFooterRestartButton.Visibility = Visibility.Visible;
-            UpdateFooterLaterButton.Visibility = Visibility.Visible;
+            EnsureUpdateStatusWindow().ShowReady(pending);
+        }
+
+        public void ActivateUpdateStatusWindow()
+        {
+            if (_updateStatusWindow != null && _updateStatusWindow.IsVisible)
+            {
+                _updateStatusWindow.Activate();
+            }
+        }
+
+        private UpdateStatusWindow EnsureUpdateStatusWindow()
+        {
+            if (_updateStatusWindow != null)
+            {
+                return _updateStatusWindow;
+            }
+
+            var window = new UpdateStatusWindow
+            {
+                Owner = this
+            };
+            window.DownloadRequested += () =>
+            {
+                var manifest = window.Manifest;
+                if (manifest != null)
+                {
+                    StartBackgroundUpdateDownload(manifest);
+                }
+            };
+            window.RestartRequested += async () => await ApplyPendingUpdateFromModalAsync();
+            window.CancelDownloadRequested += () =>
+            {
+                if (_backgroundUpdateInProgress && _updateDownloadCts != null && !_updateDownloadCts.IsCancellationRequested)
+                {
+                    _updateDownloadCts.Cancel();
+                    return;
+                }
+
+                HideUpdateFooter();
+            };
+            window.Dismissed += () =>
+            {
+                // Keep pending package; just hide the modeless window.
+            };
+            window.Closed += (_, _) =>
+            {
+                if (ReferenceEquals(_updateStatusWindow, window))
+                {
+                    _updateStatusWindow = null;
+                }
+            };
+
+            _updateStatusWindow = window;
+            return window;
         }
 
         private async Task DownloadUpdateInBackgroundAsync(UpdateManifest manifest)
@@ -159,29 +231,14 @@ namespace GitDeployPro
             _backgroundUpdateInProgress = true;
             _readyPendingUpdate = null;
 
-            UpdateFooterBar.Visibility = Visibility.Visible;
-            UpdateFooterTitle.Text = $"Downloading {manifest.Version}...";
-            UpdateFooterDetail.Text = "You can keep using the app while the update downloads.";
-            UpdateFooterProgress.IsIndeterminate = true;
-            UpdateFooterProgress.Value = 0;
-            UpdateFooterCancelButton.Visibility = Visibility.Visible;
-            UpdateFooterRestartButton.Visibility = Visibility.Collapsed;
-            UpdateFooterLaterButton.Visibility = Visibility.Collapsed;
+            var window = EnsureUpdateStatusWindow();
+            window.ShowDownloading(manifest);
 
             try
             {
                 var progress = new Progress<double>(value =>
                 {
-                    if (value < 0)
-                    {
-                        UpdateFooterProgress.IsIndeterminate = true;
-                        UpdateFooterDetail.Text = "Downloading...";
-                        return;
-                    }
-
-                    UpdateFooterProgress.IsIndeterminate = false;
-                    UpdateFooterProgress.Value = value;
-                    UpdateFooterDetail.Text = $"Downloading... {value:0}%";
+                    window.SetDownloadProgress(value);
                 });
 
                 var pending = await _updateService.DownloadOnlyAsync(manifest, progress, token);
@@ -194,13 +251,7 @@ namespace GitDeployPro
             catch (Exception ex)
             {
                 _backgroundUpdateInProgress = false;
-                UpdateFooterTitle.Text = "Update download failed";
-                UpdateFooterDetail.Text = ex.Message;
-                UpdateFooterProgress.IsIndeterminate = false;
-                UpdateFooterCancelButton.Content = "Dismiss";
-                UpdateFooterCancelButton.Visibility = Visibility.Visible;
-                UpdateFooterRestartButton.Visibility = Visibility.Collapsed;
-                UpdateFooterLaterButton.Visibility = Visibility.Collapsed;
+                window.ShowFailed(ex.Message, manifest);
             }
         }
 
@@ -208,34 +259,18 @@ namespace GitDeployPro
         {
             _backgroundUpdateInProgress = false;
             _readyPendingUpdate = null;
-            UpdateFooterBar.Visibility = Visibility.Collapsed;
-            UpdateFooterCancelButton.Content = "Cancel";
-        }
-
-        private void UpdateFooterCancelButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (_backgroundUpdateInProgress && _updateDownloadCts != null && !_updateDownloadCts.IsCancellationRequested)
+            if (_updateStatusWindow != null && _updateStatusWindow.IsVisible)
             {
-                _updateDownloadCts.Cancel();
-                return;
+                _updateStatusWindow.Hide();
             }
-
-            HideUpdateFooter();
         }
 
-        private void UpdateFooterLaterButton_Click(object sender, RoutedEventArgs e)
+        private async Task ApplyPendingUpdateFromModalAsync()
         {
-            // Keep pending package on disk; just hide the footer for now.
-            UpdateFooterBar.Visibility = Visibility.Collapsed;
-        }
-
-        private async void UpdateFooterRestartButton_Click(object sender, RoutedEventArgs e)
-        {
-            UpdateFooterRestartButton.IsEnabled = false;
-            UpdateFooterLaterButton.IsEnabled = false;
+            var window = EnsureUpdateStatusWindow();
+            window.SetBusyInstalling();
             try
             {
-                UpdateFooterDetail.Text = "Installing update and restarting...";
                 await _updateService.ApplyPendingAndRestartAsync();
                 _allowClose = true;
                 System.Windows.Application.Current?.Shutdown();
@@ -248,8 +283,7 @@ namespace GitDeployPro
                     MessageBoxButton.OK,
                     MessageBoxImage.Error,
                     owner: this);
-                UpdateFooterRestartButton.IsEnabled = true;
-                UpdateFooterLaterButton.IsEnabled = true;
+                window.ResetBusyAfterInstallFailure();
             }
         }
 
@@ -548,7 +582,7 @@ namespace GitDeployPro
             }
             catch (Exception ex)
             {
-                System.Windows.MessageBox.Show($"Error opening project: {ex.Message}");
+                ModernMessageBox.Show($"Error opening project: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error, owner: this);
             }
         }
 
@@ -568,12 +602,12 @@ namespace GitDeployPro
                 }
                 else
                 {
-                    System.Windows.MessageBox.Show("No project is currently open.", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
+                    ModernMessageBox.Show("No project is currently open.", "Info", MessageBoxButton.OK, MessageBoxImage.Information, owner: this);
                 }
             }
             catch (Exception ex)
             {
-                System.Windows.MessageBox.Show($"Error opening Explorer: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                ModernMessageBox.Show($"Error opening Explorer: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error, owner: this);
             }
         }
 

@@ -1,17 +1,16 @@
 {
-  "version": "1.4.14",
-  "fileName": "GitDeployPro-1.4.14.exe",
-  "downloadUrl": "versions/GitDeployPro-1.4.14.exe",
-  "sha256": "65AB91D45940C8AAC9618A06CE82CC6AC522D0DCF885CD5EF2023EB6E7C84917",
-  "releaseNotes": "- Fix release EXE so it starts on clean PCs (bundle WPF/WebView2 native libraries; fixes 1.4.13 crash)\n- Auto-create Desktop shortcut when missing after portable/update install\n- On install, copy Themes/Packs next to the install EXE when present\n- Register install path when applying an update from a portable EXE\n- Terminal: Float window icon; remove redundant Disconnect (closing the tab ends the session)\n- Deploy Console polish + compact FTP toolbar icons",
+  "version": "1.4.15",
+  "fileName": "GitDeployPro-1.4.15.exe",
+  "downloadUrl": "versions/GitDeployPro-1.4.15.exe",
+  "sha256": "57C0EB5FEDA500A6F93690D0DB617BF6EB5E23E684B1C4CFE533C0255D6BC416",
+  "releaseNotes": "- English/Persian UI language (Settings → Language; default English, RTL for Persian)\n- Deploy icon tooltips localized; Direct Upload header/toolbar wraps when narrow\n- Non-blocking update status window (replaces bottom footer)\n- Suppress Error dialog for offline MySQL/network probe failures\n- ModernMessageBox and remaining dialogs use ThemeManager status colors",
   "changelog": [
-    "Fix release EXE so it starts on clean PCs (bundle WPF/WebView2 native libraries; fixes 1.4.13 crash)",
-    "Auto-create Desktop shortcut when missing after portable/update install",
-    "On install, copy Themes/Packs next to the install EXE when present",
-    "Register install path when applying an update from a portable EXE",
-    "Terminal: Float window icon; remove redundant Disconnect (closing the tab ends the session)",
-    "Deploy Console polish + compact FTP toolbar icons"
+    "English/Persian UI language (Settings → Language; default English, RTL for Persian)",
+    "Deploy icon tooltips localized; Direct Upload header/toolbar wraps when narrow",
+    "Non-blocking update status window (replaces bottom footer)",
+    "Suppress Error dialog for offline MySQL/network probe failures",
+    "ModernMessageBox and remaining dialogs use ThemeManager status colors"
   ],
   "mandatory": false,
-  "publishedUtc": "2026-08-04T08:43:12Z"
+  "publishedUtc": "2026-08-08T10:45:00Z"
 }

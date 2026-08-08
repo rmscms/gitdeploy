@@ -229,9 +229,36 @@ namespace GitDeployPro.Controls
                 DeselectAllButton.Margin = compact ? new Thickness(2, 0, 0, 0) : new Thickness(10, 0, 0, 0);
             }
 
+            // Compact dock: icon-only buttons so the toolbar can wrap cleanly without overlapping stats.
             if (RefreshButtonLabel != null)
             {
-                RefreshButtonLabel.Text = compact ? "Refresh" : "Refresh from Disk";
+                RefreshButtonLabel.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+                RefreshButtonLabel.Text = "Refresh from Disk";
+                if (RefreshButtonLabel.Parent is StackPanel refreshIcon && refreshIcon.Children.Count > 0
+                    && refreshIcon.Children[0] is TextBlock refreshEmoji)
+                {
+                    refreshEmoji.Margin = compact ? new Thickness(0) : new Thickness(0, 0, 5, 0);
+                }
+            }
+
+            if (SelectAllButtonLabel != null)
+            {
+                SelectAllButtonLabel.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+                if (SelectAllButtonLabel.Parent is StackPanel selectIcon && selectIcon.Children.Count > 0
+                    && selectIcon.Children[0] is TextBlock selectEmoji)
+                {
+                    selectEmoji.Margin = compact ? new Thickness(0) : new Thickness(0, 0, 5, 0);
+                }
+            }
+
+            if (DeselectAllButtonLabel != null)
+            {
+                DeselectAllButtonLabel.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+                if (DeselectAllButtonLabel.Parent is StackPanel deselectIcon && deselectIcon.Children.Count > 0
+                    && deselectIcon.Children[0] is TextBlock deselectEmoji)
+                {
+                    deselectEmoji.Margin = compact ? new Thickness(0) : new Thickness(0, 0, 5, 0);
+                }
             }
 
             if (TreeLegendText != null)

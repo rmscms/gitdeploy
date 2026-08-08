@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using GitDeployPro.Controls;
+using GitDeployPro.Services.Localization;
 using GitDeployPro.Windows;
 
 namespace GitDeployPro.Services.Update
@@ -13,7 +14,6 @@ namespace GitDeployPro.Services.Update
     public static class AppUpdateCoordinator
     {
         private static readonly SemaphoreSlim Gate = new(1, 1);
-        private static bool _dialogOpen;
 
         public static async Task RunAutomaticCheckAsync(Window? owner)
         {
@@ -56,18 +56,14 @@ namespace GitDeployPro.Services.Update
 
             try
             {
-                if (_dialogOpen)
-                {
-                    return;
-                }
-
                 if (owner is MainWindow busyMain && busyMain.IsBackgroundUpdateInProgress)
                 {
+                    busyMain.ActivateUpdateStatusWindow();
                     if (showUpToDateMessage)
                     {
                         ModernMessageBox.Show(
-                            "An update download is already in progress.",
-                            "Updates",
+                            Loc.T("msg.updateInProgress"),
+                            Loc.T("settings.updates"),
                             MessageBoxButton.OK,
                             MessageBoxImage.Information,
                             owner: owner);
@@ -91,7 +87,7 @@ namespace GitDeployPro.Services.Update
                     return;
                 }
 
-                // If a package is already downloaded, just show the footer.
+                // If a package is already downloaded, show the modeless ready UI.
                 var pending = service.GetPendingUpdate();
                 if (pending != null &&
                     Version.TryParse(AppUpdateService.NormalizeVersionString(pending.Version), out var pendingVer) &&
@@ -105,8 +101,8 @@ namespace GitDeployPro.Services.Update
                     if (showUpToDateMessage)
                     {
                         ModernMessageBox.Show(
-                            $"Update {pending.Version} is already downloaded.\nUse Restart now in the footer to apply it.",
-                            "Updates",
+                            Loc.T("msg.updateAlreadyDownloaded", pending.Version),
+                            Loc.T("settings.updates"),
                             MessageBoxButton.OK,
                             MessageBoxImage.Information,
                             owner: owner);
@@ -125,8 +121,8 @@ namespace GitDeployPro.Services.Update
                     if (showUpToDateMessage)
                     {
                         ModernMessageBox.Show(
-                            $"Could not check for updates:\n{ex.Message}",
-                            "Updates",
+                            Loc.T("msg.updateCheckFailed", ex.Message),
+                            Loc.T("settings.updates"),
                             MessageBoxButton.OK,
                             MessageBoxImage.Warning,
                             owner: owner);
@@ -140,8 +136,8 @@ namespace GitDeployPro.Services.Update
                     if (showUpToDateMessage)
                     {
                         ModernMessageBox.Show(
-                            $"Could not check for updates:\n{result.Error}",
-                            "Updates",
+                            Loc.T("msg.updateCheckFailed", result.Error),
+                            Loc.T("settings.updates"),
                             MessageBoxButton.OK,
                             MessageBoxImage.Warning,
                             owner: owner);
@@ -155,8 +151,8 @@ namespace GitDeployPro.Services.Update
                     if (showUpToDateMessage)
                     {
                         ModernMessageBox.Show(
-                            $"You are on the latest version ({service.GetCurrentVersion()}).",
-                            "Updates",
+                            Loc.T("msg.upToDate", service.GetCurrentVersion()),
+                            Loc.T("settings.updates"),
                             MessageBoxButton.OK,
                             MessageBoxImage.Information,
                             owner: owner);
@@ -165,47 +161,39 @@ namespace GitDeployPro.Services.Update
                     return;
                 }
 
-                _dialogOpen = true;
-                try
+                if (owner is MainWindow mainWindow)
                 {
-                    var prompt = new UpdateAvailableWindow(result)
-                    {
-                        Owner = owner
-                    };
-                    prompt.ShowDialog();
-
-                    if (prompt.Choice == UpdateDialogChoice.Exit)
-                    {
-                        System.Windows.Application.Current?.Shutdown();
-                        return;
-                    }
-
-                    if (prompt.Choice != UpdateDialogChoice.UpdateNow)
-                    {
-                        return;
-                    }
-
-                    if (owner is MainWindow mainWindow)
-                    {
-                        mainWindow.StartBackgroundUpdateDownload(result.Manifest);
-                    }
-                    else
-                    {
-                        // Fallback for non-main owners: blocking progress window.
-                        var progress = new UpdateProgressWindow(service, result.Manifest)
-                        {
-                            Owner = owner
-                        };
-                        var applied = progress.ShowDialog() == true && progress.ApplyStarted;
-                        if (applied)
-                        {
-                            System.Windows.Application.Current?.Shutdown();
-                        }
-                    }
+                    // Non-blocking: main window stays usable while the update modal is open.
+                    mainWindow.ShowUpdateAvailable(result);
+                    return;
                 }
-                finally
+
+                // Fallback for non-main owners: classic dialog + progress.
+                var prompt = new UpdateAvailableWindow(result)
                 {
-                    _dialogOpen = false;
+                    Owner = owner
+                };
+                prompt.ShowDialog();
+
+                if (prompt.Choice == UpdateDialogChoice.Exit)
+                {
+                    System.Windows.Application.Current?.Shutdown();
+                    return;
+                }
+
+                if (prompt.Choice != UpdateDialogChoice.UpdateNow)
+                {
+                    return;
+                }
+
+                var progress = new UpdateProgressWindow(service, result.Manifest)
+                {
+                    Owner = owner
+                };
+                var applied = progress.ShowDialog() == true && progress.ApplyStarted;
+                if (applied)
+                {
+                    System.Windows.Application.Current?.Shutdown();
                 }
             }
             finally

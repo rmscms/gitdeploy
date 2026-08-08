@@ -4,6 +4,7 @@
              xmlns:local="clr-namespace:GitDeployPro.Controls"
              xmlns:wv="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:loc="clr-namespace:GitDeployPro.Services.Localization"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              mc:Ignorable="d"
              d:DesignHeight="450" d:DesignWidth="800">
@@ -151,7 +152,7 @@
                                   Height="26"
                                   FontSize="13"
                                   FontWeight="SemiBold"
-                                  ToolTip="Saved commands (Dock strip or Float helper window)"
+                                  ToolTip="{loc:T deploy.tip.presetsDetail}"
                                   Checked="PresetsDrawerToggle_Checked"
                                   Unchecked="PresetsDrawerToggle_Unchecked" />
                     <Button x:Name="DetachButton"
@@ -161,16 +162,16 @@
                             Height="26"
                             FontSize="13"
                             Click="DetachButton_Click"
-                            ToolTip="Float: open another terminal window" />
+                            ToolTip="{loc:T deploy.tip.floatTerminal}" />
                     <Button x:Name="ClearButton"
                             Content="🧹"
                             Style="{StaticResource Terminal.ToolButton}"
                             Click="ClearButton_Click"
-                            ToolTip="Clear terminal" />
+                            ToolTip="{loc:T deploy.tip.clearTerminal}" />
                     <ToggleButton x:Name="TypeToggleButton"
                                   Content="⌶"
                                   Style="{StaticResource Terminal.ToolToggle}"
-                                  ToolTip="Enable / disable typing"
+                                  ToolTip="{loc:T deploy.tip.focusInput}"
                                   Checked="TypeToggleButton_Checked"
                                   Unchecked="TypeToggleButton_Unchecked"
                                   IsChecked="True" />
@@ -180,7 +181,7 @@
                               SelectedIndex="2"
                               Margin="0,0,2,0"
                               SelectionChanged="FontSizeCombo_SelectionChanged"
-                              ToolTip="Font size">
+                              ToolTip="{loc:T deploy.tip.terminalFont}">
                         <ComboBoxItem Content="10" />
                         <ComboBoxItem Content="12" />
                         <ComboBoxItem Content="14" />
@@ -194,7 +195,7 @@
                               SelectedIndex="0"
                               Margin="0,0,2,0"
                               SelectionChanged="TextColorCombo_SelectionChanged"
-                              ToolTip="Text color">
+                              ToolTip="{loc:T deploy.tip.terminalColor}">
                         <ComboBoxItem Content="Gray" Tag="#D4D4D4" />
                         <ComboBoxItem Content="White" Tag="#FFFFFF" />
                         <ComboBoxItem Content="Green" Tag="#00FF00" />
@@ -218,7 +219,7 @@
                           Width="180"
                           Style="{StaticResource Terminal.SlimCombo}"
                           Margin="0,0,8,0"
-                          ToolTip="Local or SSH target"
+                          ToolTip="{loc:T deploy.tip.terminalTarget}"
                           SelectionChanged="TerminalTargetCombo_SelectionChanged" />
             </StackPanel>
         </Border>

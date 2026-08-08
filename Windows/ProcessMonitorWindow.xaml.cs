@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
+using GitDeployPro.Controls;
 using GitDeployPro.Models;
 using GitDeployPro.Services;
 using MahApps.Metro.Controls;
@@ -75,8 +76,7 @@ namespace GitDeployPro.Windows
             }
             catch (Exception ex)
             {
-                System.Windows.MessageBox.Show($"Failed to initialize Process Monitor: {ex.Message}\r\n\r\nStack: {ex.StackTrace}", 
-                    "Process Monitor Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                ModernMessageBox.Show($"Failed to initialize Process Monitor: {ex.Message}", "Process Monitor Error", MessageBoxButton.OK, MessageBoxImage.Error, owner: this);
             }
         }
 
