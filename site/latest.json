@@ -1,16 +1,15 @@
 {
-  "version": "1.4.15",
-  "fileName": "GitDeployPro-1.4.15.exe",
-  "downloadUrl": "versions/GitDeployPro-1.4.15.exe",
-  "sha256": "57C0EB5FEDA500A6F93690D0DB617BF6EB5E23E684B1C4CFE533C0255D6BC416",
-  "releaseNotes": "- English/Persian UI language (Settings → Language; default English, RTL for Persian)\n- Deploy icon tooltips localized; Direct Upload header/toolbar wraps when narrow\n- Non-blocking update status window (replaces bottom footer)\n- Suppress Error dialog for offline MySQL/network probe failures\n- ModernMessageBox and remaining dialogs use ThemeManager status colors",
+  "version": "1.4.16",
+  "fileName": "GitDeployPro-1.4.16.exe",
+  "downloadUrl": "versions/GitDeployPro-1.4.16.exe",
+  "sha256": "468A6BB3AF7F1E37986B41A3024726893AEE11BBD5BC3F627747F1E9ED32A1D1",
+  "releaseNotes": "- Auto-clear stale git index.lock and retry Send/commit when another git process left a lock\n- Serialize git commands per repo to prevent concurrent status/add lock races\n- Deploy workspace no longer auto-connects an unrelated FTP profile when the project has none assigned\n- Session Manager and Terminal SSH profile lists refresh live after connection edits",
   "changelog": [
-    "English/Persian UI language (Settings → Language; default English, RTL for Persian)",
-    "Deploy icon tooltips localized; Direct Upload header/toolbar wraps when narrow",
-    "Non-blocking update status window (replaces bottom footer)",
-    "Suppress Error dialog for offline MySQL/network probe failures",
-    "ModernMessageBox and remaining dialogs use ThemeManager status colors"
+    "Auto-clear stale git index.lock and retry Send/commit when another git process left a lock",
+    "Serialize git commands per repo to prevent concurrent status/add lock races",
+    "Deploy workspace no longer auto-connects an unrelated FTP profile when the project has none assigned",
+    "Session Manager and Terminal SSH profile lists refresh live after connection edits"
   ],
   "mandatory": false,
-  "publishedUtc": "2026-08-08T10:45:00Z"
+  "publishedUtc": "2026-08-09T12:20:00Z"
 }

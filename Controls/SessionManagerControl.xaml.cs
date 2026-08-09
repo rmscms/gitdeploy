@@ -136,14 +136,22 @@ namespace GitDeployPro.Controls
             InitializeComponent();
             LoadData();
             BuildTree();
-            ConfigurationService.ConnectionsChanged += OnConnectionsChanged;
+            Loaded += SessionManagerControl_Loaded;
             Unloaded += SessionManagerControl_Unloaded;
+            ConfigurationService.ConnectionsChanged += OnConnectionsChanged;
+        }
+
+        private void SessionManagerControl_Loaded(object sender, RoutedEventArgs e)
+        {
+            // Re-subscribe after temporary Unloaded (tab switch / reparent) so lists stay live.
+            ConfigurationService.ConnectionsChanged -= OnConnectionsChanged;
+            ConfigurationService.ConnectionsChanged += OnConnectionsChanged;
+            ReloadConnectionsTree();
         }
 
         private void SessionManagerControl_Unloaded(object sender, RoutedEventArgs e)
         {
             ConfigurationService.ConnectionsChanged -= OnConnectionsChanged;
-            Unloaded -= SessionManagerControl_Unloaded;
         }
 
         private void OnConnectionsChanged(object? sender, EventArgs e)

@@ -36,6 +36,7 @@ namespace GitDeployPro.Windows
 
             LoadSshProfiles();
             LoadCommandPresets();
+            ConfigurationService.ConnectionsChanged += OnConnectionsChanged;
             TerminalPresetStore.PresetsChanged += TerminalPresetStore_PresetsChanged;
             Closed += TerminalWindow_Closed;
             Loaded += TerminalWindow_Loaded;
@@ -154,6 +155,7 @@ namespace GitDeployPro.Windows
 
         private void TerminalWindow_Closed(object? sender, System.EventArgs e)
         {
+            ConfigurationService.ConnectionsChanged -= OnConnectionsChanged;
             TerminalPresetStore.PresetsChanged -= TerminalPresetStore_PresetsChanged;
             
             // Unregister active connection
@@ -179,8 +181,21 @@ namespace GitDeployPro.Windows
             Dispatcher.Invoke(LoadCommandPresets);
         }
 
+        private void OnConnectionsChanged(object? sender, EventArgs e)
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(LoadSshProfiles);
+                return;
+            }
+
+            LoadSshProfiles();
+        }
+
         private void LoadSshProfiles()
         {
+            var previousSelectedId = (SshProfilesCombo.SelectedItem as ConnectionProfile)?.Id;
+
             var profiles = _configService.LoadConnections()
                                          .Where(p => p.UseSSH)
                                          .ToList();
@@ -213,16 +228,26 @@ namespace GitDeployPro.Windows
             profiles.Add(localProfile);
 
             SshProfilesCombo.ItemsSource = profiles;
-            
-            // Select Local Terminal by default if available, otherwise first item
-            var localProfileOption = profiles.FirstOrDefault(p => p.Id == "LocalCMD");
-            if (localProfileOption != null)
+
+            var keepCurrent = !string.IsNullOrWhiteSpace(previousSelectedId)
+                ? profiles.FirstOrDefault(p => string.Equals(p.Id, previousSelectedId, StringComparison.OrdinalIgnoreCase))
+                : null;
+            if (keepCurrent != null)
             {
-                SshProfilesCombo.SelectedItem = localProfileOption;
+                SshProfilesCombo.SelectedItem = keepCurrent;
             }
-            else if (profiles.Count > 0)
+            else
             {
-                SshProfilesCombo.SelectedIndex = 0;
+                // Select Local Terminal by default if available, otherwise first item
+                var localProfileOption = profiles.FirstOrDefault(p => p.Id == "LocalCMD");
+                if (localProfileOption != null)
+                {
+                    SshProfilesCombo.SelectedItem = localProfileOption;
+                }
+                else if (profiles.Count > 0)
+                {
+                    SshProfilesCombo.SelectedIndex = 0;
+                }
             }
         }
 
@@ -258,10 +283,9 @@ namespace GitDeployPro.Windows
         private void ManageProfiles_Click(object sender, RoutedEventArgs e)
         {
             var win = new ConnectionManagerWindow();
-            if (win.ShowDialog() == true)
-            {
-                LoadSshProfiles(); // Refresh list after editing
-            }
+            win.ShowDialog();
+            // Always reload — DialogResult may be false even when connections were saved.
+            LoadSshProfiles();
         }
 
         private void LoadCommandPresets()

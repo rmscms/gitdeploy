@@ -849,9 +849,16 @@ namespace GitDeployPro.Controls
                 var keepCurrent = profiles.FirstOrDefault(p =>
                     !string.IsNullOrWhiteSpace(previousSelectedId) &&
                     string.Equals(p.Id, previousSelectedId, StringComparison.OrdinalIgnoreCase));
-                var selected = preferred ?? keepCurrent ?? profiles.First();
+
+                // Never fall back to profiles.First() — projects without an assigned FTP must stay disconnected.
+                var selected = preferred ?? keepCurrent;
                 ConnectionComboBox.SelectedItem = selected;
                 _currentProfile = selected;
+
+                if (selected == null && string.IsNullOrWhiteSpace(_projectConfig.ConnectionProfileId))
+                {
+                    SetStatus("No FTP profile assigned to this project. Select one to connect.", warning: false);
+                }
             }
             finally
             {
@@ -863,16 +870,28 @@ namespace GitDeployPro.Controls
                 return;
             }
 
-            if (_remoteService != null && _remoteService.IsConnected && _currentProfile != null &&
-                !string.Equals(_remoteService.ProfileId, _currentProfile.Id, StringComparison.OrdinalIgnoreCase))
+            if (_remoteService != null && _remoteService.IsConnected &&
+                (_currentProfile == null ||
+                 !string.Equals(_remoteService.ProfileId, _currentProfile.Id, StringComparison.OrdinalIgnoreCase)))
             {
                 await DisconnectAsync();
             }
         }
 
+        private bool HasAssignedProjectProfile()
+        {
+            return !string.IsNullOrWhiteSpace(_projectConfig?.ConnectionProfileId)
+                   && _currentProfile != null
+                   && string.Equals(
+                       _currentProfile.Id,
+                       _projectConfig.ConnectionProfileId,
+                       StringComparison.OrdinalIgnoreCase);
+        }
+
         private async Task TryAutoConnectAsync()
         {
-            if (_autoConnectInProgress || _currentProfile == null)
+            // Only auto-connect the project's assigned FTP/SFTP profile — never the first profile in the list.
+            if (_autoConnectInProgress || _currentProfile == null || !HasAssignedProjectProfile())
             {
                 return;
             }

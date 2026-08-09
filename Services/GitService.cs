@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -17,6 +18,8 @@ namespace GitDeployPro.Services
     {
         private static string _workingDirectory = Directory.GetCurrentDirectory();
         private readonly SshAgentService _sshAgentService = new SshAgentService();
+        private static readonly ConcurrentDictionary<string, SemaphoreSlim> RepoGates =
+            new(StringComparer.OrdinalIgnoreCase);
         private static readonly HashSet<string> InternalMetadataFiles = new(StringComparer.OrdinalIgnoreCase)
         {
             ".gitdeploy.history",
@@ -45,6 +48,65 @@ namespace GitDeployPro.Services
             {
                 _workingDirectory = path;
             }
+        }
+
+        private static SemaphoreSlim GetRepoGate(string workingDirectory)
+        {
+            string key = NormalizeRepoKey(workingDirectory);
+            return RepoGates.GetOrAdd(key, _ => new SemaphoreSlim(1, 1));
+        }
+
+        private static string NormalizeRepoKey(string workingDirectory)
+        {
+            try
+            {
+                return Path.GetFullPath(workingDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            }
+            catch
+            {
+                return (workingDirectory ?? string.Empty).Trim();
+            }
+        }
+
+        private static string GetIndexLockPath(string workingDirectory)
+        {
+            return Path.Combine(workingDirectory, ".git", "index.lock");
+        }
+
+        /// <summary>
+        /// Best-effort removal of a stale .git/index.lock left by a previous git process
+        /// (e.g. after timeout/crash or an interrupted add). If the lock is still held,
+        /// delete fails and the caller can retry or surface the normal error.
+        /// </summary>
+        private static bool TryClearIndexLock(string? workingDirectory = null)
+        {
+            var root = string.IsNullOrWhiteSpace(workingDirectory) ? _workingDirectory : workingDirectory;
+            try
+            {
+                var lockPath = GetIndexLockPath(root);
+                if (!File.Exists(lockPath))
+                {
+                    return true;
+                }
+
+                File.Delete(lockPath);
+                Debug.WriteLine($"Cleared stale git index.lock at {lockPath}");
+                return !File.Exists(lockPath);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Could not clear git index.lock: {ex.Message}");
+                return false;
+            }
+        }
+
+        private static bool IsIndexLockError(GitCommandException ex)
+        {
+            string details = ex.GetDetailedMessage();
+            return details.Contains("index.lock", StringComparison.OrdinalIgnoreCase) ||
+                   details.Contains("Another git process seems to be running", StringComparison.OrdinalIgnoreCase) ||
+                   (details.Contains("Unable to create", StringComparison.OrdinalIgnoreCase) &&
+                    details.Contains(".lock", StringComparison.OrdinalIgnoreCase));
         }
 
         public bool IsGitRepository()
@@ -861,6 +923,48 @@ namespace GitDeployPro.Services
         private async Task<string> RunGitCommandAsync(string arguments, string? workingDirectory = null, TimeSpan? timeout = null)
         {
             var resolvedWorkingDirectory = workingDirectory ?? _workingDirectory;
+            var gate = GetRepoGate(resolvedWorkingDirectory);
+            await gate.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                // Clear leftover locks before any command that may touch the index.
+                TryClearIndexLock(resolvedWorkingDirectory);
+
+                const int maxAttempts = 3;
+                GitCommandException? lastLockError = null;
+
+                for (int attempt = 1; attempt <= maxAttempts; attempt++)
+                {
+                    try
+                    {
+                        return await ExecuteGitProcessAsync(arguments, resolvedWorkingDirectory, timeout).ConfigureAwait(false);
+                    }
+                    catch (GitCommandException ex) when (IsIndexLockError(ex) && attempt < maxAttempts)
+                    {
+                        lastLockError = ex;
+                        Debug.WriteLine($"Git index.lock conflict on attempt {attempt} for '{arguments}'. Clearing and retrying...");
+                        TryClearIndexLock(resolvedWorkingDirectory);
+                        await Task.Delay(150 * attempt).ConfigureAwait(false);
+                        TryClearIndexLock(resolvedWorkingDirectory);
+                    }
+                }
+
+                throw lastLockError ?? new GitCommandException(
+                    "git",
+                    arguments,
+                    resolvedWorkingDirectory,
+                    -1,
+                    string.Empty,
+                    "Git command failed after index.lock retries.");
+            }
+            finally
+            {
+                gate.Release();
+            }
+        }
+
+        private static async Task<string> ExecuteGitProcessAsync(string arguments, string resolvedWorkingDirectory, TimeSpan? timeout)
+        {
             using var process = new Process
             {
                 StartInfo = new ProcessStartInfo
@@ -896,13 +1000,14 @@ namespace GitDeployPro.Services
 
                 try
                 {
-                    await process.WaitForExitAsync(timeoutCts.Token);
+                    await process.WaitForExitAsync(timeoutCts.Token).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException)
                 {
                     TryTerminateProcess(process);
-                    string timedOutStdOut = await stdoutTask;
-                    string timedOutStdErr = await stderrTask;
+                    TryClearIndexLock(resolvedWorkingDirectory);
+                    string timedOutStdOut = await stdoutTask.ConfigureAwait(false);
+                    string timedOutStdErr = await stderrTask.ConfigureAwait(false);
                     throw new GitCommandException(
                         "git",
                         arguments,
@@ -913,8 +1018,8 @@ namespace GitDeployPro.Services
                         $"Git command timed out after {commandTimeout.TotalSeconds:0} seconds.");
                 }
 
-                string output = await stdoutTask;
-                string error = await stderrTask;
+                string output = await stdoutTask.ConfigureAwait(false);
+                string error = await stderrTask.ConfigureAwait(false);
 
                 if (process.ExitCode != 0)
                 {
