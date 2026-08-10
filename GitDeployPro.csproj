@@ -8,9 +8,9 @@
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationIcon>icon.ico</ApplicationIcon>
-    <Version>1.4.16</Version>
-    <AssemblyVersion>1.4.16.0</AssemblyVersion>
-    <FileVersion>1.4.16.0</FileVersion>
+    <Version>1.4.17</Version>
+    <AssemblyVersion>1.4.17.0</AssemblyVersion>
+    <FileVersion>1.4.17.0</FileVersion>
     <!-- Required so release EXE alone starts on clean PCs (WPF/WebView2 natives inside the bundle). -->
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>

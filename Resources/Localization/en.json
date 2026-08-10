@@ -147,8 +147,8 @@
   "settings.updates": "Software updates",
   "settings.checkUpdates": "Check for updates now",
   "settings.language": "Language",
-  "settings.languageHint": "App display language. Default is English.",
-  "settings.languageNote": "Persian switches the layout to right-to-left.",
+  "settings.languageHint": "Tooltip language for button descriptions. Default is English.",
+  "settings.languageNote": "Persian translates button tooltips only. Menus and layout stay English (LTR).",
   "settings.languageRestartHint": "Some labels refresh immediately; reopen pages if needed.",
 
   "update.title.available": "Update available",

@@ -36,7 +36,7 @@ namespace GitDeployPro
             }
             catch
             {
-                ThemeService.Instance.ApplyTheme(ThemeService.DefaultThemeId);
+                ThemeService.Instance.ApplyTheme(ThemeService.DarkThemeId);
             }
 
             LocalizationService.Instance.InitializeFromConfig();

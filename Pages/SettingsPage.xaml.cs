@@ -139,35 +139,9 @@ namespace GitDeployPro.Pages
             }
         }
 
-        private void LoadLanguageCombo(string? selectedCode = null)
-        {
-            if (UiLanguageComboBox == null)
-            {
-                return;
-            }
-
-            _suppressLanguageComboChange = true;
-            try
-            {
-                var options = LocalizationService.Instance.GetLanguageOptions().ToList();
-                UiLanguageComboBox.ItemsSource = options;
-                UiLanguageComboBox.DisplayMemberPath = nameof(LocalizationService.LanguageOption.DisplayName);
-                UiLanguageComboBox.SelectedValuePath = nameof(LocalizationService.LanguageOption.Code);
-                var code = string.IsNullOrWhiteSpace(selectedCode)
-                    ? LocalizationService.Instance.Language
-                    : selectedCode;
-                UiLanguageComboBox.SelectedValue = string.Equals(code, LocalizationService.Persian, StringComparison.OrdinalIgnoreCase)
-                    ? LocalizationService.Persian
-                    : LocalizationService.English;
-            }
-            finally
-            {
-                _suppressLanguageComboChange = false;
-            }
-        }
-
         private void RefreshLanguageUiTexts()
         {
+            // Chrome stays English; Loc.T already resolves non-tip keys from the EN pack.
             if (LanguageSectionTitle != null)
             {
                 LanguageSectionTitle.Text = Loc.T("settings.language");
@@ -188,16 +162,50 @@ namespace GitDeployPro.Pages
                 LanguageNoteText.Text = Loc.T("settings.languageNote");
             }
 
-            // Refresh combo display names for current language.
             if (!_suppressLanguageComboChange)
             {
                 LoadLanguageCombo(LocalizationService.Instance.Language);
             }
         }
 
+        private void LoadLanguageCombo(string? selectedCode = null)
+        {
+            if (UiLanguageComboBox == null)
+            {
+                return;
+            }
+
+            _suppressLanguageComboChange = true;
+            try
+            {
+                var options = LocalizationService.Instance.GetLanguageOptions().ToList();
+                UiLanguageComboBox.ItemsSource = options;
+                UiLanguageComboBox.DisplayMemberPath = string.Empty;
+                UiLanguageComboBox.SelectedValuePath = nameof(LocalizationService.LanguageOption.Code);
+                var code = string.IsNullOrWhiteSpace(selectedCode)
+                    ? LocalizationService.Instance.Language
+                    : selectedCode;
+                var selected = options.FirstOrDefault(o =>
+                    string.Equals(o.Code, code, StringComparison.OrdinalIgnoreCase))
+                    ?? options.FirstOrDefault();
+                UiLanguageComboBox.SelectedItem = selected;
+            }
+            finally
+            {
+                _suppressLanguageComboChange = false;
+            }
+        }
+
         private void UiLanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (_suppressLanguageComboChange || UiLanguageComboBox?.SelectedValue is not string code)
+            if (_suppressLanguageComboChange)
+            {
+                return;
+            }
+
+            string? code = UiLanguageComboBox?.SelectedValue as string
+                           ?? (UiLanguageComboBox?.SelectedItem as LocalizationService.LanguageOption)?.Code;
+            if (string.IsNullOrWhiteSpace(code))
             {
                 return;
             }
@@ -1330,7 +1338,10 @@ namespace GitDeployPro.Pages
 
         private async Task RunSetupWizardAsync(string path)
         {
-            var wizard = new ProjectSetupWizard(path);
+            GitService.SetWorkingDirectory(path);
+            var gitService = new GitService();
+            bool allowSkip = gitService.IsGitRepository() && !_configService.HasProjectConfigFile(path);
+            var wizard = new ProjectSetupWizard(path, allowSkip);
 
             if (WindowOwnerService.ShowDialogOwned(wizard, this) == true)
             {

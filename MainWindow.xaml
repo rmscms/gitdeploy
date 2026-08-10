@@ -331,6 +331,16 @@
                                             <TextBlock Text="{loc:T nav.settings}" FontSize="12.5" Foreground="{StaticResource Text.Primary}" VerticalAlignment="Center" />
                                         </StackPanel>
                                     </Button>
+                                    <Button x:Name="NavItemCheckUpdates"
+                                            Style="{StaticResource NavPopupItemStyle}"
+                                            Tag="check-updates"
+                                            Click="CheckForUpdates_Click"
+                                            ToolTip="{loc:T about.checkUpdates}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="🔄" FontSize="13" Width="22" Margin="0,0,8,0" Foreground="{StaticResource Text.Muted}" />
+                                            <TextBlock Text="{loc:T about.checkUpdates}" FontSize="12.5" Foreground="{StaticResource Text.Primary}" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
                                     <Button x:Name="NavItemAbout"
                                             Style="{StaticResource NavPopupItemStyle}"
                                             Tag="about"
@@ -340,6 +350,14 @@
                                             <TextBlock Text="{loc:T nav.about}" FontSize="12.5" Foreground="{StaticResource Text.Primary}" VerticalAlignment="Center" />
                                         </StackPanel>
                                     </Button>
+
+                                    <Separator Background="{StaticResource Border.Subtle}" Margin="4,6" Height="1" />
+                                    <TextBlock x:Name="NavAppVersionText"
+                                               Text="Version —"
+                                               FontSize="11"
+                                               Foreground="{StaticResource Text.Muted}"
+                                               Margin="12,2,12,4"
+                                               HorizontalAlignment="Left"/>
                                 </StackPanel>
                             </Border>
                         </Popup>

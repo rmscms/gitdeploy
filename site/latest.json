@@ -1,15 +1,16 @@
 {
-  "version": "1.4.16",
-  "fileName": "GitDeployPro-1.4.16.exe",
-  "downloadUrl": "versions/GitDeployPro-1.4.16.exe",
-  "sha256": "468A6BB3AF7F1E37986B41A3024726893AEE11BBD5BC3F627747F1E9ED32A1D1",
-  "releaseNotes": "- Auto-clear stale git index.lock and retry Send/commit when another git process left a lock\n- Serialize git commands per repo to prevent concurrent status/add lock races\n- Deploy workspace no longer auto-connects an unrelated FTP profile when the project has none assigned\n- Session Manager and Terminal SSH profile lists refresh live after connection edits",
+  "version": "1.4.17",
+  "fileName": "GitDeployPro-1.4.17.exe",
+  "downloadUrl": "versions/GitDeployPro-1.4.17.exe",
+  "sha256": "229721F190D780B5617422ABA70D847956869E6C006FEA8E5C9FFCFCC5EC9F9A",
+  "releaseNotes": "- Tab-based Project Setup wizard with Back/Next, stage progress, and Skip when .git exists without config\n- Wizard English/Persian language combo (Persian texts without RTL)\n- App language: Persian tooltips only; menus stay English LTR (no RTL)\n- Dark theme is now the app default; Settings expander chevrons restyled\n- Nav menu: Check for updates + app version; fix Settings language combo crash",
   "changelog": [
-    "Auto-clear stale git index.lock and retry Send/commit when another git process left a lock",
-    "Serialize git commands per repo to prevent concurrent status/add lock races",
-    "Deploy workspace no longer auto-connects an unrelated FTP profile when the project has none assigned",
-    "Session Manager and Terminal SSH profile lists refresh live after connection edits"
+    "Tab-based Project Setup wizard with Back/Next, stage progress, and Skip when .git exists without config",
+    "Wizard English/Persian language combo (Persian texts without RTL)",
+    "App language: Persian tooltips only; menus stay English LTR (no RTL)",
+    "Dark theme is now the app default; Settings expander chevrons restyled",
+    "Nav menu: Check for updates + app version; fix Settings language combo crash"
   ],
   "mandatory": false,
-  "publishedUtc": "2026-08-09T12:20:00Z"
+  "publishedUtc": "2026-08-10T07:10:00Z"
 }

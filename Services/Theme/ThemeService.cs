@@ -50,7 +50,7 @@ namespace GitDeployPro.Services.Theme
 
         public IReadOnlyList<AppThemeInfo> Themes => _themes;
 
-        public string CurrentThemeId { get; private set; } = DefaultThemeId;
+        public string CurrentThemeId { get; private set; } = DarkThemeId;
 
         public ThemePack? CurrentPack { get; private set; }
 
@@ -117,7 +117,7 @@ namespace GitDeployPro.Services.Theme
                 ThemeTokenCatalog.CreateDefaultPack(),
                 ResolvePaletteColor);
             _initialized = true;
-            CurrentThemeId = DefaultThemeId;
+            CurrentThemeId = DarkThemeId;
         }
 
         public void ReloadCustomThemes()
@@ -151,7 +151,7 @@ namespace GitDeployPro.Services.Theme
         {
             Initialize();
 
-            var theme = FindTheme(themeId) ?? _themes[0];
+            var theme = FindTheme(themeId) ?? FindTheme(DarkThemeId) ?? _themes[0];
             var pack = ResolvePack(theme);
             pack = ThemePackStore.Instance.MergeWithDefaults(pack);
 
@@ -189,7 +189,7 @@ namespace GitDeployPro.Services.Theme
         public ThemePack GetExportPack(string? themeId)
         {
             Initialize();
-            var theme = FindTheme(themeId) ?? _themes[0];
+            var theme = FindTheme(themeId) ?? FindTheme(DarkThemeId) ?? _themes[0];
             return ThemePackStore.Instance.MergeWithDefaults(ResolvePack(theme));
         }
 

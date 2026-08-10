@@ -5,11 +5,10 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using FluentFTP;
 using GitDeployPro.Controls;
 using GitDeployPro.Models;
 using GitDeployPro.Services;
-using GitDeployPro.Windows;
+using GitDeployPro.Services.Localization;
 
 namespace GitDeployPro.Windows
 {
@@ -21,38 +20,296 @@ namespace GitDeployPro.Windows
         private readonly ProjectSetupResetService _resetService;
         private List<ConnectionProfile> _connections = new List<ConnectionProfile>();
         private readonly bool _gitDetectedAtStartup;
+        private readonly bool _allowSkip;
         private string _lastErrorDetails = string.Empty;
+        private int _progressTotal = 5;
+        private int _currentStep;
+        private const int StepCount = 4;
+        private string _wizardLang = "en";
+        private bool _suppressWizardLangChange;
+
+        private static readonly Dictionary<string, Dictionary<string, string>> WizardStrings = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["en"] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["langLabel"] = "Language",
+                ["title"] = "🚀 Project Setup",
+                ["subtitle"] = "Configure Git and Deployment for your new project.",
+                ["subtitleSkip"] = "Git is ready, but .gitdeploy.config is missing. Finish setup, or Skip to create a minimal config.",
+                ["step1"] = "Step 1 of 4 — Recovery",
+                ["step2"] = "Step 2 of 4 — Git repository",
+                ["step3"] = "Step 3 of 4 — Deployment target",
+                ["step4"] = "Step 4 of 4 — Branch strategy",
+                ["tabRecovery"] = "Recovery",
+                ["tabRecoveryHint"] = "Optional reset",
+                ["tabGit"] = "Git",
+                ["tabGitHint"] = "Repository",
+                ["tabDeploy"] = "Deploy",
+                ["tabDeployHint"] = "FTP / SFTP",
+                ["tabBranches"] = "Branches",
+                ["tabBranchesHint"] = "Source / target",
+                ["recoveryTitle"] = "Recovery / Reinitialize",
+                ["recoveryDesc"] = "Optional. Use this when setup is broken and you need a clean rebuild for this project folder.",
+                ["resetGit"] = "Remove .git folder before setup",
+                ["resetConfig"] = "Remove .gitdeploy.config before setup",
+                ["resetNone"] = "No reset selected.",
+                ["resetSelected"] = "Selected for cleanup: {0}",
+                ["gitTitle"] = "Git Repository Source",
+                ["gitDesc"] = "Choose how this project folder should connect to Git.",
+                ["localGit"] = "Local Repository (Initialize new)",
+                ["localGitDetected"] = "Existing Local Repository (Detected)",
+                ["initialBranch"] = "Initial Branch Name:",
+                ["remoteGit"] = "Remote Repository (Clone/Connect)",
+                ["remoteUrl"] = "Remote URL (HTTPS/SSH):",
+                ["deployTitle"] = "Deployment Target (FTP/SFTP)",
+                ["deployDesc"] = "Optional. Enable FTP/SFTP if this project deploys to a remote host.",
+                ["enableFtp"] = "Enable FTP Deployment",
+                ["selectProfile"] = "Select Connection Profile:",
+                ["manageProfiles"] = "➕ Manage Profiles",
+                ["host"] = "Host:",
+                ["protocol"] = "Protocol:",
+                ["user"] = "User:",
+                ["rootPath"] = "Root Path:",
+                ["branchesTitle"] = "Branch Strategy",
+                ["branchesDesc"] = "Pick development and production branches. Deploy uses the target branch.",
+                ["sourceBranch"] = "Source Branch (Development):",
+                ["targetBranch"] = "Target Branch (Production/Deploy):",
+                ["branchesNote"] = "Files will be deployed from the Target Branch.",
+                ["back"] = "← Back",
+                ["skip"] = "Skip",
+                ["skipTip"] = "Create a minimal .gitdeploy.config and continue without full setup",
+                ["cancel"] = "Cancel",
+                ["next"] = "Next →",
+                ["finish"] = "Finish & Setup",
+                ["needRemote"] = "Please enter a Remote URL, or choose Local Repository.",
+                ["needProfile"] = "Please select a connection profile, or disable FTP Deployment.",
+                ["gitSourceTitle"] = "Git Source",
+                ["deployTitleShort"] = "Deployment",
+            },
+            ["fa"] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["langLabel"] = "زبان",
+                ["title"] = "🚀 راه‌اندازی پروژه",
+                ["subtitle"] = "گیت و دیپلوی این پروژه را قدم‌به‌قدم تنظیم کنید.",
+                ["subtitleSkip"] = "گیت آماده است، ولی .gitdeploy.config نیست. Setup را کامل کنید یا Skip بزنید تا کانفیگ مینیمال ساخته شود.",
+                ["step1"] = "مرحله ۱ از ۴ — بازیابی",
+                ["step2"] = "مرحله ۲ از ۴ — مخزن گیت",
+                ["step3"] = "مرحله ۳ از ۴ — مقصد دیپلوی",
+                ["step4"] = "مرحله ۴ از ۴ — برنچ‌ها",
+                ["tabRecovery"] = "بازیابی",
+                ["tabRecoveryHint"] = "ریست اختیاری",
+                ["tabGit"] = "گیت",
+                ["tabGitHint"] = "مخزن",
+                ["tabDeploy"] = "دیپلوی",
+                ["tabDeployHint"] = "FTP / SFTP",
+                ["tabBranches"] = "برنچ",
+                ["tabBranchesHint"] = "سورس / تارگت",
+                ["recoveryTitle"] = "بازیابی / راه‌اندازی مجدد",
+                ["recoveryDesc"] = "اختیاری. وقتی ستاپ خراب است و می‌خواهید این پوشه را تمیز دوباره بسازید.",
+                ["resetGit"] = "حذف پوشه .git قبل از ستاپ",
+                ["resetConfig"] = "حذف .gitdeploy.config قبل از ستاپ",
+                ["resetNone"] = "هیچ ریستی انتخاب نشده.",
+                ["resetSelected"] = "انتخاب‌شده برای پاکسازی: {0}",
+                ["gitTitle"] = "منبع مخزن گیت",
+                ["gitDesc"] = "نحوه اتصال این پوشه به گیت را انتخاب کنید.",
+                ["localGit"] = "مخزن محلی (ایجاد جدید)",
+                ["localGitDetected"] = "مخزن محلی موجود (تشخیص داده شد)",
+                ["initialBranch"] = "نام برنچ اولیه:",
+                ["remoteGit"] = "مخزن ریموت (کلون / اتصال)",
+                ["remoteUrl"] = "آدرس ریموت (HTTPS/SSH):",
+                ["deployTitle"] = "مقصد دیپلوی (FTP/SFTP)",
+                ["deployDesc"] = "اختیاری. اگر پروژه به هاست ریموت دیپلوی می‌شود، FTP/SFTP را فعال کنید.",
+                ["enableFtp"] = "فعال‌سازی دیپلوی FTP",
+                ["selectProfile"] = "انتخاب پروفایل اتصال:",
+                ["manageProfiles"] = "➕ مدیریت پروفایل‌ها",
+                ["host"] = "هاست:",
+                ["protocol"] = "پروتکل:",
+                ["user"] = "کاربر:",
+                ["rootPath"] = "مسیر ریشه:",
+                ["branchesTitle"] = "استراتژی برنچ",
+                ["branchesDesc"] = "برنچ توسعه و پروداکشن را مشخص کنید. دیپلوی از برنچ تارگت انجام می‌شود.",
+                ["sourceBranch"] = "برنچ سورس (توسعه):",
+                ["targetBranch"] = "برنچ تارگت (پروداکشن / دیپلوی):",
+                ["branchesNote"] = "فایل‌ها از برنچ تارگت دیپلوی می‌شوند.",
+                ["back"] = "← قبلی",
+                ["skip"] = "رد کردن",
+                ["skipTip"] = "ساخت .gitdeploy.config مینیمال بدون ستاپ کامل",
+                ["cancel"] = "انصراف",
+                ["next"] = "بعدی →",
+                ["finish"] = "پایان و ستاپ",
+                ["needRemote"] = "آدرس ریموت را وارد کنید، یا مخزن محلی را انتخاب کنید.",
+                ["needProfile"] = "یک پروفایل اتصال انتخاب کنید، یا دیپلوی FTP را خاموش کنید.",
+                ["gitSourceTitle"] = "منبع گیت",
+                ["deployTitleShort"] = "دیپلوی",
+            }
+        };
 
         public bool SetupCompleted { get; private set; }
 
-        public ProjectSetupWizard(string projectPath)
+        public ProjectSetupWizard(string projectPath, bool allowSkip = false)
         {
             InitializeComponent();
+            SetValue(FlowDirectionProperty, System.Windows.FlowDirection.LeftToRight);
             _projectPath = projectPath;
+            _allowSkip = allowSkip;
             _gitService = new GitService();
             _configService = new ConfigurationService();
             _resetService = new ProjectSetupResetService();
-            
+
             GitService.SetWorkingDirectory(_projectPath);
-            
-            // Auto-detect if git exists
+
             _gitDetectedAtStartup = _gitService.IsGitRepository();
             if (_gitDetectedAtStartup)
             {
-                LocalGitRadio.Content = "Existing Local Repository (Detected)";
                 LocalGitPanel.Visibility = Visibility.Collapsed;
                 RemoteGitRadio.IsEnabled = false;
             }
-            
+
+            if (_allowSkip && _gitDetectedAtStartup)
+            {
+                SkipButton.Visibility = Visibility.Visible;
+            }
+
+            InitWizardLanguageCombo();
             LoadConnectionProfiles();
+            ApplyWizardUiLanguage();
             UpdateResetHint();
+            ShowStep(0);
+        }
+
+        private void InitWizardLanguageCombo()
+        {
+            _suppressWizardLangChange = true;
+            try
+            {
+                var options = new List<LocalizationService.LanguageOption>
+                {
+                    new("en", "English"),
+                    new("fa", "فارسی")
+                };
+                WizardLanguageCombo.ItemsSource = options;
+                WizardLanguageCombo.DisplayMemberPath = string.Empty;
+                WizardLanguageCombo.SelectedValuePath = nameof(LocalizationService.LanguageOption.Code);
+
+                var preferred = string.Equals(LocalizationService.Instance.Language, "fa", StringComparison.OrdinalIgnoreCase)
+                    ? "fa"
+                    : "en";
+                _wizardLang = preferred;
+                WizardLanguageCombo.SelectedItem = options.First(o =>
+                    string.Equals(o.Code, preferred, StringComparison.OrdinalIgnoreCase));
+            }
+            finally
+            {
+                _suppressWizardLangChange = false;
+            }
+        }
+
+        private void WizardLanguageCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_suppressWizardLangChange)
+            {
+                return;
+            }
+
+            string? code = WizardLanguageCombo.SelectedValue as string
+                           ?? (WizardLanguageCombo.SelectedItem as LocalizationService.LanguageOption)?.Code;
+            if (string.IsNullOrWhiteSpace(code) || string.Equals(code, _wizardLang, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            _wizardLang = code;
+            SetValue(FlowDirectionProperty, System.Windows.FlowDirection.LeftToRight); // never RTL
+            ApplyWizardUiLanguage();
+            UpdateResetHint();
+            StepCaptionText.Text = GetStepCaption(_currentStep);
+            UpdateFooterForStep();
+        }
+
+        private string W(string key)
+        {
+            if (WizardStrings.TryGetValue(_wizardLang, out var pack) &&
+                pack.TryGetValue(key, out var value) &&
+                !string.IsNullOrWhiteSpace(value))
+            {
+                return value;
+            }
+
+            if (WizardStrings.TryGetValue("en", out var en) && en.TryGetValue(key, out var enValue))
+            {
+                return enValue;
+            }
+
+            return key;
+        }
+
+        private string GetStepCaption(int step) => step switch
+        {
+            0 => W("step1"),
+            1 => W("step2"),
+            2 => W("step3"),
+            _ => W("step4")
+        };
+
+        private void ApplyWizardUiLanguage()
+        {
+            SetValue(FlowDirectionProperty, System.Windows.FlowDirection.LeftToRight);
+
+            WizardLangLabel.Text = W("langLabel");
+            WizardTitleText.Text = W("title");
+            WizardSubtitleText.Text = (_allowSkip && _gitDetectedAtStartup) ? W("subtitleSkip") : W("subtitle");
+            StepCaptionText.Text = GetStepCaption(_currentStep);
+
+            TabRecoveryTitle.Text = W("tabRecovery");
+            TabRecoveryHint.Text = W("tabRecoveryHint");
+            TabGitTitle.Text = W("tabGit");
+            TabGitHint.Text = W("tabGitHint");
+            TabDeployTitle.Text = W("tabDeploy");
+            TabDeployHint.Text = W("tabDeployHint");
+            TabBranchesTitle.Text = W("tabBranches");
+            TabBranchesHint.Text = W("tabBranchesHint");
+
+            RecoveryTitleText.Text = W("recoveryTitle");
+            RecoveryDescText.Text = W("recoveryDesc");
+            ResetGitFolderCheckBox.Content = W("resetGit");
+            ResetConfigFileCheckBox.Content = W("resetConfig");
+
+            GitTitleText.Text = W("gitTitle");
+            GitDescText.Text = W("gitDesc");
+            LocalGitRadio.Content = _gitDetectedAtStartup ? W("localGitDetected") : W("localGit");
+            InitialBranchLabel.Text = W("initialBranch");
+            RemoteGitRadio.Content = W("remoteGit");
+            RemoteUrlLabel.Text = W("remoteUrl");
+
+            DeployTitleText.Text = W("deployTitle");
+            DeployDescText.Text = W("deployDesc");
+            EnableFtpCheck.Content = W("enableFtp");
+            SelectProfileLabel.Text = W("selectProfile");
+            ManageProfilesButton.Content = W("manageProfiles");
+            PreviewHostLabel.Text = W("host");
+            PreviewProtocolLabel.Text = W("protocol");
+            PreviewUserLabel.Text = W("user");
+            PreviewPathLabel.Text = W("rootPath");
+
+            BranchesTitleText.Text = W("branchesTitle");
+            BranchesDescText.Text = W("branchesDesc");
+            SourceBranchLabel.Text = W("sourceBranch");
+            TargetBranchLabel.Text = W("targetBranch");
+            BranchesFootnoteText.Text = W("branchesNote");
+
+            BackButton.Content = W("back");
+            SkipButton.Content = W("skip");
+            SkipButton.ToolTip = W("skipTip");
+            CancelButton.Content = W("cancel");
+            NextButton.Content = W("next");
+            FinishButton.Content = W("finish");
         }
 
         private void LoadConnectionProfiles()
         {
              _connections = _configService.LoadConnections();
              ConnectionProfileComboBox.ItemsSource = _connections;
-             
+
              if (_connections.Count > 0)
              {
                  ConnectionProfileComboBox.SelectedIndex = 0;
@@ -146,7 +403,7 @@ namespace GitDeployPro.Windows
 
             if (!removeGit && !removeConfig)
             {
-                ResetHintText.Text = "No reset selected.";
+                ResetHintText.Text = W("resetNone");
                 return;
             }
 
@@ -154,7 +411,7 @@ namespace GitDeployPro.Windows
             if (removeGit) targets.Add(".git");
             if (removeConfig) targets.Add(".gitdeploy.config");
 
-            ResetHintText.Text = $"Selected for cleanup: {string.Join(", ", targets)}";
+            ResetHintText.Text = string.Format(W("resetSelected"), string.Join(", ", targets));
         }
 
         private bool ConfirmReinitializeReset()
@@ -190,17 +447,276 @@ namespace GitDeployPro.Windows
                 "Cancel");
         }
 
+        private void ShowStep(int step)
+        {
+            _currentStep = Math.Clamp(step, 0, StepCount - 1);
+
+            StepRecoveryPanel.Visibility = _currentStep == 0 ? Visibility.Visible : Visibility.Collapsed;
+            StepGitPanel.Visibility = _currentStep == 1 ? Visibility.Visible : Visibility.Collapsed;
+            StepDeployPanel.Visibility = _currentStep == 2 ? Visibility.Visible : Visibility.Collapsed;
+            StepBranchesPanel.Visibility = _currentStep == 3 ? Visibility.Visible : Visibility.Collapsed;
+
+            StepCaptionText.Text = GetStepCaption(_currentStep);
+            UpdateStepTabs();
+            UpdateFooterForStep();
+        }
+
+        private void UpdateStepTabs()
+        {
+            RestoreTabNumbers();
+            ApplyTabVisual(TabRecoveryBadge, TabRecoveryTitle, _currentStep == 0, _currentStep > 0);
+            ApplyTabVisual(TabGitBadge, TabGitTitle, _currentStep == 1, _currentStep > 1);
+            ApplyTabVisual(TabDeployBadge, TabDeployTitle, _currentStep == 2, _currentStep > 2);
+            ApplyTabVisual(TabBranchesBadge, TabBranchesTitle, _currentStep == 3, false);
+        }
+
+        private void ApplyTabVisual(Border badge, TextBlock title, bool isActive, bool isDone)
+        {
+            var accent = TryFindResource("Accent.Primary") as System.Windows.Media.Brush;
+            var input = TryFindResource("Surface.Input") as System.Windows.Media.Brush;
+            var success = TryFindResource("Status.Success") as System.Windows.Media.Brush;
+            var primaryText = TryFindResource("Text.Primary") as System.Windows.Media.Brush;
+            var secondaryText = TryFindResource("Text.Secondary") as System.Windows.Media.Brush;
+            var inverse = TryFindResource("Text.Inverse") as System.Windows.Media.Brush;
+
+            if (isActive)
+            {
+                badge.Background = accent ?? System.Windows.Media.Brushes.DodgerBlue;
+                badge.BorderThickness = new Thickness(0);
+                title.Foreground = primaryText ?? System.Windows.Media.Brushes.White;
+                if (badge.Child is TextBlock num)
+                {
+                    num.Foreground = inverse ?? System.Windows.Media.Brushes.Black;
+                }
+            }
+            else if (isDone)
+            {
+                badge.Background = success ?? System.Windows.Media.Brushes.SeaGreen;
+                badge.BorderThickness = new Thickness(0);
+                title.Foreground = secondaryText ?? System.Windows.Media.Brushes.Gray;
+                if (badge.Child is TextBlock num)
+                {
+                    num.Text = "✓";
+                    num.Foreground = inverse ?? System.Windows.Media.Brushes.White;
+                }
+            }
+            else
+            {
+                badge.Background = input ?? System.Windows.Media.Brushes.DimGray;
+                badge.BorderBrush = TryFindResource("Border.Subtle") as System.Windows.Media.Brush;
+                badge.BorderThickness = new Thickness(1);
+                title.Foreground = secondaryText ?? System.Windows.Media.Brushes.Gray;
+                if (badge.Child is TextBlock num)
+                {
+                    // restore step number from parent button Tag if needed — set explicitly below
+                    num.Foreground = secondaryText ?? System.Windows.Media.Brushes.Gray;
+                }
+            }
+        }
+
+        private void RestoreTabNumbers()
+        {
+            if (TabRecoveryBadge.Child is TextBlock n0) n0.Text = "1";
+            if (TabGitBadge.Child is TextBlock n1) n1.Text = "2";
+            if (TabDeployBadge.Child is TextBlock n2) n2.Text = "3";
+            if (TabBranchesBadge.Child is TextBlock n3) n3.Text = "4";
+        }
+
+        private void UpdateFooterForStep()
+        {
+            bool last = _currentStep >= StepCount - 1;
+            BackButton.IsEnabled = _currentStep > 0;
+            NextButton.Visibility = last ? Visibility.Collapsed : Visibility.Visible;
+            FinishButton.Visibility = last ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        private void StepTab_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not System.Windows.Controls.Button btn || btn.Tag is not string tag || !int.TryParse(tag, out int target))
+            {
+                return;
+            }
+
+            // Allow jumping backward freely; forward only one step at a time after validation.
+            if (target <= _currentStep)
+            {
+                RestoreTabNumbers();
+                ShowStep(target);
+                return;
+            }
+
+            if (target == _currentStep + 1 && ValidateCurrentStep())
+            {
+                RestoreTabNumbers();
+                ShowStep(target);
+            }
+        }
+
+        private void Back_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentStep <= 0)
+            {
+                return;
+            }
+
+            RestoreTabNumbers();
+            ShowStep(_currentStep - 1);
+        }
+
+        private void Next_Click(object sender, RoutedEventArgs e)
+        {
+            if (!ValidateCurrentStep())
+            {
+                return;
+            }
+
+            if (_currentStep < StepCount - 1)
+            {
+                RestoreTabNumbers();
+                ShowStep(_currentStep + 1);
+            }
+        }
+
+        private bool ValidateCurrentStep()
+        {
+            if (_currentStep == 1 && RemoteGitRadio.IsChecked == true)
+            {
+                if (string.IsNullOrWhiteSpace(RemoteUrlBox.Text))
+                {
+                    ModernMessageBox.Show(W("needRemote"), W("gitSourceTitle"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return false;
+                }
+            }
+
+            if (_currentStep == 2 && EnableFtpCheck.IsChecked == true && ConnectionProfileComboBox.SelectedItem == null)
+            {
+                ModernMessageBox.Show(W("needProfile"), W("deployTitleShort"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                return false;
+            }
+
+            return true;
+        }
+
         private void SetBusyState(bool isBusy)
         {
             OverlayGrid.Visibility = isBusy ? Visibility.Visible : Visibility.Collapsed;
             CancelButton.IsEnabled = !isBusy;
             FinishButton.IsEnabled = !isBusy;
+            NextButton.IsEnabled = !isBusy;
+            BackButton.IsEnabled = !isBusy && _currentStep > 0;
+            TabRecoveryButton.IsEnabled = !isBusy;
+            TabGitButton.IsEnabled = !isBusy;
+            TabDeployButton.IsEnabled = !isBusy;
+            TabBranchesButton.IsEnabled = !isBusy;
+            if (SkipButton != null)
+            {
+                SkipButton.IsEnabled = !isBusy;
+            }
+
+            if (isBusy)
+            {
+                SetSetupProgress(0, _progressTotal, "Please wait...", indeterminate: true);
+            }
+        }
+
+        private void SetSetupProgress(int current, int total, string status, bool indeterminate = false)
+        {
+            _progressTotal = Math.Max(1, total);
+            void Apply()
+            {
+                SetupProgressBar.Maximum = _progressTotal;
+                SetupProgressBar.IsIndeterminate = indeterminate;
+                SetupProgressBar.Value = Math.Clamp(current, 0, _progressTotal);
+                SetupProgressSummary.Text = indeterminate ? string.Empty : $"{Math.Clamp(current, 0, _progressTotal)}/{_progressTotal}";
+                SetupProgressStatus.Text = status ?? string.Empty;
+            }
+
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(Apply);
+            }
+            else
+            {
+                Apply();
+            }
         }
 
         private void Cancel_Click(object sender, RoutedEventArgs e)
         {
             DialogResult = false;
             Close();
+        }
+
+        private async void Skip_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                SkipButton.IsEnabled = false;
+                CancelButton.IsEnabled = false;
+                FinishButton.IsEnabled = false;
+                NextButton.IsEnabled = false;
+                BackButton.IsEnabled = false;
+                await SaveMinimalProjectConfigAsync();
+                SetupCompleted = true;
+                DialogResult = true;
+                Close();
+            }
+            catch (Exception ex)
+            {
+                SkipButton.IsEnabled = true;
+                CancelButton.IsEnabled = true;
+                FinishButton.IsEnabled = true;
+                UpdateFooterForStep();
+                ModernMessageBox.Show($"Could not create config: {ex.Message}", "Skip Setup", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private async Task SaveMinimalProjectConfigAsync()
+        {
+            string sourceBranch = "master";
+            string remoteUrl = string.Empty;
+
+            try
+            {
+                if (_gitService.IsGitRepository())
+                {
+                    try
+                    {
+                        sourceBranch = NormalizeBranchName(await _gitService.GetCurrentBranchAsync(), "master");
+                    }
+                    catch
+                    {
+                        sourceBranch = "master";
+                    }
+
+                    try
+                    {
+                        remoteUrl = (await _gitService.GetRemoteUrlAsync() ?? string.Empty).Trim();
+                    }
+                    catch
+                    {
+                        remoteUrl = string.Empty;
+                    }
+                }
+            }
+            catch
+            {
+            }
+
+            string targetBranch = ResolveDistinctTargetBranch(sourceBranch, "production");
+
+            var config = new ProjectConfig
+            {
+                LocalProjectPath = _projectPath,
+                DefaultSourceBranch = sourceBranch,
+                DefaultTargetBranch = targetBranch,
+                GitRemoteUrl = remoteUrl,
+                AutoInitGit = true,
+                AutoCommit = true,
+                DeployMode = DeployMode.GitHubOnly
+            };
+
+            _configService.SaveProjectConfig(config);
         }
 
         private void AddLog(string message)
@@ -229,15 +745,29 @@ namespace GitDeployPro.Windows
                     return;
                 }
 
+                bool removeGit = ResetGitFolderCheckBox.IsChecked == true;
+                bool removeConfig = ResetConfigFileCheckBox.IsChecked == true;
+                bool needsGitInit = !_gitService.IsGitRepository() || removeGit;
+
+                // Stages: optional reset, git setup, save config, commit check, done
+                int totalStages = 5;
+                if (!removeGit && !removeConfig)
+                {
+                    totalStages = 4;
+                }
+
                 SetBusyState(true);
                 _lastErrorDetails = string.Empty;
                 CopyErrorDetailsButton.Visibility = Visibility.Collapsed;
                 LogText.Text = "Initializing...";
+                SetSetupProgress(0, totalStages, "Starting setup...", indeterminate: true);
 
-                bool removeGit = ResetGitFolderCheckBox.IsChecked == true;
-                bool removeConfig = ResetConfigFileCheckBox.IsChecked == true;
+                int stage = 0;
+
                 if (removeGit || removeConfig)
                 {
+                    stage++;
+                    SetSetupProgress(stage, totalStages, "Cleaning project setup artifacts...");
                     AddLog("Applying project cleanup options...");
                     var resetResult = _resetService.ResetProject(_projectPath, removeGit, removeConfig);
 
@@ -263,25 +793,27 @@ namespace GitDeployPro.Windows
                     AddLog($"Target branch adjusted to '{targetBranch}' to keep deploy flow stable.");
                 }
 
-                // 1. Git Setup
+                // Git Setup
+                stage++;
+                SetSetupProgress(stage, totalStages, needsGitInit ? "Configuring Git repository..." : "Verifying Git configuration...");
                 if (!_gitService.IsGitRepository())
                 {
                     if (LocalGitRadio.IsChecked == true)
                     {
                         string branch = NormalizeBranchName(LocalBranchName.Text, sourceBranch);
-                        
+
                         AddLog("Creating .gitignore...");
                         CreateGitIgnore(_projectPath);
 
                         AddLog("Initializing local repository...");
-                        await Task.Delay(500); // UI Refresh
-                        
+                        await Task.Delay(200);
+
                         var initBranches = new List<string> { branch };
                         if (!string.IsNullOrEmpty(targetBranch) && !string.Equals(targetBranch, branch, StringComparison.OrdinalIgnoreCase))
                         {
                             initBranches.Add(targetBranch);
                         }
-                        
+
                         await _gitService.InitRepoAsync(initBranches, "");
                     }
                     else
@@ -293,7 +825,7 @@ namespace GitDeployPro.Windows
                             SetBusyState(false);
                             return;
                         }
-                        
+
                         AddLog("Creating .gitignore...");
                         CreateGitIgnore(_projectPath);
 
@@ -303,9 +835,9 @@ namespace GitDeployPro.Windows
                         {
                             initBranches.Add(targetBranch);
                         }
-                        
+
                         await _gitService.InitRepoAsync(initBranches, remote);
-                        
+
                         AddLog("Pulling changes from remote...");
                         try
                         {
@@ -323,7 +855,9 @@ namespace GitDeployPro.Windows
                     CreateGitIgnore(_projectPath);
                 }
 
-                // 2. Create Project Config
+                // Create Project Config
+                stage++;
+                SetSetupProgress(stage, totalStages, "Saving project configuration...");
                 AddLog("Saving project configuration...");
                 string detectedRemoteUrl = string.Empty;
                 try
@@ -346,7 +880,7 @@ namespace GitDeployPro.Windows
                     DefaultSourceBranch = sourceBranch,
                     DefaultTargetBranch = targetBranch,
                     GitRemoteUrl = detectedRemoteUrl,
-                    
+
                     AutoInitGit = true,
                     AutoCommit = true,
                     DeployMode = EnableFtpCheck.IsChecked == true ? DeployMode.FtpDeploy : DeployMode.GitHubOnly
@@ -363,7 +897,7 @@ namespace GitDeployPro.Windows
                     }
 
                     config.ConnectionProfileId = selectedProfile.Id;
-                    
+
                     // Legacy fields backup
                     config.FtpHost = selectedProfile.Host;
                     config.FtpPort = selectedProfile.Port;
@@ -375,17 +909,22 @@ namespace GitDeployPro.Windows
 
                 _configService.SaveProjectConfig(config);
 
-                // 3. Initial Commit (if needed)
+                // Initial Commit (if needed)
+                stage++;
+                SetSetupProgress(stage, totalStages, "Checking for uncommitted changes...");
                 AddLog("Checking for changes...");
                 int pendingChanges = await _gitService.GetUncommittedCountAsync();
                 if (pendingChanges > 0)
                 {
+                    SetSetupProgress(stage, totalStages, $"Committing {pendingChanges} change(s)...");
                     AddLog($"Committing {pendingChanges} changes...");
                     await _gitService.CommitChangesAsync("Initial setup by GitDeploy Pro");
                 }
 
+                stage = totalStages;
+                SetSetupProgress(stage, totalStages, "Setup complete!");
                 AddLog("Setup Complete!");
-                await Task.Delay(500);
+                await Task.Delay(400);
 
                 SetupCompleted = true;
                 DialogResult = true;
