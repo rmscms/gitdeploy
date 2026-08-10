@@ -30,7 +30,9 @@ namespace GitDeployPro.Services.Localization
         public event EventHandler? LanguageChanged;
 
         public string Language => _language;
-        public bool IsRtl => string.Equals(_language, Persian, StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>Layout stays LTR; Persian only affects tooltip tip keys.</summary>
+        public bool IsRtl => false;
 
         /// <summary>Indexer for WPF bindings: [deploy.tip.terminal]</summary>
         public string this[string key] => Get(key);
@@ -58,8 +60,9 @@ namespace GitDeployPro.Services.Localization
         public IReadOnlyList<LanguageOption> GetLanguageOptions() =>
             new[]
             {
-                new LanguageOption(English, Get("lang.en")),
-                new LanguageOption(Persian, Get("lang.fa"))
+                // Chrome labels stay English even when tip language is Persian.
+                new LanguageOption(English, Lookup(English, "lang.en") ?? "English"),
+                new LanguageOption(Persian, Lookup(English, "lang.fa") ?? "Persian")
             };
 
         public void SetLanguage(string languageCode, bool persist = true, bool raiseUi = true)
@@ -101,12 +104,14 @@ namespace GitDeployPro.Services.Localization
                 return string.Empty;
             }
 
-            var text = Lookup(_language, key) ?? Lookup(English, key) ?? key;
+            // Menus/labels always English; only tooltip tip keys follow selected language.
+            var packLanguage = IsTooltipKey(key) ? _language : English;
+            var text = Lookup(packLanguage, key) ?? Lookup(English, key) ?? key;
             if (args is { Length: > 0 })
             {
                 try
                 {
-                    return string.Format(CultureInfo.CurrentUICulture, text, args);
+                    return string.Format(CultureInfo.InvariantCulture, text, args);
                 }
                 catch
                 {
@@ -117,11 +122,15 @@ namespace GitDeployPro.Services.Localization
             return text;
         }
 
+        private static bool IsTooltipKey(string key)
+        {
+            return key.Contains(".tip.", StringComparison.OrdinalIgnoreCase);
+        }
+
         public void ApplyFlowDirection(DependencyObject? root = null)
         {
-            var direction = IsRtl
-                ? System.Windows.FlowDirection.RightToLeft
-                : System.Windows.FlowDirection.LeftToRight;
+            // Always LTR — Persian must not flip chrome layout.
+            const System.Windows.FlowDirection direction = System.Windows.FlowDirection.LeftToRight;
             try
             {
                 if (root != null)
@@ -181,9 +190,8 @@ namespace GitDeployPro.Services.Localization
         {
             try
             {
-                var culture = IsRtl
-                    ? CultureInfo.GetCultureInfo("fa-IR")
-                    : CultureInfo.GetCultureInfo("en-US");
+                // Keep formatting culture stable (English). Tip language does not flip UI culture.
+                var culture = CultureInfo.GetCultureInfo("en-US");
                 Thread.CurrentThread.CurrentUICulture = culture;
                 CultureInfo.DefaultThreadCurrentUICulture = culture;
             }
@@ -254,7 +262,11 @@ namespace GitDeployPro.Services.Localization
             Put(Persian, "lang.fa", "فارسی");
         }
 
-        public sealed record LanguageOption(string Code, string DisplayName);
+        public sealed record LanguageOption(string Code, string DisplayName)
+        {
+            // ComboBox selection box falls back to ToString() when DisplayMemberPath fails on records.
+            public override string ToString() => DisplayName;
+        }
     }
 
     public static class Loc

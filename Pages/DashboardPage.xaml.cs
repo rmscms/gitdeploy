@@ -165,7 +165,9 @@ namespace GitDeployPro.Pages
 
              if (string.IsNullOrEmpty(path)) return;
 
-            var wizard = new GitDeployPro.Windows.ProjectSetupWizard(path)
+            GitService.SetWorkingDirectory(path);
+            bool allowSkip = new GitService().IsGitRepository() && !_configService.HasProjectConfigFile(path);
+            var wizard = new GitDeployPro.Windows.ProjectSetupWizard(path, allowSkip)
             {
                 Owner = System.Windows.Application.Current.MainWindow
             };

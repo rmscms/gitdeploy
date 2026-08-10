@@ -32,44 +32,100 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Expander">
-                        <Border Background="{TemplateBinding Background}"
+                        <Border x:Name="CardBorder"
+                                Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="8">
+                                CornerRadius="10">
                             <DockPanel>
                                 <ToggleButton x:Name="HeaderToggle"
                                               DockPanel.Dock="Top"
                                               IsChecked="{Binding IsExpanded, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
                                               Background="Transparent"
                                               BorderThickness="0"
-                                              Padding="12,10"
+                                              Padding="14,12"
                                               Cursor="Hand"
-                                              HorizontalContentAlignment="Stretch">
+                                              HorizontalContentAlignment="Stretch"
+                                              FocusVisualStyle="{x:Null}">
+                                    <ToggleButton.Style>
+                                        <Style TargetType="ToggleButton">
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="ToggleButton">
+                                                        <Border x:Name="HeaderBg"
+                                                                Background="{TemplateBinding Background}"
+                                                                CornerRadius="10,10,0,0"
+                                                                Padding="{TemplateBinding Padding}">
+                                                            <ContentPresenter HorizontalAlignment="Stretch"
+                                                                              VerticalAlignment="Center" />
+                                                        </Border>
+                                                        <ControlTemplate.Triggers>
+                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                <Setter TargetName="HeaderBg" Property="Background" Value="{StaticResource Surface.Raised}" />
+                                                            </Trigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </ToggleButton.Style>
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
                                         <ContentPresenter ContentSource="Header" VerticalAlignment="Center" />
-                                        <TextBlock Grid.Column="1"
-                                                   x:Name="Chevron"
-                                                   Text="▾"
-                                                   FontSize="11"
-                                                   Foreground="{StaticResource Text.Muted}"
-                                                   VerticalAlignment="Center"
-                                                   Margin="10,0,0,0" />
+                                        <Border x:Name="ChevronHost"
+                                                Grid.Column="1"
+                                                Width="28"
+                                                Height="28"
+                                                CornerRadius="14"
+                                                Background="{StaticResource Surface.Raised}"
+                                                BorderBrush="{StaticResource Border.Subtle}"
+                                                BorderThickness="1"
+                                                Margin="12,0,0,0"
+                                                VerticalAlignment="Center">
+                                            <Path x:Name="ChevronPath"
+                                                  Data="M 0,0 L 5,5 L 10,0"
+                                                  Stroke="{StaticResource Text.Secondary}"
+                                                  StrokeThickness="1.8"
+                                                  StrokeStartLineCap="Round"
+                                                  StrokeEndLineCap="Round"
+                                                  StrokeLineJoin="Round"
+                                                  Width="10"
+                                                  Height="6"
+                                                  Stretch="Uniform"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  RenderTransformOrigin="0.5,0.5">
+                                                <Path.RenderTransform>
+                                                    <RotateTransform Angle="0" />
+                                                </Path.RenderTransform>
+                                            </Path>
+                                        </Border>
                                     </Grid>
                                 </ToggleButton>
                                 <ContentPresenter x:Name="ExpandSite"
                                                   DockPanel.Dock="Bottom"
-                                                  Margin="12,0,12,12"
+                                                  Margin="14,0,14,14"
                                                   Visibility="Collapsed" />
                             </DockPanel>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsExpanded" Value="True">
                                 <Setter TargetName="ExpandSite" Property="Visibility" Value="Visible" />
-                                <Setter TargetName="Chevron" Property="Text" Value="▴" />
+                                <Setter TargetName="ChevronPath" Property="Stroke" Value="{StaticResource Accent.Primary}" />
+                                <Setter TargetName="ChevronHost" Property="BorderBrush" Value="{StaticResource Accent.Primary}" />
+                                <Setter TargetName="ChevronPath" Property="RenderTransform">
+                                    <Setter.Value>
+                                        <RotateTransform Angle="180" />
+                                    </Setter.Value>
+                                </Setter>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="CardBorder" Property="BorderBrush" Value="{StaticResource Border.Strong}" />
+                                <Setter TargetName="ChevronHost" Property="BorderBrush" Value="{StaticResource Accent.Primary}" />
+                                <Setter TargetName="ChevronPath" Property="Stroke" Value="{StaticResource Accent.Primary}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -282,7 +338,7 @@
                                                    FontWeight="SemiBold"
                                                    FontSize="13" />
                                         <TextBlock x:Name="LanguageSectionHint"
-                                                   Text="App display language. Default is English."
+                                                   Text="Tooltip language for button descriptions. Default is English."
                                                    FontSize="10"
                                                    Foreground="{StaticResource Text.Muted}" />
                                     </StackPanel>
@@ -297,13 +353,20 @@
                                 <ComboBox x:Name="UiLanguageComboBox"
                                           Height="34"
                                           Style="{StaticResource App.InputComboBox}"
-                                          SelectionChanged="UiLanguageComboBox_SelectionChanged" />
+                                          SelectedValuePath="Code"
+                                          SelectionChanged="UiLanguageComboBox_SelectionChanged">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding DisplayName}" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
                                 <TextBlock x:Name="LanguageNoteText"
                                            Margin="0,8,0,0"
                                            FontSize="11"
                                            Foreground="{StaticResource Text.Muted}"
                                            TextWrapping="Wrap"
-                                           Text="Persian switches the layout to right-to-left." />
+                                           Text="Persian translates button tooltips only. Menus and layout stay English (LTR)." />
                             </StackPanel>
                         </Expander>
 

@@ -70,8 +70,28 @@ namespace GitDeployPro
                 });
             };
             LocalizationService.Instance.ApplyFlowDirection(this);
+            RefreshNavAppVersion();
 
             NavigateToPage(new DeployPage(), "deploy");
+        }
+
+        private void RefreshNavAppVersion()
+        {
+            try
+            {
+                var version = _updateService.GetCurrentVersion();
+                if (NavAppVersionText != null)
+                {
+                    NavAppVersionText.Text = Loc.T("update.version", version.ToString());
+                }
+            }
+            catch
+            {
+                if (NavAppVersionText != null)
+                {
+                    NavAppVersionText.Text = "Version —";
+                }
+            }
         }
 
         private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
@@ -93,6 +113,13 @@ namespace GitDeployPro
 
             RestorePendingUpdateFooterIfAny();
             TryShowWhatsNewAfterUpdate();
+
+            var lastProject = global.LastProjectPath;
+            if (!string.IsNullOrWhiteSpace(lastProject) && Directory.Exists(lastProject))
+            {
+                CheckAndShowSetupWizard(lastProject);
+            }
+
             await AppUpdateCoordinator.RunAutomaticCheckAsync(this);
         }
 
@@ -632,47 +659,40 @@ namespace GitDeployPro
             {
                 try
                 {
-                    // Check if configured
-                    var gitService = new GitService();
-                    var config = _configService.LoadProjectConfig(path);
-                    
-                    bool isGitRepo = gitService.IsGitRepository();
-                    
-                    // If not a git repo OR (is a repo but has no config file), show wizard
-                    // BUT: If it is a git repo, we should be careful. Maybe user just opened an existing repo.
-                    // Let's only force wizard if:
-                    // 1. Not a git repo at all
-                    // 2. Is a git repo but we have never seen it (no config) AND it has no remotes (fresh init)?
-                    // Actually, the requirement is "Setup Wizard" for "New Projects".
-                    // If a folder has .git, it's technically initialized.
-                    // If .gitdeploy.config is missing, it just means we haven't configured FTP/Deployment settings.
-                    // So, if IsGitRepo is true, we should probably SKIP the wizard or make it optional?
-                    // User said: "I opened a project with .git folder but wizard popped up. It shouldn't."
-
-                    bool shouldShowWizard = !isGitRepo;
-
-                    // If it IS a repo, but no config, maybe just let them use it as a Git Client?
-                    // Only show wizard if it's NOT a repo.
-                    // If they want to configure FTP later, they can use Settings or "Run Setup" button.
-                    
-                    if (shouldShowWizard)
+                    if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
                     {
-                        var wizard = new ProjectSetupWizard(path)
-                        {
-                            Owner = this
-                        };
-                        
-                        // Ensure owner is visible
-                        if (!this.IsVisible) this.Show();
+                        return;
+                    }
 
-                        wizard.ShowDialog();
-                        
-                        if (wizard.SetupCompleted)
-                        {
-                            // Reload everything and refresh Dashboard
-                            LoadRecentProjects();
-                            NavigateToDashboard();
-                        }
+                    GitService.SetWorkingDirectory(path);
+                    var gitService = new GitService();
+                    bool isGitRepo = gitService.IsGitRepository();
+                    bool hasConfig = _configService.HasProjectConfigFile(path);
+
+                    // Show when folder is not a git repo, OR git exists but setup config was never created.
+                    bool shouldShowWizard = !isGitRepo || !hasConfig;
+                    if (!shouldShowWizard)
+                    {
+                        return;
+                    }
+
+                    bool allowSkip = isGitRepo && !hasConfig;
+                    var wizard = new ProjectSetupWizard(path, allowSkip)
+                    {
+                        Owner = this
+                    };
+
+                    if (!this.IsVisible)
+                    {
+                        this.Show();
+                    }
+
+                    wizard.ShowDialog();
+
+                    if (wizard.SetupCompleted)
+                    {
+                        LoadRecentProjects();
+                        NavigateToDashboard();
                     }
                 }
                 catch { }
@@ -713,6 +733,28 @@ namespace GitDeployPro
         private void Git_Click(object sender, RoutedEventArgs e) => NavigateToPage(new GitPage(), "git");
         private void History_Click(object sender, RoutedEventArgs e) => NavigateToPage(new HistoryPage(), "history");
         private void Settings_Click(object sender, RoutedEventArgs e) => NavigateToPage(new SettingsPage(), "settings");
+        private void About_Click(object sender, RoutedEventArgs e) => NavigateToPage(new AboutPage(), "about");
+
+        private async void CheckForUpdates_Click(object sender, RoutedEventArgs e)
+        {
+            CloseNavMenuPopup();
+            if (NavItemCheckUpdates != null)
+            {
+                NavItemCheckUpdates.IsEnabled = false;
+            }
+
+            try
+            {
+                await AppUpdateCoordinator.RunManualCheckAsync(this);
+            }
+            finally
+            {
+                if (NavItemCheckUpdates != null)
+                {
+                    NavItemCheckUpdates.IsEnabled = true;
+                }
+            }
+        }
 
         private void NavigateToPage(Page page, string route)
         {
@@ -722,8 +764,6 @@ namespace GitDeployPro
             CloseNavMenuPopup();
             HighlightActiveNavRoute();
         }
-
-        private void About_Click(object sender, RoutedEventArgs e) => NavigateToPage(new AboutPage(), "about");
 
         private void Minimize_Click(object sender, RoutedEventArgs e)
         {

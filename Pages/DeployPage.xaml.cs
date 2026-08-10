@@ -67,6 +67,7 @@ namespace GitDeployPro.Pages
         private double _bottomDockResizeStartY;
         private double _bottomDockResizeStartHeight;
         private string _remoteWorkspaceProjectPath = string.Empty;
+        private bool _remoteWorkspaceInitialized;
         private bool _isRemoteEditorOverlayActive;
         private GridLength _remotePanelLastWidth = new GridLength(420);
         private GridLength _leftDockLastWidth = new GridLength(340);
@@ -115,6 +116,8 @@ namespace GitDeployPro.Pages
             _compactPanelOpenedByUser = true;
             _bottomDockLastHeight = new GridLength(0);
             ApplyWorkspaceLayout(force: true);
+            // FTP profiles must initialize even when git is missing / LoadGitData early-returned.
+            EnsureRemoteWorkspaceInitialized();
             ShowBottomTerminalTab();
             _ = EnsureDeployTerminalSessionAsync();
             // Re-apply after first real layout so height is based on ActualHeight (min 30% page).
@@ -1866,6 +1869,26 @@ namespace GitDeployPro.Pages
                 : Loc.T("deploy.tip.hideDirectUpload");
         }
 
+        private void EnsureRemoteWorkspaceInitialized()
+        {
+            var globalConfig = _configService.LoadGlobalConfig();
+            if (!string.IsNullOrEmpty(globalConfig.LastProjectPath))
+            {
+                _projectConfig = _configService.LoadProjectConfig(globalConfig.LastProjectPath);
+            }
+
+            var path = _projectConfig.LocalProjectPath ?? string.Empty;
+            if (_remoteWorkspaceInitialized
+                && string.Equals(_remoteWorkspaceProjectPath, path, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            _remoteWorkspaceProjectPath = path;
+            _remoteWorkspaceInitialized = true;
+            DeployRemoteWorkspace?.Initialize(_projectConfig);
+        }
+
         private async void LoadGitData(bool includeExpensiveOperations = true, bool refreshBranches = true)
         {
             if (_isRefreshingGit) return;
@@ -1879,24 +1902,15 @@ namespace GitDeployPro.Pages
             _isLoaded = false;
             try
             {
+                // FTP remote workspace must not depend on a valid git repo.
+                EnsureRemoteWorkspaceInitialized();
+
                 if (!_gitService.IsGitRepository())
                 {
                     StatusText.Text = "⚠️ Git repository not found (Initialize Git in Settings)";
                     StatusText.Foreground = GetThemeBrush("Status.Warning", System.Windows.Media.Brushes.Orange);
                     DisableAllButtons();
                     return;
-                }
-
-                // Load Project Config
-                var globalConfig = _configService.LoadGlobalConfig();
-                if (!string.IsNullOrEmpty(globalConfig.LastProjectPath))
-                {
-                    _projectConfig = _configService.LoadProjectConfig(globalConfig.LastProjectPath);
-                }
-                if (!string.Equals(_remoteWorkspaceProjectPath, _projectConfig.LocalProjectPath, StringComparison.OrdinalIgnoreCase))
-                {
-                    _remoteWorkspaceProjectPath = _projectConfig.LocalProjectPath ?? string.Empty;
-                    DeployRemoteWorkspace?.Initialize(_projectConfig);
                 }
 
                 // Check changes & commits

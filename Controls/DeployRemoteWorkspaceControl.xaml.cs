@@ -64,6 +64,7 @@ namespace GitDeployPro.Controls
         private bool _autoConnectInProgress;
         private bool _suppressTabSelectionChanged;
         private bool _suppressConnectionSelectionChanged;
+        private bool _profilesLoadedAfterVisible;
         private bool _editorRecoveryInProgress;
         private bool _editorWarmupInProgress;
         private bool _editorWarmupLoggedReady;
@@ -96,8 +97,29 @@ namespace GitDeployPro.Controls
             UpdateRemoteBrowserVisualState();
             ConfigurationService.ConnectionsChanged += OnConnectionsChanged;
             ThemeService.Instance.ThemeChanged += OnDeployThemeChanged;
+            Loaded += DeployRemoteWorkspaceControl_Loaded;
             Unloaded += DeployRemoteWorkspaceControl_Unloaded;
             ApplyFtpChromeTheme();
+        }
+
+        private async void DeployRemoteWorkspaceControl_Loaded(object sender, RoutedEventArgs e)
+        {
+            // First LoadProfilesAsync often runs while the FTP dock is still Collapsed (ctor/Initialize).
+            // Rebind once after the control is in the live visual tree so the combo ItemsSource paints.
+            if (_profilesLoadedAfterVisible || _isHostTeardown)
+            {
+                return;
+            }
+
+            _profilesLoadedAfterVisible = true;
+            try
+            {
+                await LoadProfilesAsync();
+            }
+            catch (Exception ex)
+            {
+                AddLog($"Initial profile load failed: {ex.Message}");
+            }
         }
 
         private void OnDeployThemeChanged(object? sender, EventArgs e)

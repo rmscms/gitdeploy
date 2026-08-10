@@ -63,7 +63,7 @@ namespace GitDeployPro.Services
             /// <summary>
             /// App-wide theme id (default | dark | custom pack ids). Persists across pages and restarts.
             /// </summary>
-            public string AppThemeId { get; set; } = "default";
+            public string AppThemeId { get; set; } = "dark";
 
             /// <summary>
             /// UI language code: <c>en</c> (default) or <c>fa</c>.
@@ -296,7 +296,7 @@ namespace GitDeployPro.Services
 
             if (string.IsNullOrWhiteSpace(config.AppThemeId))
             {
-                config.AppThemeId = "default";
+                config.AppThemeId = "dark";
             }
 
             config.DeployThemeId = config.AppThemeId;
@@ -305,12 +305,12 @@ namespace GitDeployPro.Services
         public string ResolveAppThemeId()
         {
             var config = LoadGlobalConfig();
-            return string.IsNullOrWhiteSpace(config.AppThemeId) ? "default" : config.AppThemeId;
+            return string.IsNullOrWhiteSpace(config.AppThemeId) ? "dark" : config.AppThemeId;
         }
 
         public void SetAppThemeId(string themeId)
         {
-            var id = string.IsNullOrWhiteSpace(themeId) ? "default" : themeId.Trim();
+            var id = string.IsNullOrWhiteSpace(themeId) ? "dark" : themeId.Trim();
             UpdateGlobalConfig(cfg =>
             {
                 cfg.AppThemeId = id;
@@ -444,6 +444,23 @@ namespace GitDeployPro.Services
         }
 
         // Project Config Management
+        public bool HasProjectConfigFile(string projectPath)
+        {
+            if (string.IsNullOrWhiteSpace(projectPath))
+            {
+                return false;
+            }
+
+            try
+            {
+                return File.Exists(Path.Combine(projectPath, ProjectConfigFile));
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
         public ProjectConfig LoadProjectConfig(string projectPath)
         {
             try
