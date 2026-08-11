@@ -463,6 +463,18 @@
                                                   VerticalAlignment="Center"
                                                   IsChecked="True"
                                                   Click="SelectAll_Click" />
+                                        <Button x:Name="RefreshGitWorkingSetButton"
+                                                Content="&#xE72C;"
+                                                FontFamily="Segoe MDL2 Assets"
+                                                FontSize="14"
+                                                Style="{StaticResource DeployRailButtonStyle}"
+                                                Foreground="{StaticResource Accent.Primary}"
+                                                Width="28"
+                                                Height="28"
+                                                Margin="8,0,0,0"
+                                                VerticalAlignment="Center"
+                                                ToolTip="{loc:T deploy.tip.refreshGitWorkingSet}"
+                                                Click="RefreshGitWorkingSet_Click" />
                                     </StackPanel>
                                     <Button Grid.Column="1"
                                             x:Name="DeployButton"

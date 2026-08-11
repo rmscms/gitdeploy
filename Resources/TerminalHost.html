@@ -25,20 +25,157 @@
       background: #0c0c0c;
     }
 
-    #terminal {
+    #terminal-stage {
+      position: relative;
       flex: 1 1 auto;
       min-height: 0;
       width: 100%;
+    }
+
+    #terminal {
+      width: 100%;
+      height: 100%;
       background: #0c0c0c;
     }
 
-    /* Keep ~7–8 empty rows under the cursor so the prompt isn't glued to the bottom edge. */
     #terminal-pad {
       flex: 0 0 auto;
       width: 100%;
       height: 140px;
       background: #0c0c0c;
       pointer-events: none;
+    }
+
+    #suggest-ghost {
+      position: absolute;
+      display: none;
+      pointer-events: none;
+      white-space: pre;
+      font-family: Consolas, "Cascadia Mono", monospace;
+      font-size: 14px;
+      line-height: 1.25;
+      opacity: 0.45;
+      color: #E6D07A;
+      z-index: 20;
+    }
+
+    #suggest-picker {
+      position: absolute;
+      display: none;
+      flex-direction: column;
+      max-height: 220px;
+      overflow-y: auto;
+      min-width: 280px;
+      max-width: calc(100% - 16px);
+      padding: 4px 0;
+      border-radius: 6px;
+      border: 1px solid #333333;
+      background: #141414;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+      font-size: 12px;
+      z-index: 22;
+    }
+
+    #suggest-picker .picker-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 5px 10px;
+      color: #d4d4d4;
+    }
+
+    #suggest-picker .picker-row.active {
+      background: #2A2618;
+    }
+
+    #suggest-picker .picker-cmd {
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-family: Consolas, "Cascadia Mono", monospace;
+    }
+
+    #suggest-picker .scope-badge {
+      flex: 0 0 auto;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      border: 1px solid rgba(76, 141, 255, 0.45);
+      color: #4c8dff;
+      background: rgba(76, 141, 255, 0.12);
+    }
+
+    #suggest-picker .scope-badge.current {
+      border-color: rgba(92, 255, 176, 0.45);
+      color: #5cffb0;
+      background: rgba(92, 255, 176, 0.12);
+    }
+
+    #suggest-picker .scope-badge.other {
+      border-color: rgba(255, 255, 255, 0.12);
+      color: #9aa0a6;
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    #suggest-bar {
+      position: absolute;
+      display: none;
+      pointer-events: none;
+      align-items: center;
+      gap: 8px;
+      max-width: calc(100% - 16px);
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: rgba(20, 20, 20, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 11px;
+      color: #9aa0a6;
+      z-index: 21;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    #suggest-bar .scope-badge {
+      flex: 0 0 auto;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      border: 1px solid rgba(76, 141, 255, 0.45);
+      color: #4c8dff;
+      background: rgba(76, 141, 255, 0.12);
+    }
+
+    #suggest-bar .scope-badge.current {
+      border-color: rgba(92, 255, 176, 0.45);
+      color: #5cffb0;
+      background: rgba(92, 255, 176, 0.12);
+    }
+
+    #suggest-bar .scope-badge.other {
+      border-color: rgba(255, 255, 255, 0.12);
+      color: #9aa0a6;
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    #dict-warning {
+      position: absolute;
+      display: none;
+      pointer-events: none;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: rgba(58, 34, 40, 0.94);
+      border: 1px solid rgba(255, 108, 122, 0.45);
+      font-size: 11px;
+      font-weight: 600;
+      color: #FF6C7A;
+      z-index: 21;
+      white-space: nowrap;
     }
 
     .xterm-viewport::-webkit-scrollbar {
@@ -53,7 +190,17 @@
 </head>
 <body>
   <div id="terminal-wrap">
-    <div id="terminal"></div>
+    <div id="terminal-stage">
+      <div id="terminal"></div>
+      <div id="suggest-ghost" aria-hidden="true"></div>
+      <div id="suggest-picker" aria-hidden="true"></div>
+      <div id="suggest-bar" aria-hidden="true">
+        <span id="suggest-hint">Tab accept · ↑↓ cycle · → accept</span>
+        <span id="suggest-scope" class="scope-badge">global</span>
+        <span id="suggest-desc"></span>
+      </div>
+      <div id="dict-warning" aria-hidden="true">Unknown command</div>
+    </div>
     <div id="terminal-pad" aria-hidden="true"></div>
   </div>
 
@@ -109,6 +256,416 @@
         document.head.appendChild(link);
       };
 
+      const createSuggestionEngine = (term, getTypingEnabled, scheduleOverlaySync) => {
+        const ghostEl = document.getElementById('suggest-ghost');
+        const barEl = document.getElementById('suggest-bar');
+        const pickerEl = document.getElementById('suggest-picker');
+        const scopeEl = document.getElementById('suggest-scope');
+        const descEl = document.getElementById('suggest-desc');
+        const dictWarningEl = document.getElementById('dict-warning');
+        const stageEl = document.getElementById('terminal-stage');
+
+        let catalog = [];
+        let suggestionsEnabled = true;
+        let dictionaryMode = false;
+        let ghostColor = '#E6D07A';
+        let listBackground = '#141414';
+        let listActive = '#2A2618';
+        let listBorder = '#333333';
+        let unknownColor = '#FF6C7A';
+        let lineBuffer = '';
+        let matches = [];
+        let matchIndex = 0;
+
+        const escapeHtml = (value) => String(value || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+
+        const clearGhost = () => {
+          matches = [];
+          matchIndex = 0;
+          if (ghostEl) {
+            ghostEl.style.display = 'none';
+            ghostEl.textContent = '';
+          }
+          if (barEl) {
+            barEl.style.display = 'none';
+          }
+          if (pickerEl) {
+            pickerEl.style.display = 'none';
+            pickerEl.innerHTML = '';
+          }
+        };
+
+        const hideDictWarning = () => {
+          if (dictWarningEl) {
+            dictWarningEl.style.display = 'none';
+          }
+        };
+
+        const isDictionaryKnown = (query) => {
+          const q = (query || '').trimEnd().toLowerCase();
+          if (!q) {
+            return true;
+          }
+
+          return catalog.some((item) => {
+            const cmd = (item.command || '').trim().toLowerCase();
+            if (!cmd) {
+              return false;
+            }
+
+            // Still typing toward a known base command
+            if (cmd.startsWith(q)) {
+              return true;
+            }
+
+            // Full base command plus args/flags/path tail
+            if (q.startsWith(cmd)) {
+              if (q.length === cmd.length) {
+                return true;
+              }
+
+              const next = q[cmd.length];
+              return next === ' ' || next === '\t';
+            }
+
+            return false;
+          });
+        };
+
+        const syncDictWarning = (stageRect, cursorRect, fontSize) => {
+          if (!dictionaryMode || !lineBuffer.trim()) {
+            hideDictWarning();
+            return;
+          }
+
+          if (isDictionaryKnown(lineBuffer)) {
+            hideDictWarning();
+            return;
+          }
+
+          if (dictWarningEl) {
+            dictWarningEl.style.color = unknownColor;
+            dictWarningEl.style.borderColor = unknownColor;
+            dictWarningEl.style.display = 'block';
+            dictWarningEl.style.left = `${Math.max(0, cursorRect.left - stageRect.left)}px`;
+            dictWarningEl.style.top = `${cursorRect.bottom - stageRect.top + 4}px`;
+          }
+        };
+
+        const hideAutocompleteOverlays = () => {
+          if (ghostEl) {
+            ghostEl.style.display = 'none';
+            ghostEl.textContent = '';
+          }
+          if (barEl) {
+            barEl.style.display = 'none';
+          }
+          if (pickerEl) {
+            pickerEl.style.display = 'none';
+            pickerEl.innerHTML = '';
+          }
+        };
+
+        const activeMatch = () => matches.length > 0 ? matches[matchIndex] : null;
+
+        const activeSuffix = () => {
+          const match = activeMatch();
+          if (!match || !lineBuffer) {
+            return '';
+          }
+          const cmd = match.command || '';
+          if (cmd.length <= lineBuffer.length) {
+            return '';
+          }
+          if (!cmd.toLowerCase().startsWith(lineBuffer.toLowerCase())) {
+            return '';
+          }
+          return cmd.slice(lineBuffer.length);
+        };
+
+        const findMatches = () => {
+          const query = lineBuffer.trim().length === 0 ? '' : lineBuffer;
+          if (!suggestionsEnabled || !query) {
+            matches = [];
+            matchIndex = 0;
+            return;
+          }
+
+          matches = catalog
+            .filter((item) => {
+              const cmd = (item.command || '').toLowerCase();
+              return cmd.startsWith(query.toLowerCase()) && cmd !== query.toLowerCase();
+            })
+            .sort((a, b) => {
+              const rankA = typeof a.rank === 'number' ? a.rank : 9;
+              const rankB = typeof b.rank === 'number' ? b.rank : 9;
+              if (rankA !== rankB) {
+                return rankA - rankB;
+              }
+              return (a.command || '').localeCompare(b.command || '', undefined, { sensitivity: 'base' });
+            });
+
+          if (matchIndex >= matches.length) {
+            matchIndex = 0;
+          }
+        };
+
+        const renderPicker = (stageRect, cursorRect) => {
+          if (!pickerEl) {
+            return;
+          }
+
+          if (!suggestionsEnabled || matches.length < 2 || !activeSuffix()) {
+            pickerEl.style.display = 'none';
+            pickerEl.innerHTML = '';
+            return;
+          }
+
+          pickerEl.style.display = 'flex';
+          pickerEl.style.background = listBackground;
+          pickerEl.style.borderColor = listBorder;
+          pickerEl.style.left = `${Math.max(0, cursorRect.left - stageRect.left)}px`;
+          pickerEl.style.top = `${cursorRect.bottom - stageRect.top + 4}px`;
+
+          pickerEl.innerHTML = matches.map((item, index) => {
+            const label = item.scopeLabel || item.scope || 'global';
+            const badgeClass = item.isCurrentProject
+              ? 'scope-badge current'
+              : (item.scope === 'global' ? 'scope-badge' : 'scope-badge other');
+            const activeClass = index === matchIndex ? ' picker-row active' : ' picker-row';
+            const rowStyle = index === matchIndex ? ` style="background:${listActive}"` : '';
+            return `<div class="${activeClass.trim()}"${rowStyle} data-index="${index}">`
+              + `<span class="picker-cmd">${escapeHtml(item.command || '')}</span>`
+              + `<span class="${badgeClass}">${escapeHtml(label)}</span>`
+              + '</div>';
+          }).join('');
+
+          const activeRow = pickerEl.querySelector('.picker-row.active');
+          if (activeRow && typeof activeRow.scrollIntoView === 'function') {
+            activeRow.scrollIntoView({ block: 'nearest' });
+          }
+        };
+
+        const syncOverlays = () => {
+          if (!stageEl) {
+            return;
+          }
+
+          const cursor = termElement.querySelector('.xterm-cursor');
+          if (!cursor) {
+            hideAutocompleteOverlays();
+            hideDictWarning();
+            return;
+          }
+
+          const stageRect = stageEl.getBoundingClientRect();
+          const cursorRect = cursor.getBoundingClientRect();
+          const fontSize = (term.options && term.options.fontSize) || 14;
+
+          syncDictWarning(stageRect, cursorRect, fontSize);
+
+          const suffix = activeSuffix();
+          const match = activeMatch();
+          const showPicker = suggestionsEnabled && matches.length >= 2 && !!suffix;
+
+          if (!suggestionsEnabled || !match || !suffix) {
+            hideAutocompleteOverlays();
+            return;
+          }
+
+          if (!ghostEl || !barEl) {
+            return;
+          }
+
+          ghostEl.style.color = ghostColor;
+          ghostEl.textContent = suffix;
+          ghostEl.style.fontSize = `${fontSize}px`;
+          ghostEl.style.display = 'block';
+          ghostEl.style.left = `${cursorRect.right - stageRect.left}px`;
+          ghostEl.style.top = `${cursorRect.top - stageRect.top}px`;
+
+          if (showPicker) {
+            barEl.style.display = 'none';
+            renderPicker(stageRect, cursorRect);
+          } else {
+            if (pickerEl) {
+              pickerEl.style.display = 'none';
+              pickerEl.innerHTML = '';
+            }
+
+            barEl.style.display = 'flex';
+            barEl.style.left = `${Math.max(0, cursorRect.left - stageRect.left)}px`;
+            barEl.style.top = `${cursorRect.bottom - stageRect.top + 4}px`;
+
+            if (scopeEl) {
+              const label = match.scopeLabel || match.scope || 'global';
+              scopeEl.textContent = label;
+              scopeEl.className = 'scope-badge'
+                + (match.isCurrentProject ? ' current' : (match.scope === 'global' ? '' : ' other'));
+            }
+
+            if (descEl) {
+              descEl.textContent = match.description || match.command || '';
+            }
+          }
+        };
+
+        const updateSuggestion = () => {
+          findMatches();
+          syncOverlays();
+          if (scheduleOverlaySync) {
+            scheduleOverlaySync();
+          }
+        };
+
+        const refreshOverlays = () => {
+          syncOverlays();
+          if (scheduleOverlaySync) {
+            scheduleOverlaySync();
+          }
+        };
+
+        const applyInputToBuffer = (data) => {
+          if (!data) {
+            return;
+          }
+
+          if (data === '\r' || data === '\n') {
+            lineBuffer = '';
+            clearGhost();
+            hideDictWarning();
+            return;
+          }
+
+          if (data === '\u0003') {
+            lineBuffer = '';
+            clearGhost();
+            hideDictWarning();
+            return;
+          }
+
+          if (data === '\u007f' || data === '\b') {
+            lineBuffer = lineBuffer.slice(0, -1);
+            updateSuggestion();
+            return;
+          }
+
+          if (data.startsWith('\x1b')) {
+            return;
+          }
+
+          if (data === '\t') {
+            return;
+          }
+
+          if (data.length === 1 && data >= ' ') {
+            lineBuffer += data;
+            updateSuggestion();
+            return;
+          }
+
+          for (const ch of data) {
+            if (ch === '\r' || ch === '\n') {
+              lineBuffer = '';
+            } else if (ch === '\u007f' || ch === '\b') {
+              lineBuffer = lineBuffer.slice(0, -1);
+            } else if (ch >= ' ' && ch !== '\t') {
+              lineBuffer += ch;
+            }
+          }
+          updateSuggestion();
+        };
+
+        const acceptGhost = () => {
+          const suffix = activeSuffix();
+          if (!suffix || !getTypingEnabled()) {
+            return false;
+          }
+
+          lineBuffer += suffix;
+          post({ type: 'input', data: suffix });
+          clearGhost();
+          return true;
+        };
+
+        const cycleMatch = (delta) => {
+          if (!suggestionsEnabled || matches.length < 2) {
+            return false;
+          }
+          matchIndex = (matchIndex + delta + matches.length) % matches.length;
+          syncOverlays();
+          return true;
+        };
+
+        const handleKeyDown = (ev) => {
+          if (!getTypingEnabled() || !suggestionsEnabled) {
+            return false;
+          }
+
+          const key = (ev.key || '').toLowerCase();
+          const ctrl = ev.ctrlKey || ev.metaKey;
+          const shift = ev.shiftKey;
+
+          if (key === 'tab' && !ctrl && !shift) {
+            if (acceptGhost()) {
+              return true;
+            }
+            return false;
+          }
+
+          if (key === 'arrowright' && !ctrl && !shift && activeSuffix()) {
+            if (acceptGhost()) {
+              return true;
+            }
+          }
+
+          if (key === 'arrowup' && !ctrl && !shift) {
+            if (cycleMatch(-1)) {
+              return true;
+            }
+          }
+
+          if (key === 'arrowdown' && !ctrl && !shift) {
+            if (cycleMatch(1)) {
+              return true;
+            }
+          }
+
+          if (key === 'escape' && !ctrl && !shift) {
+            if (matches.length > 0) {
+              clearGhost();
+            }
+            return false;
+          }
+
+          return false;
+        };
+
+        return {
+          setCatalog(message) {
+            suggestionsEnabled = !!message.enabled;
+            dictionaryMode = !!message.dictionaryMode;
+            ghostColor = typeof message.ghostColor === 'string' && message.ghostColor ? message.ghostColor : '#E6D07A';
+            unknownColor = typeof message.unknownColor === 'string' && message.unknownColor ? message.unknownColor : '#FF6C7A';
+            listBackground = typeof message.listBackground === 'string' && message.listBackground ? message.listBackground : '#141414';
+            listActive = typeof message.listActive === 'string' && message.listActive ? message.listActive : '#2A2618';
+            listBorder = typeof message.listBorder === 'string' && message.listBorder ? message.listBorder : '#333333';
+            catalog = Array.isArray(message.items) ? message.items : [];
+            updateSuggestion();
+          },
+          applyInputToBuffer,
+          handleKeyDown,
+          clearGhost,
+          syncOverlays,
+          updateSuggestion,
+          refreshOverlays
+        };
+      };
+
       const initCompatibilityTerminal = () => {
         termElement.innerHTML = '<div style="color:#ffb74d;padding:10px 12px;border-bottom:1px solid #333">xterm.js unavailable (offline/CDN blocked). Running compatibility mode.</div><pre id="compatOut" style="margin:0;padding:10px;height:calc(100% - 42px);overflow:auto;white-space:pre-wrap;color:#d4d4d4;box-sizing:border-box"></pre>';
         const compatOut = document.getElementById('compatOut');
@@ -121,7 +678,6 @@
             return;
           }
           compatOut.textContent += data;
-          // Keep the latest line above the empty pad (scroll to end of pre, pad stays below).
           compatOut.scrollTop = compatOut.scrollHeight;
         };
 
@@ -256,19 +812,57 @@
         fitAddon.fit();
 
         let typingEnabled = true;
+        let overlayFrame = 0;
+        const scheduleOverlaySync = () => {
+          if (overlayFrame) {
+            cancelAnimationFrame(overlayFrame);
+          }
+          overlayFrame = requestAnimationFrame(() => {
+            overlayFrame = 0;
+            suggestions.syncOverlays();
+          });
+        };
+
+        const suggestions = createSuggestionEngine(term, () => typingEnabled, scheduleOverlaySync);
+
+        const terminalStage = document.getElementById('terminal-stage');
+        if (terminalStage) {
+          terminalStage.addEventListener('contextmenu', (ev) => {
+            if (!term.hasSelection()) {
+              return;
+            }
+
+            ev.preventDefault();
+            const selectedText = term.getSelection().trim();
+            if (!selectedText) {
+              return;
+            }
+
+            post({
+              type: 'terminalContextMenu',
+              text: selectedText,
+              clientX: ev.clientX,
+              clientY: ev.clientY
+            });
+          });
+        }
 
         const pushResize = () => {
           applyBottomPad();
           fitAddon.fit();
           post({ type: 'resize', cols: term.cols, rows: term.rows });
+          scheduleOverlaySync();
         };
 
         window.addEventListener('resize', pushResize);
         term.onResize(({ cols, rows }) => post({ type: 'resize', cols, rows }));
+        term.onScroll(() => scheduleOverlaySync());
+
         term.onData((data) => {
           if (!typingEnabled) {
             return;
           }
+          suggestions.applyInputToBuffer(data);
           post({ type: 'input', data });
         });
 
@@ -282,6 +876,12 @@
           const key = (ev.key || '').toLowerCase();
           const ctrl = ev.ctrlKey || ev.metaKey;
           const shift = ev.shiftKey;
+
+          if (suggestions.handleKeyDown(ev)) {
+            ev.preventDefault();
+            scheduleOverlaySync();
+            return false;
+          }
 
           if (ctrl && !shift && key === 'c') {
             if (term.hasSelection()) {
@@ -323,15 +923,21 @@
           switch (message.type) {
             case 'write':
               if (message.data) {
-                term.write(message.data, () => term.scrollToBottom());
+                term.write(message.data, () => {
+                  term.scrollToBottom();
+                  scheduleOverlaySync();
+                });
               }
               break;
             case 'clear':
               term.clear();
+              suggestions.clearGhost();
+              suggestions.refreshOverlays();
               break;
             case 'focus':
               term.focus();
               term.scrollToBottom();
+              scheduleOverlaySync();
               break;
             case 'setFontSize':
               if (typeof message.value === 'number') {
@@ -359,7 +965,6 @@
                 const wrap = document.getElementById('terminal-wrap');
                 if (wrap) wrap.style.background = bg;
                 if (termElement) termElement.style.background = bg;
-                // Force xterm viewport/screen to match (avoids a lighter band under the canvas).
                 document.querySelectorAll('.xterm, .xterm-viewport, .xterm-screen').forEach((el) => {
                   el.style.background = bg;
                 });
@@ -367,9 +972,16 @@
                 pushResize();
               }
               break;
+            case 'setSuggestions':
+              suggestions.setCatalog(message);
+              scheduleOverlaySync();
+              break;
             case 'setTypingEnabled':
               typingEnabled = !!message.enabled;
               term.options.disableStdin = !typingEnabled;
+              if (!typingEnabled) {
+                suggestions.clearGhost();
+              }
               break;
             case 'fit':
               pushResize();
@@ -377,6 +989,7 @@
             case 'paste':
               if (typeof message.text === 'string' && message.text.length > 0) {
                 if (typingEnabled) {
+                  suggestions.applyInputToBuffer(message.text);
                   post({ type: 'input', data: message.text });
                 }
               }

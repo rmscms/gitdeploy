@@ -38,6 +38,15 @@ namespace GitDeployPro.Services
             /// </summary>
             public string TerminalPresetsUiMode { get; set; } = "dock";
 
+            /// <summary>Terminal command autocomplete (ghost text + Tab).</summary>
+            public bool TerminalAutocompleteEnabled { get; set; } = true;
+
+            /// <summary>Highlight unknown commands in terminal (prefix not in dictionary).</summary>
+            public bool TerminalDictionaryModeEnabled { get; set; }
+
+            /// <summary>Suggestion catalog for terminal autocomplete (global + per-project).</summary>
+            public List<TerminalSuggestion> TerminalSuggestions { get; set; } = new();
+
             public List<BackupSchedule> BackupSchedules { get; set; } = new();
             public List<BackupHistoryEntry> BackupHistory { get; set; } = new();
             public bool LaunchOnStartup { get; set; }
@@ -273,6 +282,7 @@ namespace GitDeployPro.Services
 
             config.RecentProjects ??= new List<RecentProjectEntry>();
             config.TerminalPresets ??= new List<TerminalCommandPreset>();
+            config.TerminalSuggestions ??= new List<TerminalSuggestion>();
             config.BackupSchedules ??= new List<BackupSchedule>();
             config.BackupHistory ??= new List<BackupHistoryEntry>();
             MigrateAppThemeId(config, token);
@@ -325,6 +335,7 @@ namespace GitDeployPro.Services
             config ??= new GlobalConfig();
             config.RecentProjects ??= new List<RecentProjectEntry>();
             config.TerminalPresets ??= new List<TerminalCommandPreset>();
+            config.TerminalSuggestions ??= new List<TerminalSuggestion>();
             config.BackupSchedules ??= new List<BackupSchedule>();
             config.BackupHistory ??= new List<BackupHistoryEntry>();
 

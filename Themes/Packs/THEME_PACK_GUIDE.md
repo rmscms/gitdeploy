@@ -46,6 +46,10 @@ Palette references use `@Key` form, for example `"@Accent.Primary"`.
 | `presetsDrawerBorder` | Drawer bottom/edge border |
 | `presetsHeaderForeground` | “Saved commands” title |
 | `presetsChipBackground` | Chip around preset combo / actions |
+| `suggestionGhost` | Terminal autocomplete ghost text color |
+| `suggestionListBackground` | Multi-match suggestion list panel background |
+| `suggestionListActive` | Highlighted row in suggestion list |
+| `suggestionListBorder` | Suggestion list border |
 | `deploy.editor` | WebView2 / Monaco / AvalonEdit / SQL completion & syntax |
 | `deploy.diff` | Diff line backgrounds |
 

@@ -1,16 +1,17 @@
 {
-  "version": "1.4.17",
-  "fileName": "GitDeployPro-1.4.17.exe",
-  "downloadUrl": "versions/GitDeployPro-1.4.17.exe",
-  "sha256": "229721F190D780B5617422ABA70D847956869E6C006FEA8E5C9FFCFCC5EC9F9A",
-  "releaseNotes": "- Tab-based Project Setup wizard with Back/Next, stage progress, and Skip when .git exists without config\n- Wizard English/Persian language combo (Persian texts without RTL)\n- App language: Persian tooltips only; menus stay English LTR (no RTL)\n- Dark theme is now the app default; Settings expander chevrons restyled\n- Nav menu: Check for updates + app version; fix Settings language combo crash",
+  "version": "1.4.18",
+  "fileName": "GitDeployPro-1.4.18.exe",
+  "downloadUrl": "versions/GitDeployPro-1.4.18.exe",
+  "sha256": "40AFA3F240026112674BC9F3ACD058FA73780670664A6CFB10476F60D03C6B8C",
+  "releaseNotes": "- Terminal command suggestions: ghost autocomplete, Laravel defaults, Settings panel, import JSON\n- Fix: discover/stage untracked files so Deploy compare and commit include new non-ignored files\n- Fix: safer folder commit with clear messages when nothing is committable\n- Fix: Direct Upload git badges refresh after deploy (no stale red M)\n- Fix: Commit message dialog buttons no longer clipped\n- UX: switching project opens Deploy instead of Dashboard",
   "changelog": [
-    "Tab-based Project Setup wizard with Back/Next, stage progress, and Skip when .git exists without config",
-    "Wizard English/Persian language combo (Persian texts without RTL)",
-    "App language: Persian tooltips only; menus stay English LTR (no RTL)",
-    "Dark theme is now the app default; Settings expander chevrons restyled",
-    "Nav menu: Check for updates + app version; fix Settings language combo crash"
+    "Terminal command suggestions: ghost autocomplete, Laravel defaults, Settings panel, import JSON",
+    "Fix: discover/stage untracked files so Deploy compare and commit include new non-ignored files",
+    "Fix: safer folder commit with clear messages when nothing is committable",
+    "Fix: Direct Upload git badges refresh after deploy (no stale red M)",
+    "Fix: Commit message dialog buttons no longer clipped",
+    "UX: switching project opens Deploy instead of Dashboard"
   ],
   "mandatory": false,
-  "publishedUtc": "2026-08-10T07:10:00Z"
+  "publishedUtc": "2026-08-11T06:30:00Z"
 }

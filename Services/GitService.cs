@@ -375,19 +375,11 @@ namespace GitDeployPro.Services
                 var porcelain = await RunGitCommandAsync("status --porcelain=v1 -uall --ignored=matching", root);
                 foreach (var rawLine in porcelain.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
                 {
-                    if (rawLine.Length < 4)
+                    if (!TryParsePorcelainLine(rawLine, out var xy, out var path))
                     {
                         continue;
                     }
 
-                    var xy = rawLine.Substring(0, 2);
-                    var pathPart = rawLine.Substring(3).Trim();
-                    if (pathPart.Contains(" -> "))
-                    {
-                        pathPart = pathPart.Split(new[] { " -> " }, StringSplitOptions.None).Last();
-                    }
-
-                    var path = NormalizeGitPath(pathPart.Trim('"').TrimEnd('/'));
                     if (string.IsNullOrWhiteSpace(path) || IsInternalMetadataPath(path))
                     {
                         continue;
@@ -430,18 +422,86 @@ namespace GitDeployPro.Services
             return GitItemState.Modified;
         }
 
+        public async Task<List<string>> GetUntrackedFilesAsync()
+        {
+            var output = await RunGitCommandAsync("ls-files --others --exclude-standard -z");
+            var files = new List<string>();
+            foreach (var path in output.Split('\0', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var normalized = NormalizeGitPath(path);
+                if (string.IsNullOrWhiteSpace(normalized) || IsInternalMetadataPath(normalized))
+                {
+                    continue;
+                }
+
+                files.Add(normalized);
+            }
+
+            return files;
+        }
+
+        public async Task StagePathsAsync(IEnumerable<string> relativePaths)
+        {
+            var paths = (relativePaths ?? Array.Empty<string>())
+                .Where(p => !string.IsNullOrWhiteSpace(p))
+                .Select(NormalizeGitPath)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (paths.Count == 0)
+            {
+                return;
+            }
+
+            string pathSpecArgs = BuildPathSpecArguments(paths);
+            await RunGitCommandAsync($"add -A -- {pathSpecArgs}");
+        }
+
+        /// <summary>
+        /// Stages every non-ignored untracked file (respects .gitignore). Returns count staged.
+        /// </summary>
+        public async Task<int> DiscoverAndStageUntrackedAsync()
+        {
+            var untracked = await GetUntrackedFilesAsync();
+            if (untracked.Count == 0)
+            {
+                return 0;
+            }
+
+            await StagePathsAsync(untracked);
+            return untracked.Count;
+        }
+
+        public async Task<bool> HasCommittableChangesUnderPathsAsync(IEnumerable<string> relativePaths)
+        {
+            var paths = (relativePaths ?? Array.Empty<string>())
+                .Where(p => !string.IsNullOrWhiteSpace(p))
+                .Select(NormalizeGitPath)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (paths.Count == 0)
+            {
+                return false;
+            }
+
+            var changes = await GetUncommittedChangesAsync(includeDiff: false);
+            return changes.Any(change => paths.Any(scope => PathMatchesScope(change.Name, scope)));
+        }
+
         public async Task<List<FileChange>> GetUncommittedChangesAsync(bool includeDiff = true)
         {
-            var output = await RunGitCommandAsync("status --porcelain");
+            var output = await RunGitCommandAsync("status --porcelain=v1 -uall");
             var changes = new List<FileChange>();
 
             var lines = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
             foreach (var line in lines)
             {
-                if (line.Length < 4) continue;
+                if (!TryParsePorcelainLine(line, out var status, out var path))
+                {
+                    continue;
+                }
 
-                var status = line.Substring(0, 2).Trim();
-                var path = NormalizeGitPath(line.Substring(3).Trim());
                 if (IsInternalMetadataPath(path))
                 {
                     continue;
@@ -510,11 +570,28 @@ namespace GitDeployPro.Services
                 throw new ArgumentException("At least one file path must be provided.", nameof(relativePaths));
             }
 
+            if (!await HasCommittableChangesUnderPathsAsync(paths))
+            {
+                throw new Exception(GetNoCommittableChangesMessage());
+            }
+
             string pathSpecArgs = BuildPathSpecArguments(paths);
-            await RunGitCommandAsync($"add -- {pathSpecArgs}");
+            await StagePathsAsync(paths);
+
+            if (!await HasStagedOrWorkingChangesUnderPathsAsync(paths))
+            {
+                throw new Exception(GetNoCommittableChangesMessage());
+            }
 
             message = message.Replace("\"", "\\\"");
-            await RunGitCommandAsync($"commit -m \"{message}\" --only -- {pathSpecArgs}");
+            try
+            {
+                await RunGitCommandAsync($"commit -m \"{message}\" --only -- {pathSpecArgs}");
+            }
+            catch (GitCommandException ex) when (IsNothingToCommitError(ex) || IsChangesNotStagedForCommitError(ex))
+            {
+                throw new Exception(GetNoCommittableChangesMessage(), ex);
+            }
         }
         
         public async Task RevertCommitAsync(string commitHash)
@@ -1074,6 +1151,60 @@ namespace GitDeployPro.Services
             string message = ex.GetDetailedMessage();
             return message.Contains("nothing to commit", StringComparison.OrdinalIgnoreCase) ||
                    message.Contains("no changes added to commit", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsChangesNotStagedForCommitError(GitCommandException ex)
+        {
+            return ex.GetDetailedMessage().Contains("Changes not staged for commit", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string GetNoCommittableChangesMessage()
+        {
+            return "No committable changes under this path. Files may be gitignored or already committed.";
+        }
+
+        private async Task<bool> HasStagedOrWorkingChangesUnderPathsAsync(IList<string> paths)
+        {
+            string pathSpecArgs = BuildPathSpecArguments(paths);
+            var cached = await RunGitCommandAsync($"diff --cached --name-only -- {pathSpecArgs}");
+            if (!string.IsNullOrWhiteSpace(cached.Trim()))
+            {
+                return true;
+            }
+
+            var working = await RunGitCommandAsync($"diff --name-only -- {pathSpecArgs}");
+            return !string.IsNullOrWhiteSpace(working.Trim());
+        }
+
+        private static bool TryParsePorcelainLine(string line, out string status, out string path)
+        {
+            status = string.Empty;
+            path = string.Empty;
+            if (string.IsNullOrWhiteSpace(line) || line.Length < 4)
+            {
+                return false;
+            }
+
+            status = line.Substring(0, 2);
+            var pathPart = line.Substring(3).Trim();
+            if (pathPart.Contains(" -> "))
+            {
+                pathPart = pathPart.Split(new[] { " -> " }, StringSplitOptions.None).Last();
+            }
+
+            path = NormalizeGitPath(pathPart.Trim('"').TrimEnd('/'));
+            return !string.IsNullOrWhiteSpace(path);
+        }
+
+        private static bool PathMatchesScope(string filePath, string scopePath)
+        {
+            var normalizedScope = scopePath.TrimEnd('/');
+            if (filePath.Equals(normalizedScope, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            return filePath.StartsWith(normalizedScope + "/", StringComparison.OrdinalIgnoreCase);
         }
 
         private static bool IsPathMissingFromCommit(GitCommandException ex)

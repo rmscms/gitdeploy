@@ -202,6 +202,10 @@
       "presetsDrawerBorder": "@Border.Subtle",
       "presetsHeaderForeground": "@Text.Primary",
       "presetsChipBackground": "@Surface.Raised",
+      "suggestionGhost": "#C9A227",
+      "suggestionListBackground": "@Surface.Raised",
+      "suggestionListActive": "#3A3418",
+      "suggestionListBorder": "@Border.Subtle",
       "xterm": {
         "background": "#1e1e1e",
         "foreground": "#d4d4d4",

@@ -109,7 +109,8 @@
         </Style>
     </Window.Resources>
 
-    <Border Margin="10"
+    <Border x:Name="ShellRootBorder"
+            Margin="10"
             CornerRadius="16"
             Background="{StaticResource Surface.Base}"
             BorderBrush="{StaticResource Border.Subtle}"
@@ -352,6 +353,17 @@
                                     </Button>
 
                                     <Separator Background="{StaticResource Border.Subtle}" Margin="4,6" Height="1" />
+
+                                    <Button x:Name="NavItemExit"
+                                            Style="{StaticResource NavPopupItemStyle}"
+                                            Tag="exit"
+                                            Click="Exit_Click">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="⏻" FontSize="13" Width="22" Margin="0,0,8,0" Foreground="{StaticResource Status.Error}" />
+                                            <TextBlock Text="{loc:T common.exit}" FontSize="12.5" Foreground="{StaticResource Status.Error}" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+
                                     <TextBlock x:Name="NavAppVersionText"
                                                Text="Version —"
                                                FontSize="11"

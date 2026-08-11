@@ -117,6 +117,18 @@ namespace GitDeployPro.Services.Theme
         [JsonProperty("presetsChipBackground")]
         public string? PresetsChipBackground { get; set; }
 
+        [JsonProperty("suggestionGhost")]
+        public string? SuggestionGhost { get; set; }
+
+        [JsonProperty("suggestionListBackground")]
+        public string? SuggestionListBackground { get; set; }
+
+        [JsonProperty("suggestionListActive")]
+        public string? SuggestionListActive { get; set; }
+
+        [JsonProperty("suggestionListBorder")]
+        public string? SuggestionListBorder { get; set; }
+
         [JsonProperty("xterm")]
         public Dictionary<string, string> Xterm { get; set; } = new(System.StringComparer.OrdinalIgnoreCase);
 

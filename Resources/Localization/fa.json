@@ -61,6 +61,7 @@
   "deploy.tip.deployLogs": "لاگ دیپلوی — نمایش خروجی لاگ‌ها",
   "deploy.tip.uploadActions": "عملیات آپلود — شروع آپلود / گزینه‌های بیشتر",
   "deploy.tip.refreshDisk": "بازنشانی از دیسک — اسکن مجدد فایل‌های محلی",
+  "deploy.tip.refreshGitWorkingSet": "بازنشانی Git — اسکن و stage فایل‌های جدید untracked (طبق .gitignore)",
   "deploy.tip.collapseUpload": "جمع کردن پنل آپلود مستقیم",
   "deploy.tip.remoteHost": "FTP / هاست ریموت — نمایش یا مخفی کردن درخت فایل ریموت",
   "deploy.tip.clearLogs": "پاک کردن لاگ‌های دیپلوی",

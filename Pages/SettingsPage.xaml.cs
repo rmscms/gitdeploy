@@ -68,6 +68,11 @@ namespace GitDeployPro.Pages
                 SettingsPanelGit.Visibility = section == "git" ? Visibility.Visible : Visibility.Collapsed;
             }
 
+            if (SettingsPanelTerminal != null)
+            {
+                SettingsPanelTerminal.Visibility = section == "terminal" ? Visibility.Visible : Visibility.Collapsed;
+            }
+
             if (SettingsPanelThemes != null)
             {
                 SettingsPanelThemes.Visibility = section == "themes" ? Visibility.Visible : Visibility.Collapsed;
@@ -76,6 +81,7 @@ namespace GitDeployPro.Pages
             SetNavActive(NavGeneralButton, section == "general");
             SetNavActive(NavServerButton, section == "server");
             SetNavActive(NavGitButton, section == "git");
+            SetNavActive(NavTerminalButton, section == "terminal");
             SetNavActive(NavThemesButton, section == "themes");
 
             if (SettingsSectionSubtitle != null)
@@ -84,6 +90,7 @@ namespace GitDeployPro.Pages
                 {
                     "server" => "FTP/SFTP connection profile and setup recovery.",
                     "git" => "Remote, branches, deploy automation, and ignore patterns.",
+                    "terminal" => "Terminal autocomplete commands and scopes.",
                     "themes" => "Import Deploy theme packs and manage custom skins.",
                     _ => "Project path, startup, updates, and danger zone."
                 };
@@ -92,6 +99,12 @@ namespace GitDeployPro.Pages
             if (section == "themes")
             {
                 RefreshThemePacksList();
+            }
+
+            if (section == "terminal")
+            {
+                var projectPath = _configService.LoadGlobalConfig().LastProjectPath;
+                TerminalSuggestionsPanel?.Reload(projectPath);
             }
         }
 
@@ -132,6 +145,7 @@ namespace GitDeployPro.Pages
                 RefreshThemePacksList();
                 LoadLanguageCombo(globalConfig.UiLanguage);
                 RefreshLanguageUiTexts();
+                TerminalSuggestionsPanel?.Reload(globalConfig.LastProjectPath);
             }
             catch (Exception ex)
             {
@@ -548,6 +562,7 @@ namespace GitDeployPro.Pages
             GitService.SetWorkingDirectory(path);
             await LoadGitInfo(projectConfig);
             UpdateDangerZoneUi(path);
+            TerminalSuggestionsPanel?.Reload(path);
         }
 
         private void UpdateDangerZoneUi(string? path)

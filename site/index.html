@@ -497,6 +497,105 @@
         </div>
         <div class="col-lg-6">
           <div class="changelog">
+            <h4>v1.4.17</h4>
+            <small>Released Aug 2026</small>
+            <ul>
+              <li>Tab-based Project Setup wizard with Back/Next, stage progress, and Skip when .git exists without config.</li>
+              <li>Wizard English/Persian language combo (Persian texts without RTL).</li>
+              <li>App language: Persian tooltips only; menus stay English LTR (no RTL).</li>
+              <li>Dark theme is now the app default; Settings expander chevrons restyled.</li>
+              <li>Nav menu: Check for updates + app version; fix Settings language combo crash.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="changelog">
+            <h4>v1.4.16</h4>
+            <small>Released Aug 2026</small>
+            <ul>
+              <li>Auto-clear stale git index.lock and retry Send/commit when another git process left a lock.</li>
+              <li>Serialize git commands per repo to prevent concurrent status/add lock races.</li>
+              <li>Deploy workspace no longer auto-connects an unrelated FTP profile when the project has none assigned.</li>
+              <li>Session Manager and Terminal SSH profile lists refresh live after connection edits.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="changelog">
+            <h4>v1.4.15</h4>
+            <small>Released Aug 2026</small>
+            <ul>
+              <li>English/Persian UI language (Settings → Language; default English).</li>
+              <li>Deploy icon tooltips localized; Direct Upload header/toolbar wraps when narrow.</li>
+              <li>Non-blocking update status window (replaces bottom footer).</li>
+              <li>Suppress Error dialog for offline MySQL/network probe failures.</li>
+              <li>ModernMessageBox and remaining dialogs use ThemeManager status colors.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="changelog">
+            <h4>v1.4.14</h4>
+            <small>Released Aug 2026</small>
+            <ul>
+              <li>Fix release EXE so it starts on clean PCs (bundle WPF/WebView2 natives; fixes 1.4.13 crash).</li>
+              <li>Auto-create Desktop shortcut when missing after portable/update install.</li>
+              <li>On install, copy Themes/Packs next to the install EXE when present.</li>
+              <li>Register install path when applying an update from a portable EXE.</li>
+              <li>Terminal: Float window icon; remove redundant Disconnect (closing the tab ends the session).</li>
+              <li>Deploy Console polish + compact FTP toolbar icons.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="changelog">
+            <h4>v1.4.13</h4>
+            <small>Released Aug 2026</small>
+            <ul>
+              <li>Terminal Saved commands: compact Dock strip above the terminal (does not cover text).</li>
+              <li>Float mode opens a dark helper window so you can keep typing in the terminal.</li>
+              <li>Remember Dock/Float preference; themed presets drawer tokens for Default and Dark.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="changelog">
+            <h4>v1.4.12</h4>
+            <small>Released Aug 2026</small>
+            <ul>
+              <li>Fix Deploy Logs panel showing only one line (override fixed-height TextBox style).</li>
+              <li>Keep ~8 empty rows under the terminal cursor for readability.</li>
+              <li>Terminal bottom pad matches theme background (no bright band).</li>
+            </ul>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="changelog">
+            <h4>v1.4.11</h4>
+            <small>Released Aug 2026</small>
+            <ul>
+              <li>Fix Deploy left rail overlapping content with locked rail width and margins.</li>
+              <li>Fix Direct Upload empty tree caused by theme brushes on background scan.</li>
+              <li>Polish Logs/Terminal bottom tabs into Material chip style.</li>
+              <li>Widen Deploy shell spacing so docks no longer cover the icon rails.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="changelog">
+            <h4>v1.4.10</h4>
+            <small>Released Aug 2026</small>
+            <ul>
+              <li>App-wide theme persistence (Default / Dark / custom packs) from Settings and Deploy.</li>
+              <li>Material densify across MainWindow and sidebar pages (Database, Terminal, Git, History, Dashboard).</li>
+              <li>Theme pack guide (THEME_PACK_GUIDE.md) ships with the app Themes folder.</li>
+              <li>Local terminal ConPTY typing fix and no bright band under the terminal.</li>
+              <li>Theme tokens for SQL editor completion and syntax highlighting.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="changelog">
             <h4>v1.4.9</h4>
             <small>Released Jul 2026</small>
             <ul>

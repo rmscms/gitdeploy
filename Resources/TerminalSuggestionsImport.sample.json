@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "description": "Sample command pack for bulk import into GitDeploy Pro terminal suggestions.",
+  "category": "Linux",
+  "commands": [
+    {
+      "command": "ls -la",
+      "description": "List files with details"
+    },
+    {
+      "command": "grep -r \"pattern\" .",
+      "description": "Recursive search in current directory"
+    },
+    {
+      "command": "find . -name \"*.php\"",
+      "description": "Find PHP files under current folder"
+    },
+    {
+      "command": "tail -f storage/logs/laravel.log",
+      "description": "Follow Laravel log file"
+    },
+    {
+      "command": "chmod +x deploy.sh",
+      "description": "Make script executable"
+    }
+  ]
+}
