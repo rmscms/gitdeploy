@@ -85,6 +85,18 @@ namespace GitDeployPro.Controls
             ThemeService.Instance.ThemeChanged += OnDeployThemeChanged;
             ApplyHostBackgroundFromTheme();
             WireDockedSavedCommandsPanel();
+            TerminalSuggestionStore.SuggestionsChanged += OnSuggestionsChanged;
+        }
+
+        private void OnSuggestionsChanged()
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(() => _ = PushSuggestionCatalogAsync());
+                return;
+            }
+
+            _ = PushSuggestionCatalogAsync();
         }
 
         private void OnDeployThemeChanged(object? sender, EventArgs e)
@@ -99,6 +111,7 @@ namespace GitDeployPro.Controls
             DockedSavedCommandsPanel?.ApplyTheme();
             _savedCommandsWindow?.ApplyTheme();
             _ = ApplyXtermThemeAsync();
+            _ = PushSuggestionCatalogAsync();
         }
 
         private void ApplyHostBackgroundFromTheme()
@@ -417,6 +430,20 @@ namespace GitDeployPro.Controls
             }
         }
 
+        public static void BroadcastSuggestionCatalog()
+        {
+            List<TerminalControl> snapshot;
+            lock (_activeTerminals)
+            {
+                snapshot = _activeTerminals.ToList();
+            }
+
+            foreach (var terminal in snapshot)
+            {
+                terminal.Dispatcher.Invoke(() => _ = terminal.PushSuggestionCatalogAsync());
+            }
+        }
+
         public async Task ConnectLocal(string shell = "cmd.exe")
         {
             using var scope = PerformanceSampler.Instance.BeginScope("terminal", "connect-local", shell);
@@ -546,6 +573,7 @@ namespace GitDeployPro.Controls
         {
             ThemeService.Instance.ThemeChanged -= OnDeployThemeChanged;
             ConfigurationService.ConnectionsChanged -= OnConnectionsChanged;
+            TerminalSuggestionStore.SuggestionsChanged -= OnSuggestionsChanged;
             CloseSavedCommandsWindow();
 
             lock (_activeTerminals)
@@ -919,7 +947,7 @@ namespace GitDeployPro.Controls
 
                 await TerminalWebView.EnsureCoreWebView2Async();
 
-                TerminalWebView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = true;
+                TerminalWebView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
                 TerminalWebView.CoreWebView2.Settings.AreDefaultScriptDialogsEnabled = false;
                 TerminalWebView.CoreWebView2.Settings.IsStatusBarEnabled = false;
                 TerminalWebView.CoreWebView2.Settings.IsZoomControlEnabled = false;
@@ -1117,7 +1145,58 @@ namespace GitDeployPro.Controls
                         await PostTerminalMessageAsync(new { type = "paste", text = clipboardText });
                     }
                     break;
+
+                case "terminalContextMenu":
+                    if (message.TryGetProperty("text", out var ctxTextProperty))
+                    {
+                        var selectedText = ctxTextProperty.GetString()?.Trim();
+                        if (!string.IsNullOrWhiteSpace(selectedText))
+                        {
+                            ShowTerminalSelectionContextMenu(selectedText);
+                        }
+                    }
+                    break;
             }
+        }
+
+        private void ShowTerminalSelectionContextMenu(string selectedText)
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(() => ShowTerminalSelectionContextMenu(selectedText));
+                return;
+            }
+
+            var projectPath = ResolveCurrentProjectPath();
+            string label = "Add to suggestions…";
+            if (!string.IsNullOrWhiteSpace(projectPath))
+            {
+                try
+                {
+                    var name = System.IO.Path.GetFileName(projectPath.TrimEnd('\\', '/'));
+                    if (!string.IsNullOrWhiteSpace(name))
+                    {
+                        label = $"Add to suggestions ({name})…";
+                    }
+                }
+                catch
+                {
+                    // keep default label
+                }
+            }
+
+            var target = TerminalWebView as FrameworkElement ?? this;
+            GlobalContextMenuService.ShowMenu(
+                target,
+                new[]
+                {
+                    new AppContextMenuAction
+                    {
+                        Id = "add-suggestion",
+                        Label = label,
+                        Execute = _ => OpenAddSuggestionDialog(selectedText)
+                    }
+                });
         }
 
         private async Task WriteToTerminalAsync(string text)
@@ -1153,7 +1232,101 @@ namespace GitDeployPro.Controls
             await PostTerminalMessageAsync(new { type = "setFontSize", value = GetCurrentFontSize() });
             await PostTerminalMessageAsync(new { type = "setForeground", value = GetCurrentTextColorHex() });
             await ApplyXtermThemeAsync();
+            await PushSuggestionCatalogAsync();
             TypingOverlay.Visibility = _typingEnabled ? Visibility.Collapsed : Visibility.Visible;
+        }
+
+        private async Task PushSuggestionCatalogAsync()
+        {
+            var projectPath = ResolveCurrentProjectPath();
+            var enabled = TerminalSuggestionStore.LoadAutocompleteEnabled();
+            var dictionaryMode = TerminalSuggestionStore.LoadDictionaryModeEnabled();
+            var items = TerminalSuggestionStore.ResolveForTerminal(projectPath);
+            var theme = GetSuggestionThemeColors();
+            var tokens = ThemeService.Instance.CurrentTokens;
+            var fallbackError = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#FF6C7A")!;
+            var unknownColor = tokens.GetHex("Status.Error", ThemeColorParser.ToHex(fallbackError));
+
+            await PostTerminalMessageAsync(new
+            {
+                type = "setSuggestions",
+                enabled,
+                dictionaryMode,
+                currentProject = projectPath,
+                ghostColor = theme.Ghost,
+                unknownColor,
+                listBackground = theme.ListBackground,
+                listActive = theme.ListActive,
+                listBorder = theme.ListBorder,
+                items = items.Select(item => new
+                {
+                    command = item.Command,
+                    description = item.Description,
+                    scope = item.Scope,
+                    scopeLabel = item.ScopeLabel,
+                    isCurrentProject = item.IsCurrentProject,
+                    rank = item.Rank
+                }).ToList()
+            });
+        }
+
+        private sealed class SuggestionThemeColors
+        {
+            public string Ghost { get; init; } = "#E6D07A";
+            public string ListBackground { get; init; } = "#141414";
+            public string ListActive { get; init; } = "#2A2618";
+            public string ListBorder { get; init; } = "#333333";
+        }
+
+        private SuggestionThemeColors GetSuggestionThemeColors()
+        {
+            var tokens = ThemeService.Instance.CurrentTokens;
+            var fallbackGhost = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#E6D07A")!;
+            var fallbackBg = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#141414")!;
+            var fallbackActive = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#2A2618")!;
+            var fallbackBorder = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#333333")!;
+
+            return new SuggestionThemeColors
+            {
+                Ghost = tokens.GetHex("terminal.suggestionGhost", ThemeColorParser.ToHex(fallbackGhost)),
+                ListBackground = tokens.GetHex("terminal.suggestionListBackground", ThemeColorParser.ToHex(fallbackBg)),
+                ListActive = tokens.GetHex("terminal.suggestionListActive", ThemeColorParser.ToHex(fallbackActive)),
+                ListBorder = tokens.GetHex("terminal.suggestionListBorder", ThemeColorParser.ToHex(fallbackBorder))
+            };
+        }
+
+        private void OpenAddSuggestionDialog(string prefillCommand)
+        {
+            if (string.IsNullOrWhiteSpace(prefillCommand))
+            {
+                return;
+            }
+
+            var projectPath = ResolveCurrentProjectPath();
+            var dialog = new TerminalSuggestionDialog(projectPath, prefillCommand: prefillCommand.Trim())
+            {
+                Owner = Window.GetWindow(this)
+            };
+
+            if (dialog.ShowDialog() != true || dialog.Result == null)
+            {
+                return;
+            }
+
+            var list = TerminalSuggestionStore.LoadAll();
+            list.Add(dialog.Result);
+            TerminalSuggestionStore.SaveAll(list);
+            _ = PushSuggestionCatalogAsync();
+        }
+
+        private string ResolveCurrentProjectPath()
+        {
+            if (!string.IsNullOrWhiteSpace(_projectPath))
+            {
+                return _projectPath;
+            }
+
+            return _configService.LoadGlobalConfig().LastProjectPath ?? string.Empty;
         }
 
         private static async Task EnsureTerminalTemplateAsync()

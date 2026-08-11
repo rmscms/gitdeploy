@@ -80,7 +80,7 @@
                                   Margin="0,0,12,4" />
                         <CheckBox x:Name="AutoDiskSyncCheck"
                                   Content="Auto Sync Disk"
-                                  IsChecked="False"
+                                  IsChecked="True"
                                   Foreground="{StaticResource Text.Primary}"
                                   FontWeight="SemiBold"
                                   VerticalAlignment="Center"

@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -62,6 +63,8 @@ namespace GitDeployPro
             InitializeTrayIcon();
             Closing += MainWindow_Closing;
             Loaded += MainWindow_Loaded;
+            StateChanged += MainWindow_StateChanged;
+            SourceInitialized += MainWindow_SourceInitialized;
             LocalizationService.Instance.LanguageChanged += (_, _) =>
             {
                 Dispatcher.InvokeAsync(() =>
@@ -97,6 +100,7 @@ namespace GitDeployPro
         private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
             Loaded -= MainWindow_Loaded;
+            ApplyShellChromeForWindowState();
             await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
 
             if (AppInstallMigrator.TryMigrateAndRelaunchIfNeeded())
@@ -647,9 +651,18 @@ namespace GitDeployPro
             GitService.SetWorkingDirectory(path);
             HistoryService.SetWorkingDirectory(path);
 
+            TerminalControl.BroadcastSuggestionCatalog();
+
             CheckAndShowSetupWizard(path);
 
-            NavigateToDashboard();
+            NavigateToDeploy();
+        }
+
+        public void NavigateToDeploy()
+        {
+            using var scope = PerformanceSampler.Instance.BeginScope("navigation", "navigate", "deploy");
+            LoadRecentProjects();
+            NavigateToPage(new DeployPage(), "deploy");
         }
 
         private void CheckAndShowSetupWizard(string path)
@@ -692,7 +705,7 @@ namespace GitDeployPro
                     if (wizard.SetupCompleted)
                     {
                         LoadRecentProjects();
-                        NavigateToDashboard();
+                        NavigateToDeploy();
                     }
                 }
                 catch { }
@@ -725,7 +738,7 @@ namespace GitDeployPro
         }
 
         private void Dashboard_Click(object sender, RoutedEventArgs e) => NavigateToDashboard();
-        private void Deploy_Click(object sender, RoutedEventArgs e) => NavigateToPage(new DeployPage(), "deploy");
+        private void Deploy_Click(object sender, RoutedEventArgs e) => NavigateToDeploy();
         private void DirectUpload_Click(object sender, RoutedEventArgs e) => NavigateToPage(new DirectUploadPage(), "direct-upload");
         private void Database_Click(object sender, RoutedEventArgs e) => NavigateToPage(new DatabasePage(), "database");
         private void Terminal_Click(object sender, RoutedEventArgs e) => NavigateToPage(new TerminalPage(), "terminal");
@@ -770,6 +783,129 @@ namespace GitDeployPro
             WindowState = WindowState.Minimized;
         }
         private void Maximize_Click(object sender, RoutedEventArgs e) => this.WindowState = (this.WindowState == WindowState.Maximized) ? WindowState.Normal : WindowState.Maximized;
+
+        private void Exit_Click(object sender, RoutedEventArgs e)
+        {
+            CloseNavMenuPopup();
+            _allowClose = true;
+            System.Windows.Application.Current.Shutdown();
+        }
+
+        private void MainWindow_SourceInitialized(object? sender, EventArgs e)
+        {
+            if (PresentationSource.FromVisual(this) is System.Windows.Interop.HwndSource hwndSource)
+            {
+                hwndSource.AddHook(WindowWorkAreaHook);
+            }
+        }
+
+        private void MainWindow_StateChanged(object? sender, EventArgs e)
+        {
+            ApplyShellChromeForWindowState();
+        }
+
+        private void ApplyShellChromeForWindowState()
+        {
+            if (ShellRootBorder == null)
+            {
+                return;
+            }
+
+            if (WindowState == WindowState.Maximized)
+            {
+                ShellRootBorder.Margin = new Thickness(0);
+                ShellRootBorder.CornerRadius = new CornerRadius(0);
+            }
+            else
+            {
+                ShellRootBorder.Margin = new Thickness(10);
+                ShellRootBorder.CornerRadius = new CornerRadius(16);
+            }
+        }
+
+        private IntPtr WindowWorkAreaHook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+        {
+            if (msg == WM_GETMINMAXINFO)
+            {
+                ApplyWorkAreaMaximizeBounds(hwnd, lParam);
+                handled = true;
+            }
+
+            return IntPtr.Zero;
+        }
+
+        private static void ApplyWorkAreaMaximizeBounds(IntPtr hwnd, IntPtr lParam)
+        {
+            var info = Marshal.PtrToStructure<MINMAXINFO>(lParam);
+            var monitor = MonitorFromWindow(new HandleRef(null, hwnd), MONITOR_DEFAULTTONEAREST);
+            if (monitor == IntPtr.Zero)
+            {
+                return;
+            }
+
+            var monitorInfo = new MONITORINFO
+            {
+                cbSize = Marshal.SizeOf<MONITORINFO>()
+            };
+
+            if (!GetMonitorInfo(monitor, ref monitorInfo))
+            {
+                return;
+            }
+
+            var work = monitorInfo.rcWork;
+            var monitorRect = monitorInfo.rcMonitor;
+            info.ptMaxPosition.x = Math.Abs(work.Left - monitorRect.Left);
+            info.ptMaxPosition.y = Math.Abs(work.Top - monitorRect.Top);
+            info.ptMaxSize.x = Math.Abs(work.Right - work.Left);
+            info.ptMaxSize.y = Math.Abs(work.Bottom - work.Top);
+            Marshal.StructureToPtr(info, lParam, true);
+        }
+
+        private const int WM_GETMINMAXINFO = 0x0024;
+        private const int MONITOR_DEFAULTTONEAREST = 0x00000002;
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr MonitorFromWindow(HandleRef handle, int flags);
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct POINT
+        {
+            public int x;
+            public int y;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct MINMAXINFO
+        {
+            public POINT ptReserved;
+            public POINT ptMaxSize;
+            public POINT ptMaxPosition;
+            public POINT ptMinTrackSize;
+            public POINT ptMaxTrackSize;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct RECT
+        {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
+        }
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+        private struct MONITORINFO
+        {
+            public int cbSize;
+            public RECT rcMonitor;
+            public RECT rcWork;
+            public int dwFlags;
+        }
+
         private void Close_Click(object sender, RoutedEventArgs e)
         {
             RefreshTrayPreference();

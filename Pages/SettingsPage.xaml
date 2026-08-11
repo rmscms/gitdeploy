@@ -3,6 +3,7 @@
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
       xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
+      xmlns:controls="clr-namespace:GitDeployPro.Controls"
       Title="SettingsPage"
       Background="{StaticResource Surface.Base}">
     <Page.Resources>
@@ -232,6 +233,15 @@
                                 <TextBlock Text="Git" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
+                        <Button x:Name="NavTerminalButton"
+                                Style="{StaticResource Settings.NavButton}"
+                                Click="SettingsNav_Click"
+                                Tag="terminal">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="KeyCommand24" FontSize="15" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                <TextBlock Text="Terminal" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
                         <Button x:Name="NavThemesButton"
                                 Style="{StaticResource Settings.NavButton}"
                                 Click="SettingsNav_Click"
@@ -250,7 +260,7 @@
                           VerticalScrollBarVisibility="Auto"
                           HorizontalScrollBarVisibility="Disabled"
                           Background="{StaticResource Surface.Base}"
-                          Padding="2,0,2,0">
+                          Padding="2,0,2,16">
                 <Grid>
                     <!-- GENERAL -->
                     <StackPanel x:Name="SettingsPanelGeneral">
@@ -482,6 +492,23 @@
                                 </StackPanel>
                             </Border>
                         </Expander>
+                    </StackPanel>
+
+                    <!-- TERMINAL -->
+                    <StackPanel x:Name="SettingsPanelTerminal" Visibility="Collapsed">
+                        <Border Style="{StaticResource Settings.ToolbarCard}" Margin="0,0,0,12">
+                            <StackPanel>
+                                <TextBlock Text="Terminal suggestions"
+                                           FontWeight="SemiBold"
+                                           FontSize="15" />
+                                <TextBlock Text="Autocomplete commands with ghost text · Global or per-project scope"
+                                           FontSize="11"
+                                           Foreground="{StaticResource Text.Muted}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,4,0,0" />
+                            </StackPanel>
+                        </Border>
+                        <controls:TerminalSuggestionsSettingsPanel x:Name="TerminalSuggestionsPanel" />
                     </StackPanel>
 
                     <!-- SERVER -->

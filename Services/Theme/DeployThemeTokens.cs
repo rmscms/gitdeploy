@@ -89,6 +89,10 @@ namespace GitDeployPro.Services.Theme
             ResolveValue(tokens, "terminal.presetsDrawerBorder", terminal.PresetsDrawerBorder, resolvePalette);
             ResolveValue(tokens, "terminal.presetsHeaderForeground", terminal.PresetsHeaderForeground, resolvePalette);
             ResolveValue(tokens, "terminal.presetsChipBackground", terminal.PresetsChipBackground, resolvePalette);
+            ResolveValue(tokens, "terminal.suggestionGhost", terminal.SuggestionGhost, resolvePalette);
+            ResolveValue(tokens, "terminal.suggestionListBackground", terminal.SuggestionListBackground, resolvePalette);
+            ResolveValue(tokens, "terminal.suggestionListActive", terminal.SuggestionListActive, resolvePalette);
+            ResolveValue(tokens, "terminal.suggestionListBorder", terminal.SuggestionListBorder, resolvePalette);
             AddMap("terminal.xterm", terminal.Xterm);
             tokens.TerminalTextPresets = terminal.TextPresets?.Count > 0
                 ? terminal.TextPresets.ToArray()

@@ -337,6 +337,106 @@ namespace GitDeployPro.Pages
             _ = DirectUploadDock.RefreshFromDiskPublicAsync();
         }
 
+        private async void RefreshGitWorkingSet_Click(object sender, RoutedEventArgs e)
+        {
+            if (RefreshGitWorkingSetButton != null)
+            {
+                RefreshGitWorkingSetButton.IsEnabled = false;
+            }
+
+            try
+            {
+                await RefreshGitWorkingSetAsync(reRunCompare: true, logWhenStaged: true);
+            }
+            finally
+            {
+                if (RefreshGitWorkingSetButton != null)
+                {
+                    RefreshGitWorkingSetButton.IsEnabled = true;
+                }
+            }
+        }
+
+        private async Task<int> DiscoverAndStageNewGitFilesAsync(bool logWhenStaged)
+        {
+            int stagedCount = await _gitService.DiscoverAndStageUntrackedAsync();
+            if (stagedCount > 0 && logWhenStaged)
+            {
+                AddLog($"📎 Staged {stagedCount} new file(s) for Git.");
+            }
+
+            return stagedCount;
+        }
+
+        private async Task RefreshGitWorkingSetAsync(bool reRunCompare, bool logWhenStaged)
+        {
+            await DiscoverAndStageNewGitFilesAsync(logWhenStaged);
+            _ = DirectUploadDock.RefreshFromDiskPublicAsync();
+            _ = DirectUploadDock.RefreshGitOverlayPublicAsync();
+            LoadGitData();
+
+            if (reRunCompare && _compareResultActive &&
+                !string.IsNullOrWhiteSpace(_compareSourceBranch) &&
+                !string.IsNullOrWhiteSpace(_compareTargetBranch))
+            {
+                await ApplyCompareResultsAsync(_compareSourceBranch, _compareTargetBranch);
+            }
+        }
+
+        private async Task<(List<FileChange> Changes, int LocalOnlyCount)> BuildCompareFileListAsync(string source, string target)
+        {
+            await DiscoverAndStageNewGitFilesAsync(logWhenStaged: true);
+
+            var changes = await _gitService.GetDiffAsync(source, target);
+            var currentBranch = await _gitService.GetCurrentBranchAsync();
+            int localOnlyCount = 0;
+
+            if (string.Equals(source, currentBranch, StringComparison.OrdinalIgnoreCase))
+            {
+                var localChanges = await _gitService.GetUncommittedChangesAsync(includeDiff: false);
+                var existingPaths = new HashSet<string>(changes.Select(c => c.Name), StringComparer.OrdinalIgnoreCase);
+                foreach (var local in localChanges)
+                {
+                    if (existingPaths.Add(local.Name))
+                    {
+                        changes.Add(local);
+                        localOnlyCount++;
+                    }
+                }
+            }
+
+            return (changes, localOnlyCount);
+        }
+
+        private async Task ApplyCompareResultsAsync(string source, string target)
+        {
+            var (changes, localOnlyCount) = await BuildCompareFileListAsync(source, target);
+
+            if (changes.Count == 0)
+            {
+                StatusText.Text = "No changes to deploy.";
+                DeployButton.IsEnabled = false;
+                DeployButton.Visibility = Visibility.Collapsed;
+                ClearCompareContext(clearList: true);
+                return;
+            }
+
+            _fileViewModels = changes.Select(c => new DeployFileViewModel(c) { IsSelected = true }).ToList();
+            FilesListBox.ItemsSource = _fileViewModels;
+            SelectAllCheckBox.IsChecked = true;
+            SelectFileSilently(-1);
+            ConfigureCompareSyncButton();
+            DeployButton.IsEnabled = _fileViewModels.Count > 0;
+            DeployButton.Visibility = _fileViewModels.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+            SetCompareContext(source, target);
+
+            StatusText.Text = localOnlyCount > 0
+                ? $"Review {changes.Count} file(s) ({localOnlyCount} new local), then click SYNC."
+                : $"Review {changes.Count} file(s), then click SYNC.";
+            StatusText.Foreground = GetThemeBrush("Text.Muted", System.Windows.Media.Brushes.LightGray);
+            AddLog($"🔍 Compare ready: {changes.Count} file(s) loaded in current page.");
+        }
+
         private void ToggleUploadActionsButton_Click(object sender, RoutedEventArgs e)
         {
             DirectUploadDock?.ToggleUploadActionsPanel();
@@ -2501,6 +2601,7 @@ namespace GitDeployPro.Pages
         {
             try
             {
+                await DiscoverAndStageNewGitFilesAsync(logWhenStaged: true);
                 var changes = await _gitService.GetUncommittedChangesAsync();
                 if (changes.Count == 0)
                 {
@@ -2614,6 +2715,7 @@ namespace GitDeployPro.Pages
             AddLog(pushSucceeded ? "✅ Send pipeline finished." : "⚠️ Send pipeline finished with push error.");
             await AddDeploymentHistoryRecordAsync(filesToDeploy);
             LoadGitData();
+            _ = DirectUploadDock.RefreshGitOverlayPublicAsync();
         }
 
         private async Task HandleCompare()
@@ -2630,30 +2732,7 @@ namespace GitDeployPro.Pages
                     ActionButton.IsEnabled = false;
                     ActionButton.Content = "⏳ Processing...";
 
-                    var changes = await _gitService.GetDiffAsync(source, target);
-
-                    if (changes.Count == 0)
-                    {
-                        StatusText.Text = "No changes to deploy.";
-                        DeployButton.IsEnabled = false;
-                        DeployButton.Visibility = Visibility.Collapsed;
-                        ClearCompareContext(clearList: true);
-                    }
-                    else
-                    {
-                        _fileViewModels = changes.Select(c => new DeployFileViewModel(c) { IsSelected = true }).ToList();
-                        FilesListBox.ItemsSource = _fileViewModels;
-                        SelectAllCheckBox.IsChecked = true;
-                        SelectFileSilently(-1);
-                        ConfigureCompareSyncButton();
-                        DeployButton.IsEnabled = _fileViewModels.Count > 0;
-                        DeployButton.Visibility = _fileViewModels.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
-                        SetCompareContext(source, target);
-
-                        StatusText.Text = $"Review {_fileViewModels.Count} file(s), then click SYNC.";
-                        StatusText.Foreground = GetThemeBrush("Text.Muted", System.Windows.Media.Brushes.LightGray);
-                        AddLog($"🔍 Compare ready: {_fileViewModels.Count} file(s) loaded in current page.");
-                    }
+                    await ApplyCompareResultsAsync(source!, target!);
                 }
                 catch (Exception ex)
                 {
@@ -2921,6 +3000,7 @@ namespace GitDeployPro.Pages
                 ProgressText.Text = "Deployment finished!";
                 HideDeployLogsAfterDeploy();
                 LoadGitData();
+                _ = DirectUploadDock.RefreshGitOverlayPublicAsync();
             }
         }
 

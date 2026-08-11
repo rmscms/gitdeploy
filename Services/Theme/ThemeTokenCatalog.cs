@@ -201,6 +201,10 @@ namespace GitDeployPro.Services.Theme
                 PresetsDrawerBorder = "@Border.Subtle",
                 PresetsHeaderForeground = "@Text.Primary",
                 PresetsChipBackground = isDark ? "#141414" : "@Surface.Raised",
+                SuggestionGhost = isDark ? "#E6D07A" : "#C9A227",
+                SuggestionListBackground = isDark ? "#141414" : "@Surface.Raised",
+                SuggestionListActive = isDark ? "#2A2618" : "#3A3418",
+                SuggestionListBorder = "@Border.Subtle",
                 Xterm = new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase)
                 {
                     ["background"] = isDark ? "#000000" : "#1e1e1e",
@@ -286,6 +290,8 @@ namespace GitDeployPro.Services.Theme
                 "terminal.statusConnecting", "terminal.statusError",
                 "terminal.presetsDrawerBackground", "terminal.presetsDrawerBorder",
                 "terminal.presetsHeaderForeground", "terminal.presetsChipBackground",
+                "terminal.suggestionGhost", "terminal.suggestionListBackground",
+                "terminal.suggestionListActive", "terminal.suggestionListBorder",
                 "terminal.xterm.background", "terminal.xterm.foreground", "terminal.xterm.cursor",
                 "terminal.xterm.selectionBackground",
                 "editor.webviewBackground", "editor.monacoTheme", "editor.fallbackBackground",

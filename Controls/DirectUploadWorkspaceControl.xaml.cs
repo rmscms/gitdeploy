@@ -428,6 +428,8 @@ namespace GitDeployPro.Controls
 
         public Task RefreshFromDiskPublicAsync() => RefreshFromDiskAsync();
 
+        public Task RefreshGitOverlayPublicAsync() => ApplyGitOverlayAsync();
+
         private void EnsureAutoDiskSyncTimer()
         {
             if (_autoDiskSyncTimer != null)
@@ -966,11 +968,8 @@ namespace GitDeployPro.Controls
                 }
                 else if (item.GitState != GitItemState.Ignored)
                 {
-                    // Keep soft-ignore from scan; otherwise leave as None until folder bubble.
-                    if (!item.IsFolder && overlay.Count > 0)
-                    {
-                        // Tracked clean files are already in overlay; remaining files stay None/Untracked via porcelain.
-                    }
+                    // Clear stale bubble/modified state when git no longer reports this path.
+                    item.GitState = GitItemState.None;
                 }
 
                 if (item.Children != null && item.Children.Count > 0)
@@ -999,11 +998,7 @@ namespace GitDeployPro.Controls
                 var bubbled = AggregateChildGitState(item.Children);
                 if (bubbled != GitItemState.None)
                 {
-                    // Prefer conflict/dirty from children; keep Ignored only if folder itself is ignored and children are not dirtier.
-                    if (IsDirtier(bubbled, item.GitState))
-                    {
-                        item.GitState = bubbled;
-                    }
+                    item.GitState = PickDirtierGitState(item.GitState, bubbled);
                 }
             }
         }
@@ -1035,6 +1030,9 @@ namespace GitDeployPro.Controls
 
         private static bool IsDirtier(GitItemState candidate, GitItemState current) =>
             GitStateRank(candidate) > GitStateRank(current);
+
+        private static GitItemState PickDirtierGitState(GitItemState current, GitItemState candidate) =>
+            IsDirtier(candidate, current) ? candidate : current;
 
         private bool MatchesPattern(string name, string pattern)
         {
@@ -1498,6 +1496,17 @@ namespace GitDeployPro.Controls
             if (string.IsNullOrWhiteSpace(relative))
             {
                 ModernMessageBox.Show("This path is outside the project root.", "Git", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            GitService.SetWorkingDirectory(_projectPath);
+            if (!await _gitService.HasCommittableChangesUnderPathsAsync(new[] { relative }))
+            {
+                ModernMessageBox.Show(
+                    "No committable changes under this path.\nFiles may be gitignored or already committed.",
+                    "Git",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
                 return;
             }
 

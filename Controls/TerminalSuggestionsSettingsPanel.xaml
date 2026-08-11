@@ -1,0 +1,270 @@
+<UserControl x:Class="GitDeployPro.Controls.TerminalSuggestionsSettingsPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             mc:Ignorable="d"
+             d:DesignHeight="420"
+             d:DesignWidth="720">
+    <UserControl.Resources>
+        <Style x:Key="ScopeBadge.Global" TargetType="Border">
+            <Setter Property="Background" Value="#224C8DFF" />
+            <Setter Property="BorderBrush" Value="{StaticResource Accent.Primary}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Padding" Value="6,2" />
+        </Style>
+        <Style x:Key="ScopeBadge.Current" TargetType="Border">
+            <Setter Property="Background" Value="#225CFFB0" />
+            <Setter Property="BorderBrush" Value="{StaticResource Status.Success}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Padding" Value="6,2" />
+        </Style>
+        <Style x:Key="ScopeBadge.Other" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource Surface.Raised}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Border.Subtle}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Padding" Value="6,2" />
+        </Style>
+    </UserControl.Resources>
+
+    <StackPanel>
+        <TextBlock x:Name="CurrentProjectText"
+                   Text="Current project: (none)"
+                   Foreground="{StaticResource Text.Muted}"
+                   FontSize="11"
+                   Margin="0,0,0,10" />
+
+        <CheckBox x:Name="AutocompleteEnabledCheckBox"
+                  Content="Enable terminal autocomplete (ghost text + Tab)"
+                  Foreground="{StaticResource Text.Secondary}"
+                  FontSize="12"
+                  Margin="0,0,0,6"
+                  Checked="AutocompleteEnabledCheckBox_Changed"
+                  Unchecked="AutocompleteEnabledCheckBox_Changed" />
+
+        <CheckBox x:Name="DictionaryModeCheckBox"
+                  Content="Dictionary mode — highlight unknown commands (red while typing)"
+                  Foreground="{StaticResource Text.Secondary}"
+                  FontSize="12"
+                  Margin="0,0,0,10"
+                  Checked="DictionaryModeCheckBox_Changed"
+                  Unchecked="DictionaryModeCheckBox_Changed" />
+
+        <TextBlock Text="Tab accept · ↑↓ cycle · → accept"
+                   Foreground="{StaticResource Text.Muted}"
+                   FontSize="10"
+                   Margin="0,0,0,12" />
+
+        <Grid Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox x:Name="SearchTextBox"
+                     Grid.Column="0"
+                     Style="{StaticResource App.InputTextBox}"
+                     Height="30"
+                     Margin="0,0,8,0"
+                     TextChanged="SearchTextBox_TextChanged" />
+            <ComboBox x:Name="ScopeFilterComboBox"
+                      Grid.Column="1"
+                      Style="{StaticResource App.InputComboBox}"
+                      Width="150"
+                      Height="30"
+                      SelectionChanged="ScopeFilterComboBox_SelectionChanged" />
+        </Grid>
+
+        <WrapPanel Margin="0,0,0,10">
+            <Button Content="Add"
+                    Height="28"
+                    Padding="12,0"
+                    Margin="0,0,6,6"
+                    Style="{StaticResource App.Button.Primary}"
+                    Click="AddButton_Click" />
+            <Button Content="Edit"
+                    Height="28"
+                    Padding="12,0"
+                    Margin="0,0,6,6"
+                    Style="{StaticResource App.Button.Ghost}"
+                    Click="EditButton_Click" />
+            <Button Content="Delete"
+                    Height="28"
+                    Padding="12,0"
+                    Margin="0,0,6,6"
+                    Style="{StaticResource App.Button.Ghost}"
+                    Click="DeleteButton_Click" />
+            <Button Content="Duplicate"
+                    Height="28"
+                    Padding="12,0"
+                    Margin="0,0,6,6"
+                    Style="{StaticResource App.Button.Ghost}"
+                    Click="DuplicateButton_Click" />
+            <Button Content="Make global"
+                    Height="28"
+                    Padding="12,0"
+                    Margin="0,0,6,6"
+                    Style="{StaticResource App.Button.Ghost}"
+                    Click="MakeGlobalButton_Click" />
+            <Button Content="Restore Laravel defaults"
+                    Height="28"
+                    Padding="12,0"
+                    Margin="0,0,6,6"
+                    Style="{StaticResource App.Button.Ghost}"
+                    Click="RestoreLaravelButton_Click" />
+        </WrapPanel>
+
+        <Border Background="{StaticResource Surface.Raised}"
+                BorderBrush="{StaticResource Border.Subtle}"
+                BorderThickness="1"
+                CornerRadius="8"
+                MinHeight="220"
+                MaxHeight="360">
+            <ListView x:Name="SuggestionsListView"
+                      BorderThickness="0"
+                      Background="Transparent"
+                      SelectionMode="Single"
+                      MouseDoubleClick="SuggestionsListView_MouseDoubleClick"
+                      PreviewMouseRightButtonUp="SuggestionsListView_PreviewMouseRightButtonUp">
+                <ListView.View>
+                    <GridView>
+                        <GridViewColumn Header="Command" Width="220" DisplayMemberBinding="{Binding Command}" />
+                        <GridViewColumn Header="Description" Width="180" DisplayMemberBinding="{Binding Description}" />
+                        <GridViewColumn Header="Scope" Width="110">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Border x:Name="ScopeBadge" CornerRadius="4" Padding="6,2" BorderThickness="1">
+                                        <TextBlock x:Name="ScopeText"
+                                                   Text="{Binding ScopeLabel}"
+                                                   FontSize="10"
+                                                   FontWeight="SemiBold" />
+                                    </Border>
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding IsGlobalScope}" Value="True">
+                                            <Setter TargetName="ScopeBadge" Property="Background" Value="#224C8DFF" />
+                                            <Setter TargetName="ScopeBadge" Property="BorderBrush" Value="{StaticResource Accent.Primary}" />
+                                            <Setter TargetName="ScopeText" Property="Foreground" Value="{StaticResource Accent.Primary}" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsCurrentProjectScope}" Value="True">
+                                            <Setter TargetName="ScopeBadge" Property="Background" Value="#225CFFB0" />
+                                            <Setter TargetName="ScopeBadge" Property="BorderBrush" Value="{StaticResource Status.Success}" />
+                                            <Setter TargetName="ScopeText" Property="Foreground" Value="{StaticResource Status.Success}" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsOtherProjectScope}" Value="True">
+                                            <Setter TargetName="ScopeBadge" Property="Background" Value="{StaticResource Surface.Raised}" />
+                                            <Setter TargetName="ScopeBadge" Property="BorderBrush" Value="{StaticResource Border.Subtle}" />
+                                            <Setter TargetName="ScopeText" Property="Foreground" Value="{StaticResource Text.Muted}" />
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                        <GridViewColumn Header="Category" Width="90" DisplayMemberBinding="{Binding Category}" />
+                        <GridViewColumn Header="On" Width="40">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <CheckBox IsChecked="{Binding IsEnabled, Mode=TwoWay}"
+                                              HorizontalAlignment="Center"
+                                              Checked="RowEnabled_Changed"
+                                              Unchecked="RowEnabled_Changed" />
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                    </GridView>
+                </ListView.View>
+            </ListView>
+        </Border>
+
+        <Border Background="{StaticResource Surface.Raised}"
+                BorderBrush="{StaticResource Border.Subtle}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Margin="0,12,0,0"
+                Padding="12">
+            <StackPanel>
+                <TextBlock Text="Import from JSON"
+                           FontWeight="SemiBold"
+                           FontSize="13"
+                           Margin="0,0,0,10" />
+                <TextBlock Text="Bulk-import commands from a JSON file (supports thousands of entries)."
+                           Foreground="{StaticResource Text.Muted}"
+                           FontSize="11"
+                           TextWrapping="Wrap"
+                           Margin="0,0,0,10" />
+                <TextBlock Text="Category name"
+                           Foreground="{StaticResource Text.Muted}"
+                           FontSize="11"
+                           Margin="0,0,0,4" />
+                <TextBox x:Name="ImportCategoryTextBox"
+                         Style="{StaticResource App.InputTextBox}"
+                         Height="30"
+                         Margin="0,0,0,10"
+                         ToolTip="Required — e.g. Linux, Docker, Git" />
+                <TextBlock Text="JSON file"
+                           Foreground="{StaticResource Text.Muted}"
+                           FontSize="11"
+                           Margin="0,0,0,4" />
+                <Grid Margin="0,0,0,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="ImportFilePathTextBox"
+                             Grid.Column="0"
+                             Style="{StaticResource App.InputTextBox}"
+                             Height="30"
+                             IsReadOnly="True"
+                             Margin="0,0,8,0" />
+                    <Button Grid.Column="1"
+                            Content="Browse…"
+                            Height="30"
+                            Padding="12,0"
+                            Style="{StaticResource App.Button.Ghost}"
+                            Click="ImportBrowseButton_Click" />
+                </Grid>
+                <TextBlock Text="Import scope"
+                           Foreground="{StaticResource Text.Muted}"
+                           FontSize="11"
+                           Margin="0,0,0,4" />
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                    <RadioButton x:Name="ImportGlobalScopeRadio"
+                                 Content="Global"
+                                 IsChecked="True"
+                                 Margin="0,0,16,0"
+                                 Foreground="{StaticResource Text.Secondary}" />
+                    <RadioButton x:Name="ImportProjectScopeRadio"
+                                 Content="This project"
+                                 Foreground="{StaticResource Text.Secondary}" />
+                </StackPanel>
+                <CheckBox x:Name="ImportSkipDuplicatesCheckBox"
+                          Content="Skip duplicate commands (same command + scope)"
+                          IsChecked="True"
+                          Foreground="{StaticResource Text.Secondary}"
+                          FontSize="12"
+                          Margin="0,0,0,10" />
+                <WrapPanel>
+                    <Button Content="Import commands"
+                            Height="30"
+                            Padding="14,0"
+                            Margin="0,0,8,0"
+                            Style="{StaticResource App.Button.Primary}"
+                            Click="ImportCommandsButton_Click" />
+                    <Button Content="Open sample JSON"
+                            Height="30"
+                            Padding="12,0"
+                            Style="{StaticResource App.Button.Ghost}"
+                            Click="OpenSampleJsonButton_Click" />
+                </WrapPanel>
+            </StackPanel>
+        </Border>
+
+        <TextBlock x:Name="StatusText"
+                   Text=""
+                   Foreground="{StaticResource Text.Muted}"
+                   FontSize="11"
+                   Margin="0,8,0,0"
+                   TextWrapping="Wrap" />
+    </StackPanel>
+</UserControl>

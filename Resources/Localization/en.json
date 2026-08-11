@@ -61,6 +61,7 @@
   "deploy.tip.deployLogs": "Deploy Logs — show deployment log output",
   "deploy.tip.uploadActions": "Upload actions — start upload / more options",
   "deploy.tip.refreshDisk": "Refresh from disk — rescan local files",
+  "deploy.tip.refreshGitWorkingSet": "Refresh Git — scan and stage new untracked files (respects .gitignore)",
   "deploy.tip.collapseUpload": "Collapse Direct Upload panel",
   "deploy.tip.remoteHost": "FTP / Remote Host — show or hide the remote file tree",
   "deploy.tip.clearLogs": "Clear deployment logs",
