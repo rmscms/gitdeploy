@@ -709,7 +709,8 @@ namespace GitDeployPro.Pages
         {
             try
             {
-                var manager = new ConnectionManagerWindow();
+                var manager = new ConnectionManagerWindow(
+                    _configService.LoadProjectConfig(LocalPathTextBox.Text?.Trim() ?? string.Empty).ConnectionProfileId);
                 var previousSelectedId = (ConnectionProfileComboBox.SelectedItem as ConnectionProfile)?.Id;
                 WindowOwnerService.ShowDialogOwned(manager, this);
 

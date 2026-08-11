@@ -146,7 +146,13 @@ namespace GitDeployPro.Pages
                 
                 // Connect
                 string password = EncryptionService.Decrypt(conn.Password);
-                await terminalControl.ConnectAsync(conn.Host, conn.Username, password, conn.Port);
+                await terminalControl.ConnectAsync(
+                    conn.Host,
+                    conn.Username,
+                    password,
+                    conn.Port,
+                    conn.SshStartupCommand,
+                    conn.RunSshStartupCommand);
                 
                 // Update active count
                 UpdateActiveTerminalsCount();

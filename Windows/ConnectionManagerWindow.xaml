@@ -6,6 +6,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
         xmlns:local="clr-namespace:GitDeployPro.Models"
+        xmlns:loc="clr-namespace:GitDeployPro.Services.Localization"
         xmlns:sys="clr-namespace:System;assembly=mscorlib"
         mc:Ignorable="d"
         Title="Deployment - Connection Manager" Height="700" Width="1000"
@@ -512,6 +513,39 @@
                                 <TextBox x:Name="WebUrlBox" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2"
                                          ToolTip="Example: http://mysite.com"/>
                             </Grid>
+
+                            <!-- SSH startup commands (terminal land path / custom shell) -->
+                            <StackPanel Margin="0,0,0,20">
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Label Content="{loc:T connection.sshStartupCommand}"/>
+                                    <TextBox x:Name="SshStartupCommandBox"
+                                             Grid.Column="1"
+                                             Style="{StaticResource App.InputTextBox.Multiline}"
+                                             MinHeight="72"
+                                             MaxHeight="140"
+                                             VerticalScrollBarVisibility="Auto"
+                                             mah:TextBoxHelper.Watermark="cd /var/www/myproject"
+                                             ToolTip="{loc:T connection.sshStartupCommandTip}"/>
+                                    <Button Grid.Column="2"
+                                            Content="{loc:T connection.fillStartupFromRootPath}"
+                                            Margin="10,0,0,0"
+                                            VerticalAlignment="Top"
+                                            Style="{StaticResource ModernButtonStyle}"
+                                            Height="30"
+                                            Padding="10,0"
+                                            ToolTip="{loc:T connection.fillStartupFromRootPathTip}"
+                                            Click="FillStartupFromRootPathButton_Click"/>
+                                </Grid>
+                                <CheckBox x:Name="RunSshStartupCommandCheck"
+                                          Content="{loc:T connection.runSshStartupCommand}"
+                                          IsChecked="True"
+                                          ToolTip="{loc:T connection.runSshStartupCommandTip}"/>
+                            </StackPanel>
 
                             <!-- Advanced Options -->
                             <Expander Header="Advanced Options" Foreground="{StaticResource Text.Secondary}" Margin="0,10,0,0">

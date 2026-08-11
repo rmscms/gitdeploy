@@ -179,9 +179,7 @@ namespace GitDeployPro.Controls
             PageHeaderRow.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
             UploadLogSection.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
             ContentRootGrid.Margin = compact ? new Thickness(4) : new Thickness(20);
-            RootScrollViewer.VerticalScrollBarVisibility = compact
-                ? ScrollBarVisibility.Disabled
-                : ScrollBarVisibility.Auto;
+            RootScrollViewer.VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
 
             if (ToolbarSection != null)
             {

@@ -1,17 +1,17 @@
 {
-  "version": "1.4.18",
-  "fileName": "GitDeployPro-1.4.18.exe",
-  "downloadUrl": "versions/GitDeployPro-1.4.18.exe",
-  "sha256": "40AFA3F240026112674BC9F3ACD058FA73780670664A6CFB10476F60D03C6B8C",
-  "releaseNotes": "- Terminal command suggestions: ghost autocomplete, Laravel defaults, Settings panel, import JSON\n- Fix: discover/stage untracked files so Deploy compare and commit include new non-ignored files\n- Fix: safer folder commit with clear messages when nothing is committable\n- Fix: Direct Upload git badges refresh after deploy (no stale red M)\n- Fix: Commit message dialog buttons no longer clipped\n- UX: switching project opens Deploy instead of Dashboard",
+  "version": "1.4.19",
+  "fileName": "GitDeployPro-1.4.19.exe",
+  "downloadUrl": "versions/GitDeployPro-1.4.19.exe",
+  "sha256": "02CE6149A8807EAF868E7D1FD05CC324DB7CB5317657F4CC7D4CDF9054C26EF7",
+  "releaseNotes": "- SSH startup command(s) after terminal connect (Connection Manager)\n- Deploy terminal picker: SSH-only list, favorite stars sorted first\n- FTP remote log collapsible (Show/Hide)\n- Connection Manager: project connection pinned first\n- Fix: Direct Upload panel inset when bottom terminal dock is open\n- Terminal/Session Manager: filter out FTP and database profiles from SSH targets",
   "changelog": [
-    "Terminal command suggestions: ghost autocomplete, Laravel defaults, Settings panel, import JSON",
-    "Fix: discover/stage untracked files so Deploy compare and commit include new non-ignored files",
-    "Fix: safer folder commit with clear messages when nothing is committable",
-    "Fix: Direct Upload git badges refresh after deploy (no stale red M)",
-    "Fix: Commit message dialog buttons no longer clipped",
-    "UX: switching project opens Deploy instead of Dashboard"
+    "SSH startup command(s) after terminal connect (Connection Manager)",
+    "Deploy terminal picker: SSH-only list, favorite stars sorted first",
+    "FTP remote log collapsible (Show/Hide)",
+    "Connection Manager: project connection pinned first",
+    "Fix: Direct Upload panel inset when bottom terminal dock is open",
+    "Terminal/Session Manager: filter out FTP and database profiles from SSH targets"
   ],
   "mandatory": false,
-  "publishedUtc": "2026-08-11T06:30:00Z"
+  "publishedUtc": "2026-08-11T07:20:00Z"
 }
