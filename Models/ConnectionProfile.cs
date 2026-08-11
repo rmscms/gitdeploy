@@ -46,6 +46,15 @@ namespace GitDeployPro.Models
         public bool ShowHiddenFiles { get; set; } = true;
         public int KeepAliveSeconds { get; set; } = 300;
         public List<PathMapping> PathMappings { get; set; } = new List<PathMapping>();
+
+        /// <summary>Shell lines sent to the remote terminal immediately after SSH connect.</summary>
+        public string SshStartupCommand { get; set; } = "";
+
+        /// <summary>When false, <see cref="SshStartupCommand"/> is kept but not executed on connect.</summary>
+        public bool RunSshStartupCommand { get; set; } = true;
+
+        /// <summary>SSH terminal picker favorites — sorted to the top of SSH lists.</summary>
+        public bool IsFavorite { get; set; }
         private bool _isProjectDefault;
         public bool IsProjectDefault
         {

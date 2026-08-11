@@ -92,6 +92,23 @@
             <Setter Property="FontSize" Value="13" />
             <Setter Property="Foreground" Value="{StaticResource Text.Muted}" />
         </Style>
+        <!-- PhpStorm-like terminal split controls: larger hit target + clearer chevron -->
+        <Style x:Key="DeployTerminalSplitButtonStyle" TargetType="Button" BasedOn="{StaticResource DeployDockTabButtonStyle}">
+            <Setter Property="Width" Value="34" />
+            <Setter Property="MinWidth" Value="34" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0,0,1,0" />
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource Text.Secondary}" />
+        </Style>
+        <Style x:Key="DeployTerminalPickerChevronStyle" TargetType="Button" BasedOn="{StaticResource DeployTerminalSplitButtonStyle}">
+            <Setter Property="Width" Value="34" />
+            <Setter Property="MinWidth" Value="34" />
+            <Setter Property="Foreground" Value="{StaticResource Text.Primary}" />
+            <Setter Property="ToolTip" Value="{loc:T deploy.tip.newTerminalSession}" />
+        </Style>
     </Page.Resources>
 
     <Grid x:Name="DeployShellRoot" Margin="8,6,8,6">
@@ -717,16 +734,18 @@
                                                     VerticalAlignment="Stretch" />
                                         <Button x:Name="NewTerminalTabButton"
                                                 Content="+"
-                                                Style="{StaticResource DeployDockIconButtonStyle}"
+                                                Style="{StaticResource DeployTerminalSplitButtonStyle}"
                                                 FontWeight="SemiBold"
                                                 ToolTip="{loc:T deploy.tip.newLocalTerminal}"
                                                 Click="NewTerminalTabButton_Click" />
                                         <Button x:Name="NewTerminalMenuButton"
-                                                Content="▾"
-                                                Style="{StaticResource DeployDockIconButtonStyle}"
-                                                FontSize="11"
-                                                ToolTip="{loc:T deploy.tip.newTerminalSession}"
-                                                Click="NewTerminalMenuButton_Click" />
+                                                Style="{StaticResource DeployTerminalPickerChevronStyle}"
+                                                Click="NewTerminalMenuButton_Click">
+                                            <Viewbox Width="9" Height="9" Stretch="Uniform">
+                                                <Path Data="M0,0 L8,0 L4,6 Z"
+                                                      Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                            </Viewbox>
+                                        </Button>
                                         <Popup x:Name="NewTerminalPickerPopup"
                                                PlacementTarget="{Binding ElementName=NewTerminalMenuButton}"
                                                Placement="Top"
@@ -786,18 +805,39 @@
                                                         </ListBox.ItemContainerStyle>
                                                         <ListBox.ItemTemplate>
                                                             <DataTemplate>
-                                                                <StackPanel>
-                                                                    <TextBlock Text="{Binding Title}"
-                                                                               FontSize="12"
-                                                                               FontWeight="SemiBold"
-                                                                               Foreground="{StaticResource Text.Primary}"
-                                                                               TextTrimming="CharacterEllipsis" />
-                                                                    <TextBlock Text="{Binding Subtitle}"
-                                                                               FontSize="10"
-                                                                               Foreground="{StaticResource Text.Muted}"
-                                                                               TextTrimming="CharacterEllipsis"
-                                                                               Visibility="{Binding SubtitleVisibility}" />
-                                                                </StackPanel>
+                                                                <Grid>
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition Width="Auto" />
+                                                                        <ColumnDefinition Width="*" />
+                                                                    </Grid.ColumnDefinitions>
+                                                                    <Button Grid.Column="0"
+                                                                            Content="{Binding FavoriteGlyph}"
+                                                                            Width="28"
+                                                                            Height="28"
+                                                                            Padding="0"
+                                                                            Margin="0,0,4,0"
+                                                                            FontSize="14"
+                                                                            Foreground="{Binding FavoriteBrush}"
+                                                                            Background="Transparent"
+                                                                            BorderThickness="0"
+                                                                            Cursor="Hand"
+                                                                            VerticalAlignment="Center"
+                                                                            Visibility="{Binding FavoriteStarVisibility}"
+                                                                            ToolTip="{Binding FavoriteToolTip}"
+                                                                            Click="NewTerminalFavoriteButton_Click" />
+                                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                                        <TextBlock Text="{Binding Title}"
+                                                                                   FontSize="13"
+                                                                                   FontWeight="SemiBold"
+                                                                                   Foreground="{StaticResource Text.Primary}"
+                                                                                   TextTrimming="CharacterEllipsis" />
+                                                                        <TextBlock Text="{Binding Subtitle}"
+                                                                                   FontSize="11"
+                                                                                   Foreground="{StaticResource Text.Muted}"
+                                                                                   TextTrimming="CharacterEllipsis"
+                                                                                   Visibility="{Binding SubtitleVisibility}" />
+                                                                    </StackPanel>
+                                                                </Grid>
                                                             </DataTemplate>
                                                         </ListBox.ItemTemplate>
                                                     </ListBox>

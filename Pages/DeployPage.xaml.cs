@@ -57,6 +57,7 @@ namespace GitDeployPro.Pages
         private bool _isRemoteWorkspaceCollapsed;
         private bool _isDirectUploadDockCollapsed;
         private bool _isBottomDockCollapsed;
+        private double _workspaceBottomInset;
         private bool _bottomTerminalTabActive = true;
         private bool _logsStripVisible;
         private bool _logsStripAutoShownForDeploy;
@@ -568,38 +569,61 @@ namespace GitDeployPro.Pages
             var projectProfile = GetActiveConnectionProfile();
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            if (projectProfile != null)
+            if (projectProfile != null && ConnectionProfileFilters.IsSshTerminalProfile(projectProfile))
             {
                 seen.Add(projectProfile.Id);
-                _newTerminalPickerItems.Add(new NewTerminalPickerItem
-                {
-                    Title = projectProfile.Name,
-                    Subtitle = BuildConnectionSubtitle(projectProfile, isProjectDefault: true),
-                    Profile = projectProfile
-                });
+                _newTerminalPickerItems.Add(CreateTerminalPickerItem(projectProfile, isProjectDefault: true));
             }
 
             try
             {
-                foreach (var conn in _configService.LoadConnections().OrderBy(c => c.Name))
+                foreach (var conn in _configService.LoadConnections()
+                             .Where(ConnectionProfileFilters.IsSshTerminalProfile)
+                             .OrderByDescending(c => c.IsFavorite)
+                             .ThenBy(c => c.Name, StringComparer.OrdinalIgnoreCase))
                 {
                     if (conn == null || string.IsNullOrWhiteSpace(conn.Id) || !seen.Add(conn.Id))
                     {
                         continue;
                     }
 
-                    _newTerminalPickerItems.Add(new NewTerminalPickerItem
-                    {
-                        Title = conn.Name,
-                        Subtitle = BuildConnectionSubtitle(conn, isProjectDefault: false),
-                        Profile = conn
-                    });
+                    _newTerminalPickerItems.Add(CreateTerminalPickerItem(conn, isProjectDefault: false));
                 }
             }
             catch
             {
                 // Local option still available.
             }
+        }
+
+        private static NewTerminalPickerItem CreateTerminalPickerItem(ConnectionProfile profile, bool isProjectDefault)
+        {
+            return new NewTerminalPickerItem
+            {
+                Title = profile.Name,
+                Subtitle = BuildConnectionSubtitle(profile, isProjectDefault),
+                Profile = profile,
+                IsFavorite = profile.IsFavorite,
+                FavoriteGlyph = profile.IsFavorite ? "★" : "☆",
+                FavoriteToolTip = Loc.T(profile.IsFavorite ? "deploy.tip.unfavoriteSsh" : "deploy.tip.favoriteSsh")
+            };
+        }
+
+        private void NewTerminalFavoriteButton_Click(object sender, RoutedEventArgs e)
+        {
+            e.Handled = true;
+            if (sender is not System.Windows.Controls.Button { DataContext: NewTerminalPickerItem item } || item.Profile == null)
+            {
+                return;
+            }
+
+            item.Profile.IsFavorite = !item.Profile.IsFavorite;
+            _configService.AddOrUpdateConnection(item.Profile);
+
+            var query = NewTerminalSearchBox?.Text;
+            RebuildNewTerminalPickerItems();
+            ApplyNewTerminalPickerFilter(query);
+            NewTerminalPickerPopup.IsOpen = true;
         }
 
         private static string BuildConnectionSubtitle(ConnectionProfile profile, bool isProjectDefault)
@@ -693,12 +717,32 @@ namespace GitDeployPro.Pages
 
         private void NewTerminalPickerItem_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
+            if (e.OriginalSource is DependencyObject source && IsInsideButton(source))
+            {
+                return;
+            }
+
             if (sender is ListBoxItem { DataContext: NewTerminalPickerItem item })
             {
                 NewTerminalPickerList.SelectedItem = item;
                 _ = AcceptSelectedNewTerminalPickerItemAsync();
                 e.Handled = true;
             }
+        }
+
+        private static bool IsInsideButton(DependencyObject source)
+        {
+            while (source != null)
+            {
+                if (source.GetType() == typeof(System.Windows.Controls.Button))
+                {
+                    return true;
+                }
+
+                source = VisualTreeHelper.GetParent(source);
+            }
+
+            return false;
         }
 
         private async Task AcceptSelectedNewTerminalPickerItemAsync()
@@ -726,6 +770,15 @@ namespace GitDeployPro.Pages
             public string Subtitle { get; init; } = string.Empty;
             public bool IsLocal { get; init; }
             public ConnectionProfile? Profile { get; init; }
+            public bool IsFavorite { get; init; }
+            public string FavoriteGlyph { get; init; } = "☆";
+            public string FavoriteToolTip { get; init; } = string.Empty;
+            public System.Windows.Media.Brush FavoriteBrush => ThemeService.Instance.GetTokenBrush(
+                IsFavorite ? "Status.Warning" : "Text.Muted",
+                IsFavorite
+                    ? System.Windows.Media.Color.FromRgb(0xE6, 0xB8, 0x4D)
+                    : System.Windows.Media.Color.FromRgb(0x8A, 0x8A, 0x8A));
+            public Visibility FavoriteStarVisibility => IsLocal ? Visibility.Collapsed : Visibility.Visible;
             public Visibility SubtitleVisibility =>
                 string.IsNullOrWhiteSpace(Subtitle) ? Visibility.Collapsed : Visibility.Visible;
         }
@@ -765,13 +818,29 @@ namespace GitDeployPro.Pages
                 return;
             }
 
+            if (!ConnectionProfileFilters.IsSshTerminalProfile(profile))
+            {
+                ModernMessageBox.Show(
+                    "Only SSH/SFTP profiles can open a server terminal session.",
+                    "Terminal",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+
             var control = CreateDeployTerminalControl();
             var session = AddDeployTerminalSession(profile.Name, control, isLocal: false, profile);
             ActivateDeployTerminalSession(session.Id);
             try
             {
                 var password = EncryptionService.Decrypt(profile.Password);
-                await control.ConnectAsync(profile.Host, profile.Username, password, profile.Port);
+                await control.ConnectAsync(
+                    profile.Host,
+                    profile.Username,
+                    password,
+                    profile.Port,
+                    profile.SshStartupCommand,
+                    profile.RunSshStartupCommand);
             }
             catch (Exception ex)
             {
@@ -1227,7 +1296,7 @@ namespace GitDeployPro.Pages
             {
                 BottomDockShell.Height = BottomDockCollapsedHeight;
                 BottomDockShell.MinHeight = BottomDockCollapsedHeight;
-                SyncCenterContentBottomInset(BottomDockCollapsedHeight);
+                SyncWorkspaceBottomInset(BottomDockCollapsedHeight);
                 return;
             }
 
@@ -1254,7 +1323,7 @@ namespace GitDeployPro.Pages
             height = ClampBottomDockHeight(height);
             BottomDockShell.Height = height;
             _bottomDockLastHeight = new GridLength(height);
-            SyncCenterContentBottomInset(height);
+            SyncWorkspaceBottomInset(height);
         }
 
         private double ClampBottomDockHeight(double height)
@@ -1265,13 +1334,35 @@ namespace GitDeployPro.Pages
             return Math.Max(BottomDockMinExpandedHeight, Math.Min(height, max));
         }
 
-        private void SyncCenterContentBottomInset(double dockHeight)
+        private void SyncWorkspaceBottomInset(double dockHeight)
         {
+            _workspaceBottomInset = Math.Max(0, dockHeight);
+            ApplyWorkspaceBottomInsetToContainers();
+        }
+
+        private void ApplyWorkspaceBottomInsetToContainers()
+        {
+            var bottom = _workspaceBottomInset;
+
             if (CenterContentHost != null)
             {
-                CenterContentHost.Margin = new Thickness(0, 0, 0, Math.Max(0, dockHeight));
+                CenterContentHost.Margin = new Thickness(0, 0, 0, bottom);
+            }
+
+            if (LeftDockContainer != null && LeftDockContainer.Visibility == Visibility.Visible)
+            {
+                var margin = LeftDockContainer.Margin;
+                LeftDockContainer.Margin = new Thickness(margin.Left, margin.Top, margin.Right, bottom);
+            }
+
+            if (RemoteWorkspaceContainer != null && RemoteWorkspaceContainer.Visibility == Visibility.Visible)
+            {
+                var margin = RemoteWorkspaceContainer.Margin;
+                RemoteWorkspaceContainer.Margin = new Thickness(margin.Left, margin.Top, margin.Right, bottom);
             }
         }
+
+        private void SyncCenterContentBottomInset(double dockHeight) => SyncWorkspaceBottomInset(dockHeight);
 
         private void CaptureBottomDockHeight()
         {
@@ -1314,7 +1405,7 @@ namespace GitDeployPro.Pages
             var next = ClampBottomDockHeight(_bottomDockResizeStartHeight + (_bottomDockResizeStartY - currentY));
             BottomDockShell.Height = next;
             _bottomDockLastHeight = new GridLength(next);
-            SyncCenterContentBottomInset(next);
+            SyncWorkspaceBottomInset(next);
             e.Handled = true;
         }
 
@@ -1415,6 +1506,7 @@ namespace GitDeployPro.Pages
 
                 UpdateRemoteToggleButtonUi();
                 UpdateDirectUploadToggleUi();
+                ApplyWorkspaceBottomInsetToContainers();
                 return;
             }
 
@@ -1447,6 +1539,7 @@ namespace GitDeployPro.Pages
             UpdateDirectUploadToggleUi();
             UpdateBottomCollapseButtonUi();
             ApplyPortraitBranchRowTweaks();
+            ApplyWorkspaceBottomInsetToContainers();
         }
 
         private void ApplyPortraitBranchRowTweaks()

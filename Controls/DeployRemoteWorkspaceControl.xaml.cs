@@ -73,6 +73,7 @@ namespace GitDeployPro.Controls
         private DateTime _lastEditorRecoveryAttemptUtc = DateTime.MinValue;
         private DateTime _lastEditorWarmupAttemptUtc = DateTime.MinValue;
         private string _lastAutoConnectProfileId = string.Empty;
+        private bool _operationLogExpanded;
         private static string? _codeEditorHtmlTemplate;
 
         public ObservableCollection<RemoteTreeNode> RootNodes { get; } = new();
@@ -100,6 +101,26 @@ namespace GitDeployPro.Controls
             Loaded += DeployRemoteWorkspaceControl_Loaded;
             Unloaded += DeployRemoteWorkspaceControl_Unloaded;
             ApplyFtpChromeTheme();
+            ApplyOperationLogExpandedState();
+        }
+
+        private void ToggleOperationLogButton_Click(object sender, RoutedEventArgs e)
+        {
+            _operationLogExpanded = !_operationLogExpanded;
+            ApplyOperationLogExpandedState();
+        }
+
+        private void ApplyOperationLogExpandedState()
+        {
+            if (OperationLogScrollViewer == null || ToggleOperationLogButton == null)
+            {
+                return;
+            }
+
+            OperationLogScrollViewer.Visibility = _operationLogExpanded
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+            ToggleOperationLogButton.Content = Loc.T(_operationLogExpanded ? "deploy.ftpLogHide" : "deploy.ftpLogShow");
         }
 
         private async void DeployRemoteWorkspaceControl_Loaded(object sender, RoutedEventArgs e)
@@ -949,9 +970,7 @@ namespace GitDeployPro.Controls
 
         private bool IsDeployRemoteProfile(ConnectionProfile profile)
         {
-            if (profile == null) return false;
-            if (string.IsNullOrWhiteSpace(profile.Host)) return false;
-            return profile.DbType == DatabaseType.None;
+            return ConnectionProfileFilters.IsRemoteFileProfile(profile);
         }
 
         private static bool ShouldRetryRemoteOperation(Exception ex)
@@ -1081,7 +1100,7 @@ namespace GitDeployPro.Controls
                 return;
             }
 
-            var manager = new ConnectionManagerWindow
+            var manager = new ConnectionManagerWindow(_projectConfig?.ConnectionProfileId)
             {
                 Owner = Window.GetWindow(this)
             };

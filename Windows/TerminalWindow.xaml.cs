@@ -61,7 +61,13 @@ namespace GitDeployPro.Windows
                 try
                 {
                     string password = EncryptionService.Decrypt(profile.Password);
-                    await MyTerminal.ConnectAsync(profile.Host, profile.Username, password, profile.Port);
+                    await MyTerminal.ConnectAsync(
+                        profile.Host,
+                        profile.Username,
+                        password,
+                        profile.Port,
+                        profile.SshStartupCommand,
+                        profile.RunSshStartupCommand);
                     
                     // Register active connection
                     if (_connectionProfile != null)
@@ -271,7 +277,13 @@ namespace GitDeployPro.Windows
                  else
                  {
                      string password = EncryptionService.Decrypt(profile.Password);
-                     await MyTerminal.ConnectAsync(profile.Host, profile.Username, password, profile.Port);
+                     await MyTerminal.ConnectAsync(
+                        profile.Host,
+                        profile.Username,
+                        password,
+                        profile.Port,
+                        profile.SshStartupCommand,
+                        profile.RunSshStartupCommand);
                  }
             }
             else

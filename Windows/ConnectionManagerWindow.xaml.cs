@@ -34,13 +34,24 @@ namespace GitDeployPro.Windows
         private bool _isSyncingPasswordEditors;
         private bool _isRemotePasswordVisible;
         private bool _isDatabasePasswordVisible;
+        private string? _preferredProjectProfileId;
 
         public ConnectionProfile? SelectedProfile { get; private set; }
 
-        public ConnectionManagerWindow()
+        /// <summary>Project-assigned connection profile id — pinned to top of the list when set.</summary>
+        public string? PreferredProjectProfileId
+        {
+            get => _preferredProjectProfileId;
+            set => _preferredProjectProfileId = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        }
+
+        public ConnectionManagerWindow(string? preferredProjectProfileId = null)
         {
             InitializeComponent();
             _configService = new ConfigurationService();
+            _preferredProjectProfileId = string.IsNullOrWhiteSpace(preferredProjectProfileId)
+                ? ResolveCurrentProjectConnectionProfileId()
+                : preferredProjectProfileId.Trim();
             PathMappingsList.ItemsSource = _pathMappings;
             
             try
@@ -56,6 +67,37 @@ namespace GitDeployPro.Windows
             {
                 ModernMessageBox.Show($"Error loading Connection Manager: {ex.Message}", "Initialization Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
+        }
+
+        private string? ResolveCurrentProjectConnectionProfileId()
+        {
+            try
+            {
+                var lastProjectPath = _configService.LoadGlobalConfig().LastProjectPath;
+                if (string.IsNullOrWhiteSpace(lastProjectPath))
+                {
+                    return null;
+                }
+
+                return _configService.LoadProjectConfig(lastProjectPath).ConnectionProfileId;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private IEnumerable<ConnectionProfile> OrderProfilesForDisplay(IEnumerable<ConnectionProfile> profiles)
+        {
+            var list = profiles.ToList();
+            if (string.IsNullOrWhiteSpace(_preferredProjectProfileId))
+            {
+                return list.OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase);
+            }
+
+            return list
+                .OrderByDescending(p => string.Equals(p.Id, _preferredProjectProfileId, StringComparison.OrdinalIgnoreCase))
+                .ThenBy(p => p.Name, StringComparer.OrdinalIgnoreCase);
         }
         private void ImportNavicatButton_Click(object sender, RoutedEventArgs e)
         {
@@ -137,13 +179,17 @@ namespace GitDeployPro.Windows
             try 
             {
                 _profiles = _configService.LoadConnections();
-                RefreshConnectionsList(selectFirstWhenMissing: false);
+                RefreshConnectionsList(
+                    preferredProfileId: _preferredProjectProfileId,
+                    selectFirstWhenMissing: false);
             }
             catch (Exception ex)
             {
                 ModernMessageBox.Show($"Error loading profiles: {ex.Message}", "Data Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 _profiles = new List<ConnectionProfile>();
-                RefreshConnectionsList(selectFirstWhenMissing: false);
+                RefreshConnectionsList(
+                    preferredProfileId: _preferredProjectProfileId,
+                    selectFirstWhenMissing: false);
             }
         }
 
@@ -169,7 +215,7 @@ namespace GitDeployPro.Windows
                                   ?? (ConnectionsList.SelectedItem as ConnectionProfile)?.Id
                                   ?? _currentProfile?.Id;
 
-            var filtered = GetFilteredProfiles().ToList();
+            var filtered = OrderProfilesForDisplay(GetFilteredProfiles()).ToList();
 
             ConnectionsList.ItemsSource = null;
             ConnectionsList.ItemsSource = filtered;
@@ -248,6 +294,8 @@ namespace GitDeployPro.Windows
             PassiveModeCheck.IsChecked = profile.PassiveMode;
             ShowHiddenCheck.IsChecked = profile.ShowHiddenFiles;
             KeepAliveBox.Text = profile.KeepAliveSeconds.ToString();
+            SshStartupCommandBox.Text = profile.SshStartupCommand ?? string.Empty;
+            RunSshStartupCommandCheck.IsChecked = profile.RunSshStartupCommand;
 
             // Database Fields
             DbTypeCombo.SelectedItem = profile.DbType;
@@ -356,6 +404,9 @@ namespace GitDeployPro.Windows
                     PassiveMode = profile.PassiveMode,
                     ShowHiddenFiles = profile.ShowHiddenFiles,
                     KeepAliveSeconds = profile.KeepAliveSeconds,
+                    SshStartupCommand = profile.SshStartupCommand,
+                    RunSshStartupCommand = profile.RunSshStartupCommand,
+                    IsFavorite = profile.IsFavorite,
                     PathMappings = profile.PathMappings?
                         .Select(m => new PathMapping { LocalPath = m.LocalPath, RemotePath = m.RemotePath })
                         .ToList() ?? new List<PathMapping>(),
@@ -406,6 +457,8 @@ namespace GitDeployPro.Windows
             _currentProfile.PassiveMode = PassiveModeCheck.IsChecked == true;
             _currentProfile.ShowHiddenFiles = ShowHiddenCheck.IsChecked == true;
             if (int.TryParse(KeepAliveBox.Text, out int keepAlive)) _currentProfile.KeepAliveSeconds = keepAlive;
+            _currentProfile.SshStartupCommand = (SshStartupCommandBox.Text ?? string.Empty).Trim();
+            _currentProfile.RunSshStartupCommand = RunSshStartupCommandCheck.IsChecked == true;
             _currentProfile.PathMappings = _pathMappings
                 .Select(pm => new PathMapping
                 {
@@ -428,6 +481,23 @@ namespace GitDeployPro.Windows
             SelectedProfile = _currentProfile;
             DialogResult = true;
             Close();
+        }
+
+        private void FillStartupFromRootPathButton_Click(object sender, RoutedEventArgs e)
+        {
+            SshStartupCommandBox.Text = BuildCdStartupCommand(RootPathBox.Text);
+        }
+
+        private static string BuildCdStartupCommand(string? remotePath)
+        {
+            var path = (remotePath ?? string.Empty).Trim();
+            if (string.IsNullOrEmpty(path))
+            {
+                return "cd";
+            }
+
+            var escaped = path.Replace("'", "'\\''", StringComparison.Ordinal);
+            return $"cd '{escaped}'";
         }
 
         private void PopulatePathMappings(ConnectionProfile profile)

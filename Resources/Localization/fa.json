@@ -174,6 +174,12 @@
   "about.checkUpdates": "بررسی آپدیت",
   "about.openInstallFolder": "باز کردن پوشه نصب",
 
+  "connection.sshStartupCommandTip": "دستورات shell که بعد از اتصال ترمینال SSH خودکار اجرا می‌شوند (هر خط یک دستور). مثال: cd /var/www/myproject",
+  "connection.runSshStartupCommandTip": "وقتی خاموش باشد، دستورات startup ذخیره می‌مانند ولی هنگام connect ارسال نمی‌شوند.",
+  "deploy.tip.favoriteSsh": "افزودن به علاقه‌مندی‌ها (بالای لیست می‌آید)",
+  "deploy.tip.unfavoriteSsh": "حذف از علاقه‌مندی‌ها",
+  "deploy.tip.toggleFtpLog": "نمایش یا پنهان کردن لاگ FTP/SFTP",
+
   "msg.updateInProgress": "دانلود آپدیت در حال انجام است.",
   "msg.upToDate": "شما روی آخرین نسخه هستید ({0}).",
   "msg.updateAlreadyDownloaded": "آپدیت {0} قبلاً دانلود شده است.\nبرای اعمال از دکمه ری‌استارت در پنجره آپدیت استفاده کنید.",

@@ -69,6 +69,12 @@
   "deploy.tip.logsTab": "Deployment logs",
   "deploy.tip.newLocalTerminal": "New Local terminal",
   "deploy.tip.newTerminalSession": "New terminal session…",
+  "deploy.tip.favoriteSsh": "Add to favorites (shows at top of list)",
+  "deploy.tip.unfavoriteSsh": "Remove from favorites",
+  "deploy.ftpLogTitle": "Remote log",
+  "deploy.ftpLogShow": "Show log",
+  "deploy.ftpLogHide": "Hide log",
+  "deploy.tip.toggleFtpLog": "Show or hide the FTP/SFTP activity log",
   "deploy.tip.rollback": "Preview and roll back the last Git commit (then push)",
   "deploy.tip.skipReview": "Skip the review modal. Same as Deploy → Commit + Push in the review window.",
   "deploy.tip.createBranch": "Create New Branch",
@@ -173,6 +179,13 @@
 
   "about.checkUpdates": "Check for updates",
   "about.openInstallFolder": "Open install folder",
+
+  "connection.sshStartupCommand": "Startup command(s)",
+  "connection.sshStartupCommandTip": "Shell commands run automatically when the SSH terminal connects (one per line). Example: cd /var/www/myproject",
+  "connection.runSshStartupCommand": "Run after SSH connect",
+  "connection.runSshStartupCommandTip": "When unchecked, startup commands are saved but not sent to the terminal on connect.",
+  "connection.fillStartupFromRootPath": "Fill cd from Root Path",
+  "connection.fillStartupFromRootPathTip": "Insert a cd command using the Root Path field above (you can edit it afterward).",
 
   "msg.updateInProgress": "An update download is already in progress.",
   "msg.upToDate": "You are on the latest version ({0}).",

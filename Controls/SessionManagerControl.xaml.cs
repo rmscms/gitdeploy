@@ -200,7 +200,8 @@ namespace GitDeployPro.Controls
 
             var rootConnections = _connections
                 .Where(c => string.IsNullOrWhiteSpace(c.FolderId))
-                .OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
+                .OrderByDescending(c => c.IsFavorite)
+                .ThenBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
                 .ToList();
             foreach (var conn in rootConnections)
             {
@@ -249,7 +250,8 @@ namespace GitDeployPro.Controls
 
             var folderConnections = _connections
                 .Where(c => c.FolderId == folder.Id)
-                .OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
+                .OrderByDescending(c => c.IsFavorite)
+                .ThenBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
                 .ToList();
             foreach (var conn in folderConnections)
             {
@@ -270,10 +272,9 @@ namespace GitDeployPro.Controls
 
         private SessionTreeNode CreateConnectionNode(ConnectionProfile conn)
         {
-            // Only show SSH connections (exclude database and FTP)
-            if (conn.DbType != DatabaseType.None || !conn.UseSSH)
+            if (!ConnectionProfileFilters.IsSshTerminalProfile(conn))
             {
-                return null; // Skip non-SSH connections
+                return null;
             }
 
             string icon = "🔒";

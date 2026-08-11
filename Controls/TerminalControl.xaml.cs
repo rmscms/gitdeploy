@@ -59,6 +59,9 @@ namespace GitDeployPro.Controls
         private string? _projectPath;
         private DateTime _lastInterruptSentAt = DateTime.MinValue;
         private bool _remoteHistoryConfigured;
+        private bool _remoteStartupConfigured;
+        private string? _pendingStartupCommand;
+        private bool _runStartupCommand = true;
         private bool _disposed;
         private bool _suppressTerminalTargetSelectionChanged;
         private string _activeTerminalTargetId = string.Empty;
@@ -493,7 +496,13 @@ namespace GitDeployPro.Controls
             }
         }
 
-        public async Task ConnectAsync(string host, string user, string password, int port)
+        public async Task ConnectAsync(
+            string host,
+            string user,
+            string password,
+            int port,
+            string? startupCommand = null,
+            bool runStartupCommand = true)
         {
             using var scope = PerformanceSampler.Instance.BeginScope("terminal", "connect-ssh", $"{user}@{host}:{port}");
             await EnsureWebViewReadyAsync();
@@ -502,6 +511,9 @@ namespace GitDeployPro.Controls
                 return;
             }
             await DisconnectAsync(includeCloseMessage: false);
+
+            _pendingStartupCommand = startupCommand;
+            _runStartupCommand = runStartupCommand;
 
             SetConnectingStatus($"Connecting to {host}...");
 
@@ -514,6 +526,8 @@ namespace GitDeployPro.Controls
             {
                 scope.Fail(ex);
                 await session.DisposeAsync();
+                _pendingStartupCommand = null;
+                _runStartupCommand = true;
                 await HandleConnectionFailureAsync(ex, "Connection failed");
             }
         }
@@ -585,6 +599,9 @@ namespace GitDeployPro.Controls
             ReleaseWebViewBridge();
             _welcomeWritten = false;
             _remoteHistoryConfigured = false;
+            _remoteStartupConfigured = false;
+            _pendingStartupCommand = null;
+            _runStartupCommand = true;
         }
 
         private void OnConnectionsChanged(object? sender, EventArgs e)
@@ -625,8 +642,9 @@ namespace GitDeployPro.Controls
             try
             {
                 var profiles = _configService.LoadConnections()
-                    .Where(p => p != null && p.UseSSH && !string.IsNullOrWhiteSpace(p.Host))
-                    .OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
+                    .Where(ConnectionProfileFilters.IsSshTerminalProfile)
+                    .OrderByDescending(p => p.IsFavorite)
+                    .ThenBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
                     .ToList();
 
                 foreach (var profile in profiles)
@@ -756,7 +774,9 @@ namespace GitDeployPro.Controls
                             target.Profile.Host,
                             target.Profile.Username,
                             EncryptionService.Decrypt(target.Profile.Password),
-                            target.Profile.Port);
+                            target.Profile.Port,
+                            target.Profile.SshStartupCommand,
+                            target.Profile.RunSshStartupCommand);
                         _activeTerminalTargetId = _isConnected ? target.Id : string.Empty;
                         return;
                     }
@@ -783,11 +803,26 @@ namespace GitDeployPro.Controls
                     return;
                 }
 
+                string? startupCommand = null;
+                var runStartupCommand = true;
+                if (!string.IsNullOrWhiteSpace(config.ConnectionProfileId))
+                {
+                    var profile = _configService.LoadConnections()
+                        .FirstOrDefault(c => string.Equals(c.Id, config.ConnectionProfileId, StringComparison.OrdinalIgnoreCase));
+                    if (profile != null)
+                    {
+                        startupCommand = profile.SshStartupCommand;
+                        runStartupCommand = profile.RunSshStartupCommand;
+                    }
+                }
+
                 await ConnectAsync(
                     config.FtpHost,
                     config.FtpUsername,
                     EncryptionService.Decrypt(config.FtpPassword),
-                    config.FtpPort);
+                    config.FtpPort,
+                    startupCommand,
+                    runStartupCommand);
             }
             catch (Exception ex)
             {
@@ -801,6 +836,7 @@ namespace GitDeployPro.Controls
             _session = session;
             _isDisconnecting = false;
             _remoteHistoryConfigured = false;
+            _remoteStartupConfigured = false;
 
             try
             {
@@ -817,6 +853,7 @@ namespace GitDeployPro.Controls
                 if (!isLocal)
                 {
                     await ConfigureRemoteHistorySyncAsync();
+                    await ConfigureRemoteStartupAsync();
                 }
                 await PostTerminalMessageAsync(new { type = "focus" });
             }
@@ -867,6 +904,10 @@ namespace GitDeployPro.Controls
             _isConnected = false;
             _isLocal = false;
             _activeTerminalTargetId = string.Empty;
+            _remoteHistoryConfigured = false;
+            _remoteStartupConfigured = false;
+            _pendingStartupCommand = null;
+            _runStartupCommand = true;
             SetDisconnectedStatus();
             _isDisconnecting = false;
 
@@ -1433,6 +1474,46 @@ namespace GitDeployPro.Controls
             catch
             {
                 // Keep terminal usable even when history bootstrap fails.
+            }
+        }
+
+        private async Task ConfigureRemoteStartupAsync()
+        {
+            if (_remoteStartupConfigured || _session == null || !_isConnected || _isLocal)
+            {
+                return;
+            }
+
+            if (!_runStartupCommand || string.IsNullOrWhiteSpace(_pendingStartupCommand))
+            {
+                _remoteStartupConfigured = true;
+                return;
+            }
+
+            try
+            {
+                await Task.Delay(120);
+
+                var lines = _pendingStartupCommand
+                    .Replace("\r\n", "\n", StringComparison.Ordinal)
+                    .Split('\n');
+
+                foreach (var rawLine in lines)
+                {
+                    var line = rawLine.Trim();
+                    if (string.IsNullOrEmpty(line) || line.StartsWith('#'))
+                    {
+                        continue;
+                    }
+
+                    await _session.WriteAsync($"{line}\r");
+                }
+
+                _remoteStartupConfigured = true;
+            }
+            catch
+            {
+                // Keep terminal usable even when startup commands fail.
             }
         }
 
