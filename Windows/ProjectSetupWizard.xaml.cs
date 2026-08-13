@@ -897,6 +897,8 @@ namespace GitDeployPro.Windows
                     }
 
                     config.ConnectionProfileId = selectedProfile.Id;
+                    config.ConnectionProfileIds = new List<string> { selectedProfile.Id };
+                    config.FtpSyncTargetConfirmed = true;
 
                     // Legacy fields backup
                     config.FtpHost = selectedProfile.Host;

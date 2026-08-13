@@ -110,6 +110,11 @@ namespace GitDeployPro.Services
                 menuItem.Style = menuItemStyle;
             }
 
+            if (!string.IsNullOrWhiteSpace(action.InputGestureText))
+            {
+                menuItem.InputGestureText = action.InputGestureText;
+            }
+
             if (!string.IsNullOrWhiteSpace(action.IconGlyph))
             {
                 menuItem.Icon = new TextBlock

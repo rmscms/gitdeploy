@@ -8,11 +8,54 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d">
     <UserControl.Resources>
-        <Style x:Key="SaveUploadButtonDefaultStyle" TargetType="Button" BasedOn="{StaticResource App.Button.Primary}" />
-        <Style x:Key="SaveUploadButtonDirtyStyle" TargetType="Button" BasedOn="{StaticResource App.Button.Primary}">
-            <Setter Property="Background" Value="{StaticResource Status.Warning}" />
-            <Setter Property="BorderBrush" Value="{StaticResource Status.Warning}" />
-            <Setter Property="Foreground" Value="{StaticResource Text.Inverse}" />
+        <SolidColorBrush x:Key="Editor.TabClose" Color="#FF95A3BA" />
+        <SolidColorBrush x:Key="Editor.TabCloseOnAccent" Color="#FFFFFFFF" />
+        <Style x:Key="Editor.TabCloseButton" TargetType="Button">
+            <Setter Property="Width" Value="14" />
+            <Setter Property="Height" Value="14" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="MaxWidth" Value="14" />
+            <Setter Property="MaxHeight" Value="14" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource Editor.TabClose}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Hit"
+                                Background="Transparent"
+                                Width="14"
+                                Height="14"
+                                CornerRadius="3">
+                            <Path Width="7"
+                                  Height="7"
+                                  Stretch="Uniform"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource TemplatedParent}}"
+                                  StrokeThickness="1.4"
+                                  StrokeStartLineCap="Round"
+                                  StrokeEndLineCap="Round"
+                                  Data="M0,0 L1,1 M1,0 L0,1"
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Hit" Property="Background" Value="{StaticResource State.Hover}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="SaveUploadButtonDefaultStyle" TargetType="Button" BasedOn="{StaticResource App.Button.Ghost}" />
+        <Style x:Key="SaveUploadButtonDirtyStyle" TargetType="Button" BasedOn="{StaticResource App.Button.Ghost}">
+            <Setter Property="Foreground" Value="{StaticResource Status.Warning}" />
         </Style>
         <!-- Compact PhpStorm-like FTP toolbar icons -->
         <Style x:Key="FtpToolbarIconButtonStyle" TargetType="Button" BasedOn="{StaticResource App.IconButton}">
@@ -71,48 +114,89 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
-                <Grid Grid.Row="0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
 
-                    <ComboBox x:Name="ConnectionComboBox"
-                              Grid.Column="0"
-                              Height="26"
-                              MinHeight="26"
-                              Margin="0,0,4,0"
-                              Padding="8,0"
-                              FontSize="12"
-                              VerticalContentAlignment="Center"
-                              Style="{StaticResource App.InputComboBox}"
-                              DisplayMemberPath="Name"
-                              SelectionChanged="ConnectionComboBox_SelectionChanged" />
+                <StackPanel Grid.Row="0"
+                            Orientation="Horizontal"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center">
+                    <Button x:Name="ChangeDefaultFtpButton"
+                            Style="{StaticResource FtpToolbarIconButtonStyle}"
+                            Content="★"
+                            ToolTip="{loc:T deploy.tip.changeFtpDefault}"
+                            Click="ChangeDefaultFtpButton_Click" />
+                    <Button x:Name="EditConnectionButton"
+                            Style="{StaticResource FtpToolbarIconButtonStyle}"
+                            ToolTip="{loc:T deploy.tip.editConnections}"
+                            Click="EditConnectionButton_Click">
+                        <Border Width="16"
+                                Height="16"
+                                BorderBrush="{StaticResource Border.Strong}"
+                                BorderThickness="1"
+                                CornerRadius="3"
+                                Background="Transparent"
+                                SnapsToDevicePixels="True">
+                            <StackPanel Orientation="Horizontal"
+                                        HorizontalAlignment="Center"
+                                        VerticalAlignment="Center">
+                                <Ellipse Width="2.5" Height="2.5" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                <Ellipse Width="2.5" Height="2.5" Margin="2,0,0,0" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                <Ellipse Width="2.5" Height="2.5" Margin="2,0,0,0" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                            </StackPanel>
+                        </Border>
+                    </Button>
+                    <Button x:Name="RefreshButton"
+                            Style="{StaticResource FtpToolbarIconButtonStyle}"
+                            Content="↻"
+                            ToolTip="{loc:T deploy.tip.refreshRemote}"
+                            Click="RefreshButton_Click" />
+                    <Button x:Name="ConnectionToggleButton"
+                            Style="{StaticResource FtpToolbarIconButtonStyle}"
+                            Content="⚡"
+                            Margin="0"
+                            ToolTip="{loc:T deploy.tip.connect}"
+                            Click="ConnectionToggleButton_Click" />
+                </StackPanel>
 
-                    <StackPanel Grid.Column="1"
-                                Orientation="Horizontal"
-                                VerticalAlignment="Center">
-                        <Button x:Name="EditConnectionButton"
-                                Style="{StaticResource FtpToolbarIconButtonStyle}"
-                                Content="✎"
-                                ToolTip="{loc:T deploy.tip.editConnections}"
-                                Click="EditConnectionButton_Click" />
-                        <Button x:Name="RefreshButton"
-                                Style="{StaticResource FtpToolbarIconButtonStyle}"
-                                Content="↻"
-                                ToolTip="{loc:T deploy.tip.refreshRemote}"
-                                Click="RefreshButton_Click" />
-                        <Button x:Name="ConnectionToggleButton"
-                                Style="{StaticResource FtpToolbarIconButtonStyle}"
-                                Content="⚡"
-                                Margin="0"
-                                ToolTip="{loc:T deploy.tip.connect}"
-                                Click="ConnectionToggleButton_Click" />
-                    </StackPanel>
-                </Grid>
+                <ComboBox x:Name="ConnectionComboBox"
+                          Grid.Row="1"
+                          Height="28"
+                          MinHeight="28"
+                          Margin="0,4,0,0"
+                          Padding="8,0"
+                          FontSize="12"
+                          HorizontalAlignment="Stretch"
+                          VerticalContentAlignment="Center"
+                          Style="{StaticResource App.InputComboBox}"
+                          MaxDropDownHeight="320"
+                          DropDownOpened="ConnectionComboBox_DropDownOpened"
+                          SelectionChanged="ConnectionComboBox_SelectionChanged">
+                    <ComboBox.ItemContainerStyle>
+                        <Style TargetType="ComboBoxItem" BasedOn="{StaticResource App.ComboBoxItemStyle}">
+                            <Setter Property="Padding" Value="8,4"/>
+                        </Style>
+                    </ComboBox.ItemContainerStyle>
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <Border x:Name="FtpComboRow"
+                                    Background="Transparent"
+                                    CornerRadius="4"
+                                    Padding="4,1">
+                                <TextBlock Text="{Binding Name}"
+                                           TextTrimming="CharacterEllipsis"
+                                           VerticalAlignment="Center"/>
+                            </Border>
+                            <DataTemplate.Triggers>
+                                <DataTrigger Binding="{Binding IsProjectDefault}" Value="True">
+                                    <Setter TargetName="FtpComboRow" Property="Background" Value="{StaticResource Status.SuccessSurface}"/>
+                                </DataTrigger>
+                            </DataTemplate.Triggers>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
 
-                <TextBlock Grid.Row="1"
+                <TextBlock Grid.Row="2"
                            x:Name="StatusTextBlock"
                            Margin="2,4,0,0"
                            Foreground="{StaticResource Text.Muted}"
@@ -285,7 +369,8 @@
                                     CornerRadius="10"
                                     Background="{StaticResource Surface.Raised}"
                                     BorderBrush="{StaticResource Border.Strong}"
-                                    BorderThickness="1">
+                                    BorderThickness="1"
+                                    IsHitTestVisible="True">
                                 <StackPanel>
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                         <TextBlock Text="🔄"
@@ -313,6 +398,28 @@
                                                  Background="{StaticResource Surface.Input}"
                                                  Foreground="{StaticResource Accent.Primary}"
                                                  BorderThickness="0" />
+                                    <Button x:Name="CancelRemoteLoadingButton"
+                                            Margin="0,12,0,0"
+                                            Height="30"
+                                            HorizontalAlignment="Stretch"
+                                            Style="{StaticResource App.Button.Ghost}"
+                                            Visibility="Collapsed"
+                                            Cursor="Hand"
+                                            ToolTip="{loc:T deploy.tip.cancelRemoteConnect}"
+                                            Click="CancelRemoteLoadingButton_Click">
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                            <TextBlock Text="⏹"
+                                                       FontSize="11"
+                                                       Margin="0,0,6,0"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{StaticResource Status.Error}" />
+                                            <TextBlock Text="Stop"
+                                                       FontSize="12"
+                                                       FontWeight="SemiBold"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{StaticResource Text.Primary}" />
+                                        </StackPanel>
+                                    </Button>
                                     <StackPanel Margin="0,10,0,0">
                                         <Border Height="6" Margin="0,0,0,6" CornerRadius="3" Background="#213D4F66"/>
                                         <Border Height="6" Margin="0,0,0,6" CornerRadius="3" Background="#1B3D4F66" Width="200" HorizontalAlignment="Left"/>
@@ -357,13 +464,9 @@
 
                             <Button x:Name="CloseEditorOverlayButton"
                                     Grid.Column="0"
-                                    Content="Close"
-                                    Height="26"
-                                    MinWidth="68"
-                                    Margin="0,0,6,0"
-                                    Style="{StaticResource App.Button.Ghost}"
+                                    Content="✕"
+                                    Style="{StaticResource FtpToolbarIconButtonStyle}"
                                     Foreground="{StaticResource Status.Error}"
-                                    BorderBrush="{StaticResource Status.Error}"
                                     ToolTip="{loc:T deploy.tip.closeEditor}"
                                     Click="CloseEditorOverlayButton_Click" />
 
@@ -375,33 +478,25 @@
                                        TextTrimming="CharacterEllipsis"
                                        VerticalAlignment="Center" />
 
-                            <ComboBox x:Name="EditorFontSizeComboBox"
-                                      Grid.Column="2"
-                                      Width="74"
-                                      Height="26"
-                                      Margin="6,0,6,0"
-                                      Style="{StaticResource App.InputComboBox}"
-                                      ItemsSource="{Binding EditorFontSizes}"
-                                      SelectionChanged="EditorFontSizeComboBox_SelectionChanged"
-                                      ToolTip="{loc:T deploy.tip.editorFont}" />
+                            <Button x:Name="EditorRefreshButton"
+                                    Grid.Column="2"
+                                    Content="↻"
+                                    Style="{StaticResource FtpToolbarIconButtonStyle}"
+                                    ToolTip="{loc:T deploy.tip.refreshEditor}"
+                                    Click="EditorRefreshButton_Click" />
 
                             <Button x:Name="RevertButton"
                                     Grid.Column="3"
-                                    Content="Revert"
-                                    Height="26"
-                                    MinWidth="72"
-                                    Margin="6,0,6,0"
-                                    Style="{StaticResource App.Button.Ghost}"
+                                    Content="↩"
+                                    Style="{StaticResource FtpToolbarIconButtonStyle}"
                                     IsEnabled="False"
                                     ToolTip="{loc:T deploy.tip.revert}"
                                     Click="RevertButton_Click" />
 
                             <Button x:Name="SaveUploadButton"
                                     Grid.Column="4"
-                                    Content="Save/Upload"
-                                    Height="26"
-                                    MinWidth="96"
-                                    Style="{StaticResource SaveUploadButtonDefaultStyle}"
+                                    Content="⬆"
+                                    Style="{StaticResource FtpToolbarIconButtonStyle}"
                                     IsEnabled="False"
                                     ToolTip="{loc:T deploy.tip.saveUpload}"
                                     Click="SaveUploadButton_Click" />
@@ -413,10 +508,11 @@
                                    FontSize="10"
                                    Text="No file loaded." />
 
-                        <!-- Fixed-height strip: always reserved so Save/Upload never jumps the editor -->
                         <Border x:Name="UploadStatusStrip"
                                 Margin="0,4,0,0"
                                 Height="32"
+                                Visibility="Collapsed"
+                                ClipToBounds="True"
                                 Background="{StaticResource Surface.Input}"
                                 BorderBrush="{StaticResource Border.Subtle}"
                                 BorderThickness="1"
@@ -466,12 +562,12 @@
 
                     <Border x:Name="EditorTabsHostBorder"
                             Grid.Row="1"
-                            Margin="0,0,0,6"
+                            Margin="0,0,0,4"
                             Background="{StaticResource Surface.Input}"
                             BorderBrush="{StaticResource Border.Subtle}"
                             BorderThickness="1"
-                            CornerRadius="8"
-                            Padding="4,3,4,1">
+                            CornerRadius="6"
+                            Padding="3,2">
                         <ListBox x:Name="EditorTabsListBox"
                                  Style="{StaticResource App.ListBox.Host}"
                                  ItemsSource="{Binding OpenSessions}"
@@ -488,7 +584,10 @@
                             <ListBox.ItemContainerStyle>
                                 <Style TargetType="ListBoxItem">
                                     <Setter Property="Padding" Value="0" />
-                                    <Setter Property="Margin" Value="0,0,6,0" />
+                                    <Setter Property="Margin" Value="0,0,4,0" />
+                                    <Setter Property="VerticalAlignment" Value="Center" />
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                    <Setter Property="VerticalContentAlignment" Value="Center" />
                                     <Setter Property="Background" Value="Transparent" />
                                     <Setter Property="FocusVisualStyle" Value="{x:Null}" />
                                     <Setter Property="Template">
@@ -508,8 +607,9 @@
                                             Background="{StaticResource Surface.Card}"
                                             BorderBrush="{StaticResource Border.Subtle}"
                                             BorderThickness="1"
-                                            CornerRadius="6"
-                                            Padding="7,3">
+                                            CornerRadius="5"
+                                            Padding="6,1,3,1"
+                                            VerticalAlignment="Center">
                                         <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*" />
@@ -520,7 +620,7 @@
                                                        FontSize="11"
                                                        FontFamily="{StaticResource FontFamily.Mono}"
                                                        TextTrimming="CharacterEllipsis"
-                                                       Margin="0,0,6,0"
+                                                       Margin="0,0,4,0"
                                                        VerticalAlignment="Center">
                                                 <TextBlock.Style>
                                                     <Style TargetType="TextBlock">
@@ -533,17 +633,10 @@
                                                     </Style>
                                                 </TextBlock.Style>
                                             </TextBlock>
-                                            <Button Grid.Column="1"
-                                                    Content="✕"
-                                                    Width="18"
-                                                    Height="18"
-                                                    Padding="0"
-                                                    Margin="0"
+                                            <Button x:Name="TabCloseButton"
+                                                    Grid.Column="1"
+                                                    Style="{StaticResource Editor.TabCloseButton}"
                                                     Tag="{Binding}"
-                                                    BorderThickness="0"
-                                                    Background="Transparent"
-                                                    Foreground="{StaticResource Text.Muted}"
-                                                    FontSize="10"
                                                     ToolTip="{loc:T deploy.tip.closeTab}"
                                                     Click="CloseTabButton_Click" />
                                         </Grid>
@@ -552,6 +645,7 @@
                                         <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
                                             <Setter TargetName="TabBorder" Property="Background" Value="{StaticResource Accent.Primary}" />
                                             <Setter TargetName="TabBorder" Property="BorderBrush" Value="{StaticResource Accent.Primary}" />
+                                            <Setter TargetName="TabCloseButton" Property="Foreground" Value="{DynamicResource Editor.TabCloseOnAccent}" />
                                         </DataTrigger>
                                     </DataTemplate.Triggers>
                                 </DataTemplate>
@@ -584,7 +678,14 @@
                                  VerticalScrollBarVisibility="Auto"
                                  HorizontalScrollBarVisibility="Auto"
                                  TextChanged="EditorFallbackTextBox_TextChanged"
-                                 TextWrapping="NoWrap" />
+                                 TextWrapping="NoWrap">
+                            <TextBox.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="{loc:T common.refresh}"
+                                              Click="EditorRefreshButton_Click" />
+                                </ContextMenu>
+                            </TextBox.ContextMenu>
+                        </TextBox>
                     </Grid>
                     </Grid>
                 </ScrollViewer>

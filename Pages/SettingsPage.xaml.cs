@@ -30,6 +30,10 @@ namespace GitDeployPro.Pages
         };
 
         private bool _suppressLanguageComboChange;
+        private readonly List<string> _draftAssignedFtpIds = new();
+        private string _draftDefaultFtpId = string.Empty;
+        private bool _draftFtpConfirmed = true;
+        private List<ConnectionProfile> _remoteFtpProfiles = new();
 
         public SettingsPage()
         {
@@ -531,26 +535,7 @@ namespace GitDeployPro.Pages
         {
             LocalPathTextBox.Text = path;
             var projectConfig = _configService.LoadProjectConfig(path);
-            
-            // Load Saved Connections
-            var connections = _configService.LoadConnections();
-            ConnectionProfileComboBox.ItemsSource = connections;
-
-            // Select Saved Profile
-            if (!string.IsNullOrEmpty(projectConfig.ConnectionProfileId))
-            {
-                var selected = connections.FirstOrDefault(c => c.Id == projectConfig.ConnectionProfileId);
-                if (selected != null)
-                {
-                    ConnectionProfileComboBox.SelectedItem = selected;
-                    UpdatePreview(selected);
-                }
-            }
-            else if (connections.Count > 0)
-            {
-                // Optional: Auto-select first if none saved? Or leave empty
-                ConnectionProfileComboBox.SelectedIndex = 0;
-            }
+            LoadFtpAssignmentDraft(projectConfig);
 
             AutoInitGitCheckBox.IsChecked = projectConfig.AutoInitGit;
             AutoCommitCheckBox.IsChecked = projectConfig.AutoCommit;
@@ -619,7 +604,7 @@ namespace GitDeployPro.Pages
                 {
                     LocalPathTextBox.Text = string.Empty;
                     UpdateDangerZoneUi(null);
-                    ConnectionProfileComboBox.SelectedItem = null;
+                    ClearFtpAssignmentDraft();
                 }
 
                 ModernMessageBox.Show(
@@ -682,19 +667,163 @@ namespace GitDeployPro.Pages
             catch { }
         }
 
-        private void ConnectionProfileComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void LoadFtpAssignmentDraft(ProjectConfig projectConfig)
         {
-            if (ConnectionProfileComboBox.SelectedItem is ConnectionProfile profile)
+            _remoteFtpProfiles = _configService.LoadConnections()
+                .Where(ConnectionProfileFilters.IsRemoteFileProfile)
+                .OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            _draftAssignedFtpIds.Clear();
+            _draftAssignedFtpIds.AddRange(ProjectFtpAssignments.GetAssignedIds(projectConfig));
+            _draftAssignedFtpIds.RemoveAll(id => !_remoteFtpProfiles.Any(p =>
+                string.Equals(p.Id, id, StringComparison.OrdinalIgnoreCase)));
+            _draftDefaultFtpId = ProjectFtpAssignments.GetDefaultId(projectConfig);
+            if (!_draftAssignedFtpIds.Any(id => string.Equals(id, _draftDefaultFtpId, StringComparison.OrdinalIgnoreCase)))
             {
-                UpdatePreview(profile);
+                _draftDefaultFtpId = _draftAssignedFtpIds.FirstOrDefault() ?? string.Empty;
+            }
+
+            _draftFtpConfirmed = _draftAssignedFtpIds.Count <= 1 || projectConfig.FtpSyncTargetConfirmed;
+            RefreshAssignedFtpUi();
+        }
+
+        private void ClearFtpAssignmentDraft()
+        {
+            _draftAssignedFtpIds.Clear();
+            _draftDefaultFtpId = string.Empty;
+            _draftFtpConfirmed = true;
+            _remoteFtpProfiles = _configService.LoadConnections()
+                .Where(ConnectionProfileFilters.IsRemoteFileProfile)
+                .OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            RefreshAssignedFtpUi();
+            ClearPreview();
+        }
+
+        private ProjectConfig BuildFtpDraftConfig()
+        {
+            return new ProjectConfig
+            {
+                ConnectionProfileId = _draftDefaultFtpId,
+                ConnectionProfileIds = _draftAssignedFtpIds.ToList(),
+                FtpSyncTargetConfirmed = _draftFtpConfirmed
+            };
+        }
+
+        private void RefreshAssignedFtpUi(string? selectId = null)
+        {
+            var items = _draftAssignedFtpIds
+                .Select(id => _remoteFtpProfiles.FirstOrDefault(p =>
+                    string.Equals(p.Id, id, StringComparison.OrdinalIgnoreCase)))
+                .Where(p => p != null)
+                .Select(p => new AssignedFtpItem(p!, string.Equals(p!.Id, _draftDefaultFtpId, StringComparison.OrdinalIgnoreCase)))
+                .ToList();
+
+            if (AssignedFtpProfilesList != null)
+            {
+                AssignedFtpProfilesList.ItemsSource = items;
+                var keepId = selectId ?? _draftDefaultFtpId;
+                var selected = items.FirstOrDefault(i =>
+                    string.Equals(i.Profile.Id, keepId, StringComparison.OrdinalIgnoreCase));
+                AssignedFtpProfilesList.SelectedItem = selected ?? items.FirstOrDefault();
+            }
+
+            if (AssignedFtpEmptyText != null)
+            {
+                AssignedFtpEmptyText.Visibility = items.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            if (AddFtpProfileComboBox != null)
+            {
+                var available = _remoteFtpProfiles
+                    .Where(p => !_draftAssignedFtpIds.Any(id =>
+                        string.Equals(id, p.Id, StringComparison.OrdinalIgnoreCase)))
+                    .ToList();
+                AddFtpProfileComboBox.ItemsSource = available;
+                AddFtpProfileComboBox.SelectedItem = available.FirstOrDefault();
+                if (AddFtpProfileButton != null)
+                {
+                    AddFtpProfileButton.IsEnabled = available.Count > 0;
+                }
+            }
+
+            var preview = (AssignedFtpProfilesList?.SelectedItem as AssignedFtpItem)?.Profile
+                          ?? items.FirstOrDefault()?.Profile;
+            if (preview != null)
+            {
+                UpdatePreview(preview);
             }
             else
             {
-                PreviewHostText.Text = "-";
-                PreviewProtocolText.Text = "-";
-                PreviewUserText.Text = "-";
-                PreviewPathText.Text = "-";
+                ClearPreview();
             }
+        }
+
+        private void AssignedFtpProfilesList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (AssignedFtpProfilesList.SelectedItem is AssignedFtpItem item)
+            {
+                UpdatePreview(item.Profile);
+            }
+        }
+
+        private void AddFtpProfileButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (AddFtpProfileComboBox.SelectedItem is not ConnectionProfile profile)
+            {
+                return;
+            }
+
+            var draft = BuildFtpDraftConfig();
+            ProjectFtpAssignments.Add(draft, profile.Id);
+            _draftAssignedFtpIds.Clear();
+            _draftAssignedFtpIds.AddRange(ProjectFtpAssignments.GetAssignedIds(draft));
+            _draftDefaultFtpId = ProjectFtpAssignments.GetDefaultId(draft);
+            _draftFtpConfirmed = draft.FtpSyncTargetConfirmed;
+            RefreshAssignedFtpUi(profile.Id);
+        }
+
+        private void SetDefaultFtpButton_Click(object sender, RoutedEventArgs e)
+        {
+            e.Handled = true;
+            if (sender is not System.Windows.Controls.Button { DataContext: AssignedFtpItem item })
+            {
+                return;
+            }
+
+            var draft = BuildFtpDraftConfig();
+            ProjectFtpAssignments.SetDefault(draft, item.Profile.Id, confirmed: true);
+            _draftAssignedFtpIds.Clear();
+            _draftAssignedFtpIds.AddRange(ProjectFtpAssignments.GetAssignedIds(draft));
+            _draftDefaultFtpId = ProjectFtpAssignments.GetDefaultId(draft);
+            _draftFtpConfirmed = draft.FtpSyncTargetConfirmed;
+            RefreshAssignedFtpUi(item.Profile.Id);
+        }
+
+        private void RemoveAssignedFtpButton_Click(object sender, RoutedEventArgs e)
+        {
+            e.Handled = true;
+            if (sender is not System.Windows.Controls.Button { DataContext: AssignedFtpItem item })
+            {
+                return;
+            }
+
+            var draft = BuildFtpDraftConfig();
+            ProjectFtpAssignments.Remove(draft, item.Profile.Id);
+            _draftAssignedFtpIds.Clear();
+            _draftAssignedFtpIds.AddRange(ProjectFtpAssignments.GetAssignedIds(draft));
+            _draftDefaultFtpId = ProjectFtpAssignments.GetDefaultId(draft);
+            _draftFtpConfirmed = draft.FtpSyncTargetConfirmed;
+            RefreshAssignedFtpUi();
+        }
+
+        private void ClearPreview()
+        {
+            PreviewHostText.Text = "-";
+            PreviewProtocolText.Text = "-";
+            PreviewUserText.Text = "-";
+            PreviewPathText.Text = "-";
         }
 
         private void UpdatePreview(ConnectionProfile p)
@@ -709,28 +838,36 @@ namespace GitDeployPro.Pages
         {
             try
             {
-                var manager = new ConnectionManagerWindow(
-                    _configService.LoadProjectConfig(LocalPathTextBox.Text?.Trim() ?? string.Empty).ConnectionProfileId);
-                var previousSelectedId = (ConnectionProfileComboBox.SelectedItem as ConnectionProfile)?.Id;
+                var manager = new ConnectionManagerWindow(_draftDefaultFtpId);
                 WindowOwnerService.ShowDialogOwned(manager, this);
 
-                // Always reload — Add/Delete persist even if the dialog was cancelled.
-                var connections = _configService.LoadConnections();
-                ConnectionProfileComboBox.ItemsSource = connections;
+                var previousSelectedId = (AssignedFtpProfilesList.SelectedItem as AssignedFtpItem)?.Profile.Id;
+                _remoteFtpProfiles = _configService.LoadConnections()
+                    .Where(ConnectionProfileFilters.IsRemoteFileProfile)
+                    .OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+                _draftAssignedFtpIds.RemoveAll(id => !_remoteFtpProfiles.Any(p =>
+                    string.Equals(p.Id, id, StringComparison.OrdinalIgnoreCase)));
+                if (!_draftAssignedFtpIds.Any(id => string.Equals(id, _draftDefaultFtpId, StringComparison.OrdinalIgnoreCase)))
+                {
+                    _draftDefaultFtpId = _draftAssignedFtpIds.FirstOrDefault() ?? string.Empty;
+                }
 
-                var preferredId = manager.SelectedProfile?.Id ?? previousSelectedId;
-                if (!string.IsNullOrWhiteSpace(preferredId))
+                if (!string.IsNullOrWhiteSpace(manager.SelectedProfile?.Id)
+                    && ConnectionProfileFilters.IsRemoteFileProfile(manager.SelectedProfile)
+                    && !_draftAssignedFtpIds.Any(id =>
+                        string.Equals(id, manager.SelectedProfile.Id, StringComparison.OrdinalIgnoreCase)))
                 {
-                    var selected = connections.FirstOrDefault(c => c.Id == preferredId);
-                    if (selected != null)
-                    {
-                        ConnectionProfileComboBox.SelectedItem = selected;
-                    }
+                    var draft = BuildFtpDraftConfig();
+                    ProjectFtpAssignments.Add(draft, manager.SelectedProfile.Id);
+                    _draftAssignedFtpIds.Clear();
+                    _draftAssignedFtpIds.AddRange(ProjectFtpAssignments.GetAssignedIds(draft));
+                    _draftDefaultFtpId = ProjectFtpAssignments.GetDefaultId(draft);
+                    _draftFtpConfirmed = draft.FtpSyncTargetConfirmed;
+                    previousSelectedId = manager.SelectedProfile.Id;
                 }
-                else if (connections.Count > 0 && ConnectionProfileComboBox.SelectedItem == null)
-                {
-                    ConnectionProfileComboBox.SelectedIndex = 0;
-                }
+
+                RefreshAssignedFtpUi(previousSelectedId);
             }
             catch (Exception ex)
             {
@@ -777,7 +914,8 @@ namespace GitDeployPro.Pages
                      return;
                 }
 
-                var selectedProfile = ConnectionProfileComboBox.SelectedItem as ConnectionProfile;
+                var selectedProfile = _remoteFtpProfiles.FirstOrDefault(p =>
+                    string.Equals(p.Id, _draftDefaultFtpId, StringComparison.OrdinalIgnoreCase));
                 var ignoreEntries = GetIgnoreEntriesFromTextBox();
                 string sourceBranch = DefaultSourceBranchComboBox.SelectedItem as string ?? "master";
                 var availableBranches = DefaultSourceBranchComboBox.Items.OfType<string>().ToList();
@@ -792,22 +930,18 @@ namespace GitDeployPro.Pages
                 var projectConfig = new ProjectConfig
                 {
                     LocalProjectPath = projectPath,
-                    
-                    // Save Profile ID
                     ConnectionProfileId = selectedProfile?.Id ?? "",
-                    
-                    // Legacy fallback (optional, can be removed later)
+                    ConnectionProfileIds = _draftAssignedFtpIds.ToList(),
+                    FtpSyncTargetConfirmed = _draftAssignedFtpIds.Count <= 1 || _draftFtpConfirmed,
                     FtpHost = selectedProfile?.Host ?? "",
                     FtpPort = selectedProfile?.Port ?? 21,
                     FtpUsername = selectedProfile?.Username ?? "",
                     FtpPassword = selectedProfile?.Password ?? "",
                     UseSSH = selectedProfile?.UseSSH ?? false,
                     RemotePath = selectedProfile?.RemotePath ?? "/",
-
                     DefaultSourceBranch = sourceBranch,
                     DefaultTargetBranch = targetBranch,
                     GitRemoteUrl = RemoteUrlTextBox.Text?.Trim() ?? string.Empty,
-                    
                     AutoInitGit = AutoInitGitCheckBox.IsChecked ?? true,
                     AutoCommit = AutoCommitCheckBox.IsChecked ?? true,
                     AutoPush = AutoPushCheckBox.IsChecked ?? false,
@@ -1364,6 +1498,22 @@ namespace GitDeployPro.Pages
                 ModernMessageBox.Show("Project configuration re-setup successfully! 🔄", "Setup Completed", MessageBoxButton.OK, MessageBoxImage.Information);
                 await ReloadSettingsForPath(path);
             }
+        }
+
+        private sealed class AssignedFtpItem
+        {
+            public AssignedFtpItem(ConnectionProfile profile, bool isDefault)
+            {
+                Profile = profile;
+                IsDefault = isDefault;
+            }
+
+            public ConnectionProfile Profile { get; }
+            public bool IsDefault { get; }
+            public bool CanSetDefault => !IsDefault;
+            public string Name => Profile.Name;
+            public string Host => Profile.Host;
+            public Visibility DefaultBadgeVisibility => IsDefault ? Visibility.Visible : Visibility.Collapsed;
         }
     }
 }

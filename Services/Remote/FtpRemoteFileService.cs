@@ -36,12 +36,41 @@ namespace GitDeployPro.Services.Remote
                     ConnectTimeout = 20000,
                     ReadTimeout = 45000,
                     DataConnectionReadTimeout = 45000,
-                    RetryAttempts = 2
+                    RetryAttempts = 1
                 }
             };
 
-            await _client.Connect(cancellationToken);
-            ProfileId = profile.Id;
+            try
+            {
+                await _client.Connect(cancellationToken).WaitAsync(cancellationToken);
+                cancellationToken.ThrowIfCancellationRequested();
+                ProfileId = profile.Id;
+            }
+            catch (OperationCanceledException)
+            {
+                Abort();
+                throw;
+            }
+        }
+
+        public void Abort()
+        {
+            var client = _client;
+            _client = null;
+            ProfileId = string.Empty;
+            if (client == null)
+            {
+                return;
+            }
+
+            try
+            {
+                client.Dispose();
+            }
+            catch
+            {
+                // Ignore abort races with an in-flight Connect().
+            }
         }
 
         public async Task DisconnectAsync()

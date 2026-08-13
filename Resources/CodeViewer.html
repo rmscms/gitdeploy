@@ -54,6 +54,9 @@
     let pendingPayload = null;
     let changeSubscription = null;
     let currentFontSize = 14;
+    let remoteRefreshEnabled = false;
+    let remoteRefreshLabel = "Refresh";
+    let remoteRefreshAction = null;
     const languageMap = {
       ".cs": "csharp",
       ".xaml": "xml",
@@ -151,6 +154,8 @@
         minimap: { enabled: true }
       });
 
+      applyRemoteRefreshAction();
+
       if (pendingPayload) {
         applyPayload(pendingPayload);
         pendingPayload = null;
@@ -203,6 +208,31 @@
         changeSubscription = null;
         notifyHost({ Type: "dirty", Value: false });
       }
+    };
+
+    function applyRemoteRefreshAction() {
+      if (!editor) return;
+      if (remoteRefreshAction) {
+        remoteRefreshAction.dispose();
+        remoteRefreshAction = null;
+      }
+      if (!remoteRefreshEnabled) return;
+
+      remoteRefreshAction = editor.addAction({
+        id: "gdp.refreshFromRemote",
+        label: remoteRefreshLabel || "Refresh",
+        contextMenuGroupId: "9_cutcopypaste",
+        contextMenuOrder: 0,
+        run: function () {
+          notifyHost({ Type: "refreshFromRemote" });
+        }
+      });
+    }
+
+    window.__setRemoteRefreshEnabled = function(enabled, label) {
+      remoteRefreshEnabled = !!enabled;
+      if (label) remoteRefreshLabel = String(label);
+      applyRemoteRefreshAction();
     };
 
     window.__setFontSize = function(size) {

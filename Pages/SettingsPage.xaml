@@ -4,6 +4,7 @@
       xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
       xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
       xmlns:controls="clr-namespace:GitDeployPro.Controls"
+      xmlns:loc="clr-namespace:GitDeployPro.Services.Localization"
       Title="SettingsPage"
       Background="{StaticResource Surface.Base}">
     <Page.Resources>
@@ -519,24 +520,120 @@
                                     <ui:SymbolIcon Symbol="Cloud24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Accent.Primary}" VerticalAlignment="Center" />
                                     <TextBlock Text="Connection profile" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" />
                                 </StackPanel>
-                                <TextBlock Text="This project uses a central connection profile."
+                                <TextBlock Text="Assign one or more FTP/SFTP profiles. The default is used by Commit and Sync."
                                            Foreground="{StaticResource Text.Muted}"
                                            FontSize="11"
                                            Margin="0,0,0,10"
                                            TextWrapping="Wrap" />
-                                <Grid>
+                                <ListBox x:Name="AssignedFtpProfilesList"
+                                         MinHeight="72"
+                                         MaxHeight="220"
+                                         Background="Transparent"
+                                         BorderThickness="0"
+                                         Style="{StaticResource App.ListBox.Host}"
+                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                         SelectionChanged="AssignedFtpProfilesList_SelectionChanged">
+                                    <ListBox.ItemContainerStyle>
+                                        <Style TargetType="ListBoxItem" BasedOn="{StaticResource App.ListBoxItem.Transparent}">
+                                            <Setter Property="Padding" Value="0"/>
+                                            <Setter Property="Margin" Value="0,0,0,8"/>
+                                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                        </Style>
+                                    </ListBox.ItemContainerStyle>
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border x:Name="AssignedFtpRow"
+                                                    Background="{StaticResource Surface.Input}"
+                                                    BorderBrush="{StaticResource Border.Subtle}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="8"
+                                                    Padding="10,8">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <TextBlock Text="{Binding Name}"
+                                                                       FontWeight="SemiBold"
+                                                                       FontSize="13"
+                                                                       Foreground="{StaticResource Text.Primary}"
+                                                                       TextTrimming="CharacterEllipsis"/>
+                                                            <Border Margin="8,0,0,0"
+                                                                    Background="{StaticResource Status.SuccessSurface}"
+                                                                    CornerRadius="4"
+                                                                    Padding="6,2"
+                                                                    VerticalAlignment="Center"
+                                                                    Visibility="{Binding DefaultBadgeVisibility}">
+                                                                <TextBlock Text="Default"
+                                                                           FontSize="10"
+                                                                           FontWeight="SemiBold"
+                                                                           Foreground="{StaticResource Status.Success}"/>
+                                                            </Border>
+                                                        </StackPanel>
+                                                        <TextBlock Text="{Binding Host}"
+                                                                   FontSize="11"
+                                                                   Foreground="{StaticResource Text.Muted}"
+                                                                   Margin="0,2,0,0"
+                                                                   TextTrimming="CharacterEllipsis"/>
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <Button Content="★"
+                                                                Width="28"
+                                                                Height="28"
+                                                                Padding="0"
+                                                                Margin="0,0,4,0"
+                                                                Style="{StaticResource App.IconButton}"
+                                                                ToolTip="{loc:T deploy.tip.setFtpDefault}"
+                                                                Click="SetDefaultFtpButton_Click"
+                                                                IsEnabled="{Binding CanSetDefault}"/>
+                                                        <Button Content="−"
+                                                                Width="28"
+                                                                Height="28"
+                                                                Padding="0"
+                                                                Style="{StaticResource App.IconButton}"
+                                                                ToolTip="{loc:T deploy.tip.removeFtpProfile}"
+                                                                Click="RemoveAssignedFtpButton_Click"/>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Border>
+                                            <DataTemplate.Triggers>
+                                                <DataTrigger Binding="{Binding IsDefault}" Value="True">
+                                                    <Setter TargetName="AssignedFtpRow" Property="Background" Value="{StaticResource Status.SuccessSurface}"/>
+                                                </DataTrigger>
+                                            </DataTemplate.Triggers>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                                <TextBlock x:Name="AssignedFtpEmptyText"
+                                           Text="No FTP/SFTP profile assigned to this project."
+                                           Foreground="{StaticResource Text.Muted}"
+                                           FontSize="11"
+                                           Margin="0,0,0,10"
+                                           Visibility="Collapsed"/>
+                                <Grid Margin="0,4,0,0">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <ComboBox x:Name="ConnectionProfileComboBox"
+                                    <ComboBox x:Name="AddFtpProfileComboBox"
                                               Grid.Column="0"
                                               Height="36"
                                               Style="{StaticResource App.InputComboBox}"
-                                              DisplayMemberPath="DisplayName"
-                                              SelectionChanged="ConnectionProfileComboBox_SelectionChanged" />
-                                    <Button x:Name="ManageConnectionsButton"
+                                              DisplayMemberPath="DisplayName" />
+                                    <Button x:Name="AddFtpProfileButton"
                                             Grid.Column="1"
+                                            Content="Add"
+                                            Height="36"
+                                            Margin="8,0,0,0"
+                                            Padding="12,0"
+                                            Style="{StaticResource App.Button.Ghost}"
+                                            ToolTip="{loc:T deploy.tip.addFtpProfile}"
+                                            Click="AddFtpProfileButton_Click" />
+                                    <Button x:Name="ManageConnectionsButton"
+                                            Grid.Column="2"
                                             Content="Manage profiles"
                                             Height="36"
                                             Margin="8,0,0,0"

@@ -1,83 +1,177 @@
 <Window x:Class="GitDeployPro.Controls.ModernMessageBox"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Notification" Height="230" Width="430"
+        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+        Title="Notification"
         WindowStartupLocation="CenterOwner"
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent"
-        ShowInTaskbar="False">
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        PreviewKeyDown="Window_PreviewKeyDown">
 
-    <Grid Background="{StaticResource Surface.Overlay}">
-        <Border Width="430"
-                MinHeight="220"
-                Padding="22"
+    <Window.Resources>
+        <Style x:Key="Dialog.ActionButton" TargetType="Button" BasedOn="{StaticResource App.Button.Base}">
+            <Setter Property="MinWidth" Value="104" />
+            <Setter Property="Height" Value="38" />
+            <Setter Property="Padding" Value="16,0" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style x:Key="Dialog.DismissButton" TargetType="Button" BasedOn="{StaticResource App.IconButton}">
+            <Setter Property="Width" Value="32" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{StaticResource Text.Muted}" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+    </Window.Resources>
+
+    <Grid x:Name="ScrimGrid"
+          Background="{StaticResource Surface.Overlay}"
+          MouseLeftButtonDown="Scrim_MouseLeftButtonDown">
+        <Border x:Name="DialogCard"
+                Width="440"
+                MinWidth="380"
+                MaxWidth="520"
+                MinHeight="188"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center"
                 Background="{StaticResource Surface.Raised}"
-                BorderBrush="{StaticResource Border.Strong}"
+                BorderBrush="{StaticResource Border.Subtle}"
                 BorderThickness="1"
-                CornerRadius="14">
+                CornerRadius="16"
+                SnapsToDevicePixels="True"
+                MouseLeftButtonDown="DialogCard_MouseLeftButtonDown">
             <Border.Effect>
-                <DropShadowEffect Color="Black" BlurRadius="30" ShadowDepth="8" Opacity="0.45" />
+                <DropShadowEffect BlurRadius="40"
+                                  ShadowDepth="10"
+                                  Opacity="0.5"
+                                  Color="{Binding Color, Source={StaticResource Shadow.Color}}" />
             </Border.Effect>
 
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
+            <Border CornerRadius="16" ClipToBounds="True">
+                <Grid>
+                    <Border x:Name="AccentBar"
+                            Width="4"
+                            HorizontalAlignment="Left"
+                            Background="{StaticResource Status.Info}" />
 
-                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,14">
-                    <TextBlock x:Name="IconText" Text="ℹ️" FontSize="26" Margin="0,0,12,0" VerticalAlignment="Center" />
-                    <TextBlock x:Name="TitleText"
-                               Text="Title"
-                               FontSize="20"
-                               FontWeight="SemiBold"
-                               Foreground="{StaticResource Text.Primary}"
-                               VerticalAlignment="Center" />
-                </StackPanel>
+                    <Grid Margin="24,20,20,18">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
 
-                <TextBlock Grid.Row="1"
-                           x:Name="MessageText"
-                           Text="Message content goes here..."
-                           FontSize="14"
-                           Foreground="{StaticResource Text.Secondary}"
-                           TextWrapping="Wrap"
-                           VerticalAlignment="Top"
-                           LineHeight="21" />
+                        <Grid Grid.Row="0" Margin="0,0,0,16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
 
-                <StackPanel Grid.Row="2"
-                            Orientation="Horizontal"
-                            HorizontalAlignment="Right"
-                            Margin="0,18,0,0">
-                    <Button x:Name="ExtraButton"
-                            Content="No"
-                            Height="36"
-                            Width="110"
-                            Margin="0,0,10,0"
-                            Style="{StaticResource App.Button.Secondary}"
-                            Visibility="Collapsed"
-                            Click="ExtraButton_Click" />
+                            <Border x:Name="IconBadge"
+                                    Width="44"
+                                    Height="44"
+                                    CornerRadius="12"
+                                    Background="{StaticResource Status.InfoSurface}"
+                                    VerticalAlignment="Top">
+                                <ui:SymbolIcon x:Name="DialogIcon"
+                                               Symbol="Info24"
+                                               Filled="False"
+                                               FontSize="20"
+                                               Foreground="{StaticResource Status.Info}"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" />
+                            </Border>
 
-                    <Button x:Name="CancelButton"
-                            Content="Cancel"
-                            Height="36"
-                            Width="96"
-                            Margin="0,0,10,0"
-                            Style="{StaticResource App.Button.Ghost}"
-                            Visibility="Collapsed"
-                            Click="CancelButton_Click" />
+                            <StackPanel Grid.Column="1"
+                                        Margin="14,1,12,0"
+                                        VerticalAlignment="Center">
+                                <TextBlock x:Name="KindLabel"
+                                           Text="Info"
+                                           FontSize="11"
+                                           FontWeight="SemiBold"
+                                           Foreground="{StaticResource Status.Info}"
+                                           Margin="0,0,0,4" />
+                                <TextBlock x:Name="TitleText"
+                                           Text="Title"
+                                           FontSize="17"
+                                           FontWeight="SemiBold"
+                                           Foreground="{StaticResource Text.Primary}"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
 
-                    <Button x:Name="OkButton"
-                            Content="OK"
-                            Height="36"
-                            Width="96"
-                            Style="{StaticResource App.Button.Primary}"
-                            Click="OkButton_Click" />
-                </StackPanel>
-            </Grid>
+                            <Button x:Name="DismissButton"
+                                    Grid.Column="2"
+                                    Style="{StaticResource Dialog.DismissButton}"
+                                    VerticalAlignment="Top"
+                                    Click="DismissButton_Click"
+                                    Visibility="Collapsed">
+                                <ui:SymbolIcon Symbol="Dismiss24"
+                                               Filled="False"
+                                               FontSize="14"
+                                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                            </Button>
+                        </Grid>
+
+                        <TextBlock Grid.Row="1"
+                                   x:Name="MessageText"
+                                   Text="Message content goes here..."
+                                   FontSize="13.5"
+                                   Foreground="{StaticResource Text.Secondary}"
+                                   TextWrapping="Wrap"
+                                   LineHeight="21"
+                                   LineStackingStrategy="BlockLineHeight"
+                                   VerticalAlignment="Top"
+                                   Margin="0,0,0,8" />
+
+                        <Grid Grid.Row="2" Margin="0,14,0,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Border Height="1"
+                                    Background="{StaticResource Border.Subtle}"
+                                    Opacity="0.85"
+                                    Margin="0,0,0,14" />
+                            <StackPanel Grid.Row="1"
+                                        Orientation="Horizontal"
+                                        HorizontalAlignment="Right">
+                                <Button x:Name="ExtraButton"
+                                        Content="No"
+                                        Style="{StaticResource Dialog.ActionButton}"
+                                        Background="{StaticResource Surface.Input}"
+                                        BorderBrush="{StaticResource Border.Subtle}"
+                                        Foreground="{StaticResource Text.Secondary}"
+                                        Margin="0,0,8,0"
+                                        Visibility="Collapsed"
+                                        Click="ExtraButton_Click" />
+                                <Button x:Name="CancelButton"
+                                        Content="Cancel"
+                                        Style="{StaticResource Dialog.ActionButton}"
+                                        Background="Transparent"
+                                        BorderBrush="{StaticResource Border.Subtle}"
+                                        Foreground="{StaticResource Text.Secondary}"
+                                        Margin="0,0,8,0"
+                                        Visibility="Collapsed"
+                                        Click="CancelButton_Click" />
+                                <Button x:Name="OkButton"
+                                        Content="OK"
+                                        Style="{StaticResource Dialog.ActionButton}"
+                                        Background="{StaticResource Accent.Primary}"
+                                        BorderBrush="{StaticResource Accent.Primary}"
+                                        Foreground="{StaticResource Text.Primary}"
+                                        IsDefault="True"
+                                        Click="OkButton_Click" />
+                            </StackPanel>
+                        </Grid>
+                    </Grid>
+                </Grid>
+            </Border>
         </Border>
     </Grid>
 </Window>

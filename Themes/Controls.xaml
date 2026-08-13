@@ -186,6 +186,8 @@
         <Setter Property="BorderBrush" Value="{StaticResource Border.Subtle}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="CaretBrush" Value="{StaticResource Text.Primary}" />
+        <Setter Property="SelectionBrush" Value="{StaticResource Accent.Primary}" />
     </Style>
 
     <Style x:Key="App.InputTextBox.Multiline" TargetType="TextBox" BasedOn="{StaticResource App.InputTextBox}">
@@ -232,6 +234,8 @@
         <Setter Property="BorderBrush" Value="{StaticResource Border.Subtle}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="CaretBrush" Value="{StaticResource Text.Primary}" />
+        <Setter Property="SelectionBrush" Value="{StaticResource Accent.Primary}" />
     </Style>
 
     <Style x:Key="App.ComboBoxItemStyle" TargetType="ComboBoxItem">

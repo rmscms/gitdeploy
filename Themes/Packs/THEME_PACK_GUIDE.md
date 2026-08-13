@@ -62,6 +62,8 @@ Palette references use `@Key` form, for example `"@Accent.Primary"`.
 | `fallbackBackground` / `fallbackForeground` | Non-WebView fallback |
 | `completionBackground` / `completionListBackground` / `completionBorder` | SQL completion popup |
 | `syntaxComment` / `syntaxString` / `syntaxKeyword` / `syntaxFunction` / `syntaxNumber` / `syntaxDataType` | SQL highlighting |
+| `tabClose` | Close icon on an inactive editor tab |
+| `tabCloseOnAccent` | Close icon on the active editor tab (must contrast on `Accent.Primary`, typically white) |
 
 ## Color values
 

@@ -2,6 +2,8 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:loc="clr-namespace:GitDeployPro.Services.Localization"
              xmlns:local="clr-namespace:GitDeployPro.Models"
              Background="{StaticResource Surface.Base}">
     <Grid>
@@ -19,18 +21,48 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- Filter -->
-                <TextBox x:Name="FilterTextBox" 
+                <TextBox x:Name="FilterTextBox"
                          Grid.Column="0"
-                         mah:TextBoxHelper.Watermark="Filter by folder/session name..."
+                         mah:TextBoxHelper.Watermark="Filter..."
                          Style="{StaticResource App.InputTextBox}"
-                         Margin="0,0,10,0"
+                         Margin="0,0,8,0"
+                         ToolTip="{loc:T session.tip.filter}"
                          TextChanged="FilterTextBox_TextChanged"/>
 
-                <!-- Toolbar Buttons -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal">
-                    <Button Content="🔗" ToolTip="Link" Width="32" Height="32" Margin="2" Style="{StaticResource App.IconButton}" Click="LinkButton_Click"/>
-                    <Button Content="+" ToolTip="Add Folder" Width="32" Height="32" Margin="2" Style="{StaticResource App.IconButton}" Background="{StaticResource Status.Success}" BorderBrush="{StaticResource Status.Success}" Foreground="{StaticResource Text.Inverse}" Click="AddFolderButton_Click"/>
-                    <Button Content="–" ToolTip="Remove" Width="32" Height="32" Margin="2" Style="{StaticResource App.IconButton}" Background="{StaticResource Status.Error}" BorderBrush="{StaticResource Status.Error}" Foreground="{StaticResource Text.Primary}" Click="RemoveButton_Click"/>
+                    <Button Width="32" Height="32" Margin="2,0,0,0"
+                            Style="{StaticResource App.IconButton}"
+                            Background="Transparent"
+                            BorderBrush="{StaticResource Border.Subtle}"
+                            BorderThickness="1"
+                            Foreground="{StaticResource Text.Muted}"
+                            ToolTip="{loc:T session.tip.link}"
+                            Click="LinkButton_Click">
+                        <ui:SymbolIcon Symbol="Link24" Filled="False" FontSize="14"
+                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                    </Button>
+                    <Button Width="32" Height="32" Margin="2,0,0,0"
+                            Style="{StaticResource App.IconButton}"
+                            Background="Transparent"
+                            BorderBrush="{StaticResource Status.Success}"
+                            BorderThickness="1"
+                            Foreground="{StaticResource Status.Success}"
+                            ToolTip="{loc:T session.tip.addFolder}"
+                            Click="AddFolderButton_Click">
+                        <ui:SymbolIcon Symbol="FolderAdd24" Filled="False" FontSize="14"
+                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                    </Button>
+                    <Button Width="32" Height="32" Margin="2,0,0,0"
+                            Style="{StaticResource App.IconButton}"
+                            Background="Transparent"
+                            BorderBrush="{StaticResource Status.Error}"
+                            BorderThickness="1"
+                            Foreground="{StaticResource Status.Error}"
+                            ToolTip="{loc:T session.tip.remove}"
+                            Click="RemoveButton_Click">
+                        <ui:SymbolIcon Symbol="Subtract24" Filled="False" FontSize="14"
+                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                    </Button>
                 </StackPanel>
             </Grid>
         </Border>

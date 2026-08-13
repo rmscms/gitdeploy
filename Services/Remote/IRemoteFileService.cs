@@ -15,6 +15,9 @@ namespace GitDeployPro.Services.Remote
         Task ConnectAsync(ConnectionProfile profile, CancellationToken cancellationToken = default);
         Task DisconnectAsync();
 
+        /// <summary>Drop the socket immediately. Do not wait for Connect/list timeouts.</summary>
+        void Abort();
+
         Task<IReadOnlyList<RemoteDirectoryEntry>> ListDirectoryAsync(string path, CancellationToken cancellationToken = default);
         Task<string> OpenTextAsync(string remotePath, CancellationToken cancellationToken = default);
         Task<string> ReadTextFileAsync(string remotePath, CancellationToken cancellationToken = default);

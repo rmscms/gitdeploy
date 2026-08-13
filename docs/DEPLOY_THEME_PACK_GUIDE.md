@@ -37,7 +37,7 @@ Open the full guide from Settings → Themes → **Open guide**, or the file `TH
 | `deploy.ftp.fileTypes` | Per-type icon/badge colors (`php`, `js`, `directory`, …) |
 | `deploy.logs` | Log accents |
 | `deploy.terminal` | Host bg, status LEDs, presets drawer chrome, xterm theme, text presets |
-| `deploy.editor` | WebView2 / Monaco / AvalonEdit / SQL completion & syntax |
+| `deploy.editor` | WebView2 / Monaco / AvalonEdit / SQL completion & syntax (`tabClose` / `tabCloseOnAccent` for editor tab close icons) |
 | `deploy.diff` | Diff line backgrounds |
 
 ## Color values

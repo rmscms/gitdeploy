@@ -69,6 +69,7 @@ namespace GitDeployPro.Pages
         private double _bottomDockResizeStartHeight;
         private string _remoteWorkspaceProjectPath = string.Empty;
         private bool _remoteWorkspaceInitialized;
+        private string _ftpAssignmentFingerprint = string.Empty;
         private bool _isRemoteEditorOverlayActive;
         private GridLength _remotePanelLastWidth = new GridLength(420);
         private GridLength _leftDockLastWidth = new GridLength(340);
@@ -81,7 +82,9 @@ namespace GitDeployPro.Pages
         private bool _compactPanelOpenedByUser;
         private bool _isBranchDetailsExpanded;
         private bool _isPortrait;
-        private bool _suppressDeployThemeComboChange;
+        private bool _workspaceActivated;
+        private bool _sessionTornDown;
+        private bool _teardownCompleted;
         private int _autoRefreshTickCount;
         private DateTime _lastBranchRefreshUtc = DateTime.MinValue;
         private static readonly TimeSpan BranchRefreshInterval = TimeSpan.FromSeconds(60);
@@ -110,23 +113,31 @@ namespace GitDeployPro.Pages
 
         private void DeployPage_Loaded(object sender, RoutedEventArgs e)
         {
-            // Default Deploy workspace: Direct Upload + FTP + Terminal expanded.
-            _isDirectUploadDockCollapsed = false;
-            _isRemoteWorkspaceCollapsed = false;
-            _isBottomDockCollapsed = false;
-            _compactPanelOpenedByUser = true;
-            _bottomDockLastHeight = new GridLength(0);
-            ApplyWorkspaceLayout(force: true);
+            if (!_workspaceActivated)
+            {
+                // Default Deploy workspace: Direct Upload + FTP + Terminal expanded.
+                _isDirectUploadDockCollapsed = false;
+                _isRemoteWorkspaceCollapsed = false;
+                _isBottomDockCollapsed = false;
+                _compactPanelOpenedByUser = true;
+                _bottomDockLastHeight = new GridLength(0);
+                _workspaceActivated = true;
+                ApplyWorkspaceLayout(force: true);
+                Dispatcher.BeginInvoke(new Action(ApplyDefaultTerminalDockHeight), DispatcherPriority.Loaded);
+            }
+            else
+            {
+                ApplyWorkspaceLayout(force: true);
+            }
+
             // FTP profiles must initialize even when git is missing / LoadGitData early-returned.
             EnsureRemoteWorkspaceInitialized();
             ShowBottomTerminalTab();
             _ = EnsureDeployTerminalSessionAsync();
-            // Re-apply after first real layout so height is based on ActualHeight (min 30% page).
-            Dispatcher.BeginInvoke(new Action(ApplyDefaultTerminalDockHeight), DispatcherPriority.Loaded);
             UpdateUploadActionsToggleButton();
             ApplyBranchDetailsVisibility();
             UpdateBranchSummaryUi();
-            InitializeDeployThemePicker();
+            AttachDeployThemeHandlers();
         }
 
         private void ApplyDefaultTerminalDockHeight()
@@ -164,6 +175,37 @@ namespace GitDeployPro.Pages
 
         private void DeployPage_Unloaded(object sender, RoutedEventArgs e)
         {
+            // Leaving Deploy for Settings/other pages must keep FTP + terminals alive.
+            if (!_sessionTornDown)
+            {
+                return;
+            }
+
+            RunSessionTeardown();
+        }
+
+        /// <summary>
+        /// Disconnect remote + dispose terminals. Call on project switch or app exit — not page navigation.
+        /// </summary>
+        public void TeardownSession()
+        {
+            if (_sessionTornDown)
+            {
+                return;
+            }
+
+            _sessionTornDown = true;
+            RunSessionTeardown();
+        }
+
+        private void RunSessionTeardown()
+        {
+            if (_teardownCompleted)
+            {
+                return;
+            }
+
+            _teardownCompleted = true;
             DeployRemoteWorkspace.NotifyHostTeardown();
             DeployRemoteWorkspace.EditorModeChanged -= DeployRemoteWorkspace_EditorModeChanged;
             if (DirectUploadDock != null)
@@ -1547,64 +1589,10 @@ namespace GitDeployPro.Pages
             DeployMainColumn.MinWidth = MainColumnMinWidth;
         }
 
-        private void InitializeDeployThemePicker()
+        private void AttachDeployThemeHandlers()
         {
-            if (DeployThemeComboBox == null)
-            {
-                return;
-            }
-
-            ThemeService.Instance.Initialize();
-            ThemeService.Instance.ThemesChanged -= ThemeService_ThemesChanged;
-            ThemeService.Instance.ThemesChanged += ThemeService_ThemesChanged;
             ThemeService.Instance.ThemeChanged -= ThemeService_ThemeChanged;
             ThemeService.Instance.ThemeChanged += ThemeService_ThemeChanged;
-
-            _suppressDeployThemeComboChange = true;
-            try
-            {
-                DeployThemeComboBox.ItemsSource = ThemeService.Instance.Themes.ToList();
-                var saved = _configService.ResolveAppThemeId();
-                var theme = ThemeService.Instance.FindTheme(saved) ?? ThemeService.Instance.Themes[0];
-                DeployThemeComboBox.SelectedItem = theme;
-                // Keep combo in sync with the already-applied app theme (do not re-apply unless needed).
-                if (!string.Equals(ThemeService.Instance.CurrentThemeId, theme.Id, StringComparison.OrdinalIgnoreCase))
-                {
-                    ThemeService.Instance.ApplyTheme(theme.Id);
-                }
-            }
-            finally
-            {
-                _suppressDeployThemeComboChange = false;
-            }
-        }
-
-        private void ThemeService_ThemesChanged(object? sender, EventArgs e)
-        {
-            if (!Dispatcher.CheckAccess())
-            {
-                Dispatcher.Invoke(() => ThemeService_ThemesChanged(sender, e));
-                return;
-            }
-
-            if (DeployThemeComboBox == null)
-            {
-                return;
-            }
-
-            var selectedId = (DeployThemeComboBox.SelectedItem as AppThemeInfo)?.Id
-                             ?? ThemeService.Instance.CurrentThemeId;
-            _suppressDeployThemeComboChange = true;
-            try
-            {
-                DeployThemeComboBox.ItemsSource = ThemeService.Instance.Themes.ToList();
-                DeployThemeComboBox.SelectedItem = ThemeService.Instance.FindTheme(selectedId)
-                                                  ?? ThemeService.Instance.Themes.FirstOrDefault();
-            }
-            finally
-            {
-                _suppressDeployThemeComboChange = false;
-            }
         }
 
         private void ThemeService_ThemeChanged(object? sender, EventArgs e)
@@ -1623,29 +1611,8 @@ namespace GitDeployPro.Pages
             }
         }
 
-        private void DeployThemeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (_suppressDeployThemeComboChange)
-            {
-                return;
-            }
-
-            var themeId = DeployThemeComboBox?.SelectedItem is AppThemeInfo info
-                ? info.Id
-                : DeployThemeComboBox?.SelectedValue as string;
-
-            if (string.IsNullOrWhiteSpace(themeId))
-            {
-                return;
-            }
-
-            ThemeService.Instance.ApplyTheme(themeId);
-            _configService.SetAppThemeId(themeId);
-        }
-
         private void DetachDeployThemeHandlers()
         {
-            ThemeService.Instance.ThemesChanged -= ThemeService_ThemesChanged;
             ThemeService.Instance.ThemeChanged -= ThemeService_ThemeChanged;
         }
 
@@ -2071,15 +2038,31 @@ namespace GitDeployPro.Pages
             }
 
             var path = _projectConfig.LocalProjectPath ?? string.Empty;
+            var fingerprint = BuildFtpAssignmentFingerprint(_projectConfig);
             if (_remoteWorkspaceInitialized
                 && string.Equals(_remoteWorkspaceProjectPath, path, StringComparison.OrdinalIgnoreCase))
             {
+                if (!string.Equals(_ftpAssignmentFingerprint, fingerprint, StringComparison.Ordinal))
+                {
+                    _ftpAssignmentFingerprint = fingerprint;
+                    DeployRemoteWorkspace?.NotifyProjectConfigChanged(_projectConfig);
+                }
+
                 return;
             }
 
             _remoteWorkspaceProjectPath = path;
             _remoteWorkspaceInitialized = true;
+            _ftpAssignmentFingerprint = fingerprint;
             DeployRemoteWorkspace?.Initialize(_projectConfig);
+        }
+
+        private static string BuildFtpAssignmentFingerprint(ProjectConfig? config)
+        {
+            var assigned = string.Join(",", ProjectFtpAssignments.GetAssignedIds(config));
+            var defaultId = ProjectFtpAssignments.GetDefaultId(config);
+            var confirmed = config?.FtpSyncTargetConfirmed == true ? "1" : "0";
+            return $"{assigned}#{defaultId}#{confirmed}";
         }
 
         private async void LoadGitData(bool includeExpensiveOperations = true, bool refreshBranches = true)
@@ -2918,6 +2901,7 @@ namespace GitDeployPro.Pages
             {
                 TotalSelected = filesToDeploy?.Count ?? 0
             };
+            var cancelledByUser = false;
 
             try
             {
@@ -2934,6 +2918,13 @@ namespace GitDeployPro.Pages
                 // In FTP mode we must really deploy first; Git-only mode can simulate.
                 if (hasFtpTarget)
                 {
+                    if (!ConfirmFtpSyncTargetIfNeeded())
+                    {
+                        cancelledByUser = true;
+                        AddLog("⏸ Sync cancelled — no FTP target selected.");
+                        return deployResult;
+                    }
+
                     deployResult = await UploadFilesAsync(filesToDeploy);
                 }
                 else
@@ -3090,7 +3081,7 @@ namespace GitDeployPro.Pages
                 SourceBranchComboBox.IsEnabled = true;
                 TargetBranchComboBox.IsEnabled = true;
                 DeployProgressBar.Value = 0;
-                ProgressText.Text = "Deployment finished!";
+                ProgressText.Text = cancelledByUser ? "Deployment cancelled." : "Deployment finished!";
                 HideDeployLogsAfterDeploy();
                 LoadGitData();
                 _ = DirectUploadDock.RefreshGitOverlayPublicAsync();
@@ -3220,6 +3211,7 @@ namespace GitDeployPro.Pages
                             await client.UploadFile(localPath, remotePath, FtpRemoteExists.Overwrite, createRemoteDir: true);
                             result.UploadedCount++;
                             AddLog($"✅ Uploaded {file.Name}");
+                            await NotifyOpenEditorsAfterUploadAsync(localPath, remotePath);
                         }
                         catch (Exception fileEx)
                         {
@@ -3261,18 +3253,74 @@ namespace GitDeployPro.Pages
             }
         }
 
+        private async Task NotifyOpenEditorsAfterUploadAsync(string localPath, string remotePath)
+        {
+            try
+            {
+                if (DeployRemoteWorkspace != null)
+                {
+                    await DeployRemoteWorkspace.ReloadSessionsMatchingRemotePathAsync(remotePath);
+                }
+
+                if (DirectUploadDock != null)
+                {
+                    await DirectUploadDock.TryReloadLocalEditorIfMatchesAsync(localPath);
+                }
+            }
+            catch (Exception ex)
+            {
+                AddLog($"Editor reload after upload skipped: {ex.Message}");
+            }
+        }
+
         private ConnectionProfile? GetActiveConnectionProfile()
         {
-            if (string.IsNullOrWhiteSpace(_projectConfig.ConnectionProfileId)) return null;
+            var defaultId = ProjectFtpAssignments.GetDefaultId(_projectConfig);
+            if (string.IsNullOrWhiteSpace(defaultId))
+            {
+                return null;
+            }
+
             try
             {
                 var connections = _configService.LoadConnections();
-                return connections.FirstOrDefault(c => string.Equals(c.Id, _projectConfig.ConnectionProfileId, StringComparison.OrdinalIgnoreCase));
+                return connections.FirstOrDefault(c => string.Equals(c.Id, defaultId, StringComparison.OrdinalIgnoreCase));
             }
             catch
             {
                 return null;
             }
+        }
+
+        private bool ConfirmFtpSyncTargetIfNeeded()
+        {
+            var assigned = ProjectFtpAssignments.ResolveAssignedProfiles(
+                _projectConfig,
+                _configService.LoadConnections());
+            if (assigned.Count <= 1 || _projectConfig.FtpSyncTargetConfirmed)
+            {
+                return true;
+            }
+
+            if (!ProjectFtpTargetWindow.TryPick(
+                    Window.GetWindow(this),
+                    assigned,
+                    ProjectFtpAssignments.GetDefaultId(_projectConfig),
+                    out var selectedId,
+                    "This project has more than one FTP. Choose where Commit and Sync should upload."))
+            {
+                return false;
+            }
+
+            ProjectFtpAssignments.SetDefault(_projectConfig, selectedId, confirmed: true);
+            var selected = assigned.FirstOrDefault(p =>
+                string.Equals(p.Id, selectedId, StringComparison.OrdinalIgnoreCase));
+            ProjectFtpAssignments.CopyLegacyFields(_projectConfig, selected);
+            _configService.SaveProjectConfig(_projectConfig);
+            _ftpAssignmentFingerprint = BuildFtpAssignmentFingerprint(_projectConfig);
+            DeployRemoteWorkspace?.NotifyProjectConfigChanged(_projectConfig);
+            AddLog($"🎯 Sync target set to {selected?.Name ?? selectedId}.");
+            return true;
         }
 
         private PathMapping? GetPrimaryMapping(ConnectionProfile? profile)

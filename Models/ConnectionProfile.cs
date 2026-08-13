@@ -53,8 +53,20 @@ namespace GitDeployPro.Models
         /// <summary>When false, <see cref="SshStartupCommand"/> is kept but not executed on connect.</summary>
         public bool RunSshStartupCommand { get; set; } = true;
 
-        /// <summary>SSH terminal picker favorites — sorted to the top of SSH lists.</summary>
-        public bool IsFavorite { get; set; }
+        /// <summary>SSH / Connection Manager favorites — sorted near the top of lists.</summary>
+        private bool _isFavorite;
+        public bool IsFavorite
+        {
+            get => _isFavorite;
+            set
+            {
+                if (_isFavorite != value)
+                {
+                    _isFavorite = value;
+                    OnPropertyChanged(nameof(IsFavorite));
+                }
+            }
+        }
         private bool _isProjectDefault;
         public bool IsProjectDefault
         {

@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:avalon="http://icsharpcode.net/sharpdevelop/avalonedit"
              xmlns:wv="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+             xmlns:loc="clr-namespace:GitDeployPro.Services.Localization"
              Background="{StaticResource Surface.Base}">
     <Border Style="{StaticResource App.CardStyle}" Padding="8">
         <Grid>
@@ -22,13 +23,15 @@
 
                 <Button x:Name="CloseButton"
                         Grid.Column="0"
-                        Content="Close"
-                        Height="28"
-                        MinWidth="72"
-                        Margin="0,0,8,0"
-                        Style="{StaticResource App.Button.Ghost}"
+                        Content="✕"
+                        Width="26"
+                        Height="26"
+                        MinWidth="0"
+                        Padding="0"
+                        Margin="0,0,6,0"
+                        Style="{StaticResource App.IconButton}"
                         Foreground="{StaticResource Status.Error}"
-                        BorderBrush="{StaticResource Status.Error}"
+                        ToolTip="{loc:T deploy.tip.closeEditor}"
                         Click="CloseButton_Click" />
 
                 <TextBlock x:Name="PathText"
@@ -41,21 +44,27 @@
 
                 <Button x:Name="RevertButton"
                         Grid.Column="2"
-                        Content="Revert"
-                        Height="28"
-                        MinWidth="72"
-                        Margin="0,0,8,0"
-                        Style="{StaticResource App.Button.Ghost}"
+                        Content="↩"
+                        Width="26"
+                        Height="26"
+                        MinWidth="0"
+                        Padding="0"
+                        Margin="0,0,4,0"
+                        Style="{StaticResource App.IconButton}"
                         IsEnabled="False"
+                        ToolTip="{loc:T deploy.tip.revert}"
                         Click="RevertButton_Click" />
 
                 <Button x:Name="SaveButton"
                         Grid.Column="3"
-                        Content="Save"
-                        Height="28"
-                        MinWidth="88"
-                        Style="{StaticResource App.Button.Primary}"
+                        Content="⬆"
+                        Width="26"
+                        Height="26"
+                        MinWidth="0"
+                        Padding="0"
+                        Style="{StaticResource App.IconButton}"
                         IsEnabled="False"
+                        ToolTip="{loc:T deploy.tip.saveUpload}"
                         Click="SaveButton_Click" />
             </Grid>
 

@@ -2,7 +2,6 @@
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:controls="clr-namespace:GitDeployPro.Controls"
-      xmlns:behaviors="clr-namespace:GitDeployPro.Behaviors"
       xmlns:loc="clr-namespace:GitDeployPro.Services.Localization"
       Title="DeployPage"
       Background="{StaticResource Surface.Base}">
@@ -222,52 +221,13 @@
         <!-- Center workspace (bottom Logs/Terminal lives in full-width overlay below) -->
         <Grid x:Name="CenterWorkspace" Grid.Column="3" Margin="10,0,10,0">
             <Grid x:Name="CenterContentHost" Margin="0,0,0,28">
-            <ScrollViewer x:Name="CenterContentScrollViewer"
-                          VerticalScrollBarVisibility="Auto"
-                          HorizontalScrollBarVisibility="Disabled">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" MinHeight="180" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-
-                    <Grid Grid.Row="0" Margin="0,0,0,8">
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="🚀" FontSize="18" VerticalAlignment="Center" Margin="0,0,8,0" />
-                            <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="Deploy Project" Style="{StaticResource App.PageTitleTextStyle}" FontSize="16" />
-                                <TextBlock Text="Compare, deploy, and sync in one flow."
-                                           Style="{StaticResource App.PageSubtitleTextStyle}"
-                                           FontSize="11" />
-                            </StackPanel>
-                        </StackPanel>
-
-                        <StackPanel Orientation="Horizontal"
-                                    HorizontalAlignment="Right"
-                                    VerticalAlignment="Center">
-                            <TextBlock Text="Theme"
-                                       FontSize="11"
-                                       FontWeight="SemiBold"
-                                       Foreground="{StaticResource Text.Muted}"
-                                       VerticalAlignment="Center"
-                                       Margin="0,0,8,0" />
-                            <ComboBox x:Name="DeployThemeComboBox"
-                                      Width="110"
-                                      Height="28"
-                                      FontSize="12"
-                                      Style="{StaticResource App.InputComboBox}"
-                                      behaviors:ComboBoxSearchBehavior.EnableAutoSearch="False"
-                                      DisplayMemberPath="DisplayName"
-                                      SelectedValuePath="Id"
-                                      SelectionChanged="DeployThemeComboBox_SelectionChanged"
-                                      ToolTip="{loc:T deploy.tip.theme}" />
-                        </StackPanel>
-                    </Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" MinHeight="180" />
+                </Grid.RowDefinitions>
 
                     <!-- Compact deploy toolbar: branches collapsed by default + rollback -->
-                    <Border Grid.Row="1"
+                    <Border Grid.Row="0"
                             Background="{StaticResource Surface.Card}"
                             BorderBrush="{StaticResource Border.Subtle}"
                             BorderThickness="1"
@@ -356,6 +316,17 @@
                                             FontWeight="SemiBold"
                                             Style="{StaticResource App.Button.Secondary}"
                                             Click="ActionButton_Click" />
+                                    <Button x:Name="DeployButton"
+                                            Content="🔄 SYNC"
+                                            MinWidth="168"
+                                            Height="34"
+                                            Margin="0,6,0,0"
+                                            FontSize="12"
+                                            FontWeight="SemiBold"
+                                            Style="{StaticResource App.Button.Primary}"
+                                            Visibility="Collapsed"
+                                            IsEnabled="False"
+                                            Click="DeployButton_Click" />
                                     <Border x:Name="DeployPushBadge"
                                             Style="{StaticResource App.StatusBadge.Warning}"
                                             Margin="0,6,0,0"
@@ -451,7 +422,17 @@
                         </Grid>
                     </Border>
 
-                    <Border Grid.Row="2"
+                    <Grid Grid.Row="1">
+                    <ScrollViewer x:Name="CenterContentScrollViewer"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*" MinHeight="160" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0"
                             Style="{StaticResource App.CardStyle}"
                             Margin="0,0,0,12"
                             Padding="{StaticResource Spacing.CardPaddingDense}">
@@ -463,11 +444,7 @@
 
                             <StackPanel Grid.Row="0" Margin="0,0,0,6">
                                 <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                    <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="Changed Files"
                                                    Style="{StaticResource App.SectionTitleTextStyle}"
                                                    FontSize="15"
@@ -493,17 +470,6 @@
                                                 ToolTip="{loc:T deploy.tip.refreshGitWorkingSet}"
                                                 Click="RefreshGitWorkingSet_Click" />
                                     </StackPanel>
-                                    <Button Grid.Column="1"
-                                            x:Name="DeployButton"
-                                            Content="🔄 SYNC"
-                                            Width="180"
-                                            Height="34"
-                                            FontSize="13"
-                                            FontWeight="Bold"
-                                            Style="{StaticResource App.Button.Primary}"
-                                            Visibility="Collapsed"
-                                            IsEnabled="False"
-                                            Click="DeployButton_Click" />
                                 </Grid>
                                 <TextBlock x:Name="StatusText"
                                            Text="Ready to compare changes..."
@@ -574,7 +540,7 @@
                         </Grid>
                     </Border>
 
-                    <Border Grid.Row="3"
+                    <Border Grid.Row="1"
                             Style="{StaticResource App.CardStyle}"
                             Padding="{StaticResource Spacing.CardPaddingDense}">
                         <StackPanel>
@@ -591,19 +557,19 @@
                                          BorderThickness="0" />
                         </StackPanel>
                     </Border>
-                </Grid>
-            </ScrollViewer>
+                        </Grid>
+                    </ScrollViewer>
 
-            <!-- FTP editor overlays the Deploy center area (full center column). -->
-            <Border x:Name="CenterEditorOverlayHost"
-                    Visibility="Collapsed"
-                    Background="{StaticResource Surface.Base}"
-                    BorderBrush="{StaticResource Border.Subtle}"
-                    BorderThickness="1"
-                    CornerRadius="8"
-                    Padding="6"
-                    Panel.ZIndex="40"
-                    Margin="0,0,0,0" />
+                    <Border x:Name="CenterEditorOverlayHost"
+                            Visibility="Collapsed"
+                            Background="{StaticResource Surface.Base}"
+                            BorderBrush="{StaticResource Border.Subtle}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="6"
+                            Panel.ZIndex="40"
+                            Margin="0,0,0,0" />
+                    </Grid>
             </Grid>
         </Grid>
 

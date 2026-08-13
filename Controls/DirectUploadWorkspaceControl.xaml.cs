@@ -122,6 +122,9 @@ namespace GitDeployPro.Controls
 
         public bool TryCloseLocalEditor(bool force = false) => LocalEditor?.TryClose(force) ?? true;
 
+        public Task TryReloadLocalEditorIfMatchesAsync(string localPath) =>
+            LocalEditor?.TryReloadFromDiskIfMatchesAsync(localPath) ?? Task.CompletedTask;
+
         public void ToggleUploadActionsPanel()
         {
             if (!CompactMode || UploadProcessSection == null)
@@ -179,7 +182,6 @@ namespace GitDeployPro.Controls
             PageHeaderRow.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
             UploadLogSection.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
             ContentRootGrid.Margin = compact ? new Thickness(4) : new Thickness(20);
-            RootScrollViewer.VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
 
             if (ToolbarSection != null)
             {
@@ -411,6 +413,8 @@ namespace GitDeployPro.Controls
 
         private async void DirectUploadWorkspaceControl_Loaded(object sender, RoutedEventArgs e)
         {
+            ThemeService.Instance.ThemeChanged -= OnDeployThemeChanged;
+            ThemeService.Instance.ThemeChanged += OnDeployThemeChanged;
             ApplyCompactMode(CompactMode);
             await LoadProjectFilesAsync();
             CheckSessionStatus();

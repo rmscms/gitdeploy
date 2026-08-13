@@ -1,17 +1,19 @@
 {
-  "version": "1.4.19",
-  "fileName": "GitDeployPro-1.4.19.exe",
-  "downloadUrl": "versions/GitDeployPro-1.4.19.exe",
-  "sha256": "02CE6149A8807EAF868E7D1FD05CC324DB7CB5317657F4CC7D4CDF9054C26EF7",
-  "releaseNotes": "- SSH startup command(s) after terminal connect (Connection Manager)\n- Deploy terminal picker: SSH-only list, favorite stars sorted first\n- FTP remote log collapsible (Show/Hide)\n- Connection Manager: project connection pinned first\n- Fix: Direct Upload panel inset when bottom terminal dock is open\n- Terminal/Session Manager: filter out FTP and database profiles from SSH targets",
+  "version": "1.4.20",
+  "fileName": "GitDeployPro-1.4.20.exe",
+  "downloadUrl": "versions/GitDeployPro-1.4.20.exe",
+  "sha256": "5003D05E9F6DE2EE978CA1A5A24B00F8DC5C0767190D4C97AAEADA2531242CBD",
+  "releaseNotes": "- FTP session stays connected when switching pages (Settings, Dashboard)\n- Header: theme in the hamburger menu, outline nav icons, Deploy title bar removed\n- Redesigned app dialogs (themed overlay)\n- Multiple FTP profiles per project, favorites, and default target before Commit and Sync\n- FTP editor: compact themed tab close; Refresh from remote (toolbar and right-click) with unsaved-change confirm\n- Upload success banner auto-hides after a few seconds\n- Standalone Terminal page removed (use the Deploy dock terminal)\n- Dark theme: connection Name field caret is visible",
   "changelog": [
-    "SSH startup command(s) after terminal connect (Connection Manager)",
-    "Deploy terminal picker: SSH-only list, favorite stars sorted first",
-    "FTP remote log collapsible (Show/Hide)",
-    "Connection Manager: project connection pinned first",
-    "Fix: Direct Upload panel inset when bottom terminal dock is open",
-    "Terminal/Session Manager: filter out FTP and database profiles from SSH targets"
+    "FTP session stays connected when switching pages (Settings, Dashboard)",
+    "Header: theme in the hamburger menu, outline nav icons, Deploy title bar removed",
+    "Redesigned app dialogs (themed overlay)",
+    "Multiple FTP profiles per project, favorites, and default target before Commit and Sync",
+    "FTP editor: compact themed tab close; Refresh from remote (toolbar and right-click) with unsaved-change confirm",
+    "Upload success banner auto-hides after a few seconds",
+    "Standalone Terminal page removed (use the Deploy dock terminal)",
+    "Dark theme: connection Name field caret is visible"
   ],
   "mandatory": false,
-  "publishedUtc": "2026-08-11T07:20:00Z"
+  "publishedUtc": "2026-08-13T10:43:10Z"
 }

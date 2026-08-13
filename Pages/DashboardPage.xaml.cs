@@ -182,7 +182,10 @@ namespace GitDeployPro.Pages
 
         private void QuickDeploy_Click(object sender, RoutedEventArgs e)
         {
-            NavigationService?.Navigate(new DeployPage());
+            if (System.Windows.Application.Current.MainWindow is MainWindow main)
+            {
+                main.NavigateToDeploy();
+            }
         }
 
         private void RefreshGit_Click(object sender, RoutedEventArgs e)
