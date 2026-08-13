@@ -233,7 +233,9 @@
       "syntaxKeyword": "#569CD6",
       "syntaxFunction": "#DCDCAA",
       "syntaxNumber": "#B5CEA8",
-      "syntaxDataType": "#4EC9B0"
+      "syntaxDataType": "#4EC9B0",
+      "tabClose": "@Text.Muted",
+      "tabCloseOnAccent": "#FFFFFFFF"
     },
     "diff": {
       "contextBg": "#101010",

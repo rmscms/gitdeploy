@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
@@ -17,6 +18,12 @@ namespace GitDeployPro.Models
     {
         // New Approach: Reference a Connection Profile
         public string ConnectionProfileId { get; set; } = "";
+
+        /// <summary>FTP/SFTP profiles assigned to this project. Empty means fall back to <see cref="ConnectionProfileId"/>.</summary>
+        public List<string> ConnectionProfileIds { get; set; } = new List<string>();
+
+        /// <summary>True after the user confirms the sync target (or the project has a single FTP).</summary>
+        public bool FtpSyncTargetConfirmed { get; set; }
 
         // Legacy Fields (Kept for backward compatibility if needed, but UI will use ProfileId)
         public string FtpHost { get; set; } = "";

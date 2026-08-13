@@ -28,8 +28,22 @@ namespace GitDeployPro.Services.Remote
             }
 
             await DisconnectAsync();
-            await Task.Run(() =>
+            SftpClient? client = null;
+            using var cancelRegistration = cancellationToken.Register(() =>
             {
+                try
+                {
+                    client?.Dispose();
+                }
+                catch
+                {
+                    // Swallow dispose races while aborting a hung Connect().
+                }
+            });
+
+            var connectTask = Task.Run(() =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
                 var methods = new List<AuthenticationMethod>();
                 var password = EncryptionService.Decrypt(profile.Password);
                 if (!string.IsNullOrWhiteSpace(password))
@@ -69,12 +83,54 @@ namespace GitDeployPro.Services.Remote
                     profile.Username,
                     methods.ToArray());
                 info.Timeout = TimeSpan.FromSeconds(45);
-                _client = new SftpClient(info);
-                _client.KeepAliveInterval = TimeSpan.FromSeconds(15);
-                _client.OperationTimeout = TimeSpan.FromSeconds(45);
-                _client.Connect();
+                client = new SftpClient(info);
+                client.KeepAliveInterval = TimeSpan.FromSeconds(15);
+                client.OperationTimeout = TimeSpan.FromSeconds(45);
+                cancellationToken.ThrowIfCancellationRequested();
+                client.Connect();
+                cancellationToken.ThrowIfCancellationRequested();
+                _client = client;
                 ProfileId = profile.Id;
-            }, cancellationToken);
+            });
+
+            try
+            {
+                await connectTask.WaitAsync(cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                Abort();
+                try
+                {
+                    client?.Dispose();
+                }
+                catch
+                {
+                    // Ignore.
+                }
+
+                throw;
+            }
+        }
+
+        public void Abort()
+        {
+            var client = _client;
+            _client = null;
+            ProfileId = string.Empty;
+            if (client == null)
+            {
+                return;
+            }
+
+            try
+            {
+                client.Dispose();
+            }
+            catch
+            {
+                // Ignore abort races with an in-flight Connect().
+            }
         }
 
         public Task DisconnectAsync()
@@ -123,7 +179,7 @@ namespace GitDeployPro.Services.Remote
                 }
 
                 return (IReadOnlyList<RemoteDirectoryEntry>)mapped;
-            }, cancellationToken);
+            }).WaitAsync(cancellationToken);
             return entries;
         }
 

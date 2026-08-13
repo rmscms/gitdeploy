@@ -129,6 +129,65 @@ namespace GitDeployPro.Controls
 
         public bool IsOpen => Visibility == Visibility.Visible && !string.IsNullOrEmpty(_filePath);
 
+        public async Task TryReloadFromDiskIfMatchesAsync(string localPath)
+        {
+            if (!IsOpen || string.IsNullOrWhiteSpace(localPath) || string.IsNullOrWhiteSpace(_filePath))
+            {
+                return;
+            }
+
+            string opened;
+            string uploaded;
+            try
+            {
+                opened = Path.GetFullPath(_filePath);
+                uploaded = Path.GetFullPath(localPath);
+            }
+            catch
+            {
+                return;
+            }
+
+            if (!string.Equals(opened, uploaded, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            if (_isDirty)
+            {
+                StatusText.Text = "Skipped reload (unsaved changes).";
+                return;
+            }
+
+            if (!File.Exists(_filePath))
+            {
+                return;
+            }
+
+            try
+            {
+                var content = await File.ReadAllTextAsync(_filePath);
+                _originalContent = content;
+                if (_usingSimpleEditor)
+                {
+                    _suppressTextChanged = true;
+                    CodeEditor.Text = content;
+                    _suppressTextChanged = false;
+                }
+                else
+                {
+                    await LoadMonacoContentAsync(_filePath, content);
+                }
+
+                SetDirty(false);
+                StatusText.Text = "Reloaded from disk.";
+            }
+            catch (Exception ex)
+            {
+                StatusText.Text = $"Reload failed: {ex.Message}";
+            }
+        }
+
         public bool TryOpenFile(string fullPath, out string error)
         {
             error = string.Empty;
@@ -369,7 +428,6 @@ namespace GitDeployPro.Controls
             _isDirty = dirty;
             SaveButton.IsEnabled = dirty;
             RevertButton.IsEnabled = dirty;
-            SaveButton.Content = dirty ? "Save *" : "Save";
         }
 
         private void ApplyHighlighting(string extension)

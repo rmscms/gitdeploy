@@ -90,13 +90,11 @@ namespace GitDeployPro.Windows
         private IEnumerable<ConnectionProfile> OrderProfilesForDisplay(IEnumerable<ConnectionProfile> profiles)
         {
             var list = profiles.ToList();
-            if (string.IsNullOrWhiteSpace(_preferredProjectProfileId))
-            {
-                return list.OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase);
-            }
-
             return list
-                .OrderByDescending(p => string.Equals(p.Id, _preferredProjectProfileId, StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(p =>
+                    !string.IsNullOrWhiteSpace(_preferredProjectProfileId)
+                    && string.Equals(p.Id, _preferredProjectProfileId, StringComparison.OrdinalIgnoreCase))
+                .ThenByDescending(p => p.IsFavorite)
                 .ThenBy(p => p.Name, StringComparer.OrdinalIgnoreCase);
         }
         private void ImportNavicatButton_Click(object sender, RoutedEventArgs e)
@@ -191,6 +189,20 @@ namespace GitDeployPro.Windows
                     preferredProfileId: _preferredProjectProfileId,
                     selectFirstWhenMissing: false);
             }
+        }
+
+        private void FavoriteConnectionButton_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            e.Handled = true;
+            if (sender is not System.Windows.Controls.Button { DataContext: ConnectionProfile profile })
+            {
+                return;
+            }
+
+            profile.IsFavorite = !profile.IsFavorite;
+            _configService.AddOrUpdateConnection(profile);
+            _profiles = _configService.LoadConnections();
+            RefreshConnectionsList(profile.Id, selectFirstWhenMissing: false);
         }
 
         private IEnumerable<ConnectionProfile> GetFilteredProfiles()

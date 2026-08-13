@@ -14,6 +14,8 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
+using System.Windows.Threading;
 using GitDeployPro.Models;
 using GitDeployPro.Services;
 using GitDeployPro.Services.Localization;
@@ -41,6 +43,9 @@ namespace GitDeployPro.Controls
     {
         private const double EditorSidebarWidth = 430;
         private const double EditorSidebarGap = 12;
+        private const double UploadStripHeight = 32;
+        private static readonly TimeSpan UploadSuccessHold = TimeSpan.FromSeconds(5.5);
+        private static readonly Thickness UploadStripMargin = new(0, 4, 0, 0);
         private static readonly int[] EditorFontSizeOptions = { 10, 12, 14, 16, 18, 20, 22, 24 };
         private static int _globalEditorFontSize = 14;
 
@@ -58,6 +63,8 @@ namespace GitDeployPro.Controls
         private bool _editorWebEventsBound;
         private bool _editorUsingFallback;
         private bool _isBusy;
+        private int _connectGeneration;
+        private CancellationTokenSource? _connectCts;
         private bool _isEditorOpen;
         private bool _isHostTeardown;
         private bool _autoConnectAttempted;
@@ -69,6 +76,8 @@ namespace GitDeployPro.Controls
         private bool _editorWarmupInProgress;
         private bool _editorWarmupLoggedReady;
         private int _remoteLoadingDepth;
+        private int _uploadStripAnimToken;
+        private DispatcherTimer? _uploadSuccessHideTimer;
         private int _editorFontSize = 14;
         private DateTime _lastEditorRecoveryAttemptUtc = DateTime.MinValue;
         private DateTime _lastEditorWarmupAttemptUtc = DateTime.MinValue;
@@ -78,7 +87,6 @@ namespace GitDeployPro.Controls
 
         public ObservableCollection<RemoteTreeNode> RootNodes { get; } = new();
         public ObservableCollection<RemoteEditSession> OpenSessions { get; } = new();
-        public IReadOnlyList<int> EditorFontSizes { get; } = EditorFontSizeOptions;
         public event EventHandler<RemoteEditorModeChangedEventArgs>? EditorModeChanged;
         public bool IsEditorOpen => _isEditorOpen;
 
@@ -89,7 +97,6 @@ namespace GitDeployPro.Controls
             RemoteTreeView.ItemsSource = RootNodes;
             EditorTabsListBox.ItemsSource = OpenSessions;
             _editorFontSize = EditorFontSizeOptions.Contains(_globalEditorFontSize) ? _globalEditorFontSize : 14;
-            EditorFontSizeComboBox.SelectedItem = _editorFontSize;
             EditorFallbackTextBox.FontSize = _editorFontSize;
             EditorFallbackTextBox.IsEnabled = false;
             ShowBrowserMode(notify: false);
@@ -101,6 +108,7 @@ namespace GitDeployPro.Controls
             Loaded += DeployRemoteWorkspaceControl_Loaded;
             Unloaded += DeployRemoteWorkspaceControl_Unloaded;
             ApplyFtpChromeTheme();
+            ApplyEditorTabCloseBrush();
             ApplyOperationLogExpandedState();
         }
 
@@ -152,6 +160,7 @@ namespace GitDeployPro.Controls
             }
 
             ApplyFtpChromeTheme();
+            ApplyEditorTabCloseBrush();
             RemoteTreeBuilder.ApplyThemeToNodes(RootNodes);
             _ = ApplyEditorThemeAsync();
         }
@@ -191,6 +200,25 @@ namespace GitDeployPro.Controls
                 RemoteLoadingOverlay.Background = new SolidColorBrush(overlay);
             }
 
+            if (EditorWebView != null)
+            {
+                var webBg = tokens.GetHex("editor.webviewBackground", "#FF1E1E1E");
+                if (!webBg.StartsWith("#", StringComparison.Ordinal))
+                {
+                    webBg = "#" + webBg;
+                }
+
+                try
+                {
+                    EditorWebView.DefaultBackgroundColor = System.Drawing.ColorTranslator.FromHtml(
+                        webBg.Length == 9 ? "#" + webBg[3..] : webBg);
+                }
+                catch
+                {
+                    // ignore invalid hex
+                }
+            }
+
             // Skeleton bars are anonymous in XAML; tint the loading card children when present.
             if (RemoteLoadingOverlay?.Child is Border card
                 && card.Child is StackPanel panel
@@ -211,25 +239,17 @@ namespace GitDeployPro.Controls
                     }
                 }
             }
+        }
 
-            if (EditorWebView != null)
-            {
-                var webBg = tokens.GetHex("editor.webviewBackground", "#FF1E1E1E");
-                if (!webBg.StartsWith("#", StringComparison.Ordinal))
-                {
-                    webBg = "#" + webBg;
-                }
-
-                try
-                {
-                    EditorWebView.DefaultBackgroundColor = System.Drawing.ColorTranslator.FromHtml(
-                        webBg.Length == 9 ? "#" + webBg[3..] : webBg);
-                }
-                catch
-                {
-                    // ignore invalid hex
-                }
-            }
+        private void ApplyEditorTabCloseBrush()
+        {
+            var tokens = ThemeService.Instance.CurrentTokens;
+            Resources["Editor.TabClose"] = tokens.GetBrush(
+                "editor.tabClose",
+                (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#FF95A3BA"));
+            Resources["Editor.TabCloseOnAccent"] = tokens.GetBrush(
+                "editor.tabCloseOnAccent",
+                System.Windows.Media.Colors.White);
         }
 
         private async Task ApplyEditorThemeAsync()
@@ -247,13 +267,42 @@ namespace GitDeployPro.Controls
         }
 
         /// <summary>
-        /// Call when the host page is truly leaving — not when the control is temporarily reparented.
+        /// Call when the host page is truly leaving — not when navigating to another app page
+        /// or when the control is temporarily reparented.
         /// </summary>
         public void NotifyHostTeardown()
         {
+            if (_isHostTeardown)
+            {
+                return;
+            }
+
             _isHostTeardown = true;
+            CancelUploadStripAutoHide();
             ConfigurationService.ConnectionsChanged -= OnConnectionsChanged;
             ThemeService.Instance.ThemeChanged -= OnDeployThemeChanged;
+            UnbindEditorWebViewEvents();
+            _ = DisconnectIfConnectedAsync();
+        }
+
+        private void UnbindEditorWebViewEvents()
+        {
+            if (!_editorWebEventsBound || EditorWebView?.CoreWebView2 == null)
+            {
+                return;
+            }
+
+            EditorWebView.CoreWebView2.WebMessageReceived -= EditorWebView_WebMessageReceived;
+            EditorWebView.CoreWebView2.NavigationCompleted -= EditorWebView_NavigationCompleted;
+            _editorWebEventsBound = false;
+        }
+
+        private async Task DisconnectIfConnectedAsync()
+        {
+            if (_remoteService != null && _remoteService.IsConnected)
+            {
+                await DisconnectAsync();
+            }
         }
 
         private void OnConnectionsChanged(object? sender, EventArgs e)
@@ -286,25 +335,17 @@ namespace GitDeployPro.Controls
 
         private async void DeployRemoteWorkspaceControl_Unloaded(object sender, RoutedEventArgs e)
         {
-            if (_editorWebEventsBound && EditorWebView?.CoreWebView2 != null)
-            {
-                EditorWebView.CoreWebView2.WebMessageReceived -= EditorWebView_WebMessageReceived;
-                EditorWebView.CoreWebView2.NavigationCompleted -= EditorWebView_NavigationCompleted;
-                _editorWebEventsBound = false;
-            }
-
-            // Reparenting for overlays also fires Unloaded. Disconnecting there wiped FTP and closed the editor.
+            // Reparenting and leaving Deploy for another app page also fire Unloaded.
+            // Keep FTP alive unless the host asked for a real teardown (project switch / exit).
             if (!_isHostTeardown)
             {
                 return;
             }
 
+            UnbindEditorWebViewEvents();
             ConfigurationService.ConnectionsChanged -= OnConnectionsChanged;
 
-            if (_remoteService != null && _remoteService.IsConnected)
-            {
-                await DisconnectAsync();
-            }
+            await DisconnectIfConnectedAsync();
         }
 
         public async void Initialize(ProjectConfig? projectConfig)
@@ -490,6 +531,7 @@ namespace GitDeployPro.Controls
                 await EditorWebView.EnsureCoreWebView2Async().WaitAsync(TimeSpan.FromMilliseconds(Math.Max(200, waitMs)));
                 if (!_editorWebEventsBound && EditorWebView.CoreWebView2 != null)
                 {
+                    EditorWebView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
                     EditorWebView.CoreWebView2.WebMessageReceived += EditorWebView_WebMessageReceived;
                     EditorWebView.CoreWebView2.NavigationCompleted += EditorWebView_NavigationCompleted;
                     _editorWebEventsBound = true;
@@ -555,6 +597,7 @@ namespace GitDeployPro.Controls
                     _editorWebReady = true;
                     await SetEditorEditableAsync(true);
                     await ApplyEditorFontSizeAsync();
+                    await EnableEditorRemoteRefreshMenuAsync();
 
                     if (_editorUsingFallback)
                     {
@@ -567,6 +610,12 @@ namespace GitDeployPro.Controls
                         await LoadEditorContentAsync(_editSession.FilePath, _editSession.WorkingContent);
                     }
 
+                    return;
+                }
+
+                if (string.Equals(message?.Type, "refreshFromRemote", StringComparison.OrdinalIgnoreCase))
+                {
+                    _ = RefreshActiveEditorFromRemoteAsync();
                     return;
                 }
 
@@ -864,41 +913,61 @@ namespace GitDeployPro.Controls
             UpdateUiState();
         }
 
+        public void NotifyProjectConfigChanged(ProjectConfig? projectConfig = null)
+        {
+            if (projectConfig != null)
+            {
+                _projectConfig = projectConfig;
+            }
+
+            _ = LoadProfilesAsync();
+        }
+
         private async Task LoadProfilesAsync()
         {
-            var previousSelectedId = (ConnectionComboBox.SelectedItem as ConnectionProfile)?.Id
+            var previousSelectedId = GetComboSelectedProfile()?.Id
                 ?? _currentProfile?.Id;
 
             var profiles = _configService.LoadConnections()
                 .Where(IsDeployRemoteProfile)
-                .OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            var defaultId = ProjectFtpAssignments.GetDefaultId(_projectConfig);
+            var items = profiles
+                .Select(p => new FtpProfileListItem(
+                    p,
+                    isProjectDefault: string.Equals(p.Id, defaultId, StringComparison.OrdinalIgnoreCase),
+                    isAssigned: ProjectFtpAssignments.IsAssigned(_projectConfig, p.Id)))
+                .OrderByDescending(p => p.IsProjectDefault)
+                .ThenByDescending(p => p.IsFavorite)
+                .ThenByDescending(p => p.IsAssigned)
+                .ThenBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
             _suppressConnectionSelectionChanged = true;
             try
             {
-                ConnectionComboBox.ItemsSource = profiles;
-                if (profiles.Count == 0)
+                ConnectionComboBox.ItemsSource = items;
+                if (items.Count == 0)
                 {
                     ConnectionComboBox.SelectedItem = null;
                     _currentProfile = null;
                     SetStatus("No FTP/SFTP profile found. Create one in Connection Manager.", warning: true);
+                    UpdateChangeDefaultButton();
                     return;
                 }
 
-                var preferred = profiles.FirstOrDefault(p =>
-                    !string.IsNullOrWhiteSpace(_projectConfig.ConnectionProfileId) &&
-                    string.Equals(p.Id, _projectConfig.ConnectionProfileId, StringComparison.OrdinalIgnoreCase));
-                var keepCurrent = profiles.FirstOrDefault(p =>
+                var keepCurrent = items.FirstOrDefault(p =>
                     !string.IsNullOrWhiteSpace(previousSelectedId) &&
-                    string.Equals(p.Id, previousSelectedId, StringComparison.OrdinalIgnoreCase));
+                    string.Equals(p.Profile.Id, previousSelectedId, StringComparison.OrdinalIgnoreCase));
+                var preferred = items.FirstOrDefault(p => p.IsProjectDefault);
 
-                // Never fall back to profiles.First() — projects without an assigned FTP must stay disconnected.
-                var selected = preferred ?? keepCurrent;
+                // Keep the currently selected/connected profile in place. Do not jump it to the top.
+                // First load (nothing selected yet) still prefers the project default.
+                var selected = keepCurrent ?? preferred;
                 ConnectionComboBox.SelectedItem = selected;
-                _currentProfile = selected;
+                _currentProfile = selected?.Profile;
 
-                if (selected == null && string.IsNullOrWhiteSpace(_projectConfig.ConnectionProfileId))
+                if (selected == null && string.IsNullOrWhiteSpace(defaultId))
                 {
                     SetStatus("No FTP profile assigned to this project. Select one to connect.", warning: false);
                 }
@@ -906,9 +975,10 @@ namespace GitDeployPro.Controls
             finally
             {
                 _suppressConnectionSelectionChanged = false;
+                UpdateChangeDefaultButton();
             }
 
-            if (profiles.Count == 0)
+            if (items.Count == 0)
             {
                 return;
             }
@@ -921,13 +991,134 @@ namespace GitDeployPro.Controls
             }
         }
 
+        private void ConnectionComboBox_DropDownOpened(object sender, EventArgs e)
+        {
+            // WPF scrolls the dropdown to the selected (often connected) item, hiding default/favorites above it.
+            // Keep list order stable and always open from the top so those stay visible.
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                Dispatcher.BeginInvoke(new Action(ScrollFtpComboDropdownToTop), DispatcherPriority.ContextIdle);
+            }), DispatcherPriority.Loaded);
+        }
+
+        private void ScrollFtpComboDropdownToTop()
+        {
+            if (ConnectionComboBox == null || !ConnectionComboBox.IsDropDownOpen)
+            {
+                return;
+            }
+
+            var popup = ConnectionComboBox.Template?.FindName("PART_Popup", ConnectionComboBox) as System.Windows.Controls.Primitives.Popup;
+            var scrollViewer = FindDescendant<ScrollViewer>(popup?.Child);
+            if (scrollViewer != null)
+            {
+                scrollViewer.ScrollToHome();
+                return;
+            }
+
+            if (ConnectionComboBox.ItemContainerGenerator.ContainerFromIndex(0) is FrameworkElement first)
+            {
+                first.BringIntoView();
+            }
+        }
+
+        private static T? FindDescendant<T>(DependencyObject? root) where T : DependencyObject
+        {
+            if (root == null)
+            {
+                return null;
+            }
+
+            if (root is T match)
+            {
+                return match;
+            }
+
+            var count = VisualTreeHelper.GetChildrenCount(root);
+            for (var i = 0; i < count; i++)
+            {
+                var found = FindDescendant<T>(VisualTreeHelper.GetChild(root, i));
+                if (found != null)
+                {
+                    return found;
+                }
+            }
+
+            return null;
+        }
+
+        private ConnectionProfile? GetComboSelectedProfile()
+        {
+            return (ConnectionComboBox.SelectedItem as FtpProfileListItem)?.Profile;
+        }
+
+        private void SelectComboProfile(string? profileId)
+        {
+            if (string.IsNullOrWhiteSpace(profileId))
+            {
+                return;
+            }
+
+            var match = ConnectionComboBox.Items
+                .OfType<FtpProfileListItem>()
+                .FirstOrDefault(p => string.Equals(p.Profile.Id, profileId, StringComparison.OrdinalIgnoreCase));
+            if (match != null)
+            {
+                ConnectionComboBox.SelectedItem = match;
+            }
+        }
+
+        private void UpdateChangeDefaultButton()
+        {
+            if (ChangeDefaultFtpButton == null)
+            {
+                return;
+            }
+
+            var assignedCount = ProjectFtpAssignments.GetAssignedIds(_projectConfig).Count;
+            ChangeDefaultFtpButton.IsEnabled = !_isBusy && assignedCount > 1;
+        }
+
+        private void ChangeDefaultFtpButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_isBusy)
+            {
+                return;
+            }
+
+            var assigned = ProjectFtpAssignments.ResolveAssignedProfiles(
+                _projectConfig,
+                _configService.LoadConnections());
+            if (assigned.Count < 2)
+            {
+                return;
+            }
+
+            if (!ProjectFtpTargetWindow.TryPick(
+                    Window.GetWindow(this),
+                    assigned,
+                    ProjectFtpAssignments.GetDefaultId(_projectConfig),
+                    out var selectedId))
+            {
+                return;
+            }
+
+            ProjectFtpAssignments.SetDefault(_projectConfig, selectedId, confirmed: true);
+            var defaultProfile = assigned.FirstOrDefault(p =>
+                string.Equals(p.Id, selectedId, StringComparison.OrdinalIgnoreCase));
+            ProjectFtpAssignments.CopyLegacyFields(_projectConfig, defaultProfile);
+            _configService.SaveProjectConfig(_projectConfig);
+            NotifyProjectConfigChanged();
+        }
+
         private bool HasAssignedProjectProfile()
         {
-            return !string.IsNullOrWhiteSpace(_projectConfig?.ConnectionProfileId)
+            var defaultId = ProjectFtpAssignments.GetDefaultId(_projectConfig);
+            return !string.IsNullOrWhiteSpace(defaultId)
                    && _currentProfile != null
                    && string.Equals(
                        _currentProfile.Id,
-                       _projectConfig.ConnectionProfileId,
+                       defaultId,
                        StringComparison.OrdinalIgnoreCase);
         }
 
@@ -1084,7 +1275,7 @@ namespace GitDeployPro.Controls
                 return;
             }
 
-            if (ConnectionComboBox.SelectedItem is not ConnectionProfile profile)
+            if (GetComboSelectedProfile() is not ConnectionProfile profile)
             {
                 ModernMessageBox.Show("Select a connection profile first.", "Remote workspace", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
@@ -1100,24 +1291,18 @@ namespace GitDeployPro.Controls
                 return;
             }
 
-            var manager = new ConnectionManagerWindow(_projectConfig?.ConnectionProfileId)
+            var manager = new ConnectionManagerWindow(ProjectFtpAssignments.GetDefaultId(_projectConfig))
             {
                 Owner = Window.GetWindow(this)
             };
             manager.ShowDialog();
 
-            var previousId = (ConnectionComboBox.SelectedItem as ConnectionProfile)?.Id;
+            var previousId = GetComboSelectedProfile()?.Id;
             await LoadProfilesAsync();
 
             if (!string.IsNullOrWhiteSpace(previousId))
             {
-                var match = ConnectionComboBox.Items
-                    .OfType<ConnectionProfile>()
-                    .FirstOrDefault(p => string.Equals(p.Id, previousId, StringComparison.OrdinalIgnoreCase));
-                if (match != null)
-                {
-                    ConnectionComboBox.SelectedItem = match;
-                }
+                SelectComboProfile(previousId);
             }
 
             if (_remoteService == null || !_remoteService.IsConnected)
@@ -1128,10 +1313,16 @@ namespace GitDeployPro.Controls
 
         private async Task ConnectAsync(ConnectionProfile profile, bool showDialogOnError, bool isAutoConnect)
         {
+            ResetConnectCancellation();
+            var generation = ++_connectGeneration;
+            _connectCts = new CancellationTokenSource();
+            var token = _connectCts.Token;
+
             _isBusy = true;
             BeginRemoteLoading(
                 isAutoConnect ? "Auto-connecting..." : "Connecting...",
-                $"Preparing remote workspace for {profile.Name}...");
+                $"Preparing remote workspace for {profile.Name}...",
+                canCancel: true);
             SetStatus(
                 isAutoConnect
                     ? $"Auto-connecting to {profile.Name}..."
@@ -1143,29 +1334,38 @@ namespace GitDeployPro.Controls
             {
                 if (_remoteService != null)
                 {
-                    await DisposeRemoteServiceQuietlyAsync();
+                    AbortRemoteService();
                 }
+
+                token.ThrowIfCancellationRequested();
+                ThrowIfConnectStale(generation);
 
                 _remoteService = profile.UseSSH
                     ? new SftpRemoteFileService()
                     : new FtpRemoteFileService();
-                await _remoteService.ConnectAsync(profile);
+                await _remoteService.ConnectAsync(profile, token);
+                ThrowIfConnectStale(generation);
                 if (_remoteService == null || !_remoteService.IsConnected)
                 {
                     throw new InvalidOperationException("Remote service reported disconnected after connect.");
                 }
+
+                token.ThrowIfCancellationRequested();
 
                 _currentProfile = profile;
                 AddLog(isAutoConnect
                     ? $"Transport connected using {(profile.UseSSH ? "SFTP" : "FTP")}; verifying listing..."
                     : $"Transport connected using {(profile.UseSSH ? "SFTP" : "FTP")}; verifying listing...");
                 _ = WarmupEditorInBackgroundAsync("FTP connected");
-                await LoadRootAsync();
+                await LoadRootAsync(token);
+                ThrowIfConnectStale(generation);
 
                 if (_remoteService == null || !_remoteService.IsConnected)
                 {
                     throw new InvalidOperationException("Remote session closed while loading directory listing.");
                 }
+
+                token.ThrowIfCancellationRequested();
 
                 SetStatus(
                     isAutoConnect
@@ -1173,9 +1373,22 @@ namespace GitDeployPro.Controls
                         : $"Connected to {profile.Name} ({profile.Host}).",
                     success: true);
             }
+            catch (Exception ex) when (IsConnectCanceled(ex, token) || generation != _connectGeneration)
+            {
+                AbortRemoteService();
+                if (generation == _connectGeneration)
+                {
+                    SetStatus("Connection cancelled.", warning: true);
+                    AddLog("Connection cancelled by user.");
+                }
+            }
             catch (Exception ex)
             {
-                await DisposeRemoteServiceQuietlyAsync();
+                AbortRemoteService();
+                if (generation != _connectGeneration)
+                {
+                    return;
+                }
                 var failureMessage = FormatConnectionFailureMessage(ex);
                 SetStatus(
                     isAutoConnect
@@ -1193,10 +1406,112 @@ namespace GitDeployPro.Controls
             }
             finally
             {
-                _isBusy = false;
-                EndRemoteLoading();
-                UpdateUiState();
+                if (generation == _connectGeneration)
+                {
+                    _isBusy = false;
+                    ResetConnectCancellation();
+                    EndRemoteLoading();
+                    UpdateUiState();
+                }
             }
+        }
+
+        private void CancelRemoteLoadingButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_connectCts == null || _connectCts.IsCancellationRequested)
+            {
+                return;
+            }
+
+            _connectGeneration++;
+            if (CancelRemoteLoadingButton != null)
+            {
+                CancelRemoteLoadingButton.IsEnabled = false;
+            }
+
+            try
+            {
+                _connectCts.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+                // Connect finished while the click was processed.
+            }
+
+            AbortRemoteService();
+            _isBusy = false;
+            ForceCloseRemoteLoading();
+            SetStatus("Connection cancelled.", warning: true);
+            AddLog("Connection cancelled by user.");
+            UpdateUiState();
+        }
+
+        private void ThrowIfConnectStale(int generation)
+        {
+            if (generation != _connectGeneration)
+            {
+                throw new OperationCanceledException();
+            }
+        }
+
+        private void AbortRemoteService()
+        {
+            var service = _remoteService;
+            _remoteService = null;
+            if (service == null)
+            {
+                return;
+            }
+
+            try
+            {
+                service.Abort();
+            }
+            catch
+            {
+                // Ignore abort races.
+            }
+        }
+
+        private void ForceCloseRemoteLoading()
+        {
+            _remoteLoadingDepth = 0;
+            if (CancelRemoteLoadingButton != null)
+            {
+                CancelRemoteLoadingButton.Visibility = Visibility.Collapsed;
+                CancelRemoteLoadingButton.IsEnabled = true;
+            }
+
+            UpdateRemoteBrowserVisualState();
+        }
+
+        private void ResetConnectCancellation()
+        {
+            var cts = _connectCts;
+            _connectCts = null;
+            if (cts == null)
+            {
+                return;
+            }
+
+            try
+            {
+                cts.Dispose();
+            }
+            catch
+            {
+                // Ignore dispose races with a late cancel click.
+            }
+        }
+
+        private static bool IsConnectCanceled(Exception ex, CancellationToken token)
+        {
+            if (token.IsCancellationRequested)
+            {
+                return true;
+            }
+
+            return ex is OperationCanceledException;
         }
 
         private async Task DisposeRemoteServiceQuietlyAsync()
@@ -1335,7 +1650,7 @@ namespace GitDeployPro.Controls
             return true;
         }
 
-        private async Task LoadRootAsync()
+        private async Task LoadRootAsync(CancellationToken cancellationToken = default)
         {
             if (_remoteService == null || !_remoteService.IsConnected || _currentProfile == null)
             {
@@ -1344,10 +1659,17 @@ namespace GitDeployPro.Controls
 
             _ = WarmupEditorInBackgroundAsync("FTP listing started");
             var root = RemotePathResolver.BuildRemoteRoot(_currentProfile);
-            BeginRemoteLoading("Loading remote files...", $"Fetching {root}");
+            BeginRemoteLoading(
+                "Loading remote files...",
+                $"Fetching {root}",
+                canCancel: _connectCts != null && !_connectCts.IsCancellationRequested);
             try
             {
-                var entries = await ExecuteRemoteAsync(service => service.ListDirectoryAsync(root), "Load root");
+                cancellationToken.ThrowIfCancellationRequested();
+                var entries = await ExecuteRemoteAsync(
+                    service => service.ListDirectoryAsync(root, cancellationToken),
+                    "Load root");
+                cancellationToken.ThrowIfCancellationRequested();
                 var nodes = _treeBuilder.BuildNodes(entries);
                 PopulateRootTree(root, nodes);
                 SetStatus($"Loaded {nodes.Count} item(s) from {root}", success: true);
@@ -1459,9 +1781,44 @@ namespace GitDeployPro.Controls
             }
 
             folder.IsExpanded = true;
+            folder.IsSelected = true;
             await LoadChildrenAsync(folder);
             folder.IsExpanded = true;
+            folder.IsSelected = true;
             UpdateRemoteBrowserVisualState();
+        }
+
+        private async Task RefreshFolderFromUiAsync(RemoteTreeNode node)
+        {
+            if (_isBusy || _remoteService == null || !_remoteService.IsConnected || node == null)
+            {
+                return;
+            }
+
+            var folder = node.IsDirectory ? node : FindParentNode(node);
+            if (folder == null || !folder.IsDirectory)
+            {
+                return;
+            }
+
+            _isBusy = true;
+            UpdateUiState();
+            try
+            {
+                await RefreshFolderInPlaceAsync(folder.FullPath);
+                SetStatus($"Refreshed {folder.Name}", success: true);
+                AddLog($"Refreshed folder {folder.FullPath}");
+            }
+            catch (Exception ex)
+            {
+                SetStatus($"Refresh failed: {ex.Message}", warning: true);
+                AddLog($"Folder refresh failed: {ex.Message}");
+            }
+            finally
+            {
+                _isBusy = false;
+                UpdateUiState();
+            }
         }
 
         private bool IsBrowseRootNode(RemoteTreeNode node)
@@ -1494,15 +1851,69 @@ namespace GitDeployPro.Controls
             }
 
             var path = RemotePathResolver.EnsureTrailingSlash(node.FullPath);
+            var selectedPath = EnumerateNodes(node.Children).FirstOrDefault(child => child.IsSelected && !child.IsPlaceholder)?.FullPath;
             var entries = await ExecuteRemoteAsync(service => service.ListDirectoryAsync(path), $"Expand {node.Name}");
             var children = _treeBuilder.BuildNodes(entries);
-            node.Children.Clear();
-            foreach (var child in children)
+            MergeFolderChildren(node, children);
+            node.IsLoaded = true;
+
+            if (!string.IsNullOrWhiteSpace(selectedPath))
             {
-                node.Children.Add(child);
+                var restored = FindNodeByPath(selectedPath);
+                if (restored != null)
+                {
+                    restored.IsSelected = true;
+                }
+                else
+                {
+                    node.IsSelected = true;
+                }
+            }
+        }
+
+        private static string NormalizeNodePath(string? remotePath)
+        {
+            var target = (remotePath ?? string.Empty).TrimEnd('/');
+            return string.IsNullOrWhiteSpace(target) ? "/" : target;
+        }
+
+        /// <summary>
+        /// Replace a folder's listing without dropping already-loaded nested folders,
+        /// so refresh does not collapse the tree or send the user back to the root.
+        /// </summary>
+        private static void MergeFolderChildren(RemoteTreeNode folder, IReadOnlyList<RemoteTreeNode> freshChildren)
+        {
+            var existingByPath = folder.Children
+                .Where(child => !child.IsPlaceholder)
+                .GroupBy(child => NormalizeNodePath(child.FullPath), StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+
+            var next = new List<RemoteTreeNode>(freshChildren.Count);
+            foreach (var fresh in freshChildren)
+            {
+                var key = NormalizeNodePath(fresh.FullPath);
+                if (fresh.IsDirectory
+                    && existingByPath.TryGetValue(key, out var existing)
+                    && existing.IsDirectory
+                    && existing.IsLoaded)
+                {
+                    existing.Name = fresh.Name;
+                    existing.SizeBytes = fresh.SizeBytes;
+                    existing.SizeLabel = fresh.SizeLabel;
+                    existing.ModifiedLabel = fresh.ModifiedLabel;
+                    next.Add(existing);
+                }
+                else
+                {
+                    next.Add(fresh);
+                }
             }
 
-            node.IsLoaded = true;
+            folder.Children.Clear();
+            foreach (var child in next)
+            {
+                folder.Children.Add(child);
+            }
         }
 
         private async Task RefreshSessionOriginalStatAsync(RemoteEditSession session)
@@ -1766,24 +2177,133 @@ namespace GitDeployPro.Controls
 
         private async Task ReloadActiveSessionFromRemoteAsync()
         {
-            if (_editSession == null || _remoteService == null || !_remoteService.IsConnected)
+            if (_editSession == null)
             {
                 return;
             }
 
-            var active = _editSession;
-            var text = await ExecuteRemoteAsync(service => service.OpenTextAsync(active.FilePath), $"Reload {active.FileName}");
-            var stat = await ExecuteRemoteAsync(service => service.GetFileStatAsync(active.FilePath), $"Reload stat {active.FileName}");
+            await ReloadSessionFromRemoteAsync(_editSession);
+        }
 
-            active.Content = text;
-            active.WorkingContent = text;
-            active.OriginalContentHash = ComputeHash(text);
-            active.OriginalStat = stat;
-            active.IsDirty = false;
+        private async void EditorRefreshButton_Click(object sender, RoutedEventArgs e)
+            => await RefreshActiveEditorFromRemoteAsync();
 
-            await LoadEditorContentAsync(active.FilePath, text);
-            await MarkEditorCleanAsync();
-            EditorStatusText.Text = "File reloaded from remote.";
+        private async Task RefreshActiveEditorFromRemoteAsync()
+        {
+            if (_isBusy || !_isEditorOpen || _editSession == null)
+            {
+                return;
+            }
+
+            if (_remoteService == null || !_remoteService.IsConnected)
+            {
+                SetStatus("Connect to FTP first.", warning: true);
+                return;
+            }
+
+            if (_editSession.IsDirty)
+            {
+                var confirm = ModernMessageBox.ShowWithResult(
+                    Loc.T("deploy.refreshEditor.confirm"),
+                    Loc.T("deploy.refreshEditor.title"),
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning,
+                    primaryText: Loc.T("common.refresh"),
+                    secondaryText: Loc.T("common.cancel"));
+                if (confirm != MessageBoxResult.Yes)
+                {
+                    return;
+                }
+            }
+
+            _isBusy = true;
+            UpdateUiState();
+            try
+            {
+                var fileName = _editSession.FileName;
+                await ReloadActiveSessionFromRemoteAsync();
+                SetStatus($"Reloaded {fileName} from remote.", success: true);
+                AddLog($"Reloaded {fileName} from remote.");
+            }
+            catch (Exception ex)
+            {
+                SetStatus($"Refresh failed: {ex.Message}", warning: true);
+                AddLog($"Editor refresh failed: {ex.Message}");
+            }
+            finally
+            {
+                _isBusy = false;
+                UpdateUiState();
+            }
+        }
+
+        private async Task EnableEditorRemoteRefreshMenuAsync()
+        {
+            if (EditorWebView?.CoreWebView2 == null)
+            {
+                return;
+            }
+
+            var label = (Loc.T("common.refresh") ?? "Refresh")
+                .Replace("\\", "\\\\", StringComparison.Ordinal)
+                .Replace("\"", "\\\"", StringComparison.Ordinal);
+            await EditorWebView.CoreWebView2.ExecuteScriptAsync(
+                $"window.__setRemoteRefreshEnabled && window.__setRemoteRefreshEnabled(true, \"{label}\");");
+        }
+
+        public async Task ReloadSessionsMatchingRemotePathAsync(string remotePath)
+        {
+            if (string.IsNullOrWhiteSpace(remotePath) || OpenSessions.Count == 0)
+            {
+                return;
+            }
+
+            var target = NormalizeSessionPath(remotePath);
+            var matches = OpenSessions
+                .Where(session => string.Equals(NormalizeSessionPath(session.FilePath), target, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            foreach (var session in matches)
+            {
+                if (session.IsDirty)
+                {
+                    AddLog($"Skipped editor reload for {session.FilePath} (unsaved changes).");
+                    continue;
+                }
+
+                await ReloadSessionFromRemoteAsync(session);
+            }
+        }
+
+        private static string NormalizeSessionPath(string? path)
+        {
+            var normalized = (path ?? string.Empty).Replace('\\', '/').TrimEnd('/');
+            return string.IsNullOrWhiteSpace(normalized) ? "/" : normalized;
+        }
+
+        private async Task ReloadSessionFromRemoteAsync(RemoteEditSession session)
+        {
+            if (session == null || _remoteService == null || !_remoteService.IsConnected)
+            {
+                return;
+            }
+
+            var text = await ExecuteRemoteAsync(service => service.OpenTextAsync(session.FilePath), $"Reload {session.FileName}");
+            var stat = await ExecuteRemoteAsync(service => service.GetFileStatAsync(session.FilePath), $"Reload stat {session.FileName}");
+
+            session.Content = text;
+            session.WorkingContent = text;
+            session.OriginalContentHash = ComputeHash(text);
+            session.OriginalStat = stat;
+            session.IsDirty = false;
+
+            if (ReferenceEquals(_editSession, session) && _isEditorOpen)
+            {
+                await LoadEditorContentAsync(session.FilePath, text);
+                await MarkEditorCleanAsync();
+                EditorStatusText.Text = "File reloaded from remote.";
+            }
+
             UpdateUiState();
         }
 
@@ -1807,6 +2327,14 @@ namespace GitDeployPro.Controls
             var isRoot = IsBrowseRootNode(node);
             var actions = new List<AppContextMenuAction>
             {
+                new()
+                {
+                    Id = "refresh",
+                    Label = "Refresh",
+                    IconGlyph = "↻",
+                    IsVisible = node.IsDirectory,
+                    Execute = _ => _ = RefreshFolderFromUiAsync(node)
+                },
                 new()
                 {
                     Id = "open",
@@ -2316,11 +2844,11 @@ namespace GitDeployPro.Controls
                 return;
             }
 
-            // Deleted item was at root — refresh root listing in place without a full disconnect cycle.
-            var root = RemotePathResolver.BuildRemoteRoot(_currentProfile);
-            var entries = await ExecuteRemoteAsync(service => service.ListDirectoryAsync(root), "Refresh root after delete");
-            var nodes = _treeBuilder.BuildNodes(entries);
-            PopulateRootTree(root, nodes);
+            // Deleted item was at root — refresh root listing in place without a full tree restart.
+            if (RootNodes.Count > 0)
+            {
+                await RefreshFolderInPlaceAsync(RootNodes[0].FullPath);
+            }
 
             UpdateRemoteBrowserVisualState();
         }
@@ -2724,6 +3252,12 @@ namespace GitDeployPro.Controls
                 return;
             }
 
+            if (_isEditorOpen && _editSession != null)
+            {
+                await RefreshActiveEditorFromRemoteAsync();
+                return;
+            }
+
             _isBusy = true;
             UpdateUiState();
             try
@@ -2731,32 +3265,9 @@ namespace GitDeployPro.Controls
                 if (_isEditorOpen && _editSession == null)
                 {
                     ShowBrowserMode();
-                    await LoadRootAsync();
-                    return;
                 }
 
-                if (_isEditorOpen && _editSession != null)
-                {
-                    if (_editSession.IsDirty)
-                    {
-                        var confirm = ModernMessageBox.ShowWithResult(
-                            "Current file has local edits. Refresh will reload file from remote and discard local edits. Continue?",
-                            "Refresh editor",
-                            MessageBoxButton.YesNo,
-                            MessageBoxImage.Warning,
-                            primaryText: "Refresh",
-                            secondaryText: "Cancel");
-                        if (confirm != MessageBoxResult.Yes)
-                        {
-                            return;
-                        }
-                    }
-
-                    await ReloadActiveSessionFromRemoteAsync();
-                    return;
-                }
-
-                await LoadRootAsync();
+                await RefreshSelectedFolderInPlaceAsync();
             }
             catch (Exception ex)
             {
@@ -2770,6 +3281,36 @@ namespace GitDeployPro.Controls
             }
         }
 
+        private RemoteTreeNode? ResolveFolderToRefresh()
+        {
+            var selected = EnumerateNodes(RootNodes).FirstOrDefault(node => node.IsSelected && !node.IsPlaceholder);
+            if (selected == null)
+            {
+                return RootNodes.Count > 0 ? RootNodes[0] : null;
+            }
+
+            if (selected.IsDirectory)
+            {
+                return selected;
+            }
+
+            return FindParentNode(selected) ?? (RootNodes.Count > 0 ? RootNodes[0] : null);
+        }
+
+        private async Task RefreshSelectedFolderInPlaceAsync()
+        {
+            var folder = ResolveFolderToRefresh();
+            if (folder == null)
+            {
+                await LoadRootAsync();
+                return;
+            }
+
+            await RefreshFolderInPlaceAsync(folder.FullPath);
+            SetStatus($"Refreshed {folder.Name}", success: true);
+            AddLog($"Refreshed folder {folder.FullPath}");
+        }
+
         private async void ConnectionComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (_suppressConnectionSelectionChanged || _isBusy)
@@ -2777,7 +3318,7 @@ namespace GitDeployPro.Controls
                 return;
             }
 
-            if (ConnectionComboBox.SelectedItem is not ConnectionProfile profile)
+            if (GetComboSelectedProfile() is not ConnectionProfile profile)
             {
                 return;
             }
@@ -2813,19 +3354,6 @@ namespace GitDeployPro.Controls
                 SetStatus($"Switch failed: {ex.Message}", warning: true);
                 AddLog($"Profile switch failed: {ex.Message}");
             }
-        }
-
-        private async void EditorFontSizeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (EditorFontSizeComboBox.SelectedItem is not int selected || selected == _editorFontSize)
-            {
-                return;
-            }
-
-            _editorFontSize = selected;
-            _globalEditorFontSize = selected;
-            await ApplyEditorFontSizeAsync();
-            AddLog($"Editor font size: {_editorFontSize}px");
         }
 
         private void EditorFallbackTextBox_TextChanged(object sender, TextChangedEventArgs e)
@@ -2875,6 +3403,8 @@ namespace GitDeployPro.Controls
                 EditConnectionButton.IsEnabled = !_isBusy;
             }
 
+            UpdateChangeDefaultButton();
+
             if (ConnectionToggleButton != null)
             {
                 ConnectionToggleButton.IsEnabled = !_isBusy && (connected || _currentProfile != null || ConnectionComboBox.SelectedItem != null);
@@ -2902,7 +3432,10 @@ namespace GitDeployPro.Controls
                 EditorTabsHostBorder.Opacity = _isBusy && OpenSessions.Count > 0 ? 0.92 : 1.0;
             }
             CloseEditorOverlayButton.IsEnabled = !_isBusy;
-            EditorFontSizeComboBox.IsEnabled = !_isBusy;
+            if (EditorRefreshButton != null)
+            {
+                EditorRefreshButton.IsEnabled = !_isBusy && _editSession != null && connected;
+            }
             RevertButton.IsEnabled = !_isBusy && _editSession != null && _editSession.IsDirty;
             SaveUploadButton.IsEnabled = !_isBusy && connected && _editSession != null && _editSession.IsDirty;
             EditorFallbackTextBox.IsEnabled = connected && _editSession != null && !_isBusy && _isEditorOpen;
@@ -2911,7 +3444,7 @@ namespace GitDeployPro.Controls
             UpdateRemoteBrowserVisualState();
         }
 
-        private void BeginRemoteLoading(string title, string detail)
+        private void BeginRemoteLoading(string title, string detail, bool canCancel = false)
         {
             _remoteLoadingDepth++;
             if (RemoteLoadingTitleText != null)
@@ -2931,6 +3464,19 @@ namespace GitDeployPro.Controls
                 RemoteLoadingProgressBar.IsIndeterminate = true;
             }
 
+            if (CancelRemoteLoadingButton != null)
+            {
+                if (canCancel)
+                {
+                    CancelRemoteLoadingButton.Visibility = Visibility.Visible;
+                    CancelRemoteLoadingButton.IsEnabled = true;
+                }
+                else if (_connectCts == null)
+                {
+                    CancelRemoteLoadingButton.Visibility = Visibility.Collapsed;
+                }
+            }
+
             UpdateRemoteBrowserVisualState();
         }
 
@@ -2941,9 +3487,18 @@ namespace GitDeployPro.Controls
                 _remoteLoadingDepth--;
             }
 
-            if (_remoteLoadingDepth == 0 && RemoteLoadingDetailText != null)
+            if (_remoteLoadingDepth == 0)
             {
-                RemoteLoadingDetailText.Text = "Please wait while we fetch files.";
+                if (RemoteLoadingDetailText != null)
+                {
+                    RemoteLoadingDetailText.Text = "Please wait while we fetch files.";
+                }
+
+                if (CancelRemoteLoadingButton != null)
+                {
+                    CancelRemoteLoadingButton.Visibility = Visibility.Collapsed;
+                    CancelRemoteLoadingButton.IsEnabled = true;
+                }
             }
 
             UpdateRemoteBrowserVisualState();
@@ -2975,20 +3530,22 @@ namespace GitDeployPro.Controls
 
         private void UpdateSaveUploadButtonAppearance()
         {
-            var hasDirtyChanges = _editSession?.IsDirty == true;
-            SaveUploadButton.Content = hasDirtyChanges ? "Save/Upload *" : "Save/Upload";
-
-            var targetStyle = TryFindResource(hasDirtyChanges
-                ? "SaveUploadButtonDirtyStyle"
-                : "SaveUploadButtonDefaultStyle") as Style;
-            if (targetStyle != null && !ReferenceEquals(SaveUploadButton.Style, targetStyle))
+            if (SaveUploadButton == null)
             {
-                SaveUploadButton.Style = targetStyle;
+                return;
             }
+
+            var hasDirtyChanges = _editSession?.IsDirty == true;
+            SaveUploadButton.Content = "⬆";
+            SaveUploadButton.Foreground = hasDirtyChanges
+                ? FindBrush("Status.Warning", System.Windows.Media.Brushes.Orange)
+                : FindBrush("Text.Secondary", System.Windows.Media.Brushes.Gainsboro);
         }
 
         private void BeginUploadFeedback(long expectedBytes)
         {
+            CancelUploadStripAutoHide();
+            ShowUploadStripImmediate();
             ApplyUploadStripTheme(uploading: true, success: false, warning: false, failed: false);
 
             if (UploadStatusLabel != null)
@@ -3031,6 +3588,7 @@ namespace GitDeployPro.Controls
 
         private void CompleteUploadFeedback(string hint, bool success = false, bool warning = false)
         {
+            CancelUploadStripAutoHide();
             ApplyUploadStripTheme(uploading: false, success: success, warning: warning, failed: false);
 
             if (UploadStatusLabel != null)
@@ -3041,10 +3599,22 @@ namespace GitDeployPro.Controls
             UploadProgressBar.IsIndeterminate = false;
             UploadProgressBar.Value = success || warning ? 100 : 0;
             SetUploadHint(hint, warning: warning, success: success, uploading: false);
+
+            if (success)
+            {
+                AnimateUploadStripShow();
+                ScheduleUploadSuccessHide();
+            }
+            else
+            {
+                ShowUploadStripImmediate();
+            }
         }
 
         private void FailUploadFeedback(string hint)
         {
+            CancelUploadStripAutoHide();
+            ShowUploadStripImmediate();
             ApplyUploadStripTheme(uploading: false, success: false, warning: false, failed: true);
 
             if (UploadStatusLabel != null)
@@ -3059,6 +3629,10 @@ namespace GitDeployPro.Controls
 
         private void ResetUploadFeedback()
         {
+            CancelUploadStripAutoHide();
+            StopUploadStripAnimations();
+            SetUploadStripVisible(false);
+            RestoreUploadStripLayout();
             ApplyUploadStripTheme(uploading: false, success: false, warning: false, failed: false);
 
             if (UploadStatusLabel != null)
@@ -3070,6 +3644,142 @@ namespace GitDeployPro.Controls
             UploadProgressBar.Value = 0;
             UploadProgressHintText.Text = string.Empty;
             UploadProgressHintText.Foreground = FindBrush("Text.Muted", System.Windows.Media.Brushes.LightGray);
+        }
+
+        private void SetUploadStripVisible(bool visible)
+        {
+            if (UploadStatusStrip != null)
+            {
+                UploadStatusStrip.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+            }
+        }
+
+        private void ShowUploadStripImmediate()
+        {
+            StopUploadStripAnimations();
+            RestoreUploadStripLayout();
+            SetUploadStripVisible(true);
+        }
+
+        private void RestoreUploadStripLayout()
+        {
+            if (UploadStatusStrip == null)
+            {
+                return;
+            }
+
+            UploadStatusStrip.Opacity = 1;
+            UploadStatusStrip.Height = UploadStripHeight;
+            UploadStatusStrip.Margin = UploadStripMargin;
+        }
+
+        private void StopUploadStripAnimations()
+        {
+            if (UploadStatusStrip == null)
+            {
+                return;
+            }
+
+            UploadStatusStrip.BeginAnimation(UIElement.OpacityProperty, null);
+            UploadStatusStrip.BeginAnimation(FrameworkElement.HeightProperty, null);
+            UploadStatusStrip.BeginAnimation(FrameworkElement.MarginProperty, null);
+        }
+
+        private void CancelUploadStripAutoHide()
+        {
+            _uploadStripAnimToken++;
+            if (_uploadSuccessHideTimer != null)
+            {
+                _uploadSuccessHideTimer.Stop();
+                _uploadSuccessHideTimer.Tick -= UploadSuccessHideTimer_Tick;
+            }
+        }
+
+        private void ScheduleUploadSuccessHide()
+        {
+            if (_uploadSuccessHideTimer != null)
+            {
+                _uploadSuccessHideTimer.Stop();
+                _uploadSuccessHideTimer.Tick -= UploadSuccessHideTimer_Tick;
+            }
+
+            var token = _uploadStripAnimToken;
+            _uploadSuccessHideTimer ??= new DispatcherTimer();
+            _uploadSuccessHideTimer.Interval = UploadSuccessHold;
+            _uploadSuccessHideTimer.Tick += UploadSuccessHideTimer_Tick;
+            _uploadSuccessHideTimer.Tag = token;
+            _uploadSuccessHideTimer.Start();
+        }
+
+        private void UploadSuccessHideTimer_Tick(object? sender, EventArgs e)
+        {
+            if (_uploadSuccessHideTimer != null)
+            {
+                _uploadSuccessHideTimer.Stop();
+                _uploadSuccessHideTimer.Tick -= UploadSuccessHideTimer_Tick;
+            }
+
+            var token = _uploadSuccessHideTimer?.Tag is int t ? t : _uploadStripAnimToken;
+            if (token != _uploadStripAnimToken)
+            {
+                return;
+            }
+
+            AnimateUploadStripHide(token);
+        }
+
+        private void AnimateUploadStripShow()
+        {
+            if (UploadStatusStrip == null)
+            {
+                return;
+            }
+
+            StopUploadStripAnimations();
+            UploadStatusStrip.Height = UploadStripHeight;
+            UploadStatusStrip.Margin = UploadStripMargin;
+            UploadStatusStrip.Opacity = 0;
+            SetUploadStripVisible(true);
+
+            var fadeIn = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(240))
+            {
+                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
+            };
+            UploadStatusStrip.BeginAnimation(UIElement.OpacityProperty, fadeIn);
+        }
+
+        private void AnimateUploadStripHide(int token)
+        {
+            if (UploadStatusStrip == null || UploadStatusStrip.Visibility != Visibility.Visible)
+            {
+                return;
+            }
+
+            var fromHeight = UploadStatusStrip.ActualHeight > 0 ? UploadStatusStrip.ActualHeight : UploadStripHeight;
+            var fadeOut = new DoubleAnimation(UploadStatusStrip.Opacity, 0, TimeSpan.FromMilliseconds(420))
+            {
+                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseIn }
+            };
+            var collapse = new DoubleAnimation(fromHeight, 0, TimeSpan.FromMilliseconds(420))
+            {
+                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseIn }
+            };
+            var marginOut = new ThicknessAnimation(UploadStatusStrip.Margin, new Thickness(0), TimeSpan.FromMilliseconds(420))
+            {
+                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseIn }
+            };
+            fadeOut.Completed += (_, _) =>
+            {
+                if (token != _uploadStripAnimToken)
+                {
+                    return;
+                }
+
+                ResetUploadFeedback();
+            };
+            UploadStatusStrip.BeginAnimation(UIElement.OpacityProperty, fadeOut);
+            UploadStatusStrip.BeginAnimation(FrameworkElement.HeightProperty, collapse);
+            UploadStatusStrip.BeginAnimation(FrameworkElement.MarginProperty, marginOut);
         }
 
         /// <summary>
@@ -3195,6 +3905,25 @@ namespace GitDeployPro.Controls
             }
 
             OperationLogText.Text = string.Join(Environment.NewLine, _logLines);
+        }
+
+        private sealed class FtpProfileListItem
+        {
+            public FtpProfileListItem(ConnectionProfile profile, bool isProjectDefault, bool isAssigned)
+            {
+                Profile = profile;
+                IsProjectDefault = isProjectDefault;
+                IsAssigned = isAssigned;
+            }
+
+            public ConnectionProfile Profile { get; }
+            public bool IsProjectDefault { get; }
+            public bool IsAssigned { get; }
+            public bool IsFavorite => Profile?.IsFavorite == true;
+            public string Name => Profile?.Name ?? string.Empty;
+            public string Host => Profile?.Host ?? string.Empty;
+
+            public override string ToString() => Name;
         }
 
         private sealed class WebMessage

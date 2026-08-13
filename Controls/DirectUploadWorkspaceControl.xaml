@@ -12,10 +12,6 @@
       d:DesignWidth="800">
 
     <Grid>
-    <ScrollViewer x:Name="RootScrollViewer"
-                  VerticalScrollBarVisibility="Auto"
-                  HorizontalScrollBarVisibility="Disabled"
-                  CanContentScroll="False">
         <Grid x:Name="ContentRootGrid" Margin="{StaticResource Spacing.PageMargin}">
             <Grid.RowDefinitions>
                 <RowDefinition x:Name="PageHeaderRowDefinition" Height="Auto" />
@@ -397,7 +393,6 @@
                 </Grid>
             </Border>
         </Grid>
-    </ScrollViewer>
 
     <local:LocalFileEditorControl x:Name="LocalEditor"
                                   Visibility="Collapsed"

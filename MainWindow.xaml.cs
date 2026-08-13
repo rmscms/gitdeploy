@@ -16,6 +16,7 @@ using GitDeployPro.Models;
 using GitDeployPro.Pages;
 using GitDeployPro.Services;
 using GitDeployPro.Services.Localization;
+using GitDeployPro.Services.Theme;
 using GitDeployPro.Services.Update;
 using GitDeployPro.Windows;
 using Button = System.Windows.Controls.Button;
@@ -41,6 +42,7 @@ namespace GitDeployPro
         private PendingUpdateState? _readyPendingUpdate;
         private bool _backgroundUpdateInProgress;
         private UpdateStatusWindow? _updateStatusWindow;
+        private DeployPage? _deployPage;
 
         public bool IsBackgroundUpdateInProgress => _backgroundUpdateInProgress;
 
@@ -49,6 +51,10 @@ namespace GitDeployPro
             using var startupScope = PerformanceSampler.Instance.BeginScope("navigation", "main-window-startup");
             InitializeComponent();
             _configService = new ConfigurationService();
+            if (ContentFrame != null)
+            {
+                ContentFrame.Navigated += (_, _) => ClearFrameJournal();
+            }
             LoadRecentProjects();
             _taskMonitor.PropertyChanged += TaskMonitorOnPropertyChanged;
             BackupScheduleStore.SchedulesChanged += BackupScheduleStoreOnSchedulesChanged;
@@ -65,6 +71,7 @@ namespace GitDeployPro
             Loaded += MainWindow_Loaded;
             StateChanged += MainWindow_StateChanged;
             SourceInitialized += MainWindow_SourceInitialized;
+            Closed += MainWindow_Closed;
             LocalizationService.Instance.LanguageChanged += (_, _) =>
             {
                 Dispatcher.InvokeAsync(() =>
@@ -75,7 +82,7 @@ namespace GitDeployPro
             LocalizationService.Instance.ApplyFlowDirection(this);
             RefreshNavAppVersion();
 
-            NavigateToPage(new DeployPage(), "deploy");
+            NavigateToDeploy();
         }
 
         private void RefreshNavAppVersion()
@@ -547,7 +554,13 @@ namespace GitDeployPro
 
         private void NavMenuPopup_Opened(object sender, EventArgs e)
         {
+            CollapseNavThemeSubmenu();
             HighlightActiveNavRoute();
+        }
+
+        private void NavMenuPopup_Closed(object sender, EventArgs e)
+        {
+            CollapseNavThemeSubmenu();
         }
 
         private void HighlightActiveNavRoute()
@@ -645,6 +658,7 @@ namespace GitDeployPro
         private void SwitchProject(string path)
         {
             using var scope = PerformanceSampler.Instance.BeginScope("navigation", "switch-project", path);
+            DiscardDeploySession();
             _configService.AddRecentProject(path);
             LoadRecentProjects(); // Refresh name and list
 
@@ -662,7 +676,24 @@ namespace GitDeployPro
         {
             using var scope = PerformanceSampler.Instance.BeginScope("navigation", "navigate", "deploy");
             LoadRecentProjects();
-            NavigateToPage(new DeployPage(), "deploy");
+            _deployPage ??= new DeployPage();
+            NavigateToPage(_deployPage, "deploy");
+        }
+
+        private void DiscardDeploySession()
+        {
+            if (_deployPage == null)
+            {
+                return;
+            }
+
+            _deployPage.TeardownSession();
+            if (ReferenceEquals(ContentFrame.Content, _deployPage))
+            {
+                ContentFrame.Content = null;
+            }
+
+            _deployPage = null;
         }
 
         private void CheckAndShowSetupWizard(string path)
@@ -741,7 +772,6 @@ namespace GitDeployPro
         private void Deploy_Click(object sender, RoutedEventArgs e) => NavigateToDeploy();
         private void DirectUpload_Click(object sender, RoutedEventArgs e) => NavigateToPage(new DirectUploadPage(), "direct-upload");
         private void Database_Click(object sender, RoutedEventArgs e) => NavigateToPage(new DatabasePage(), "database");
-        private void Terminal_Click(object sender, RoutedEventArgs e) => NavigateToPage(new TerminalPage(), "terminal");
         private void BackupScheduler_Click(object sender, RoutedEventArgs e) => NavigateToPage(new BackupSchedulerPage(), "backup-scheduler");
         private void Git_Click(object sender, RoutedEventArgs e) => NavigateToPage(new GitPage(), "git");
         private void History_Click(object sender, RoutedEventArgs e) => NavigateToPage(new HistoryPage(), "history");
@@ -751,10 +781,7 @@ namespace GitDeployPro
         private async void CheckForUpdates_Click(object sender, RoutedEventArgs e)
         {
             CloseNavMenuPopup();
-            if (NavItemCheckUpdates != null)
-            {
-                NavItemCheckUpdates.IsEnabled = false;
-            }
+            SetUpdateCheckButtonsEnabled(false);
 
             try
             {
@@ -762,20 +789,136 @@ namespace GitDeployPro
             }
             finally
             {
-                if (NavItemCheckUpdates != null)
-                {
-                    NavItemCheckUpdates.IsEnabled = true;
-                }
+                SetUpdateCheckButtonsEnabled(true);
             }
+        }
+
+        private void SetUpdateCheckButtonsEnabled(bool enabled)
+        {
+            if (NavItemCheckUpdates != null)
+            {
+                NavItemCheckUpdates.IsEnabled = enabled;
+            }
+
+            if (HeaderCheckUpdatesBtn != null)
+            {
+                HeaderCheckUpdatesBtn.IsEnabled = enabled;
+            }
+        }
+
+        private void NavItemTheme_Click(object sender, RoutedEventArgs e)
+        {
+            if (NavThemeItemsPanel == null)
+            {
+                return;
+            }
+
+            if (NavThemeItemsPanel.Visibility == Visibility.Visible)
+            {
+                CollapseNavThemeSubmenu();
+                return;
+            }
+
+            RebuildNavThemeSubmenu();
+            NavThemeItemsPanel.Visibility = Visibility.Visible;
+            if (NavThemeChevron != null)
+            {
+                NavThemeChevron.Text = "▾";
+            }
+        }
+
+        private void CollapseNavThemeSubmenu()
+        {
+            if (NavThemeItemsPanel != null)
+            {
+                NavThemeItemsPanel.Visibility = Visibility.Collapsed;
+                NavThemeItemsPanel.Children.Clear();
+            }
+
+            if (NavThemeChevron != null)
+            {
+                NavThemeChevron.Text = "▸";
+            }
+        }
+
+        private void RebuildNavThemeSubmenu()
+        {
+            if (NavThemeItemsPanel == null)
+            {
+                return;
+            }
+
+            ThemeService.Instance.Initialize();
+            NavThemeItemsPanel.Children.Clear();
+
+            var currentId = ThemeService.Instance.CurrentThemeId;
+            var itemStyle = TryFindResource("NavPopupItemStyle") as Style;
+            foreach (var theme in ThemeService.Instance.Themes)
+            {
+                var isActive = string.Equals(theme.Id, currentId, StringComparison.OrdinalIgnoreCase);
+                var button = new Button
+                {
+                    Style = itemStyle,
+                    Tag = theme,
+                    HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch,
+                    ToolTip = theme.DisplayName
+                };
+
+                var row = new StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal };
+                row.Children.Add(new TextBlock
+                {
+                    Text = isActive ? "✓" : " ",
+                    FontSize = 12,
+                    Width = 18,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Foreground = TryFindResource("Text.Primary") as System.Windows.Media.Brush
+                });
+                row.Children.Add(new TextBlock
+                {
+                    Text = theme.DisplayName,
+                    FontSize = 12.5,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Foreground = TryFindResource("Text.Primary") as System.Windows.Media.Brush
+                });
+                button.Content = row;
+                button.Click += NavThemeItem_Click;
+                NavThemeItemsPanel.Children.Add(button);
+            }
+        }
+
+        private void NavThemeItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button button || button.Tag is not AppThemeInfo theme
+                || string.IsNullOrWhiteSpace(theme.Id))
+            {
+                return;
+            }
+
+            ThemeService.Instance.ApplyTheme(theme.Id);
+            _configService.SetAppThemeId(theme.Id);
+            RebuildNavThemeSubmenu();
         }
 
         private void NavigateToPage(Page page, string route)
         {
             using var scope = PerformanceSampler.Instance.BeginScope("navigation", "navigate", route);
             _currentRoute = route ?? string.Empty;
-            ContentFrame.Navigate(page);
+            if (!ReferenceEquals(ContentFrame.Content, page))
+            {
+                ContentFrame.Navigate(page);
+                ClearFrameJournal();
+            }
+
             CloseNavMenuPopup();
             HighlightActiveNavRoute();
+        }
+
+        private void ClearFrameJournal()
+        {
+            while (ContentFrame.CanGoBack)
+            {
+                ContentFrame.RemoveBackEntry();
+            }
         }
 
         private void Minimize_Click(object sender, RoutedEventArgs e)
@@ -788,6 +931,7 @@ namespace GitDeployPro
         {
             CloseNavMenuPopup();
             _allowClose = true;
+            DiscardDeploySession();
             System.Windows.Application.Current.Shutdown();
         }
 
@@ -916,6 +1060,7 @@ namespace GitDeployPro
             }
 
             _allowClose = true;
+            DiscardDeploySession();
             Close();
         }
 
@@ -1055,7 +1200,13 @@ namespace GitDeployPro
         private void ExitFromTray()
         {
             _allowClose = true;
+            DiscardDeploySession();
             Close();
+        }
+
+        private void MainWindow_Closed(object? sender, EventArgs e)
+        {
+            DiscardDeploySession();
         }
 
         private void RefreshTrayPreference()

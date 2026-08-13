@@ -9,6 +9,7 @@ namespace GitDeployPro.Models
         public string Id { get; init; } = string.Empty;
         public string Label { get; init; } = string.Empty;
         public string? IconGlyph { get; init; }
+        public string? InputGestureText { get; init; }
         public bool IsEnabled { get; init; } = true;
         public bool IsVisible { get; init; } = true;
         public bool IsSeparator { get; init; }

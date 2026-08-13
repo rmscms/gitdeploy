@@ -1180,44 +1180,47 @@ namespace GitDeployPro.Controls
                     break;
 
                 case "pasteRequest":
-                    if (_typingEnabled && System.Windows.Clipboard.ContainsText())
-                    {
-                        var clipboardText = System.Windows.Clipboard.GetText();
-                        await PostTerminalMessageAsync(new { type = "paste", text = clipboardText });
-                    }
+                    await PasteFromClipboardAsync();
                     break;
 
                 case "terminalContextMenu":
-                    if (message.TryGetProperty("text", out var ctxTextProperty))
                     {
-                        var selectedText = ctxTextProperty.GetString()?.Trim();
-                        if (!string.IsNullOrWhiteSpace(selectedText))
-                        {
-                            ShowTerminalSelectionContextMenu(selectedText);
-                        }
+                        var selectedText = message.TryGetProperty("text", out var ctxTextProperty)
+                            ? ctxTextProperty.GetString() ?? string.Empty
+                            : string.Empty;
+                        var hasSelection = message.TryGetProperty("hasSelection", out var hasSelectionProperty) &&
+                                           hasSelectionProperty.ValueKind is JsonValueKind.True
+                            ? true
+                            : !string.IsNullOrEmpty(selectedText);
+                        ShowTerminalContextMenu(selectedText, hasSelection);
                     }
                     break;
             }
         }
 
-        private void ShowTerminalSelectionContextMenu(string selectedText)
+        private void ShowTerminalContextMenu(string selectedText, bool hasSelection)
         {
             if (!Dispatcher.CheckAccess())
             {
-                Dispatcher.Invoke(() => ShowTerminalSelectionContextMenu(selectedText));
+                Dispatcher.Invoke(() => ShowTerminalContextMenu(selectedText, hasSelection));
                 return;
             }
 
+            var suggestionText = selectedText.Trim();
+            var canCopy = hasSelection && !string.IsNullOrEmpty(selectedText);
+            var canPaste = _typingEnabled && System.Windows.Clipboard.ContainsText();
+            var canAddSuggestion = !string.IsNullOrWhiteSpace(suggestionText);
+
             var projectPath = ResolveCurrentProjectPath();
-            string label = "Add to suggestions…";
-            if (!string.IsNullOrWhiteSpace(projectPath))
+            string suggestionLabel = "Add to suggestions…";
+            if (canAddSuggestion && !string.IsNullOrWhiteSpace(projectPath))
             {
                 try
                 {
                     var name = System.IO.Path.GetFileName(projectPath.TrimEnd('\\', '/'));
                     if (!string.IsNullOrWhiteSpace(name))
                     {
-                        label = $"Add to suggestions ({name})…";
+                        suggestionLabel = $"Add to suggestions ({name})…";
                     }
                 }
                 catch
@@ -1226,18 +1229,77 @@ namespace GitDeployPro.Controls
                 }
             }
 
-            var target = TerminalWebView as FrameworkElement ?? this;
-            GlobalContextMenuService.ShowMenu(
-                target,
-                new[]
+            var actions = new List<AppContextMenuAction>
+            {
+                new AppContextMenuAction
                 {
-                    new AppContextMenuAction
+                    Id = "copy",
+                    Label = "Copy",
+                    InputGestureText = "Ctrl+C",
+                    IsEnabled = canCopy,
+                    Execute = _ =>
                     {
-                        Id = "add-suggestion",
-                        Label = label,
-                        Execute = _ => OpenAddSuggestionDialog(selectedText)
+                        CopyTerminalSelection(selectedText);
+                        _ = PostTerminalMessageAsync(new { type = "focus" });
                     }
+                },
+                new AppContextMenuAction
+                {
+                    Id = "paste",
+                    Label = "Paste",
+                    InputGestureText = "Ctrl+V",
+                    IsEnabled = canPaste,
+                    Execute = _ => _ = PasteFromClipboardAsync()
+                },
+                new AppContextMenuAction
+                {
+                    Id = "select-all",
+                    Label = "Select All",
+                    Execute = _ => _ = SelectAllTerminalAsync()
+                }
+            };
+
+            if (canAddSuggestion)
+            {
+                actions.Add(AppContextMenuAction.Separator("suggestion-separator"));
+                actions.Add(new AppContextMenuAction
+                {
+                    Id = "add-suggestion",
+                    Label = suggestionLabel,
+                    Execute = _ => OpenAddSuggestionDialog(suggestionText)
                 });
+            }
+
+            var target = TerminalWebView as FrameworkElement ?? this;
+            GlobalContextMenuService.ShowMenu(target, actions);
+        }
+
+        private static void CopyTerminalSelection(string selectedText)
+        {
+            if (string.IsNullOrEmpty(selectedText))
+            {
+                return;
+            }
+
+            System.Windows.Clipboard.SetText(selectedText);
+        }
+
+        private async Task PasteFromClipboardAsync()
+        {
+            if (!_typingEnabled || !System.Windows.Clipboard.ContainsText())
+            {
+                return;
+            }
+
+            var clipboardText = System.Windows.Clipboard.GetText();
+            await PostTerminalMessageAsync(new { type = "paste", text = clipboardText });
+            await PostTerminalMessageAsync(new { type = "focus" });
+        }
+
+        private async Task SelectAllTerminalAsync()
+        {
+            await PostTerminalMessageAsync(new { type = "selectAll" });
+            await PostTerminalMessageAsync(new { type = "focus" });
         }
 
         private async Task WriteToTerminalAsync(string text)

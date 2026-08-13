@@ -224,6 +224,7 @@
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
 
                                 <!-- Badge -->
@@ -310,6 +311,40 @@
                                                Margin="0,2,0,0"
                                                TextTrimming="CharacterEllipsis"/>
                                 </StackPanel>
+
+                                <Button Grid.Column="2"
+                                        Width="28"
+                                        Height="28"
+                                        MinWidth="0"
+                                        MinHeight="0"
+                                        Padding="0"
+                                        Margin="8,0,0,0"
+                                        FontSize="14"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        Cursor="Hand"
+                                        VerticalAlignment="Center"
+                                        PreviewMouseLeftButtonDown="FavoriteConnectionButton_PreviewMouseLeftButtonDown">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource App.IconButton}">
+                                            <Setter Property="Width" Value="28"/>
+                                            <Setter Property="Height" Value="28"/>
+                                            <Setter Property="MinWidth" Value="0"/>
+                                            <Setter Property="MinHeight" Value="0"/>
+                                            <Setter Property="Padding" Value="0"/>
+                                            <Setter Property="Content" Value="☆"/>
+                                            <Setter Property="Foreground" Value="{StaticResource Text.Muted}"/>
+                                            <Setter Property="ToolTip" Value="{loc:T connection.tip.favorite}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsFavorite}" Value="True">
+                                                    <Setter Property="Content" Value="★"/>
+                                                    <Setter Property="Foreground" Value="{StaticResource Status.Warning}"/>
+                                                    <Setter Property="ToolTip" Value="{loc:T connection.tip.unfavorite}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
                             </Grid>
                             </Border>
                             <DataTemplate.Triggers>
@@ -366,7 +401,17 @@
             <Border Grid.Row="0" Padding="25,20,25,15" BorderThickness="0,0,0,1" BorderBrush="{StaticResource Border.Subtle}">
                 <StackPanel>
                     <TextBlock Text="Connection Name:" Foreground="{StaticResource Text.Muted}" Margin="0,0,0,5" FontSize="12"/>
-                    <TextBox x:Name="NameBox" FontSize="18" FontWeight="Bold" Padding="8" BorderThickness="0,0,0,1" Background="Transparent"/>
+                    <TextBox x:Name="NameBox"
+                             FontSize="16"
+                             FontWeight="SemiBold"
+                             Height="42"
+                             Padding="10,0"
+                             CaretBrush="{StaticResource Text.Primary}"
+                             Foreground="{StaticResource Text.Primary}"
+                             Background="{StaticResource Surface.Input}"
+                             BorderBrush="{StaticResource Border.Subtle}"
+                             BorderThickness="1"
+                             mah:TextBoxHelper.Watermark="Connection name" />
                 </StackPanel>
             </Border>
 

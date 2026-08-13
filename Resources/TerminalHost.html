@@ -681,6 +681,16 @@
           compatOut.scrollTop = compatOut.scrollHeight;
         };
 
+        document.addEventListener('contextmenu', (ev) => {
+          ev.preventDefault();
+          const selected = window.getSelection ? String(window.getSelection()) : '';
+          post({
+            type: 'terminalContextMenu',
+            text: selected,
+            hasSelection: selected.length > 0
+          });
+        });
+
         termElement.addEventListener('keydown', (ev) => {
           const key = (ev.key || '').toLowerCase();
           const ctrl = ev.ctrlKey || ev.metaKey;
@@ -764,6 +774,17 @@
                 post({ type: 'input', data: message.text });
               }
               break;
+            case 'selectAll':
+              if (compatOut) {
+                const range = document.createRange();
+                range.selectNodeContents(compatOut);
+                const sel = window.getSelection();
+                if (sel) {
+                  sel.removeAllRanges();
+                  sel.addRange(range);
+                }
+              }
+              break;
           }
         });
 
@@ -825,27 +846,15 @@
 
         const suggestions = createSuggestionEngine(term, () => typingEnabled, scheduleOverlaySync);
 
-        const terminalStage = document.getElementById('terminal-stage');
-        if (terminalStage) {
-          terminalStage.addEventListener('contextmenu', (ev) => {
-            if (!term.hasSelection()) {
-              return;
-            }
-
-            ev.preventDefault();
-            const selectedText = term.getSelection().trim();
-            if (!selectedText) {
-              return;
-            }
-
-            post({
-              type: 'terminalContextMenu',
-              text: selectedText,
-              clientX: ev.clientX,
-              clientY: ev.clientY
-            });
+        document.addEventListener('contextmenu', (ev) => {
+          ev.preventDefault();
+          const hasSelection = !!term.hasSelection();
+          post({
+            type: 'terminalContextMenu',
+            text: hasSelection ? (term.getSelection() || '') : '',
+            hasSelection
           });
-        }
+        });
 
         const pushResize = () => {
           applyBottomPad();
@@ -993,6 +1002,9 @@
                   post({ type: 'input', data: message.text });
                 }
               }
+              break;
+            case 'selectAll':
+              term.selectAll();
               break;
           }
         });

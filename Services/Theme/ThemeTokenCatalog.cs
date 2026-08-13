@@ -229,7 +229,9 @@ namespace GitDeployPro.Services.Theme
                 ["syntaxKeyword"] = "#569CD6",
                 ["syntaxFunction"] = "#DCDCAA",
                 ["syntaxNumber"] = "#B5CEA8",
-                ["syntaxDataType"] = "#4EC9B0"
+                ["syntaxDataType"] = "#4EC9B0",
+                ["tabClose"] = "@Text.Muted",
+                ["tabCloseOnAccent"] = "#FFFFFFFF"
             };
 
             pack.Deploy.Diff = new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase)
@@ -299,6 +301,7 @@ namespace GitDeployPro.Services.Theme
                 "editor.completionBackground", "editor.completionListBackground", "editor.completionBorder",
                 "editor.syntaxComment", "editor.syntaxString", "editor.syntaxKeyword",
                 "editor.syntaxFunction", "editor.syntaxNumber", "editor.syntaxDataType",
+                "editor.tabClose", "editor.tabCloseOnAccent",
                 "diff.contextBg", "diff.hunkBg", "diff.metaBg", "diff.addedBg", "diff.removedBg", "diff.headerBg"
             };
         }

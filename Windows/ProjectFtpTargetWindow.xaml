@@ -1,0 +1,110 @@
+<mah:MetroWindow x:Class="GitDeployPro.Windows.ProjectFtpTargetWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
+        Title="Choose FTP target"
+        Width="460"
+        MinHeight="280"
+        MaxHeight="520"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="{StaticResource Surface.Base}"
+        Foreground="{StaticResource Text.Primary}"
+        WindowTitleBrush="{StaticResource Surface.Card}"
+        NonActiveWindowTitleBrush="{StaticResource Surface.Card}"
+        BorderThickness="1"
+        BorderBrush="{StaticResource Border.Subtle}">
+    <Grid Margin="20,18,20,24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock x:Name="PromptTextBlock"
+                   Grid.Row="0"
+                   Text="Choose which FTP/SFTP this project should use for Commit and Sync."
+                   Foreground="{StaticResource Text.Secondary}"
+                   FontSize="13"
+                   Margin="0,0,0,14"
+                   TextWrapping="Wrap"/>
+
+        <ListBox x:Name="ProfilesList"
+                 Grid.Row="1"
+                 MinHeight="140"
+                 MaxHeight="280"
+                 Background="Transparent"
+                 BorderThickness="0"
+                 Style="{StaticResource App.ListBox.Host}"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem" BasedOn="{StaticResource App.ListBoxItem.Transparent}">
+                    <Setter Property="Padding" Value="0"/>
+                    <Setter Property="Margin" Value="0,0,0,8"/>
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                    <Setter Property="Cursor" Value="Hand"/>
+                </Style>
+            </ListBox.ItemContainerStyle>
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <Border x:Name="TargetRow"
+                            Background="{StaticResource Surface.Input}"
+                            BorderBrush="{StaticResource Border.Subtle}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="12,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="{Binding Name}"
+                                           FontWeight="SemiBold"
+                                           FontSize="13"
+                                           Foreground="{StaticResource Text.Primary}"
+                                           TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Text="{Binding Host}"
+                                           FontSize="11"
+                                           Foreground="{StaticResource Text.Muted}"
+                                           Margin="0,2,0,0"
+                                           TextTrimming="CharacterEllipsis"/>
+                            </StackPanel>
+                            <Border Grid.Column="1"
+                                    Background="{StaticResource Status.SuccessSurface}"
+                                    CornerRadius="4"
+                                    Padding="8,3"
+                                    VerticalAlignment="Center"
+                                    Visibility="{Binding DefaultBadgeVisibility}">
+                                <TextBlock Text="Default"
+                                           FontSize="10"
+                                           FontWeight="SemiBold"
+                                           Foreground="{StaticResource Status.Success}"/>
+                            </Border>
+                        </Grid>
+                    </Border>
+                    <DataTemplate.Triggers>
+                        <DataTrigger Binding="{Binding IsCurrentDefault}" Value="True">
+                            <Setter TargetName="TargetRow" Property="Background" Value="{StaticResource Status.SuccessSurface}"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=ListBoxItem}, Path=IsSelected}" Value="True">
+                            <Setter TargetName="TargetRow" Property="BorderBrush" Value="{StaticResource Accent.Primary}"/>
+                        </DataTrigger>
+                    </DataTemplate.Triggers>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button Content="OK" Width="90" Height="32" Margin="0,0,10,0"
+                    Style="{StaticResource App.Button.Primary}"
+                    FontSize="13" FontWeight="SemiBold"
+                    Click="OkButton_Click" IsDefault="True"/>
+            <Button Content="Cancel" Width="90" Height="32"
+                    Style="{StaticResource App.Button.Ghost}"
+                    FontSize="13" FontWeight="SemiBold"
+                    Click="CancelButton_Click" IsCancel="True"/>
+        </StackPanel>
+    </Grid>
+</mah:MetroWindow>

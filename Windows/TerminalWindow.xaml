@@ -3,6 +3,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:GitDeployPro.Controls"
         xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
+        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+        xmlns:loc="clr-namespace:GitDeployPro.Services.Localization"
         Title="Terminal" Height="600" Width="900"
         Background="{StaticResource Surface.Base}"
         Foreground="{StaticResource Text.Primary}"
@@ -13,6 +15,24 @@
     
     <Window.Resources>
         <Style x:Key="ModernButtonStyle" TargetType="Button" BasedOn="{StaticResource App.Button.Toolbar}" />
+        <Style x:Key="Terminal.IconButton" TargetType="Button" BasedOn="{StaticResource App.IconButton}">
+            <Setter Property="Width" Value="36" />
+            <Setter Property="Height" Value="34" />
+            <Setter Property="Margin" Value="0,0,6,0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="{StaticResource Border.Subtle}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="{StaticResource Text.Muted}" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style x:Key="Terminal.IconButton.Accent" TargetType="Button" BasedOn="{StaticResource Terminal.IconButton}">
+            <Setter Property="BorderBrush" Value="{StaticResource Accent.Primary}" />
+            <Setter Property="Foreground" Value="{StaticResource Accent.Primary}" />
+        </Style>
+        <Style x:Key="Terminal.IconButton.Danger" TargetType="Button" BasedOn="{StaticResource Terminal.IconButton}">
+            <Setter Property="BorderBrush" Value="{StaticResource Status.Error}" />
+            <Setter Property="Foreground" Value="{StaticResource Status.Error}" />
+        </Style>
     </Window.Resources>
 
     <Grid>
@@ -60,31 +80,32 @@
                     </Grid.ColumnDefinitions>
                     <ComboBox x:Name="PresetComboBox"
                               Grid.Column="0"
-                              Height="28"
+                              Height="34"
                               DisplayMemberPath="Title"
                               SelectedValuePath="Id"
-                              Margin="0,0,12,0"/>
-                    <Button Content="Insert"
-                            Grid.Column="1"
-                            Margin="0,0,8,0"
-                            Padding="14,4"
-                            Style="{StaticResource App.Button.Primary}"
-                            Foreground="{StaticResource Text.Primary}"
-                            Cursor="Hand"
-                            Click="UsePreset_Click"/>
-                    <Button Content="Delete"
-                            Grid.Column="2"
-                            Margin="0,0,8,0"
-                            Padding="14,4"
-                            Style="{StaticResource App.Button.Danger}"
-                            Foreground="{StaticResource Text.Primary}"
-                            Cursor="Hand"
-                            Click="DeletePreset_Click"/>
+                              Margin="0,0,8,0"
+                              ToolTip="{loc:T terminal.tip.presetList}"/>
+                    <Button Grid.Column="1"
+                            Style="{StaticResource Terminal.IconButton.Accent}"
+                            ToolTip="{loc:T terminal.tip.insertPreset}"
+                            Click="UsePreset_Click">
+                        <ui:SymbolIcon Symbol="ClipboardPaste24" Filled="False" FontSize="16"
+                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                    </Button>
+                    <Button Grid.Column="2"
+                            Style="{StaticResource Terminal.IconButton.Danger}"
+                            ToolTip="{loc:T terminal.tip.deletePreset}"
+                            Click="DeletePreset_Click">
+                        <ui:SymbolIcon Symbol="Delete24" Filled="False" FontSize="16"
+                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                    </Button>
                     <CheckBox x:Name="BroadcastAllCheckBox"
                               Grid.Column="3"
-                              Content="Send to all open terminals"
+                              Content="Send to all"
                               Foreground="{StaticResource Text.Secondary}"
-                              VerticalAlignment="Center"/>
+                              VerticalAlignment="Center"
+                              Margin="4,0,0,0"
+                              ToolTip="{loc:T terminal.tip.broadcast}"/>
                 </Grid>
 
                 <Grid Margin="0,10,0,0">
@@ -96,18 +117,21 @@
                     <TextBox x:Name="PresetTitleBox"
                              mah:TextBoxHelper.Watermark="Title"
                              Grid.Column="0"
-                             Margin="0,0,12,0"/>
+                             Margin="0,0,8,0"
+                             ToolTip="{loc:T terminal.tip.presetTitle}"/>
                     <TextBox x:Name="PresetCommandBox"
                              mah:TextBoxHelper.Watermark="Command"
                              Grid.Column="1"
-                             Margin="0,0,12,0"/>
-                    <Button Content="Save"
-                            Grid.Column="2"
-                            Padding="14,4"
-                            Style="{StaticResource App.Button.Primary}"
-                            Foreground="{StaticResource Text.Primary}"
-                            Cursor="Hand"
-                            Click="AddPresetButton_Click"/>
+                             Margin="0,0,8,0"
+                             ToolTip="{loc:T terminal.tip.presetCommand}"/>
+                    <Button Grid.Column="2"
+                            Style="{StaticResource Terminal.IconButton.Accent}"
+                            Margin="0"
+                            ToolTip="{loc:T terminal.tip.savePreset}"
+                            Click="AddPresetButton_Click">
+                        <ui:SymbolIcon Symbol="Save24" Filled="False" FontSize="16"
+                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                    </Button>
                 </Grid>
             </StackPanel>
         </Border>
