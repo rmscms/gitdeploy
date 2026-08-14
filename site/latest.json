@@ -1,19 +1,15 @@
 {
-  "version": "1.4.20",
-  "fileName": "GitDeployPro-1.4.20.exe",
-  "downloadUrl": "versions/GitDeployPro-1.4.20.exe",
-  "sha256": "5003D05E9F6DE2EE978CA1A5A24B00F8DC5C0767190D4C97AAEADA2531242CBD",
-  "releaseNotes": "- FTP session stays connected when switching pages (Settings, Dashboard)\n- Header: theme in the hamburger menu, outline nav icons, Deploy title bar removed\n- Redesigned app dialogs (themed overlay)\n- Multiple FTP profiles per project, favorites, and default target before Commit and Sync\n- FTP editor: compact themed tab close; Refresh from remote (toolbar and right-click) with unsaved-change confirm\n- Upload success banner auto-hides after a few seconds\n- Standalone Terminal page removed (use the Deploy dock terminal)\n- Dark theme: connection Name field caret is visible",
+  "version": "1.4.21",
+  "fileName": "GitDeployPro-1.4.21.exe",
+  "downloadUrl": "versions/GitDeployPro-1.4.21.exe",
+  "sha256": "0CF1ED606D2865BA4E46F1841162A7854EA2DA5C17EB92AEB74C16BE41AC78BC",
+  "releaseNotes": "- Upload errors now show the real FTP/SFTP reason (path, code, permission tip) instead of a generic FluentFTP message\n- Deploy left/right rails aligned with spacing; tooltips on header, rails, and window controls\n- File editor can Float into a separate resizable window (Dock to return)\n- Terminal suggestions: built-in Git, Composer, and Laravel command packs",
   "changelog": [
-    "FTP session stays connected when switching pages (Settings, Dashboard)",
-    "Header: theme in the hamburger menu, outline nav icons, Deploy title bar removed",
-    "Redesigned app dialogs (themed overlay)",
-    "Multiple FTP profiles per project, favorites, and default target before Commit and Sync",
-    "FTP editor: compact themed tab close; Refresh from remote (toolbar and right-click) with unsaved-change confirm",
-    "Upload success banner auto-hides after a few seconds",
-    "Standalone Terminal page removed (use the Deploy dock terminal)",
-    "Dark theme: connection Name field caret is visible"
+    "Upload errors now show the real FTP/SFTP reason (path, code, permission tip) instead of a generic FluentFTP message",
+    "Deploy left/right rails aligned with spacing; tooltips on header, rails, and window controls",
+    "File editor can Float into a separate resizable window (Dock to return)",
+    "Terminal suggestions: built-in Git, Composer, and Laravel command packs"
   ],
   "mandatory": false,
-  "publishedUtc": "2026-08-13T10:43:10Z"
+  "publishedUtc": "2026-08-14T05:52:26Z"
 }

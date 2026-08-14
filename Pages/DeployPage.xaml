@@ -7,13 +7,20 @@
       Background="{StaticResource Surface.Base}">
     <Page.Resources>
         <Style x:Key="DeployRailButtonStyle" TargetType="Button" BasedOn="{StaticResource App.IconButton}">
-            <Setter Property="Width" Value="34" />
-            <Setter Property="Height" Value="34" />
-            <Setter Property="Margin" Value="0,4" />
+            <Setter Property="Width" Value="36" />
+            <Setter Property="Height" Value="36" />
+            <Setter Property="MinWidth" Value="36" />
+            <Setter Property="MinHeight" Value="36" />
+            <Setter Property="Padding" Value="4" />
+            <Setter Property="Margin" Value="0,6" />
+            <Setter Property="ClipToBounds" Value="False" />
             <Setter Property="Foreground" Value="{StaticResource Text.Secondary}" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="ToolTipService.InitialShowDelay" Value="400" />
+            <Setter Property="ToolTipService.BetweenShowDelay" Value="100" />
+            <Setter Property="ToolTipService.ShowDuration" Value="12000" />
         </Style>
         <!-- JetBrains-like tool-window tabs: flat text + accent underline when active -->
         <Style x:Key="DeployDockTabButtonStyle" TargetType="Button" BasedOn="{StaticResource App.Button.Ghost}">
@@ -112,13 +119,13 @@
 
     <Grid x:Name="DeployShellRoot" Margin="8,6,8,6">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition x:Name="LeftRailColumn" Width="44" MinWidth="44" MaxWidth="44" />
+            <ColumnDefinition x:Name="LeftRailColumn" Width="52" MinWidth="52" MaxWidth="52" />
             <ColumnDefinition x:Name="LeftDockColumn" Width="0" />
             <ColumnDefinition x:Name="LeftSplitterColumn" Width="0" />
             <ColumnDefinition x:Name="DeployMainColumn" Width="*" MinWidth="280" />
             <ColumnDefinition x:Name="DeployRemoteSplitterColumn" Width="0" />
             <ColumnDefinition x:Name="DeployRemotePanelColumn" Width="0" />
-            <ColumnDefinition x:Name="RightRailColumn" Width="44" MinWidth="44" MaxWidth="44" />
+            <ColumnDefinition x:Name="RightRailColumn" Width="52" MinWidth="52" MaxWidth="52" />
         </Grid.ColumnDefinitions>
 
         <!-- Left icon rail (above terminal maximize overlay so it stays clickable) -->
@@ -127,7 +134,7 @@
                 Background="{StaticResource Surface.Shell}"
                 BorderBrush="{StaticResource Border.Subtle}"
                 BorderThickness="0,0,1,0">
-            <StackPanel Margin="0,10,0,0" HorizontalAlignment="Center">
+            <StackPanel Margin="4,10,4,0" HorizontalAlignment="Center">
                 <Button x:Name="ToggleDirectUploadDockButton"
                         Style="{StaticResource DeployRailButtonStyle}"
                         Content="📤"
@@ -178,22 +185,29 @@
                             <Button x:Name="ToggleUploadActionsButton"
                                     Content="🚀"
                                     Style="{StaticResource DeployRailButtonStyle}"
-                                    Width="28"
-                                    Height="28"
-                                    Margin="0,0,2,0"
+                                    Width="32"
+                                    Height="32"
+                                    MinWidth="32"
+                                    MinHeight="32"
+                                    Margin="0,0,4,0"
                                     ToolTip="{loc:T deploy.tip.uploadActions}"
                                     Click="ToggleUploadActionsButton_Click" />
                             <Button Content="🔄"
                                     Style="{StaticResource DeployRailButtonStyle}"
-                                    Width="28"
-                                    Height="28"
-                                    Margin="0,0,2,0"
+                                    Width="32"
+                                    Height="32"
+                                    MinWidth="32"
+                                    MinHeight="32"
+                                    Margin="0,0,4,0"
                                     ToolTip="{loc:T deploy.tip.refreshDisk}"
                                     Click="RefreshDirectUploadDock_Click" />
                             <Button Content="✕"
                                     Style="{StaticResource DeployRailButtonStyle}"
-                                    Width="28"
-                                    Height="28"
+                                    Width="32"
+                                    Height="32"
+                                    MinWidth="32"
+                                    MinHeight="32"
+                                    Margin="0"
                                     ToolTip="{loc:T deploy.tip.collapseUpload}"
                                     Click="CollapseDirectUploadDock_Click" />
                         </StackPanel>
@@ -603,7 +617,7 @@
                 Background="{StaticResource Surface.Shell}"
                 BorderBrush="{StaticResource Border.Subtle}"
                 BorderThickness="1,0,0,0">
-            <StackPanel Margin="0,10,0,0" HorizontalAlignment="Center">
+            <StackPanel Margin="4,10,4,0" HorizontalAlignment="Center">
                 <Button x:Name="ToggleRemoteWorkspaceButton"
                         Style="{StaticResource DeployRailButtonStyle}"
                         Content="🗂"
@@ -619,7 +633,7 @@
               Height="360"
               MinHeight="28"
               MaxHeight="900"
-              Margin="52,0,52,0"
+              Margin="60,0,60,0"
               VerticalAlignment="Bottom"
               Panel.ZIndex="55">
             <Grid.RowDefinitions>

@@ -71,6 +71,9 @@
             <Setter Property="Foreground" Value="{StaticResource Text.Secondary}" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="ToolTipService.InitialShowDelay" Value="400" />
+            <Setter Property="ToolTipService.BetweenShowDelay" Value="100" />
+            <Setter Property="ToolTipService.ShowDuration" Value="12000" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -460,6 +463,7 @@
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
 
                             <Button x:Name="CloseEditorOverlayButton"
@@ -493,8 +497,15 @@
                                     ToolTip="{loc:T deploy.tip.revert}"
                                     Click="RevertButton_Click" />
 
-                            <Button x:Name="SaveUploadButton"
+                            <Button x:Name="FloatEditorButton"
                                     Grid.Column="4"
+                                    Content="⧉"
+                                    Style="{StaticResource FtpToolbarIconButtonStyle}"
+                                    ToolTip="{loc:T deploy.tip.floatEditor}"
+                                    Click="FloatEditorButton_Click" />
+
+                            <Button x:Name="SaveUploadButton"
+                                    Grid.Column="5"
                                     Content="⬆"
                                     Style="{StaticResource FtpToolbarIconButtonStyle}"
                                     IsEnabled="False"
@@ -506,6 +517,7 @@
                                    Margin="0,3,0,0"
                                    Foreground="{StaticResource Text.Muted}"
                                    FontSize="10"
+                                   TextWrapping="Wrap"
                                    Text="No file loaded." />
 
                         <Border x:Name="UploadStatusStrip"
@@ -540,6 +552,7 @@
                                                Grid.Column="1"
                                                Text=""
                                                FontSize="10"
+                                               TextWrapping="NoWrap"
                                                TextTrimming="CharacterEllipsis"
                                                VerticalAlignment="Center"
                                                Foreground="{StaticResource Text.Muted}" />

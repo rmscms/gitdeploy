@@ -52,6 +52,7 @@ namespace GitDeployPro.Controls
             "Legend: green = clean · red = changed · blue = untracked · grey = ignored · green background = mapped";
 
         public event EventHandler<LocalEditorModeChangedEventArgs>? EditorModeChanged;
+        public event EventHandler? EditorFloatRequested;
         public event EventHandler? UploadActionsPanelVisibilityChanged;
 
         private static readonly HashSet<string> HardExcludeNames = new(StringComparer.OrdinalIgnoreCase)
@@ -84,6 +85,7 @@ namespace GitDeployPro.Controls
             if (LocalEditor != null)
             {
                 LocalEditor.EditorModeChanged += (_, args) => EditorModeChanged?.Invoke(this, args);
+                LocalEditor.FloatRequested += (_, _) => EditorFloatRequested?.Invoke(this, EventArgs.Empty);
             }
         }
 
@@ -119,6 +121,10 @@ namespace GitDeployPro.Controls
         public void HostLocalEditorIn(Decorator host) => LocalEditor?.HostIn(host);
 
         public void RestoreLocalEditorHome() => LocalEditor?.RestoreHome();
+
+        public void SetLocalEditorFloated(bool floated) => LocalEditor?.SetEditorFloated(floated);
+
+        public string GetLocalEditorPath() => LocalEditor?.OpenedFilePath ?? string.Empty;
 
         public bool TryCloseLocalEditor(bool force = false) => LocalEditor?.TryClose(force) ?? true;
 
@@ -2638,34 +2644,24 @@ namespace GitDeployPro.Controls
                             ResolveUploadPaths(file.FullPath, profileRemoteBase, defaultRemoteBase,
                                 out string relativePath, out string remoteBasePath);
                             string remotePath = CombineRemotePaths(remoteBasePath, relativePath);
+                            var protocol = config.UseSSH ? "SFTP" : "FTP";
+                            var detail = RemoteTransferErrorFormatter.Format(
+                                fileEx,
+                                fileName: file.Name,
+                                remotePath: remotePath,
+                                protocol: protocol,
+                                profileName: config.FtpHost);
                             
                             Dispatcher.Invoke(() =>
                             {
                                 file.UploadState = UploadState.Failed;
                                 UpdateUploadDetailText(file.Name, 0, 0, 0, "Failed");
                                 AddUploadLog($"  ✗ Upload FAILED!");
-                                AddUploadLog($"  Error: {fileEx.Message}");
+                                AddUploadLog($"  {detail.Replace(Environment.NewLine, Environment.NewLine + "  ")}");
                                 AddUploadLog("");
                             });
                             
-                            string errorMsg = "Failed to upload: " + file.Name + Environment.NewLine + Environment.NewLine +
-                                            "Remote Path: " + remotePath + Environment.NewLine + Environment.NewLine +
-                                            "Error Type: " + fileEx.GetType().Name + Environment.NewLine +
-                                            "Error Message: " + fileEx.Message;
-                            
-                            if (fileEx.InnerException != null)
-                            {
-                                errorMsg += Environment.NewLine + Environment.NewLine +
-                                           "Inner Error: " + fileEx.InnerException.Message;
-                            }
-                            
-                            if (!string.IsNullOrEmpty(fileEx.StackTrace))
-                            {
-                                errorMsg += Environment.NewLine + Environment.NewLine +
-                                           "Stack Trace:" + Environment.NewLine + fileEx.StackTrace;
-                            }
-                            
-                            ModernMessageBox.Show(errorMsg, "Upload Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                            ModernMessageBox.Show(detail, "Upload Error", MessageBoxButton.OK, MessageBoxImage.Error);
                             break; // Stop upload on error
                         }
                     }
@@ -2706,11 +2702,12 @@ namespace GitDeployPro.Controls
             catch (Exception ex)
             {
                 StatusText.Text = "Upload Failed.";
-                var detailedMessage = $"Error while uploading the file to the server.\n\n" +
-                                    $"Error Type: {ex.GetType().Name}\n" +
-                                    $"Message: {ex.Message}\n\n" +
-                                    $"Stack Trace:\n{ex.StackTrace}";
-
+                var protocol = config.UseSSH ? "SFTP" : "FTP";
+                var detailedMessage = RemoteTransferErrorFormatter.Format(
+                    ex,
+                    protocol: protocol,
+                    profileName: config.FtpHost);
+                AddUploadLog(detailedMessage);
                 ModernMessageBox.Show(detailedMessage, "Upload Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally

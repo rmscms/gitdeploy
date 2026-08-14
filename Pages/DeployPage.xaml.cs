@@ -31,7 +31,7 @@ namespace GitDeployPro.Pages
         private const double RemoteWideBreakpoint = 1500;
         private const double RemoteMediumBreakpoint = 1100;
         private const double RemoteNarrowBreakpoint = 900;
-        private const double RailWidth = 44;
+        private const double RailWidth = 52;
         private const double SplitterWidth = 8;
         private const double MainColumnMinWidth = 280;
         private const double RemoteDockMinWidth = 260;
@@ -71,6 +71,9 @@ namespace GitDeployPro.Pages
         private bool _remoteWorkspaceInitialized;
         private string _ftpAssignmentFingerprint = string.Empty;
         private bool _isRemoteEditorOverlayActive;
+        private EditorHostWindow? _editorFloatWindow;
+        private bool _isEditorFloated;
+        private bool _closingEditorFloatFromCode;
         private GridLength _remotePanelLastWidth = new GridLength(420);
         private GridLength _leftDockLastWidth = new GridLength(340);
         private GridLength _bottomDockLastHeight = new GridLength(0);
@@ -99,9 +102,11 @@ namespace GitDeployPro.Pages
             _configService = new ConfigurationService();
             _projectConfig = new ProjectConfig();
             DeployRemoteWorkspace.EditorModeChanged += DeployRemoteWorkspace_EditorModeChanged;
+            DeployRemoteWorkspace.EditorFloatRequested += DeployRemoteWorkspace_EditorFloatRequested;
             if (DirectUploadDock != null)
             {
                 DirectUploadDock.EditorModeChanged += DirectUploadDock_EditorModeChanged;
+                DirectUploadDock.EditorFloatRequested += DirectUploadDock_EditorFloatRequested;
                 DirectUploadDock.UploadActionsPanelVisibilityChanged += DirectUploadDock_UploadActionsPanelVisibilityChanged;
             }
             Loaded += DeployPage_Loaded;
@@ -208,12 +213,16 @@ namespace GitDeployPro.Pages
             _teardownCompleted = true;
             DeployRemoteWorkspace.NotifyHostTeardown();
             DeployRemoteWorkspace.EditorModeChanged -= DeployRemoteWorkspace_EditorModeChanged;
+            DeployRemoteWorkspace.EditorFloatRequested -= DeployRemoteWorkspace_EditorFloatRequested;
             if (DirectUploadDock != null)
             {
                 DirectUploadDock.EditorModeChanged -= DirectUploadDock_EditorModeChanged;
+                DirectUploadDock.EditorFloatRequested -= DirectUploadDock_EditorFloatRequested;
                 DirectUploadDock.UploadActionsPanelVisibilityChanged -= DirectUploadDock_UploadActionsPanelVisibilityChanged;
                 DirectUploadDock.TryCloseLocalEditor(force: true);
             }
+
+            CloseEditorFloatWindow(reparentToOverlay: false);
 
             _ = DisposeAllDeployTerminalSessionsAsync();
             DetachDeployThemeHandlers();
@@ -238,11 +247,37 @@ namespace GitDeployPro.Pages
             }
 
             SetRemoteEditorOverlay(e.IsOpen);
+            if (!e.IsOpen)
+            {
+                CloseEditorFloatWindow(reparentToOverlay: false);
+            }
+            else
+            {
+                UpdateEditorFloatWindowTitle();
+            }
         }
 
         private void DirectUploadDock_EditorModeChanged(object? sender, LocalEditorModeChangedEventArgs e)
         {
             SetLocalDirectUploadEditorOverlay(e.IsOpen);
+            if (!e.IsOpen)
+            {
+                CloseEditorFloatWindow(reparentToOverlay: false);
+            }
+            else
+            {
+                UpdateEditorFloatWindowTitle();
+            }
+        }
+
+        private void DeployRemoteWorkspace_EditorFloatRequested(object? sender, EventArgs e)
+        {
+            ToggleEditorFloat();
+        }
+
+        private void DirectUploadDock_EditorFloatRequested(object? sender, EventArgs e)
+        {
+            ToggleEditorFloat();
         }
 
         private void SetLocalDirectUploadEditorOverlay(bool enable)
@@ -259,6 +294,14 @@ namespace GitDeployPro.Pages
                     SetRemoteEditorOverlay(false);
                 }
 
+                if (_isEditorFloated)
+                {
+                    HostActiveEditorInFloatWindow();
+                    CenterEditorOverlayHost.Child = null;
+                    CenterEditorOverlayHost.Visibility = Visibility.Collapsed;
+                    return;
+                }
+
                 DirectUploadDock.HostLocalEditorIn(CenterEditorOverlayHost);
                 CenterEditorOverlayHost.Visibility = Visibility.Visible;
                 System.Windows.Controls.Panel.SetZIndex(CenterEditorOverlayHost, 40);
@@ -271,6 +314,172 @@ namespace GitDeployPro.Pages
                 CenterEditorOverlayHost.Child = null;
                 CenterEditorOverlayHost.Visibility = Visibility.Collapsed;
             }
+        }
+
+        private void ToggleEditorFloat()
+        {
+            if (_isEditorFloated)
+            {
+                DockFloatedEditor();
+                return;
+            }
+
+            var remoteOpen = DeployRemoteWorkspace.IsEditorOpen;
+            var hasLocal = DirectUploadDock != null && !string.IsNullOrWhiteSpace(DirectUploadDock.GetLocalEditorPath());
+            if (!remoteOpen && !hasLocal)
+            {
+                return;
+            }
+
+            _isEditorFloated = true;
+            HostActiveEditorInFloatWindow();
+            CenterEditorOverlayHost.Child = null;
+            CenterEditorOverlayHost.Visibility = Visibility.Collapsed;
+            UpdateEditorFloatButtons();
+        }
+
+        private void DockFloatedEditor()
+        {
+            if (!_isEditorFloated)
+            {
+                return;
+            }
+
+            _isEditorFloated = false;
+            UpdateEditorFloatButtons();
+            CloseEditorFloatWindow(reparentToOverlay: true);
+        }
+
+        private void HostActiveEditorInFloatWindow()
+        {
+            var window = EnsureEditorFloatWindow();
+            if (DeployRemoteWorkspace.IsEditorOpen)
+            {
+                DeployRemoteWorkspace.HostEditorIn(window.EditorHost);
+            }
+            else if (DirectUploadDock != null && !string.IsNullOrWhiteSpace(DirectUploadDock.GetLocalEditorPath()))
+            {
+                DirectUploadDock.HostLocalEditorIn(window.EditorHost);
+            }
+
+            UpdateEditorFloatWindowTitle();
+            if (!window.IsVisible)
+            {
+                WindowOwnerService.ShowOwned(window, this, centerOnOwner: true);
+            }
+            else
+            {
+                window.Activate();
+            }
+        }
+
+        private EditorHostWindow EnsureEditorFloatWindow()
+        {
+            if (_editorFloatWindow != null)
+            {
+                return _editorFloatWindow;
+            }
+
+            var window = new EditorHostWindow();
+            window.Closing += EditorFloatWindow_Closing;
+            window.Closed += EditorFloatWindow_Closed;
+            _editorFloatWindow = window;
+            return window;
+        }
+
+        private void EditorFloatWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
+        {
+            if (_closingEditorFloatFromCode)
+            {
+                return;
+            }
+
+            _isEditorFloated = false;
+            UpdateEditorFloatButtons();
+            RestoreEditorToOverlay();
+        }
+
+        private void EditorFloatWindow_Closed(object? sender, EventArgs e)
+        {
+            if (sender is EditorHostWindow window)
+            {
+                window.Closing -= EditorFloatWindow_Closing;
+                window.Closed -= EditorFloatWindow_Closed;
+            }
+
+            if (ReferenceEquals(_editorFloatWindow, sender))
+            {
+                _editorFloatWindow = null;
+            }
+
+            _closingEditorFloatFromCode = false;
+        }
+
+        private void CloseEditorFloatWindow(bool reparentToOverlay)
+        {
+            _isEditorFloated = false;
+            UpdateEditorFloatButtons();
+            if (reparentToOverlay)
+            {
+                RestoreEditorToOverlay();
+            }
+
+            if (_editorFloatWindow == null)
+            {
+                return;
+            }
+
+            _closingEditorFloatFromCode = true;
+            _editorFloatWindow.Close();
+        }
+
+        private void RestoreEditorToOverlay()
+        {
+            if (CenterEditorOverlayHost == null)
+            {
+                return;
+            }
+
+            if (DeployRemoteWorkspace.IsEditorOpen)
+            {
+                DeployRemoteWorkspace.HostEditorIn(CenterEditorOverlayHost);
+                CenterEditorOverlayHost.Visibility = Visibility.Visible;
+                System.Windows.Controls.Panel.SetZIndex(CenterEditorOverlayHost, 40);
+                return;
+            }
+
+            if (DirectUploadDock != null && !string.IsNullOrWhiteSpace(DirectUploadDock.GetLocalEditorPath()))
+            {
+                DirectUploadDock.HostLocalEditorIn(CenterEditorOverlayHost);
+                CenterEditorOverlayHost.Visibility = Visibility.Visible;
+                System.Windows.Controls.Panel.SetZIndex(CenterEditorOverlayHost, 40);
+                return;
+            }
+
+            CenterEditorOverlayHost.Child = null;
+            CenterEditorOverlayHost.Visibility = Visibility.Collapsed;
+        }
+
+        private void UpdateEditorFloatWindowTitle()
+        {
+            if (_editorFloatWindow == null)
+            {
+                return;
+            }
+
+            if (DeployRemoteWorkspace.IsEditorOpen)
+            {
+                _editorFloatWindow.SetFileTitle(DeployRemoteWorkspace.GetActiveEditorPath());
+                return;
+            }
+
+            _editorFloatWindow.SetFileTitle(DirectUploadDock?.GetLocalEditorPath());
+        }
+
+        private void UpdateEditorFloatButtons()
+        {
+            DeployRemoteWorkspace.SetEditorFloated(_isEditorFloated);
+            DirectUploadDock?.SetLocalEditorFloated(_isEditorFloated);
         }
 
         private void DetachDeployPage_Click(object sender, RoutedEventArgs e)
@@ -1495,9 +1704,20 @@ namespace GitDeployPro.Pages
                 }
 
                 ApplyRemoteDockLayout(resetWidth: true);
-                DeployRemoteWorkspace.HostEditorIn(CenterEditorOverlayHost);
-                CenterEditorOverlayHost.Visibility = Visibility.Visible;
-                System.Windows.Controls.Panel.SetZIndex(CenterEditorOverlayHost, 40);
+
+                if (_isEditorFloated)
+                {
+                    HostActiveEditorInFloatWindow();
+                    CenterEditorOverlayHost.Child = null;
+                    CenterEditorOverlayHost.Visibility = Visibility.Collapsed;
+                }
+                else
+                {
+                    DeployRemoteWorkspace.HostEditorIn(CenterEditorOverlayHost);
+                    CenterEditorOverlayHost.Visibility = Visibility.Visible;
+                    System.Windows.Controls.Panel.SetZIndex(CenterEditorOverlayHost, 40);
+                }
+
                 ToggleRemoteWorkspaceButton.Content = "✕";
                 ToggleRemoteWorkspaceButton.ToolTip = Loc.T("deploy.tip.closeEditorRail");
                 UpdateRemoteToggleButtonUi();
@@ -1540,10 +1760,18 @@ namespace GitDeployPro.Pages
                 _isRemoteWorkspaceCollapsed = false;
                 ApplyLeftDockLayout(resetWidth: false);
                 ApplyRemoteDockLayout(resetWidth: false);
-                CenterEditorOverlayHost.Visibility = Visibility.Visible;
-                if (CenterEditorOverlayHost.Child == null)
+                if (_isEditorFloated)
                 {
-                    DeployRemoteWorkspace.HostEditorIn(CenterEditorOverlayHost);
+                    CenterEditorOverlayHost.Child = null;
+                    CenterEditorOverlayHost.Visibility = Visibility.Collapsed;
+                }
+                else
+                {
+                    CenterEditorOverlayHost.Visibility = Visibility.Visible;
+                    if (CenterEditorOverlayHost.Child == null)
+                    {
+                        DeployRemoteWorkspace.HostEditorIn(CenterEditorOverlayHost);
+                    }
                 }
 
                 UpdateRemoteToggleButtonUi();

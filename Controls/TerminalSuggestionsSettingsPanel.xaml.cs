@@ -362,13 +362,13 @@ namespace GitDeployPro.Controls
             MakeGlobalRow(row);
         }
 
-        private void RestoreLaravelButton_Click(object sender, RoutedEventArgs e)
+        private void RestoreBuiltInPacksButton_Click(object sender, RoutedEventArgs e)
         {
-            var added = TerminalSuggestionStore.MergeLaravelDefaults();
+            var added = TerminalSuggestionStore.MergeBuiltInDefaults();
             Reload(_currentProjectPath);
             StatusText.Text = added > 0
-                ? $"Added {added} Laravel default command(s)."
-                : "Laravel defaults already present.";
+                ? $"Added {added} built-in Git / Composer / Laravel command(s)."
+                : "Built-in packs already present.";
         }
 
         private void ImportBrowseButton_Click(object sender, RoutedEventArgs e)

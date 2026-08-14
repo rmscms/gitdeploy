@@ -8,6 +8,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using GitDeployPro.Services;
+using GitDeployPro.Services.Localization;
 using GitDeployPro.Services.Theme;
 using ICSharpCode.AvalonEdit.Highlighting;
 using Microsoft.Web.WebView2.Core;
@@ -50,6 +51,7 @@ namespace GitDeployPro.Controls
         private UIElementCollection? _homeChildren;
 
         public event EventHandler<LocalEditorModeChangedEventArgs>? EditorModeChanged;
+        public event EventHandler? FloatRequested;
 
         public LocalFileEditorControl()
         {
@@ -128,6 +130,8 @@ namespace GitDeployPro.Controls
         }
 
         public bool IsOpen => Visibility == Visibility.Visible && !string.IsNullOrEmpty(_filePath);
+
+        public string OpenedFilePath => _filePath;
 
         public async Task TryReloadFromDiskIfMatchesAsync(string localPath)
         {
@@ -248,7 +252,11 @@ namespace GitDeployPro.Controls
                 return;
             }
 
-            RememberHome();
+            if (_homePanel == null)
+            {
+                RememberHome();
+            }
+
             DetachFromParent();
             host.Child = this;
             Visibility = Visibility.Visible;
@@ -336,6 +344,22 @@ namespace GitDeployPro.Controls
         }
 
         private void CloseButton_Click(object sender, RoutedEventArgs e) => TryClose();
+
+        private void FloatEditorButton_Click(object sender, RoutedEventArgs e)
+        {
+            FloatRequested?.Invoke(this, EventArgs.Empty);
+        }
+
+        public void SetEditorFloated(bool floated)
+        {
+            if (FloatEditorButton == null)
+            {
+                return;
+            }
+
+            FloatEditorButton.Content = floated ? "⊟" : "⧉";
+            FloatEditorButton.ToolTip = Loc.T(floated ? "deploy.tip.dockEditor" : "deploy.tip.floatEditor");
+        }
 
         private async void RevertButton_Click(object sender, RoutedEventArgs e)
         {
