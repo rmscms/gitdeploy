@@ -37,6 +37,7 @@
                 MinWidth="380"
                 MaxWidth="520"
                 MinHeight="188"
+                Opacity="0"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center"
                 Background="{StaticResource Surface.Raised}"

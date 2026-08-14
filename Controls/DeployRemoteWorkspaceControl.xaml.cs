@@ -16,6 +16,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
+using GitDeployPro.Behaviors;
 using GitDeployPro.Models;
 using GitDeployPro.Services;
 using GitDeployPro.Services.Localization;
@@ -1962,6 +1963,17 @@ namespace GitDeployPro.Controls
             }
         }
 
+        private void RemoteTreeView_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (e.Key != Key.Delete)
+            {
+                return;
+            }
+
+            e.Handled = true;
+            _ = DeleteSelectedRemoteNodesAsync();
+        }
+
         private async void RemoteTreeView_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
             if (_isBusy)
@@ -1997,10 +2009,15 @@ namespace GitDeployPro.Controls
                 return;
             }
 
-            treeItem.IsSelected = true;
             treeItem.Focus();
 
-            var actions = BuildRemoteContextActions(node);
+            var selected = TreeViewExtendedSelectionBehavior.GetSelectedItems<RemoteTreeNode>(RemoteTreeView);
+            if (selected.Count == 0 || !selected.Contains(node))
+            {
+                selected = new List<RemoteTreeNode> { node };
+            }
+
+            var actions = BuildRemoteContextActions(node, selected);
             if (GlobalContextMenuService.ShowMenu(treeItem, actions, node, PlacementMode.MousePoint))
             {
                 e.Handled = true;
@@ -2324,7 +2341,42 @@ namespace GitDeployPro.Controls
         }
 
         private IReadOnlyList<AppContextMenuAction> BuildRemoteContextActions(RemoteTreeNode node)
+            => BuildRemoteContextActions(node, new[] { node });
+
+        private IReadOnlyList<AppContextMenuAction> BuildRemoteContextActions(
+            RemoteTreeNode node,
+            IReadOnlyList<RemoteTreeNode> selected)
         {
+            var items = selected.Count > 0 ? selected : new[] { node };
+            var multi = items.Count > 1;
+            var deletable = items.Where(item => !IsBrowseRootNode(item) && !item.IsPlaceholder).ToList();
+            var canDelete = deletable.Count > 0;
+
+            if (multi)
+            {
+                return new List<AppContextMenuAction>
+                {
+                    new()
+                    {
+                        Id = "download",
+                        Label = $"Download ({deletable.Count} items)",
+                        IconGlyph = "⬇",
+                        IsEnabled = canDelete,
+                        Execute = _ => _ = DownloadNodesAsync(deletable)
+                    },
+                    AppContextMenuAction.Separator("remote-action-separator"),
+                    new()
+                    {
+                        Id = "delete",
+                        Label = $"Delete ({deletable.Count} items)",
+                        IconGlyph = "🗑",
+                        IsDestructive = true,
+                        IsEnabled = canDelete,
+                        Execute = _ => _ = DeleteNodesAsync(deletable)
+                    }
+                };
+            }
+
             var isRoot = IsBrowseRootNode(node);
             var actions = new List<AppContextMenuAction>
             {
@@ -2550,9 +2602,21 @@ namespace GitDeployPro.Controls
             return RemotePathResolver.ResolveLocalDownloadRoot(projectRoot, mapping);
         }
 
-        private async Task DownloadNodeAsync(RemoteTreeNode node)
+        private Task DownloadNodeAsync(RemoteTreeNode node) =>
+            DownloadNodesAsync(node == null ? Array.Empty<RemoteTreeNode>() : new[] { node });
+
+        private async Task DownloadNodesAsync(IReadOnlyList<RemoteTreeNode> nodes)
         {
             if (_isBusy || _remoteService == null || !_remoteService.IsConnected || _currentProfile == null)
+            {
+                return;
+            }
+
+            var targets = TreeMultiSelectHelpers.CollapseNestedByPath(
+                nodes.Where(node => node != null && !node.IsPlaceholder && !IsBrowseRootNode(node)),
+                node => node.FullPath,
+                node => node.IsDirectory);
+            if (targets.Count == 0)
             {
                 return;
             }
@@ -2573,29 +2637,36 @@ namespace GitDeployPro.Controls
             try
             {
                 var remoteRoot = RemotePathResolver.BuildRemoteRoot(_currentProfile);
-                var localTarget = RemotePathResolver.BuildLocalDownloadPath(
-                    dialog.SelectedPath,
-                    remoteRoot,
-                    node.FullPath,
-                    node.IsDirectory,
-                    node.Name);
+                foreach (var node in targets)
+                {
+                    var localTarget = RemotePathResolver.BuildLocalDownloadPath(
+                        dialog.SelectedPath,
+                        remoteRoot,
+                        node.FullPath,
+                        node.IsDirectory,
+                        node.Name);
 
-                if (node.IsDirectory)
-                {
-                    await ExecuteRemoteAsync(
-                        service => service.DownloadDirectoryAsync(node.FullPath, localTarget),
-                        $"Download directory {node.Name}");
-                    SetStatus($"Folder downloaded to {localTarget}", success: true);
-                    AddLog($"Downloaded folder {node.FullPath} -> {localTarget}");
+                    if (node.IsDirectory)
+                    {
+                        await ExecuteRemoteAsync(
+                            service => service.DownloadDirectoryAsync(node.FullPath, localTarget),
+                            $"Download directory {node.Name}");
+                        AddLog($"Downloaded folder {node.FullPath} -> {localTarget}");
+                    }
+                    else
+                    {
+                        await ExecuteRemoteAsync(
+                            service => service.DownloadFileAsync(node.FullPath, localTarget),
+                            $"Download file {node.Name}");
+                        AddLog($"Downloaded file {node.FullPath} -> {localTarget}");
+                    }
                 }
-                else
-                {
-                    await ExecuteRemoteAsync(
-                        service => service.DownloadFileAsync(node.FullPath, localTarget),
-                        $"Download file {node.Name}");
-                    SetStatus($"File downloaded to {localTarget}", success: true);
-                    AddLog($"Downloaded file {node.FullPath} -> {localTarget}");
-                }
+
+                SetStatus(
+                    targets.Count == 1
+                        ? $"Downloaded {targets[0].Name}"
+                        : $"Downloaded {targets.Count} items",
+                    success: true);
             }
             catch (Exception ex)
             {
@@ -2748,15 +2819,51 @@ namespace GitDeployPro.Controls
             }
         }
 
-        private async Task DeleteNodeAsync(RemoteTreeNode node)
+        private Task DeleteNodeAsync(RemoteTreeNode node) =>
+            DeleteNodesAsync(node == null ? Array.Empty<RemoteTreeNode>() : new[] { node });
+
+        private async Task DeleteSelectedRemoteNodesAsync()
         {
-            if (_isBusy || _remoteService == null || !_remoteService.IsConnected)
+            if (_isBusy)
             {
                 return;
             }
 
+            var selected = TreeViewExtendedSelectionBehavior.GetSelectedItems<RemoteTreeNode>(RemoteTreeView);
+            await DeleteNodesAsync(selected);
+        }
+
+        private async Task DeleteNodesAsync(IReadOnlyList<RemoteTreeNode> nodes)
+        {
+            if (_isBusy || _remoteService == null || !_remoteService.IsConnected || nodes == null)
+            {
+                return;
+            }
+
+            var targets = TreeMultiSelectHelpers.CollapseNestedByPath(
+                nodes.Where(node => node != null && !node.IsPlaceholder && !IsBrowseRootNode(node)),
+                node => node.FullPath,
+                node => node.IsDirectory);
+            if (targets.Count == 0)
+            {
+                return;
+            }
+
+            string message;
+            if (targets.Count == 1)
+            {
+                var node = targets[0];
+                message = $"Delete '{node.Name}' {(node.IsDirectory ? "folder" : "file")}? This action cannot be undone.";
+            }
+            else
+            {
+                var preview = string.Join("\n", targets.Take(8).Select(node => "• " + node.Name));
+                var extra = targets.Count > 8 ? $"\n… and {targets.Count - 8} more" : string.Empty;
+                message = $"Delete {targets.Count} items?\n\n{preview}{extra}\n\nThis action cannot be undone.";
+            }
+
             var result = ModernMessageBox.ShowWithResult(
-                $"Delete '{node.Name}' {(node.IsDirectory ? "folder" : "file")}? This action cannot be undone.",
+                message,
                 "Confirm delete",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Warning,
@@ -2771,24 +2878,28 @@ namespace GitDeployPro.Controls
             UpdateUiState();
             try
             {
-                await ExecuteRemoteAsync(
-                    service => service.DeleteAsync(node.FullPath, node.IsDirectory),
-                    $"Delete {node.Name}");
-
-                await RemoveDeletedSessionsAsync(node.FullPath, node.IsDirectory);
-
-                // Only drop that item (or refresh its parent folder) — never reload the whole FTP tree.
-                if (!TryRemoveNodeFromTree(node))
+                foreach (var node in targets)
                 {
-                    await RefreshContainingFolderAsync(node);
-                }
-                else
-                {
-                    UpdateRemoteBrowserVisualState();
+                    await ExecuteRemoteAsync(
+                        service => service.DeleteAsync(node.FullPath, node.IsDirectory),
+                        $"Delete {node.Name}");
+
+                    await RemoveDeletedSessionsAsync(node.FullPath, node.IsDirectory);
+
+                    if (!TryRemoveNodeFromTree(node))
+                    {
+                        await RefreshContainingFolderAsync(node);
+                    }
                 }
 
-                SetStatus($"Deleted {node.Name}", success: true);
-                AddLog($"Deleted {node.FullPath}");
+                UpdateRemoteBrowserVisualState();
+                TreeViewExtendedSelectionBehavior.ClearSelection(RemoteTreeView);
+                SetStatus(
+                    targets.Count == 1 ? $"Deleted {targets[0].Name}" : $"Deleted {targets.Count} items",
+                    success: true);
+                AddLog(targets.Count == 1
+                    ? $"Deleted {targets[0].FullPath}"
+                    : $"Deleted {targets.Count} remote items");
             }
             catch (Exception ex)
             {

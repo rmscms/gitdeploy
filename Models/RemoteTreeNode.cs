@@ -1,13 +1,15 @@
+using System.Collections;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
 namespace GitDeployPro.Models
 {
-    public sealed class RemoteTreeNode : INotifyPropertyChanged
+    public sealed class RemoteTreeNode : INotifyPropertyChanged, ITreeMultiSelectable
     {
         private bool _isExpanded;
         private bool _isSelected;
+        private bool _isMultiSelected;
         private bool _isLoaded;
         private string _iconColor = "#FF9AA8B5";
         private string _badgeText = "FILE";
@@ -67,6 +69,16 @@ namespace GitDeployPro.Models
             get => _isSelected;
             set => SetProperty(ref _isSelected, value);
         }
+
+        public bool IsMultiSelected
+        {
+            get => _isMultiSelected;
+            set => SetProperty(ref _isMultiSelected, value);
+        }
+
+        public bool IncludeInMultiSelect => !IsPlaceholder;
+
+        IEnumerable ITreeMultiSelectable.Children => Children;
 
         public bool IsLoaded
         {

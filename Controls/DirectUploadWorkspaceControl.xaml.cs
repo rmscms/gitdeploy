@@ -15,6 +15,7 @@ using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
+using GitDeployPro.Behaviors;
 using GitDeployPro.Services;
 using GitDeployPro.Services.Remote;
 using GitDeployPro.Services.Theme;
@@ -289,7 +290,10 @@ namespace GitDeployPro.Controls
                 var hoverBrush = tokens.GetBrush(
                     "directUpload.treeHover",
                     GetThemeColor("Surface.Shell", System.Windows.Media.Colors.DarkSlateGray));
-                var itemStyle = new Style(typeof(TreeViewItem));
+                var basedOn = FileTreeView.TryFindResource("App.TreeViewItem.FullRow") as Style;
+                var itemStyle = basedOn != null
+                    ? new Style(typeof(TreeViewItem), basedOn)
+                    : new Style(typeof(TreeViewItem));
                 itemStyle.Setters.Add(new Setter(
                     TreeViewItem.IsExpandedProperty,
                     new System.Windows.Data.Binding("IsExpanded") { Mode = BindingMode.TwoWay }));
@@ -297,8 +301,11 @@ namespace GitDeployPro.Controls
                     System.Windows.Controls.Control.ForegroundProperty,
                     GetThemeBrush("Text.Secondary", System.Windows.Media.Brushes.Gray)));
                 itemStyle.Setters.Add(new Setter(
-                    System.Windows.Controls.Control.BackgroundProperty,
-                    System.Windows.Media.Brushes.Transparent));
+                    FrameworkElement.HorizontalAlignmentProperty,
+                    System.Windows.HorizontalAlignment.Stretch));
+                itemStyle.Setters.Add(new Setter(
+                    System.Windows.Controls.Control.HorizontalContentAlignmentProperty,
+                    System.Windows.HorizontalAlignment.Stretch));
                 itemStyle.Setters.Add(new Setter(
                     System.Windows.Controls.Control.FontSizeProperty,
                     compact ? 12.0 : 13.0));
@@ -306,17 +313,27 @@ namespace GitDeployPro.Controls
                     System.Windows.Controls.Control.PaddingProperty,
                     compact ? new Thickness(2, 1, 2, 1) : new Thickness(3, 1, 3, 1)));
 
-                var selectedTrigger = new Trigger { Property = TreeViewItem.IsSelectedProperty, Value = true };
-                selectedTrigger.Setters.Add(new Setter(
-                    System.Windows.Controls.Control.BackgroundProperty,
-                    selectedBrush));
-                itemStyle.Triggers.Add(selectedTrigger);
-
                 var hoverTrigger = new Trigger { Property = UIElement.IsMouseOverProperty, Value = true };
                 hoverTrigger.Setters.Add(new Setter(
                     System.Windows.Controls.Control.BackgroundProperty,
                     hoverBrush));
                 itemStyle.Triggers.Add(hoverTrigger);
+
+                var selectedTrigger = new Trigger { Property = TreeViewItem.IsSelectedProperty, Value = true };
+                selectedTrigger.Setters.Add(new Setter(
+                    System.Windows.Controls.Control.BackgroundProperty,
+                    hoverBrush));
+                itemStyle.Triggers.Add(selectedTrigger);
+
+                var multiTrigger = new DataTrigger
+                {
+                    Binding = new System.Windows.Data.Binding(nameof(FileSystemItem.IsMultiSelected)),
+                    Value = true
+                };
+                multiTrigger.Setters.Add(new Setter(
+                    System.Windows.Controls.Control.BackgroundProperty,
+                    selectedBrush));
+                itemStyle.Triggers.Add(multiTrigger);
 
                 FileTreeView.ItemContainerStyle = itemStyle;
             }
@@ -1217,6 +1234,13 @@ namespace GitDeployPro.Controls
 
         private void FileTreeView_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
+            if (e.Key == Key.Delete)
+            {
+                e.Handled = true;
+                _ = DeleteSelectedLocalItemsAsync();
+                return;
+            }
+
             if (e.Key != Key.V || (Keyboard.Modifiers & ModifierKeys.Control) != ModifierKeys.Control)
             {
                 return;
@@ -1267,118 +1291,151 @@ namespace GitDeployPro.Controls
                 return;
             }
 
-            treeItem.IsSelected = true;
             treeItem.Focus();
 
+            var selected = TreeViewExtendedSelectionBehavior.GetSelectedItems<FileSystemItem>(FileTreeView);
+            if (selected.Count == 0 || !selected.Contains(item))
+            {
+                selected = new List<FileSystemItem> { item };
+            }
+
+            var actions = BuildLocalContextActions(item, selected);
+            if (GlobalContextMenuService.ShowMenu(treeItem, actions, item, PlacementMode.MousePoint))
+            {
+                e.Handled = true;
+            }
+        }
+
+        private IReadOnlyList<AppContextMenuAction> BuildLocalContextActions(
+            FileSystemItem clicked,
+            IReadOnlyList<FileSystemItem> selected)
+        {
             var actions = new List<AppContextMenuAction>();
             var canPaste = !_isUploading && System.Windows.Clipboard.ContainsFileDropList();
+            var multi = selected.Count > 1;
+            var target = clicked;
 
-            actions.Add(new AppContextMenuAction
-            {
-                Id = "new-folder",
-                Label = "New Folder",
-                IconGlyph = "📁",
-                IsEnabled = !_isUploading,
-                Execute = _ => CreateLocalFolder(item)
-            });
-            actions.Add(new AppContextMenuAction
-            {
-                Id = "new-file",
-                Label = "New File",
-                IconGlyph = "📄",
-                IsEnabled = !_isUploading,
-                Execute = _ => _ = CreateLocalFileAsync(item)
-            });
-
-            if (item.IsFolder)
+            if (!multi)
             {
                 actions.Add(new AppContextMenuAction
                 {
-                    Id = "open-in-explorer",
-                    Label = "Open in Explorer",
-                    IconGlyph = "📂",
-                    Execute = _ => OpenFolderInExplorer(item.FullPath)
-                });
-                actions.Add(new AppContextMenuAction
-                {
-                    Id = "refresh-folder",
-                    Label = "Refresh",
-                    IconGlyph = "🔄",
+                    Id = "new-folder",
+                    Label = "New Folder",
+                    IconGlyph = "📁",
                     IsEnabled = !_isUploading,
-                    Execute = _ => _ = RefreshFolderAsync(item)
+                    Execute = _ => CreateLocalFolder(target)
                 });
                 actions.Add(new AppContextMenuAction
                 {
-                    Id = "paste-files",
-                    Label = "Paste",
-                    IconGlyph = "📋",
-                    IsEnabled = canPaste,
-                    Execute = _ => _ = PasteClipboardFilesAsync()
+                    Id = "new-file",
+                    Label = "New File",
+                    IconGlyph = "📄",
+                    IsEnabled = !_isUploading,
+                    Execute = _ => _ = CreateLocalFileAsync(target)
                 });
+
+                if (target.IsFolder)
+                {
+                    actions.Add(new AppContextMenuAction
+                    {
+                        Id = "open-in-explorer",
+                        Label = "Open in Explorer",
+                        IconGlyph = "📂",
+                        Execute = _ => OpenFolderInExplorer(target.FullPath)
+                    });
+                    actions.Add(new AppContextMenuAction
+                    {
+                        Id = "refresh-folder",
+                        Label = "Refresh",
+                        IconGlyph = "🔄",
+                        IsEnabled = !_isUploading,
+                        Execute = _ => _ = RefreshFolderAsync(target)
+                    });
+                    actions.Add(new AppContextMenuAction
+                    {
+                        Id = "paste-files",
+                        Label = "Paste",
+                        IconGlyph = "📋",
+                        IsEnabled = canPaste,
+                        Execute = _ => _ = PasteClipboardFilesAsync()
+                    });
+                }
+                else
+                {
+                    actions.Add(new AppContextMenuAction
+                    {
+                        Id = "edit-file",
+                        Label = "Edit",
+                        IconGlyph = "✏",
+                        IsEnabled = !_isUploading,
+                        Execute = _ => OpenLocalFileInEditor(target.FullPath)
+                    });
+                    actions.Add(new AppContextMenuAction
+                    {
+                        Id = "upload-file",
+                        Label = "Upload file",
+                        IconGlyph = "🚀",
+                        IsEnabled = !_isUploading,
+                        Execute = _ => _ = UploadSpecificFilesAsync(new[] { target }, skipConfirm: true)
+                    });
+                    actions.Add(new AppContextMenuAction
+                    {
+                        Id = "open-file-location",
+                        Label = "Open in Explorer",
+                        IconGlyph = "📂",
+                        Execute = _ =>
+                        {
+                            var dir = Path.GetDirectoryName(target.FullPath);
+                            if (!string.IsNullOrWhiteSpace(dir))
+                            {
+                                OpenFolderInExplorer(dir);
+                            }
+                        }
+                    });
+                    actions.Add(new AppContextMenuAction
+                    {
+                        Id = "paste-files",
+                        Label = "Paste",
+                        IconGlyph = "📋",
+                        IsEnabled = canPaste,
+                        Execute = _ => _ = PasteClipboardFilesAsync()
+                    });
+                }
+
+                if (IsProjectGitRepository())
+                {
+                    actions.Add(AppContextMenuAction.Separator("git-separator"));
+                    actions.Add(BuildGitContextMenu(target));
+                }
             }
             else
             {
-                actions.Add(new AppContextMenuAction
+                var files = selected.Where(entry => !entry.IsFolder).ToList();
+                if (files.Count > 0)
                 {
-                    Id = "edit-file",
-                    Label = "Edit",
-                    IconGlyph = "✏",
-                    IsEnabled = !_isUploading,
-                    Execute = _ => OpenLocalFileInEditor(item.FullPath)
-                });
-                actions.Add(new AppContextMenuAction
-                {
-                    Id = "upload-file",
-                    Label = "Upload file",
-                    IconGlyph = "🚀",
-                    IsEnabled = !_isUploading,
-                    Execute = _ => _ = UploadSpecificFilesAsync(new[] { item }, skipConfirm: true)
-                });
-                actions.Add(new AppContextMenuAction
-                {
-                    Id = "open-file-location",
-                    Label = "Open in Explorer",
-                    IconGlyph = "📂",
-                    Execute = _ =>
+                    actions.Add(new AppContextMenuAction
                     {
-                        var dir = Path.GetDirectoryName(item.FullPath);
-                        if (!string.IsNullOrWhiteSpace(dir))
-                        {
-                            OpenFolderInExplorer(dir);
-                        }
-                    }
-                });
-                actions.Add(new AppContextMenuAction
-                {
-                    Id = "paste-files",
-                    Label = "Paste",
-                    IconGlyph = "📋",
-                    IsEnabled = canPaste,
-                    Execute = _ => _ = PasteClipboardFilesAsync()
-                });
-            }
-
-            if (IsProjectGitRepository())
-            {
-                actions.Add(AppContextMenuAction.Separator("git-separator"));
-                actions.Add(BuildGitContextMenu(item));
+                        Id = "upload-selected",
+                        Label = $"Upload {files.Count} file{(files.Count == 1 ? string.Empty : "s")}",
+                        IconGlyph = "🚀",
+                        IsEnabled = !_isUploading,
+                        Execute = _ => _ = UploadSpecificFilesAsync(files, skipConfirm: true)
+                    });
+                }
             }
 
             actions.Add(AppContextMenuAction.Separator("delete-separator"));
             actions.Add(new AppContextMenuAction
             {
                 Id = "delete-local",
-                Label = "Delete",
+                Label = multi ? $"Delete ({selected.Count} items)" : "Delete",
                 IconGlyph = "🗑",
                 IsEnabled = !_isUploading,
                 IsDestructive = true,
-                Execute = _ => _ = DeleteLocalItemAsync(item)
+                Execute = _ => _ = DeleteLocalItemsAsync(selected)
             });
 
-            if (GlobalContextMenuService.ShowMenu(treeItem, actions, item, PlacementMode.MousePoint))
-            {
-                e.Handled = true;
-            }
+            return actions;
         }
 
         private bool IsProjectGitRepository()
@@ -1750,16 +1807,49 @@ namespace GitDeployPro.Controls
             }
         }
 
-        private async Task DeleteLocalItemAsync(FileSystemItem item)
+        private Task DeleteLocalItemAsync(FileSystemItem item) =>
+            DeleteLocalItemsAsync(item == null ? Array.Empty<FileSystemItem>() : new[] { item });
+
+        private async Task DeleteSelectedLocalItemsAsync()
         {
-            if (_isUploading || item == null || string.IsNullOrWhiteSpace(item.FullPath))
+            var selected = TreeViewExtendedSelectionBehavior.GetSelectedItems<FileSystemItem>(FileTreeView);
+            await DeleteLocalItemsAsync(selected);
+        }
+
+        private async Task DeleteLocalItemsAsync(IReadOnlyList<FileSystemItem> items)
+        {
+            if (_isUploading || items == null || items.Count == 0)
             {
                 return;
             }
 
-            var kind = item.IsFolder ? "folder" : "file";
+            var targets = TreeMultiSelectHelpers.CollapseNestedByPath(
+                items.Where(item => item != null && !string.IsNullOrWhiteSpace(item.FullPath)),
+                item => item.FullPath,
+                item => item.IsFolder,
+                Path.DirectorySeparatorChar);
+
+            if (targets.Count == 0)
+            {
+                return;
+            }
+
+            string message;
+            if (targets.Count == 1)
+            {
+                var item = targets[0];
+                var kind = item.IsFolder ? "folder" : "file";
+                message = $"Delete this {kind}?\n\n{item.Name}\n{item.FullPath}\n\nThis cannot be undone.";
+            }
+            else
+            {
+                var preview = string.Join("\n", targets.Take(8).Select(item => "• " + item.Name));
+                var extra = targets.Count > 8 ? $"\n… and {targets.Count - 8} more" : string.Empty;
+                message = $"Delete {targets.Count} items?\n\n{preview}{extra}\n\nThis cannot be undone.";
+            }
+
             var confirm = ModernMessageBox.ShowWithResult(
-                $"Delete this {kind}?\n\n{item.Name}\n{item.FullPath}\n\nThis cannot be undone.",
+                message,
                 "Delete",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Warning,
@@ -1772,33 +1862,50 @@ namespace GitDeployPro.Controls
 
             try
             {
-                var parentPath = item.Parent?.FullPath
-                    ?? Path.GetDirectoryName(item.FullPath)
-                    ?? _projectPath;
-
-                if (item.IsFolder)
+                var parentFolders = new List<FileSystemItem>();
+                var deletedNames = new List<string>();
+                foreach (var item in targets)
                 {
-                    if (Directory.Exists(item.FullPath))
+                    if (item.IsFolder)
                     {
-                        Directory.Delete(item.FullPath, recursive: true);
+                        if (Directory.Exists(item.FullPath))
+                        {
+                            Directory.Delete(item.FullPath, recursive: true);
+                        }
+                    }
+                    else if (File.Exists(item.FullPath))
+                    {
+                        File.Delete(item.FullPath);
+                    }
+
+                    deletedNames.Add(item.Name);
+                    var parentPath = item.Parent?.FullPath
+                        ?? Path.GetDirectoryName(item.FullPath)
+                        ?? _projectPath;
+                    var parentFolder = item.Parent ?? FindFolderItemByPath(parentPath ?? string.Empty);
+                    if (parentFolder != null && parentFolders.All(existing =>
+                            !string.Equals(existing.FullPath, parentFolder.FullPath, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        parentFolders.Add(parentFolder);
                     }
                 }
-                else if (File.Exists(item.FullPath))
-                {
-                    File.Delete(item.FullPath);
-                }
 
-                var parentFolder = item.Parent ?? FindFolderItemByPath(parentPath ?? string.Empty);
-                if (parentFolder != null)
-                {
-                    await RefreshFolderAsync(parentFolder);
-                }
-                else
+                if (parentFolders.Count == 0)
                 {
                     await RefreshFromDiskAsync(preserveSelection: true, quiet: false);
                 }
+                else
+                {
+                    foreach (var parent in parentFolders)
+                    {
+                        await RefreshFolderAsync(parent);
+                    }
+                }
 
-                StatusText.Text = $"Deleted {item.Name}";
+                TreeViewExtendedSelectionBehavior.ClearSelection(FileTreeView);
+                StatusText.Text = deletedNames.Count == 1
+                    ? $"Deleted {deletedNames[0]}"
+                    : $"Deleted {deletedNames.Count} items";
             }
             catch (Exception ex)
             {
@@ -2511,7 +2618,8 @@ namespace GitDeployPro.Controls
                 }
                 UploadLogTextBox.Text += Environment.NewLine;
             }
-            
+
+            Action? pendingDialog = null;
             try
             {
                 using (var client = new AsyncFtpClient(config.FtpHost, config.FtpUsername, EncryptionService.Decrypt(config.FtpPassword), config.FtpPort))
@@ -2606,10 +2714,10 @@ namespace GitDeployPro.Controls
                                 double percent = fileSize > 0
                                     ? (double)transferred / totalBytes * 100
                                     : Math.Max(ftpProgress.Progress, 0);
-                                Dispatcher.Invoke(() =>
+                                Dispatcher.BeginInvoke(new Action(() =>
                                 {
                                     UpdateUploadDetailText(file.Name, percent, transferred, totalBytes);
-                                });
+                                }), DispatcherPriority.Background);
                             });
 
                             Dispatcher.Invoke(() => UpdateUploadDetailText(file.Name, 0, 0, fileSize));
@@ -2661,7 +2769,11 @@ namespace GitDeployPro.Controls
                                 AddUploadLog("");
                             });
                             
-                            ModernMessageBox.Show(detail, "Upload Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                            pendingDialog = () => ModernMessageBox.Show(
+                                detail,
+                                "Upload Error",
+                                MessageBoxButton.OK,
+                                MessageBoxImage.Error);
                             break; // Stop upload on error
                         }
                     }
@@ -2671,7 +2783,11 @@ namespace GitDeployPro.Controls
                         StatusText.Text = "Upload Stopped by User 🛑";
                         if (!skipConfirm)
                         {
-                            ModernMessageBox.Show("Upload process was stopped.", "Stopped", MessageBoxButton.OK, MessageBoxImage.Warning);
+                            pendingDialog = () => ModernMessageBox.Show(
+                                "Upload process was stopped.",
+                                "Stopped",
+                                MessageBoxButton.OK,
+                                MessageBoxImage.Warning);
                         }
                     }
                     else
@@ -2686,8 +2802,11 @@ namespace GitDeployPro.Controls
                         CheckSessionStatus();
                         if (!skipConfirm)
                         {
-                            ModernMessageBox.Show(
-                                $"Upload Complete!\nUploaded: {processed - skipped - foldersCreated}\nFolders: {foldersCreated}\nSkipped: {skipped}",
+                            var uploadedCount = processed - skipped - foldersCreated;
+                            var folderCount = foldersCreated;
+                            var skippedCount = skipped;
+                            pendingDialog = () => ModernMessageBox.Show(
+                                $"Upload Complete!\nUploaded: {uploadedCount}\nFolders: {folderCount}\nSkipped: {skippedCount}",
                                 "Success",
                                 MessageBoxButton.OK,
                                 MessageBoxImage.Information);
@@ -2708,7 +2827,11 @@ namespace GitDeployPro.Controls
                     protocol: protocol,
                     profileName: config.FtpHost);
                 AddUploadLog(detailedMessage);
-                ModernMessageBox.Show(detailedMessage, "Upload Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                pendingDialog = () => ModernMessageBox.Show(
+                    detailedMessage,
+                    "Upload Error",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
             }
             finally
             {
@@ -2729,6 +2852,8 @@ namespace GitDeployPro.Controls
 
                 ApplyUploadPanelVisibility();
             }
+
+            pendingDialog?.Invoke();
         }
 
         private void CollectSelectedUploadItems(
@@ -3115,10 +3240,11 @@ namespace GitDeployPro.Controls
         Failed
     }
 
-    public class FileSystemItem : INotifyPropertyChanged
+    public class FileSystemItem : INotifyPropertyChanged, ITreeMultiSelectable
     {
         private bool? _isChecked = false;
         private bool _isExpanded;
+        private bool _isMultiSelected;
         private UploadState _uploadState = UploadState.Pending;
         private GitItemState _gitState = GitItemState.None;
         private bool _isMappedFolder;
@@ -3220,6 +3346,21 @@ namespace GitDeployPro.Controls
 
         public ObservableCollection<FileSystemItem> Children { get; set; } = new ObservableCollection<FileSystemItem>();
         public FileSystemItem? Parent { get; set; }
+        public bool IncludeInMultiSelect => true;
+        System.Collections.IEnumerable ITreeMultiSelectable.Children => Children;
+
+        public bool IsMultiSelected
+        {
+            get => _isMultiSelected;
+            set
+            {
+                if (_isMultiSelected != value)
+                {
+                    _isMultiSelected = value;
+                    OnPropertyChanged(nameof(IsMultiSelected));
+                }
+            }
+        }
 
         public GitItemState GitState
         {
