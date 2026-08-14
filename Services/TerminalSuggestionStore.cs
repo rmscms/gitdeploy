@@ -40,10 +40,14 @@ namespace GitDeployPro.Services
             var list = config.TerminalSuggestions ?? new List<TerminalSuggestion>();
             if (list.Count == 0)
             {
-                list = TerminalSuggestionCatalog.GetLaravelDefaults()
+                list = TerminalSuggestionCatalog.GetAllBuiltInDefaults()
                     .Select(Clone)
                     .ToList();
                 SaveAll(list, config.TerminalAutocompleteEnabled);
+            }
+            else
+            {
+                EnsureBuiltInPacks(list);
             }
 
             return list.Select(Clone).ToList();
@@ -83,11 +87,35 @@ namespace GitDeployPro.Services
         }
 
         public static int MergeLaravelDefaults(bool overwriteExisting = false)
+            => MergeBuiltInDefaults(overwriteExisting);
+
+        public static int MergeBuiltInDefaults(bool overwriteExisting = false)
         {
             var list = LoadAll();
-            var defaults = TerminalSuggestionCatalog.GetLaravelDefaults();
-            var added = 0;
+            var added = MergePack(list, TerminalSuggestionCatalog.GetAllBuiltInDefaults(), overwriteExisting);
+            if (added > 0 || overwriteExisting)
+            {
+                SaveAll(list);
+            }
 
+            return added;
+        }
+
+        private static void EnsureBuiltInPacks(List<TerminalSuggestion> list)
+        {
+            var added = MergePack(list, TerminalSuggestionCatalog.GetAllBuiltInDefaults(), overwriteExisting: false);
+            if (added > 0)
+            {
+                SaveAll(list);
+            }
+        }
+
+        private static int MergePack(
+            List<TerminalSuggestion> list,
+            IEnumerable<TerminalSuggestion> defaults,
+            bool overwriteExisting)
+        {
+            var added = 0;
             foreach (var def in defaults)
             {
                 var existing = list.FirstOrDefault(s =>
@@ -107,11 +135,6 @@ namespace GitDeployPro.Services
                     existing.Category = def.Category;
                     existing.IsEnabled = def.IsEnabled;
                 }
-            }
-
-            if (added > 0 || overwriteExisting)
-            {
-                SaveAll(list);
             }
 
             return added;
@@ -179,8 +202,7 @@ namespace GitDeployPro.Services
         {
             var current = NormalizePath(currentProjectPath);
             return LoadAll()
-                .OrderBy(s => s.Scope == TerminalSuggestionScope.Global ? 0 : 1)
-                .ThenBy(s => GetScopeLabel(s, current), StringComparer.OrdinalIgnoreCase)
+                .OrderBy(s => s.Category, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(s => s.Command, StringComparer.OrdinalIgnoreCase)
                 .Select(s =>
                 {

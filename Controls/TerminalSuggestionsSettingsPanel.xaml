@@ -108,12 +108,12 @@
                     Margin="0,0,6,6"
                     Style="{StaticResource App.Button.Ghost}"
                     Click="MakeGlobalButton_Click" />
-            <Button Content="Restore Laravel defaults"
+            <Button Content="Restore built-in packs"
                     Height="28"
                     Padding="12,0"
                     Margin="0,0,6,6"
                     Style="{StaticResource App.Button.Ghost}"
-                    Click="RestoreLaravelButton_Click" />
+                    Click="RestoreBuiltInPacksButton_Click" />
         </WrapPanel>
 
         <Border Background="{StaticResource Surface.Raised}"
@@ -161,7 +161,7 @@
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>
-                        <GridViewColumn Header="Category" Width="90" DisplayMemberBinding="{Binding Category}" />
+                        <GridViewColumn Header="Category" Width="140" DisplayMemberBinding="{Binding Category}" />
                         <GridViewColumn Header="On" Width="40">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>

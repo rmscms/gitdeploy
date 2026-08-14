@@ -21,12 +21,7 @@ namespace GitDeployPro.Windows
             _existing = existing;
 
             Title = existing == null ? "Add terminal command" : "Edit terminal command";
-            CategoryComboBox.ItemsSource = new[]
-            {
-                TerminalSuggestionCatalog.CategoryLaravel,
-                TerminalSuggestionCatalog.CategoryNavigation,
-                TerminalSuggestionCatalog.CategoryCustom
-            };
+            CategoryComboBox.ItemsSource = TerminalSuggestionCatalog.GetKnownCategories();
 
             UpdateProjectScopeUi();
             if (existing != null)
@@ -43,7 +38,7 @@ namespace GitDeployPro.Windows
             else if (!string.IsNullOrWhiteSpace(prefillCommand))
             {
                 CommandTextBox.Text = prefillCommand.Trim();
-                CategoryComboBox.SelectedIndex = 2;
+                CategoryComboBox.SelectedItem = TerminalSuggestionCatalog.CategoryCustom;
                 if (!string.IsNullOrWhiteSpace(_currentProjectPath))
                 {
                     ProjectScopeRadio.IsChecked = true;
@@ -52,7 +47,7 @@ namespace GitDeployPro.Windows
             }
             else
             {
-                CategoryComboBox.SelectedIndex = 2;
+                CategoryComboBox.SelectedItem = TerminalSuggestionCatalog.CategoryCustom;
             }
 
             Loaded += (_, _) => CommandTextBox.Focus();

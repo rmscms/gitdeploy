@@ -88,6 +88,7 @@ namespace GitDeployPro.Controls
         public ObservableCollection<RemoteTreeNode> RootNodes { get; } = new();
         public ObservableCollection<RemoteEditSession> OpenSessions { get; } = new();
         public event EventHandler<RemoteEditorModeChangedEventArgs>? EditorModeChanged;
+        public event EventHandler? EditorFloatRequested;
         public bool IsEditorOpen => _isEditorOpen;
 
         public DeployRemoteWorkspaceControl()
@@ -3072,6 +3073,24 @@ namespace GitDeployPro.Controls
             await SaveUploadCurrentEditorFileAsync();
         }
 
+        private void FloatEditorButton_Click(object sender, RoutedEventArgs e)
+        {
+            EditorFloatRequested?.Invoke(this, EventArgs.Empty);
+        }
+
+        public void SetEditorFloated(bool floated)
+        {
+            if (FloatEditorButton == null)
+            {
+                return;
+            }
+
+            FloatEditorButton.Content = floated ? "⊟" : "⧉";
+            FloatEditorButton.ToolTip = Loc.T(floated ? "deploy.tip.dockEditor" : "deploy.tip.floatEditor");
+        }
+
+        public string GetActiveEditorPath() => _editSession?.FilePath ?? string.Empty;
+
         private async Task<bool> SaveUploadCurrentEditorFileAsync()
         {
             if (_isBusy || _editSession == null || !_editSession.IsDirty || _remoteService == null || !_remoteService.IsConnected)
@@ -3157,10 +3176,20 @@ namespace GitDeployPro.Controls
             }
             catch (Exception ex)
             {
-                EditorStatusText.Text = $"Upload failed: {ex.Message}";
-                SetStatus($"Upload failed: {ex.Message}", warning: true);
-                FailUploadFeedback($"Upload failed: {ex.Message}");
-                AddLog($"Upload failed: {ex.Message}");
+                var protocol = _currentProfile == null
+                    ? null
+                    : (_currentProfile.UseSSH ? "SFTP" : "FTP");
+                var detail = RemoteTransferErrorFormatter.Format(
+                    ex,
+                    fileName: _editSession?.FileName,
+                    remotePath: _editSession?.FilePath,
+                    protocol: protocol,
+                    profileName: _currentProfile?.Name);
+                var summary = RemoteTransferErrorFormatter.FormatSummary(ex, _editSession?.FileName);
+                EditorStatusText.Text = detail;
+                SetStatus(summary, warning: true);
+                FailUploadFeedback(detail);
+                AddLog(detail);
                 return false;
             }
             finally
@@ -3615,6 +3644,7 @@ namespace GitDeployPro.Controls
         {
             CancelUploadStripAutoHide();
             ShowUploadStripImmediate();
+            ExpandUploadStripForDetail();
             ApplyUploadStripTheme(uploading: false, success: false, warning: false, failed: true);
 
             if (UploadStatusLabel != null)
@@ -3670,7 +3700,32 @@ namespace GitDeployPro.Controls
 
             UploadStatusStrip.Opacity = 1;
             UploadStatusStrip.Height = UploadStripHeight;
+            UploadStatusStrip.MinHeight = UploadStripHeight;
             UploadStatusStrip.Margin = UploadStripMargin;
+            UploadStatusStrip.ClipToBounds = true;
+            if (UploadProgressHintText != null)
+            {
+                UploadProgressHintText.TextWrapping = TextWrapping.NoWrap;
+                UploadProgressHintText.TextTrimming = TextTrimming.CharacterEllipsis;
+            }
+        }
+
+        private void ExpandUploadStripForDetail()
+        {
+            if (UploadStatusStrip == null)
+            {
+                return;
+            }
+
+            UploadStatusStrip.BeginAnimation(FrameworkElement.HeightProperty, null);
+            UploadStatusStrip.Height = double.NaN;
+            UploadStatusStrip.MinHeight = UploadStripHeight;
+            UploadStatusStrip.ClipToBounds = false;
+            if (UploadProgressHintText != null)
+            {
+                UploadProgressHintText.TextWrapping = TextWrapping.Wrap;
+                UploadProgressHintText.TextTrimming = TextTrimming.None;
+            }
         }
 
         private void StopUploadStripAnimations()
