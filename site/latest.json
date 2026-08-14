@@ -1,15 +1,15 @@
 {
-  "version": "1.4.21",
-  "fileName": "GitDeployPro-1.4.21.exe",
-  "downloadUrl": "versions/GitDeployPro-1.4.21.exe",
-  "sha256": "0CF1ED606D2865BA4E46F1841162A7854EA2DA5C17EB92AEB74C16BE41AC78BC",
-  "releaseNotes": "- Upload errors now show the real FTP/SFTP reason (path, code, permission tip) instead of a generic FluentFTP message\n- Deploy left/right rails aligned with spacing; tooltips on header, rails, and window controls\n- File editor can Float into a separate resizable window (Dock to return)\n- Terminal suggestions: built-in Git, Composer, and Laravel command packs",
+  "version": "1.4.22",
+  "fileName": "GitDeployPro-1.4.22.exe",
+  "downloadUrl": "versions/GitDeployPro-1.4.22.exe",
+  "sha256": "F4431FDD70C5A48F729A01EFA073552775BA9771CD5B5E787378AC60B65F23C6",
+  "releaseNotes": "- Direct Upload and FTP: Windows-style multi-select (Ctrl/Shift/Ctrl+A) plus bulk Delete and Download\n- File selection highlight now fills the full row so multi-select is easier to see\n- Dialogs no longer open off-screen when the app is minimized (looked hung after upload)\n- Notification dialog fade-in plays once instead of flashing twice",
   "changelog": [
-    "Upload errors now show the real FTP/SFTP reason (path, code, permission tip) instead of a generic FluentFTP message",
-    "Deploy left/right rails aligned with spacing; tooltips on header, rails, and window controls",
-    "File editor can Float into a separate resizable window (Dock to return)",
-    "Terminal suggestions: built-in Git, Composer, and Laravel command packs"
+    "Direct Upload and FTP: Windows-style multi-select (Ctrl/Shift/Ctrl+A) plus bulk Delete and Download",
+    "File selection highlight now fills the full row so multi-select is easier to see",
+    "Dialogs no longer open off-screen when the app is minimized (looked hung after upload)",
+    "Notification dialog fade-in plays once instead of flashing twice"
   ],
   "mandatory": false,
-  "publishedUtc": "2026-08-14T05:52:26Z"
+  "publishedUtc": "2026-08-14T06:53:05Z"
 }

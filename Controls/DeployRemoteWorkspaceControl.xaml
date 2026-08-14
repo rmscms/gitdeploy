@@ -247,6 +247,8 @@
                                   Background="Transparent"
                                   BorderThickness="0"
                                   behaviors:ContextMenuSelectionBehavior.Enable="True"
+                                  behaviors:TreeViewExtendedSelectionBehavior.Enable="True"
+                                  PreviewKeyDown="RemoteTreeView_PreviewKeyDown"
                                   MouseRightButtonUp="RemoteTreeView_MouseRightButtonUp"
                                   MouseDoubleClick="RemoteTreeView_MouseDoubleClick">
                             <TreeView.Resources>
@@ -256,27 +258,34 @@
                                 <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="#FFFFFF" />
                             </TreeView.Resources>
                             <TreeView.ItemContainerStyle>
-                                <Style TargetType="TreeViewItem">
+                                <Style TargetType="TreeViewItem" BasedOn="{StaticResource App.TreeViewItem.FullRow}">
                                     <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
                                     <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}" />
                                     <Setter Property="Margin" Value="0,1,0,1" />
                                     <Setter Property="Padding" Value="2" />
                                     <Setter Property="FontSize" Value="12" />
                                     <Setter Property="Foreground" Value="{StaticResource Text.Secondary}" />
-                                    <Setter Property="Background" Value="Transparent" />
                                     <Setter Property="BorderBrush" Value="Transparent" />
                                     <EventSetter Event="Expanded"
                                                  Handler="RemoteTreeItem_Expanded" />
                                     <Style.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource State.Hover}" />
+                                        </Trigger>
                                         <Trigger Property="IsSelected" Value="True">
                                             <Setter Property="Foreground" Value="{StaticResource Text.Primary}" />
+                                            <Setter Property="Background" Value="{StaticResource State.Hover}" />
                                         </Trigger>
+                                        <DataTrigger Binding="{Binding IsMultiSelected}" Value="True">
+                                            <Setter Property="Foreground" Value="{StaticResource Text.Primary}" />
+                                            <Setter Property="Background" Value="{StaticResource State.Pressed}" />
+                                        </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
                             </TreeView.ItemContainerStyle>
                             <TreeView.ItemTemplate>
                                 <HierarchicalDataTemplate ItemsSource="{Binding Children}">
-                                    <Grid Margin="0,1,0,1">
+                                    <Grid Margin="0,1,0,1" HorizontalAlignment="Stretch">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="Auto" />

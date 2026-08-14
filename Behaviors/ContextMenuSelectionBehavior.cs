@@ -1,6 +1,10 @@
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using GitDeployPro.Models;
+using TreeView = System.Windows.Controls.TreeView;
+using TreeViewItem = System.Windows.Controls.TreeViewItem;
 
 namespace GitDeployPro.Behaviors
 {
@@ -49,9 +53,16 @@ namespace GitDeployPro.Behaviors
                 return;
             }
 
-            if (itemsControl is System.Windows.Controls.TreeView)
+            if (itemsControl is TreeView treeView)
             {
-                var treeViewItem = FindAncestor<System.Windows.Controls.TreeViewItem>(source);
+                var treeViewItem = FindAncestor<TreeViewItem>(source);
+                if (treeViewItem?.DataContext is ITreeMultiSelectable selectable)
+                {
+                    TreeViewExtendedSelectionBehavior.ApplyRightClickSelection(treeView, selectable);
+                    treeViewItem.Focus();
+                    return;
+                }
+
                 if (treeViewItem != null)
                 {
                     treeViewItem.IsSelected = true;

@@ -272,6 +272,7 @@
                               VirtualizingStackPanel.IsVirtualizing="True"
                               VirtualizingStackPanel.VirtualizationMode="Recycling"
                               behaviors:ContextMenuSelectionBehavior.Enable="True"
+                              behaviors:TreeViewExtendedSelectionBehavior.Enable="True"
                               PreviewKeyDown="FileTreeView_PreviewKeyDown"
                               MouseRightButtonUp="FileTreeView_MouseRightButtonUp"
                               MouseDoubleClick="FileTreeView_MouseDoubleClick">
@@ -287,25 +288,30 @@
                                          Color="{Binding Color, Source={StaticResource Text.Primary}}" />
                     </TreeView.Resources>
                     <TreeView.ItemContainerStyle>
-                        <Style x:Name="FileTreeItemStyle" TargetType="{x:Type TreeViewItem}">
+                        <Style x:Name="FileTreeItemStyle"
+                               TargetType="{x:Type TreeViewItem}"
+                               BasedOn="{StaticResource App.TreeViewItem.FullRow}">
                             <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
                             <Setter Property="Foreground" Value="{StaticResource Text.Secondary}" />
-                            <Setter Property="Background" Value="Transparent" />
                             <Setter Property="FontSize" Value="13" />
                             <Setter Property="Padding" Value="3,1" />
                             <Style.Triggers>
-                                <Trigger Property="IsSelected" Value="True">
-                                    <Setter Property="Background" Value="{StaticResource State.Pressed}" />
-                                </Trigger>
                                 <Trigger Property="IsMouseOver" Value="True">
                                     <Setter Property="Background" Value="{StaticResource State.Hover}" />
                                 </Trigger>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter Property="Background" Value="{StaticResource State.Hover}" />
+                                </Trigger>
+                                <DataTrigger Binding="{Binding IsMultiSelected}" Value="True">
+                                    <Setter Property="Background" Value="{StaticResource State.Pressed}" />
+                                </DataTrigger>
                             </Style.Triggers>
                         </Style>
                     </TreeView.ItemContainerStyle>
                     <TreeView.ItemTemplate>
                         <HierarchicalDataTemplate ItemsSource="{Binding Children}">
                             <Border Background="{Binding RowBackground}"
+                                    HorizontalAlignment="Stretch"
                                     CornerRadius="3"
                                     Padding="2,1"
                                     Margin="0,0">

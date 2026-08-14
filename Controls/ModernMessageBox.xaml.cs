@@ -17,6 +17,7 @@ namespace GitDeployPro.Controls
         private MessageBoxResult _secondaryResult = MessageBoxResult.None;
         private MessageBoxResult _cancelResult = MessageBoxResult.None;
         private bool _allowScrimDismiss;
+        private bool _introPlayed;
 
         public ModernMessageBox(
             string message,
@@ -40,9 +41,18 @@ namespace GitDeployPro.Controls
 
         private void ModernMessageBox_Loaded(object sender, RoutedEventArgs e)
         {
+            if (_introPlayed)
+            {
+                return;
+            }
+
+            _introPlayed = true;
             CoverOwner();
-            BeginFadeIn();
-            OkButton.Focus();
+            Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Render, () =>
+            {
+                BeginFadeIn();
+                OkButton.Focus();
+            });
         }
 
         private void ApplyKind(MessageBoxImage image, string title)
@@ -218,18 +228,34 @@ namespace GitDeployPro.Controls
         private void CoverOwner()
         {
             var owner = Owner;
-            if (owner == null || !owner.IsVisible)
+            WindowOwnerService.RestoreIfMinimized(owner);
+            if (!TryCoverVisibleOwner())
             {
-                WindowStartupLocation = WindowStartupLocation.CenterScreen;
-                Width = 520;
-                Height = 320;
-                return;
+                PlaceOnScreenFallback();
+            }
+        }
+
+        private bool TryCoverVisibleOwner()
+        {
+            var owner = Owner;
+            if (owner == null
+                || !owner.IsVisible
+                || owner.WindowState == WindowState.Minimized
+                || owner.ActualWidth < 80
+                || owner.ActualHeight < 80)
+            {
+                return false;
             }
 
             try
             {
                 WindowStartupLocation = WindowStartupLocation.Manual;
                 var origin = owner.PointToScreen(new System.Windows.Point(0, 0));
+                if (origin.X <= -10000 || origin.Y <= -10000)
+                {
+                    return false;
+                }
+
                 var source = PresentationSource.FromVisual(owner);
                 if (source?.CompositionTarget != null)
                 {
@@ -238,23 +264,45 @@ namespace GitDeployPro.Controls
                     Top = dip.Y;
                 }
 
+                if (!WindowOwnerService.IsOnScreen(Left, Top))
+                {
+                    return false;
+                }
+
                 Width = Math.Max(owner.ActualWidth, 420);
                 Height = Math.Max(owner.ActualHeight, 260);
+                return true;
             }
             catch
             {
-                WindowStartupLocation = WindowStartupLocation.CenterOwner;
+                return false;
             }
+        }
+
+        private void PlaceOnScreenFallback()
+        {
+            WindowStartupLocation = WindowStartupLocation.Manual;
+            Width = 520;
+            Height = 320;
+            var area = SystemParameters.WorkArea;
+            Left = area.Left + Math.Max(0, (area.Width - Width) / 2);
+            Top = area.Top + Math.Max(0, (area.Height - Height) / 2);
+            ShowInTaskbar = true;
         }
 
         private void BeginFadeIn()
         {
-            Opacity = 0;
-            var fade = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(140))
+            BeginAnimation(OpacityProperty, null);
+            Opacity = 1;
+
+            DialogCard.BeginAnimation(UIElement.OpacityProperty, null);
+            DialogCard.Opacity = 0;
+            var fade = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(220))
             {
+                FillBehavior = FillBehavior.HoldEnd,
                 EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
             };
-            BeginAnimation(OpacityProperty, fade);
+            DialogCard.BeginAnimation(UIElement.OpacityProperty, fade);
         }
 
         private System.Windows.Media.Brush? TryBrush(string resourceKey)
@@ -266,6 +314,7 @@ namespace GitDeployPro.Controls
         private static void PrepareOwnerAndPlacement(ModernMessageBox msgBox, Window? owner, DependencyObject? context)
         {
             var resolvedOwner = WindowOwnerService.ResolveOwner(context, owner) ?? System.Windows.Application.Current?.MainWindow;
+            WindowOwnerService.RestoreIfMinimized(resolvedOwner);
             if (resolvedOwner != null && !ReferenceEquals(msgBox, resolvedOwner))
             {
                 WindowOwnerService.ApplyOwner(msgBox, resolvedOwner, centerOnOwner: false);

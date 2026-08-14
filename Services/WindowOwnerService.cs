@@ -86,6 +86,7 @@ namespace GitDeployPro.Services
                 return;
             }
 
+            RestoreIfMinimized(owner);
             window.Owner = owner;
             if (centerOnOwner && window.WindowStartupLocation != WindowStartupLocation.Manual)
             {
@@ -93,9 +94,40 @@ namespace GitDeployPro.Services
             }
         }
 
+        public static void RestoreIfMinimized(Window? window)
+        {
+            if (window == null)
+            {
+                return;
+            }
+
+            if (window.WindowState == WindowState.Minimized)
+            {
+                window.WindowState = WindowState.Normal;
+            }
+
+            if (!window.IsVisible)
+            {
+                window.Show();
+            }
+
+            window.Activate();
+        }
+
+        public static bool IsOnScreen(double left, double top)
+        {
+            return !double.IsNaN(left)
+                   && !double.IsNaN(top)
+                   && left > -2000
+                   && top > -2000;
+        }
+
         private static bool IsUsableOwner(Window? window)
         {
-            return window != null && window.IsLoaded && window.IsVisible;
+            return window != null
+                   && window.IsLoaded
+                   && window.IsVisible
+                   && window.WindowState != WindowState.Minimized;
         }
     }
 }
