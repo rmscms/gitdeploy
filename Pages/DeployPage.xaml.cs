@@ -3561,10 +3561,12 @@ namespace GitDeployPro.Pages
 
         private string NormalizeLocalMappingSegment(string? localPath)
         {
-            if (string.IsNullOrWhiteSpace(localPath)) return string.Empty;
-            var normalized = localPath.Trim().Trim('\\', '/');
-            normalized = normalized.Replace("\\", "/");
-            return normalized;
+            if (RemotePathResolver.IsProjectRootLocalPath(localPath))
+            {
+                return string.Empty;
+            }
+
+            return RemotePathResolver.NormalizeLocalMappingPath(localPath);
         }
 
         private string NormalizeRemoteBase(string? path)

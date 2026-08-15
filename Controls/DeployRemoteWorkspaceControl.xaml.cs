@@ -2445,6 +2445,37 @@ namespace GitDeployPro.Controls
                     Execute = _ => _ = DeleteNodeAsync(node)
                 }
             };
+
+            if (node.IsDirectory)
+            {
+                actions.Add(AppContextMenuAction.Separator("remote-mapping-separator"));
+                actions.Add(new AppContextMenuAction
+                {
+                    Id = "mapping",
+                    Label = "Mapping",
+                    IconGlyph = "↔",
+                    Execute = _ => _ = OpenPathMappingModalAsync(node)
+                });
+            }
+
+            actions.Add(AppContextMenuAction.Separator("remote-properties-separator"));
+            actions.Add(new AppContextMenuAction
+            {
+                Id = "permissions",
+                Label = "Permissions",
+                IconGlyph = "🔐",
+                IsEnabled = !node.IsPlaceholder,
+                Execute = _ => ShowRemotePermissions(node)
+            });
+            actions.Add(new AppContextMenuAction
+            {
+                Id = "properties",
+                Label = "Properties",
+                IconGlyph = "ℹ",
+                IsEnabled = !node.IsPlaceholder,
+                Execute = _ => ShowRemoteItemProperties(node)
+            });
+
             return actions;
         }
 
@@ -2457,6 +2488,161 @@ namespace GitDeployPro.Controls
             }
 
             return RemotePathResolver.GetParentDirectory(node.FullPath, root).TrimEnd('/');
+        }
+
+        private void ShowRemoteItemProperties(RemoteTreeNode node)
+        {
+            if (node == null || node.IsPlaceholder)
+            {
+                return;
+            }
+
+            if (_remoteService == null || !_remoteService.IsConnected)
+            {
+                ModernMessageBox.Show(
+                    "Connect an FTP/SFTP profile first.",
+                    "Properties",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+
+            var protocol = _remoteService.UsesSsh ? "SFTP" : "FTP";
+            var location = RemotePathResolver.GetDirectoryPath(node.FullPath);
+            if (string.IsNullOrWhiteSpace(location))
+            {
+                location = "/";
+            }
+
+            var path = node.FullPath;
+            var isFolder = node.IsDirectory;
+            var itemName = node.Name;
+            var snapshot = new LocalItemPropertiesWindow.RemoteSnapshot
+            {
+                Name = node.Name,
+                FullPath = node.FullPath,
+                Location = location,
+                IsFolder = node.IsDirectory,
+                Protocol = protocol,
+                SizeBytes = node.SizeBytes,
+                ModifiedLabel = node.ModifiedLabel,
+                LoadLive = token => LoadRemotePropertiesLiveAsync(path, isFolder, itemName, token)
+            };
+
+            var window = new LocalItemPropertiesWindow(snapshot);
+            WindowOwnerService.ShowDialogOwned(window, this);
+        }
+
+        private void ShowRemotePermissions(RemoteTreeNode node)
+        {
+            if (node == null || node.IsPlaceholder)
+            {
+                return;
+            }
+
+            if (_remoteService == null || !_remoteService.IsConnected)
+            {
+                ModernMessageBox.Show(
+                    "Connect an FTP/SFTP profile first.",
+                    "Permissions",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+
+            var protocol = _remoteService.UsesSsh ? "SFTP" : "FTP";
+            var path = node.FullPath;
+            var window = new RemotePermissionsWindow(
+                node.Name,
+                path,
+                node.IsDirectory,
+                protocol,
+                token => ExecuteRemoteAsync(
+                    service => service.GetUnixPermissionsAsync(path, token),
+                    $"Read permissions {node.Name}"),
+                (mode, token) => ExecuteRemoteAsync(
+                    service => service.SetUnixPermissionsAsync(path, mode, token),
+                    $"Set permissions {node.Name}"));
+            WindowOwnerService.ShowDialogOwned(window, this);
+        }
+
+        private async Task<LocalItemPropertiesWindow.RemoteLiveRefresh> LoadRemotePropertiesLiveAsync(
+            string path,
+            bool isFolder,
+            string itemName,
+            CancellationToken token)
+        {
+            RemoteFileStat? stat = null;
+            IReadOnlyList<RemoteDirectoryEntry>? children = null;
+            try
+            {
+                stat = await ExecuteRemoteAsync(
+                    service => service.GetFileStatAsync(path, token),
+                    $"Properties {itemName}");
+            }
+            catch
+            {
+                // Keep listing snapshot if STAT is unsupported.
+            }
+
+            if (isFolder)
+            {
+                children = await ExecuteRemoteAsync(
+                    service => service.ListDirectoryAsync(path, token),
+                    $"Properties list {itemName}");
+            }
+
+            return new LocalItemPropertiesWindow.RemoteLiveRefresh
+            {
+                Stat = stat,
+                Children = children
+            };
+        }
+
+        private async Task OpenPathMappingModalAsync(RemoteTreeNode node)
+        {
+            if (_currentProfile == null)
+            {
+                ModernMessageBox.Show(
+                    "Connect an FTP/SFTP profile first.",
+                    "Path Mapping",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+
+            if (node == null || !node.IsDirectory)
+            {
+                return;
+            }
+
+            var rootBefore = RemotePathResolver.BuildRemoteRoot(_currentProfile);
+            var modal = new PathMappingModal(_currentProfile, node.FullPath);
+            WindowOwnerService.ShowDialogOwned(modal, this);
+            var changed = modal.MappingsChanged;
+            UpdateMappingBanner();
+            if (!changed || _currentProfile == null)
+            {
+                return;
+            }
+
+            var rootAfter = RemotePathResolver.BuildRemoteRoot(_currentProfile);
+            if (!string.Equals(
+                    rootBefore.TrimEnd('/'),
+                    rootAfter.TrimEnd('/'),
+                    StringComparison.OrdinalIgnoreCase)
+                && _remoteService != null
+                && _remoteService.IsConnected)
+            {
+                try
+                {
+                    await LoadRootAsync();
+                }
+                catch (Exception ex)
+                {
+                    AddLog($"Mapping saved, but refresh failed: {ex.Message}");
+                }
+            }
         }
 
         private async Task CreateRemoteFolderAsync(RemoteTreeNode node)
@@ -3523,7 +3709,9 @@ namespace GitDeployPro.Controls
                 return;
             }
 
-            var localLabel = string.IsNullOrWhiteSpace(mapping.LocalPath) ? "(project root)" : mapping.LocalPath.Trim();
+            var localLabel = RemotePathResolver.IsProjectRootLocalPath(mapping.LocalPath)
+                ? "(project root)"
+                : mapping.LocalPath.Trim();
             var remoteLabel = string.IsNullOrWhiteSpace(mapping.RemotePath) ? "/" : mapping.RemotePath.Trim();
             var root = _currentProfile != null
                 ? RemotePathResolver.BuildRemoteRoot(_currentProfile)

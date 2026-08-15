@@ -1,28 +1,28 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
-using FluentFTP;
 using GitDeployPro.Controls;
+using GitDeployPro.Models;
+using GitDeployPro.Services.Remote;
 
 namespace GitDeployPro.Windows
 {
     public partial class RemoteBrowserWindow : Window
     {
         public string SelectedPath { get; private set; } = "/";
-        private AsyncFtpClient? _client;
-        private string _host, _user, _pass;
-        private int _port;
 
-        public RemoteBrowserWindow(string host, string user, string pass, int port)
+        private readonly ConnectionProfile _profile;
+        private IRemoteFileService? _service;
+
+        public RemoteBrowserWindow(ConnectionProfile profile)
         {
             InitializeComponent();
-            _host = host;
-            _user = user;
-            _pass = pass;
-            _port = port;
+            _profile = profile ?? throw new ArgumentNullException(nameof(profile));
             Loaded += RemoteBrowserWindow_Loaded;
+            Closed += RemoteBrowserWindow_Closed;
         }
 
         private async void RemoteBrowserWindow_Loaded(object sender, RoutedEventArgs e)
@@ -30,37 +30,63 @@ namespace GitDeployPro.Windows
             await ConnectAndList("/");
         }
 
+        private void RemoteBrowserWindow_Closed(object? sender, EventArgs e)
+        {
+            try
+            {
+                _service?.Abort();
+            }
+            catch
+            {
+                // Ignore abort during close.
+            }
+
+            _service = null;
+        }
+
         private async Task ConnectAndList(string path)
         {
             try
             {
-                if (_client == null || !_client.IsConnected)
+                if (_service == null || !_service.IsConnected)
                 {
-                    _client = new AsyncFtpClient(_host, _user, _pass, _port);
-                    await _client.Connect();
+                    _service = _profile.UseSSH
+                        ? new SftpRemoteFileService()
+                        : new FtpRemoteFileService();
+                    await _service.ConnectAsync(_profile);
                 }
 
-                var items = await _client.GetListing(path);
+                var normalized = string.IsNullOrWhiteSpace(path)
+                    ? "/"
+                    : RemotePathResolver.NormalizeRemoteBase(path);
+                var items = await _service.ListDirectoryAsync(normalized);
                 var list = new List<RemoteItem>();
 
-                // Add "Up" folder if not root
-                if (path != "/")
+                if (!string.Equals(normalized.TrimEnd('/'), string.Empty, StringComparison.Ordinal)
+                    && normalized != "/")
                 {
-                    var parent = System.IO.Path.GetDirectoryName(path)?.Replace("\\", "/") ?? "/";
+                    var parent = RemotePathResolver.GetParentDirectory(normalized, "/");
                     list.Add(new RemoteItem { Name = "..", Icon = "⬆️", IsDirectory = true, Path = parent });
                 }
 
-                foreach (var item in items)
+                foreach (var item in items
+                    .Where(entry => entry.IsDirectory
+                        && !string.Equals(entry.Name, ".", StringComparison.Ordinal)
+                        && !string.Equals(entry.Name, "..", StringComparison.Ordinal))
+                    .OrderBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase))
                 {
-                    if (item.Type == FtpObjectType.Directory)
+                    list.Add(new RemoteItem
                     {
-                        list.Add(new RemoteItem { Name = item.Name, Icon = "📁", IsDirectory = true, Path = item.FullName });
-                    }
+                        Name = item.Name,
+                        Icon = "📁",
+                        IsDirectory = true,
+                        Path = string.IsNullOrWhiteSpace(item.FullPath) ? item.Name : item.FullPath
+                    });
                 }
 
                 FileListBox.ItemsSource = list;
-                PathTextBox.Text = path;
-                SelectedPath = path;
+                PathTextBox.Text = normalized;
+                SelectedPath = normalized;
             }
             catch (Exception ex)
             {

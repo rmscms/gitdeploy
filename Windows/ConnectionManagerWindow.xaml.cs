@@ -9,6 +9,7 @@ using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Win32;
 using GitDeployPro.Services;
+using GitDeployPro.Services.Remote;
 using GitDeployPro.Models;
 using FluentFTP;
 using Renci.SshNet;
@@ -335,19 +336,37 @@ namespace GitDeployPro.Windows
                 return;
             }
 
-            if (SftpRadio.IsChecked == true)
+            var user = (UserBox.Text ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(user))
             {
-                ModernMessageBox.Show("Directory browsing is currently only available for FTP connections.", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
+                ModernMessageBox.Show("Username is required to browse remote folders.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
-            
-            var browser = new RemoteBrowserWindow(
-                HostBox.Text,
-                UserBox.Text,
-                GetRemotePassword(),
-                int.Parse(PortBox.Text)
-            );
 
+            var isSsh = SftpRadio.IsChecked == true;
+            var port = int.TryParse(PortBox.Text, out var parsedPort) ? parsedPort : (isSsh ? 22 : 21);
+            if (isSsh && (port <= 0 || port == 21))
+            {
+                port = 22;
+            }
+            else if (!isSsh && port <= 0)
+            {
+                port = 21;
+            }
+
+            var browseProfile = new ConnectionProfile
+            {
+                Host = (HostBox.Text ?? string.Empty).Trim(),
+                Port = port,
+                Username = user,
+                Password = EncryptionService.Encrypt(GetRemotePassword()),
+                UseSSH = isSsh,
+                PrivateKeyPath = _currentProfile?.PrivateKeyPath ?? string.Empty,
+                PassiveMode = PassiveModeCheck.IsChecked == true,
+                RemotePath = string.IsNullOrWhiteSpace(RootPathBox.Text) ? "/" : RootPathBox.Text.Trim()
+            };
+
+            var browser = new RemoteBrowserWindow(browseProfile);
             if (WindowOwnerService.ShowDialogOwned(browser, this) == true)
             {
                 RootPathBox.Text = browser.SelectedPath;
@@ -522,8 +541,8 @@ namespace GitDeployPro.Windows
                     if (mapping == null) continue;
                     _pathMappings.Add(new PathMapping
                     {
-                        LocalPath = mapping.LocalPath ?? string.Empty,
-                        RemotePath = mapping.RemotePath ?? string.Empty
+                        LocalPath = RemotePathResolver.FormatLocalMappingLabel(mapping.LocalPath),
+                        RemotePath = string.IsNullOrWhiteSpace(mapping.RemotePath) ? "/" : mapping.RemotePath
                     });
                 }
             }
@@ -543,8 +562,8 @@ namespace GitDeployPro.Windows
 
         private void SaveMappingButton_Click(object sender, RoutedEventArgs e)
         {
-            var local = NormalizeLocalPath(LocalMappingTextBox.Text);
-            var remote = NormalizeRemotePath(RemoteMappingTextBox.Text);
+            var local = RemotePathResolver.NormalizeLocalMappingPath(LocalMappingTextBox.Text);
+            var remote = RemotePathResolver.NormalizeStoredRemoteMapping(RemoteMappingTextBox.Text, _currentProfile?.RemotePath ?? RootPathBox.Text);
 
             if (PathMappingsList.SelectedItem is PathMapping selected)
             {
@@ -580,27 +599,6 @@ namespace GitDeployPro.Windows
                 LocalMappingTextBox.Text = string.Empty;
                 RemoteMappingTextBox.Text = string.Empty;
             }
-        }
-
-        private string NormalizeLocalPath(string? input)
-        {
-            if (string.IsNullOrWhiteSpace(input)) return string.Empty;
-            var trimmed = input.Trim();
-            if (trimmed == ".") trimmed = string.Empty;
-            trimmed = trimmed.Trim().TrimStart('\\', '/').Trim();
-            trimmed = trimmed.Replace("\\", "/");
-            return trimmed;
-        }
-
-        private string NormalizeRemotePath(string? input)
-        {
-            if (string.IsNullOrWhiteSpace(input)) return "/";
-            var trimmed = input.Trim();
-            trimmed = trimmed.Replace("\\", "/");
-            if (!trimmed.StartsWith("/")) trimmed = "/" + trimmed;
-            trimmed = trimmed.TrimEnd('/');
-            if (trimmed.Length == 0) trimmed = "/";
-            return trimmed;
         }
 
         private async void TestButton_Click(object sender, RoutedEventArgs e)

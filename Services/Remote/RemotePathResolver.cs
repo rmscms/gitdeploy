@@ -19,6 +19,82 @@ namespace GitDeployPro.Services.Remote
                 (!string.IsNullOrWhiteSpace(pm.LocalPath) || !string.IsNullOrWhiteSpace(pm.RemotePath)));
         }
 
+        /// <summary>
+        /// Empty, <c>/</c>, or <c>.</c> means the project root (not a subfolder).
+        /// </summary>
+        public static bool IsProjectRootLocalPath(string? localPath)
+        {
+            if (string.IsNullOrWhiteSpace(localPath))
+            {
+                return true;
+            }
+
+            var trimmed = localPath.Trim().Replace("\\", "/");
+            return trimmed is "/" or "." or "";
+        }
+
+        /// <summary>
+        /// Stores <c>/</c> for the project root; otherwise a relative segment like <c>site</c>.
+        /// </summary>
+        public static string NormalizeLocalMappingPath(string? input)
+        {
+            if (IsProjectRootLocalPath(input))
+            {
+                return "/";
+            }
+
+            var trimmed = input!.Trim().Replace("\\", "/").Trim('/');
+            return string.IsNullOrWhiteSpace(trimmed) ? "/" : trimmed;
+        }
+
+        public static string FormatLocalMappingLabel(string? localPath)
+        {
+            return IsProjectRootLocalPath(localPath) ? "/" : NormalizeLocalMappingPath(localPath);
+        }
+
+        /// <summary>
+        /// Stores a remote mapping relative to <paramref name="profileRemotePath"/> so
+        /// <see cref="CombineRemotePaths"/> does not duplicate the profile root.
+        /// </summary>
+        public static string NormalizeStoredRemoteMapping(string? input, string? profileRemotePath)
+        {
+            var trimmed = (input ?? string.Empty).Trim().Replace("\\", "/");
+            if (string.IsNullOrWhiteSpace(trimmed) || trimmed == ".")
+            {
+                return "/";
+            }
+
+            var profileRoot = NormalizeRemoteBase(profileRemotePath).TrimEnd('/');
+            if (string.IsNullOrWhiteSpace(profileRoot))
+            {
+                profileRoot = "/";
+            }
+
+            string absolute;
+            if (trimmed.StartsWith('/'))
+            {
+                absolute = NormalizeRemoteBase(trimmed).TrimEnd('/');
+            }
+            else
+            {
+                return "/" + trimmed.Trim('/');
+            }
+
+            if (string.Equals(absolute, profileRoot, StringComparison.OrdinalIgnoreCase))
+            {
+                return "/";
+            }
+
+            if (profileRoot != "/" &&
+                absolute.StartsWith(profileRoot + "/", StringComparison.OrdinalIgnoreCase))
+            {
+                var relative = absolute[profileRoot.Length..].Trim('/');
+                return string.IsNullOrWhiteSpace(relative) ? "/" : "/" + relative;
+            }
+
+            return string.IsNullOrWhiteSpace(absolute) ? "/" : NormalizeRemoteBase(absolute);
+        }
+
         public static string BuildRemoteRoot(ConnectionProfile profile)
         {
             var mapping = GetPrimaryMapping(profile);
@@ -139,9 +215,9 @@ namespace GitDeployPro.Services.Remote
                 basePath = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
             }
 
-            if (mapping != null && !string.IsNullOrWhiteSpace(mapping.LocalPath))
+            if (mapping != null && !IsProjectRootLocalPath(mapping.LocalPath))
             {
-                var localSegment = mapping.LocalPath
+                var localSegment = NormalizeLocalMappingPath(mapping.LocalPath)
                     .Replace("/", "\\")
                     .TrimStart('\\')
                     .Trim();

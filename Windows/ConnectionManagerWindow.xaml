@@ -731,8 +731,8 @@
 
                         <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,10,0,0">
                             <StackPanel Width="220" Margin="0,0,10,0">
-                                <TextBlock Text="Local Folder (relative, e.g. site)" Foreground="{StaticResource Text.Secondary}" FontSize="12"/>
-                                <TextBox x:Name="LocalMappingTextBox" mah:TextBoxHelper.Watermark="site" />
+                                <TextBlock Text="Local Folder (/ = project root, or site)" Foreground="{StaticResource Text.Secondary}" FontSize="12"/>
+                                <TextBox x:Name="LocalMappingTextBox" mah:TextBoxHelper.Watermark="/" />
                             </StackPanel>
                             <StackPanel Width="260" Margin="0,0,10,0">
                                 <TextBlock Text="Remote Path (e.g. /public_html)" Foreground="{StaticResource Text.Secondary}" FontSize="12"/>

@@ -174,7 +174,8 @@ namespace GitDeployPro.Services.Remote
                         FullPath = item.FullName,
                         IsDirectory = item.IsDirectory,
                         SizeBytes = item.Attributes?.Size ?? 0,
-                        ModifiedUtc = AppTimeService.NormalizeUtc(item.LastWriteTimeUtc)
+                        ModifiedUtc = AppTimeService.NormalizeUtc(item.LastWriteTimeUtc),
+                        CreatedUtc = null
                     });
                 }
 
@@ -428,9 +429,69 @@ namespace GitDeployPro.Services.Remote
                     Exists = true,
                     IsDirectory = attributes.IsDirectory,
                     SizeBytes = attributes.Size,
-                    ModifiedUtc = AppTimeService.NormalizeUtc(attributes.LastWriteTimeUtc)
+                    ModifiedUtc = AppTimeService.NormalizeUtc(attributes.LastWriteTimeUtc),
+                    CreatedUtc = null
                 };
             }, cancellationToken);
+        }
+
+        public async Task<RemoteUnixPermissionInfo> GetUnixPermissionsAsync(string remotePath, CancellationToken cancellationToken = default)
+        {
+            EnsureConnected();
+            return await Task.Run(() =>
+            {
+                if (!_client!.Exists(remotePath))
+                {
+                    return new RemoteUnixPermissionInfo
+                    {
+                        Exists = false,
+                        CanReadMode = false,
+                        CanChange = false,
+                        Reason = "This file or folder was not found on the server."
+                    };
+                }
+
+                var attributes = _client.GetAttributes(remotePath);
+                return new RemoteUnixPermissionInfo
+                {
+                    Exists = true,
+                    CanReadMode = true,
+                    CanChange = true,
+                    Mode = ModeFromAttributes(attributes)
+                };
+            }, cancellationToken);
+        }
+
+        public async Task SetUnixPermissionsAsync(string remotePath, int mode, CancellationToken cancellationToken = default)
+        {
+            EnsureConnected();
+            var normalized = UnixPermissionMode.Normalize(mode);
+            try
+            {
+                await Task.Run(() =>
+                {
+                    _client!.ChangePermissions(remotePath, (short)normalized);
+                }, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException(UnixPermissionMode.ExplainError(ex, usesSsh: true), ex);
+            }
+        }
+
+        private static int ModeFromAttributes(Renci.SshNet.Sftp.SftpFileAttributes attributes)
+        {
+            var mode = 0;
+            if (attributes.OwnerCanRead) mode |= UnixPermissionMode.OwnerRead;
+            if (attributes.OwnerCanWrite) mode |= UnixPermissionMode.OwnerWrite;
+            if (attributes.OwnerCanExecute) mode |= UnixPermissionMode.OwnerExecute;
+            if (attributes.GroupCanRead) mode |= UnixPermissionMode.GroupRead;
+            if (attributes.GroupCanWrite) mode |= UnixPermissionMode.GroupWrite;
+            if (attributes.GroupCanExecute) mode |= UnixPermissionMode.GroupExecute;
+            if (attributes.OthersCanRead) mode |= UnixPermissionMode.OthersRead;
+            if (attributes.OthersCanWrite) mode |= UnixPermissionMode.OthersWrite;
+            if (attributes.OthersCanExecute) mode |= UnixPermissionMode.OthersExecute;
+            return mode;
         }
 
         private static string GetDirectoryPath(string remotePath)

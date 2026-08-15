@@ -1,15 +1,16 @@
 {
-  "version": "1.4.22",
-  "fileName": "GitDeployPro-1.4.22.exe",
-  "downloadUrl": "versions/GitDeployPro-1.4.22.exe",
-  "sha256": "F4431FDD70C5A48F729A01EFA073552775BA9771CD5B5E787378AC60B65F23C6",
-  "releaseNotes": "- Direct Upload and FTP: Windows-style multi-select (Ctrl/Shift/Ctrl+A) plus bulk Delete and Download\n- File selection highlight now fills the full row so multi-select is easier to see\n- Dialogs no longer open off-screen when the app is minimized (looked hung after upload)\n- Notification dialog fade-in plays once instead of flashing twice",
+  "version": "1.4.23",
+  "fileName": "GitDeployPro-1.4.23.exe",
+  "downloadUrl": "versions/GitDeployPro-1.4.23.exe",
+  "sha256": "BDF55A3ED8BC6577FE09C36953568C75EC0B1D7911D1F68FC592826643B3B0BB",
+  "releaseNotes": "- Right-click an FTP/SFTP folder to manage path mappings (list + add, without replacing existing rows)\n- Connection Manager Browse now lists folders for SFTP as well as FTP\n- Direct Upload: right-click a file or folder to see size, created, and modified dates\n- FTP/SFTP: right-click a file or folder to see size, dates, and folder contents\n- FTP/SFTP: change file/folder permissions (chmod) with a reason in the same dialog if the server refuses",
   "changelog": [
-    "Direct Upload and FTP: Windows-style multi-select (Ctrl/Shift/Ctrl+A) plus bulk Delete and Download",
-    "File selection highlight now fills the full row so multi-select is easier to see",
-    "Dialogs no longer open off-screen when the app is minimized (looked hung after upload)",
-    "Notification dialog fade-in plays once instead of flashing twice"
+    "Right-click an FTP/SFTP folder to manage path mappings (list + add, without replacing existing rows)",
+    "Connection Manager Browse now lists folders for SFTP as well as FTP",
+    "Direct Upload: right-click a file or folder to see size, created, and modified dates",
+    "FTP/SFTP: right-click a file or folder to see size, dates, and folder contents",
+    "FTP/SFTP: change file/folder permissions (chmod) with a reason in the same dialog if the server refuses"
   ],
   "mandatory": false,
-  "publishedUtc": "2026-08-14T06:53:05Z"
+  "publishedUtc": "2026-08-15T14:09:23Z"
 }
