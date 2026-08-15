@@ -40,5 +40,7 @@ namespace GitDeployPro.Services.Remote
             CancellationToken cancellationToken = default);
         Task EnsureDirectoryAsync(string remoteDirectoryPath, CancellationToken cancellationToken = default);
         Task<RemoteFileStat> GetFileStatAsync(string remotePath, CancellationToken cancellationToken = default);
+        Task<RemoteUnixPermissionInfo> GetUnixPermissionsAsync(string remotePath, CancellationToken cancellationToken = default);
+        Task SetUnixPermissionsAsync(string remotePath, int mode, CancellationToken cancellationToken = default);
     }
 }

@@ -1,0 +1,135 @@
+<mah:MetroWindow x:Class="GitDeployPro.Windows.RemotePermissionsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
+        Title="Permissions"
+        Width="420"
+        MinWidth="380"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="{StaticResource Surface.Base}"
+        Foreground="{StaticResource Text.Primary}"
+        WindowTitleBrush="{StaticResource Surface.Card}"
+        NonActiveWindowTitleBrush="{StaticResource Surface.Card}">
+    <Grid Margin="20,16,20,20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock x:Name="HeaderText"
+                   FontSize="14"
+                   FontWeight="SemiBold"
+                   Foreground="{StaticResource Text.Primary}"
+                   TextWrapping="Wrap"
+                   Margin="0,0,0,14" />
+
+        <Border Grid.Row="1"
+                Background="{StaticResource Surface.Card}"
+                BorderBrush="{StaticResource Border.Subtle}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="16,12"
+                Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="90" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="36" />
+                    <RowDefinition Height="36" />
+                    <RowDefinition Height="36" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Grid.Column="1" Text="R" HorizontalAlignment="Center" FontWeight="SemiBold" Foreground="{StaticResource Text.Muted}" FontSize="12" Margin="0,0,0,8" />
+                <TextBlock Grid.Row="0" Grid.Column="2" Text="W" HorizontalAlignment="Center" FontWeight="SemiBold" Foreground="{StaticResource Text.Muted}" FontSize="12" Margin="0,0,0,8" />
+                <TextBlock Grid.Row="0" Grid.Column="3" Text="X" HorizontalAlignment="Center" FontWeight="SemiBold" Foreground="{StaticResource Text.Muted}" FontSize="12" Margin="0,0,0,8" />
+
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="OWNER" VerticalAlignment="Center" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Text.Secondary}" />
+                <CheckBox x:Name="OwnerReadCheck" Grid.Row="1" Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center" Checked="Permission_Changed" Unchecked="Permission_Changed" />
+                <CheckBox x:Name="OwnerWriteCheck" Grid.Row="1" Grid.Column="2" HorizontalAlignment="Center" VerticalAlignment="Center" Checked="Permission_Changed" Unchecked="Permission_Changed" />
+                <CheckBox x:Name="OwnerExecuteCheck" Grid.Row="1" Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Checked="Permission_Changed" Unchecked="Permission_Changed" />
+
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="GROUP" VerticalAlignment="Center" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Text.Secondary}" />
+                <CheckBox x:Name="GroupReadCheck" Grid.Row="2" Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center" Checked="Permission_Changed" Unchecked="Permission_Changed" />
+                <CheckBox x:Name="GroupWriteCheck" Grid.Row="2" Grid.Column="2" HorizontalAlignment="Center" VerticalAlignment="Center" Checked="Permission_Changed" Unchecked="Permission_Changed" />
+                <CheckBox x:Name="GroupExecuteCheck" Grid.Row="2" Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Checked="Permission_Changed" Unchecked="Permission_Changed" />
+
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="OTHERS" VerticalAlignment="Center" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Text.Secondary}" />
+                <CheckBox x:Name="OthersReadCheck" Grid.Row="3" Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center" Checked="Permission_Changed" Unchecked="Permission_Changed" />
+                <CheckBox x:Name="OthersWriteCheck" Grid.Row="3" Grid.Column="2" HorizontalAlignment="Center" VerticalAlignment="Center" Checked="Permission_Changed" Unchecked="Permission_Changed" />
+                <CheckBox x:Name="OthersExecuteCheck" Grid.Row="3" Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Checked="Permission_Changed" Unchecked="Permission_Changed" />
+            </Grid>
+        </Border>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,12">
+            <TextBlock Text="Octal:"
+                       VerticalAlignment="Center"
+                       FontSize="12"
+                       Foreground="{StaticResource Text.Secondary}"
+                       Margin="0,0,10,0" />
+            <TextBox x:Name="OctalBox"
+                     Width="88"
+                     Height="32"
+                     Style="{StaticResource App.InputTextBox}"
+                     FontFamily="{StaticResource FontFamily.Mono}"
+                     MaxLength="4"
+                     TextChanged="OctalBox_TextChanged" />
+            <TextBlock x:Name="SymbolicText"
+                       VerticalAlignment="Center"
+                       FontFamily="{StaticResource FontFamily.Mono}"
+                       FontSize="12"
+                       Foreground="{StaticResource Text.Muted}"
+                       Margin="12,0,0,0" />
+        </StackPanel>
+
+        <TextBlock x:Name="FolderHintText"
+                   Grid.Row="3"
+                   Text="Applies to this folder only — not files inside."
+                   FontSize="11"
+                   Foreground="{StaticResource Text.Muted}"
+                   TextWrapping="Wrap"
+                   Margin="0,0,0,10"
+                   Visibility="Collapsed" />
+
+        <Border x:Name="ReasonBanner"
+                Grid.Row="4"
+                Background="{StaticResource Status.ErrorSurface}"
+                BorderBrush="{StaticResource Status.Error}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="12,10"
+                Margin="0,0,0,14"
+                Visibility="Collapsed">
+            <TextBlock x:Name="ReasonText"
+                       FontSize="12"
+                       Foreground="{StaticResource Status.Error}"
+                       TextWrapping="Wrap" />
+        </Border>
+
+        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button x:Name="ApplyButton"
+                    Content="Apply"
+                    Width="90"
+                    Height="32"
+                    Margin="0,0,8,0"
+                    Style="{StaticResource App.Button.Primary}"
+                    Click="Apply_Click" />
+            <Button Content="Cancel"
+                    Width="90"
+                    Height="32"
+                    Style="{StaticResource App.Button.Ghost}"
+                    IsCancel="True"
+                    Click="Cancel_Click" />
+        </StackPanel>
+    </Grid>
+</mah:MetroWindow>

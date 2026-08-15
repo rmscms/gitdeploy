@@ -109,7 +109,8 @@ namespace GitDeployPro.Services.Remote
                     FullPath = item.FullName,
                     IsDirectory = item.Type == FtpObjectType.Directory,
                     SizeBytes = item.Size < 0 ? 0 : item.Size,
-                    ModifiedUtc = item.Modified == DateTime.MinValue ? null : AppTimeService.NormalizeUtc(item.Modified)
+                    ModifiedUtc = ToUtcOrNull(item.Modified),
+                    CreatedUtc = ToUtcOrNull(item.Created)
                 });
             }
 
@@ -397,7 +398,8 @@ namespace GitDeployPro.Services.Remote
                 Exists = true,
                 IsDirectory = hit.Type == FtpObjectType.Directory,
                 SizeBytes = hit.Size < 0 ? 0 : hit.Size,
-                ModifiedUtc = hit.Modified == DateTime.MinValue ? null : AppTimeService.NormalizeUtc(hit.Modified)
+                ModifiedUtc = ToUtcOrNull(hit.Modified),
+                CreatedUtc = ToUtcOrNull(hit.Created)
             };
         }
 
@@ -411,6 +413,69 @@ namespace GitDeployPro.Services.Remote
             }
 
             return normalized[..idx];
+        }
+
+        private static DateTime? ToUtcOrNull(DateTime value)
+        {
+            if (value == DateTime.MinValue || value.Year < 1980)
+            {
+                return null;
+            }
+
+            return AppTimeService.NormalizeUtc(value);
+        }
+
+        public async Task<RemoteUnixPermissionInfo> GetUnixPermissionsAsync(string remotePath, CancellationToken cancellationToken = default)
+        {
+            EnsureConnected();
+            try
+            {
+                var mode = await _client!.GetChmod(remotePath, cancellationToken);
+                return new RemoteUnixPermissionInfo
+                {
+                    Exists = true,
+                    CanReadMode = true,
+                    CanChange = true,
+                    Mode = UnixPermissionMode.Normalize(mode)
+                };
+            }
+            catch (Exception ex)
+            {
+                var reason = UnixPermissionMode.ExplainError(ex, usesSsh: false);
+                var unsupported = reason.Contains("SITE CHMOD", StringComparison.OrdinalIgnoreCase)
+                    || reason.Contains("does not support", StringComparison.OrdinalIgnoreCase);
+                return new RemoteUnixPermissionInfo
+                {
+                    Exists = true,
+                    CanReadMode = false,
+                    CanChange = !unsupported,
+                    Mode = 0,
+                    Reason = unsupported
+                        ? reason
+                        : $"Could not read current permissions. You can still try Apply. {reason}"
+                };
+            }
+        }
+
+        public async Task SetUnixPermissionsAsync(string remotePath, int mode, CancellationToken cancellationToken = default)
+        {
+            EnsureConnected();
+            try
+            {
+                var octal = UnixPermissionMode.ToOctal(mode);
+                var path = (remotePath ?? string.Empty).Replace("\\", "/");
+                var quoted = path.Contains(' ', StringComparison.Ordinal) ? $"\"{path}\"" : path;
+                var reply = await _client!.Execute($"SITE CHMOD {octal} {quoted}", cancellationToken);
+                if (!reply.Success)
+                {
+                    var detail = string.IsNullOrWhiteSpace(reply.Message) ? reply.Code.ToString() : $"{reply.Code} {reply.Message}".Trim();
+                    throw new InvalidOperationException(detail);
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException(UnixPermissionMode.ExplainError(ex, usesSsh: false), ex);
+            }
         }
 
         private async Task BuildDownloadQueueAsync(

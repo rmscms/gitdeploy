@@ -1407,10 +1407,19 @@ namespace GitDeployPro.Controls
                     actions.Add(AppContextMenuAction.Separator("git-separator"));
                     actions.Add(BuildGitContextMenu(target));
                 }
+
+                actions.Add(AppContextMenuAction.Separator("properties-separator"));
+                actions.Add(new AppContextMenuAction
+                {
+                    Id = "properties",
+                    Label = "Properties",
+                    IconGlyph = "ℹ",
+                    Execute = _ => ShowLocalItemProperties(target)
+                });
             }
-            else
-            {
-                var files = selected.Where(entry => !entry.IsFolder).ToList();
+        else
+        {
+            var files = selected.Where(entry => !entry.IsFolder).ToList();
                 if (files.Count > 0)
                 {
                     actions.Add(new AppContextMenuAction
@@ -1454,6 +1463,17 @@ namespace GitDeployPro.Controls
             {
                 return Directory.Exists(Path.Combine(_projectPath, ".git"));
             }
+        }
+
+        private void ShowLocalItemProperties(FileSystemItem item)
+        {
+            if (item == null || string.IsNullOrWhiteSpace(item.FullPath))
+            {
+                return;
+            }
+
+            var window = new LocalItemPropertiesWindow(item.FullPath, item.IsFolder);
+            WindowOwnerService.ShowDialogOwned(window, this);
         }
 
         private AppContextMenuAction BuildGitContextMenu(FileSystemItem item)
@@ -2983,9 +3003,10 @@ namespace GitDeployPro.Controls
             if (mapping != null)
             {
                 var localSegment = (mapping.LocalPath ?? string.Empty).Trim();
-                if (!string.IsNullOrEmpty(localSegment) && !string.IsNullOrEmpty(_projectPath))
+                if (!RemotePathResolver.IsProjectRootLocalPath(localSegment) && !string.IsNullOrEmpty(_projectPath))
                 {
-                    var normalizedSegment = localSegment.Replace("/", System.IO.Path.DirectorySeparatorChar.ToString());
+                    var normalizedSegment = RemotePathResolver.NormalizeLocalMappingPath(localSegment)
+                        .Replace("/", System.IO.Path.DirectorySeparatorChar.ToString());
                     var combined = System.IO.Path.GetFullPath(System.IO.Path.Combine(_projectPath, normalizedSegment));
                     if (Directory.Exists(combined))
                     {
@@ -3202,7 +3223,9 @@ namespace GitDeployPro.Controls
                 var mapping = mappingOverride ?? GetPrimaryMapping(profile);
                 if (mapping != null)
                 {
-                    var localLabel = string.IsNullOrWhiteSpace(mapping.LocalPath) ? "(project root)" : mapping.LocalPath;
+                    var localLabel = RemotePathResolver.IsProjectRootLocalPath(mapping.LocalPath)
+                        ? "(project root)"
+                        : mapping.LocalPath;
                     // Combine profile.RemotePath + mapping.RemotePath (same logic as ResolveRoots)
                     var combinedRemotePath = CombineRemotePaths(baseRemotePath, mapping.RemotePath);
                     ConnectionInfoText.Text = $"Active Connection: {profile.Name} · {protocol} · {hostText} · Local '{localLabel}' → Remote '{combinedRemotePath}'";

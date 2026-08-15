@@ -9,6 +9,7 @@ namespace GitDeployPro.Models
         public bool IsDirectory { get; set; }
         public long SizeBytes { get; set; }
         public DateTime? ModifiedUtc { get; set; }
+        public DateTime? CreatedUtc { get; set; }
     }
 
     public sealed class RemoteFileStat
@@ -18,6 +19,16 @@ namespace GitDeployPro.Models
         public bool IsDirectory { get; set; }
         public long SizeBytes { get; set; }
         public DateTime? ModifiedUtc { get; set; }
+        public DateTime? CreatedUtc { get; set; }
+    }
+
+    public sealed class RemoteUnixPermissionInfo
+    {
+        public bool Exists { get; init; } = true;
+        public bool CanReadMode { get; init; }
+        public bool CanChange { get; init; }
+        public int Mode { get; init; }
+        public string? Reason { get; init; }
     }
 
     public sealed class RemoteUploadProgress
