@@ -734,17 +734,19 @@ namespace GitDeployPro.Controls
             }
         }
 
-        private (HashSet<string> softExactNames, List<string> softPatterns) LoadSoftIgnoreRules()
+        private (HashSet<string> anyDepthNames, HashSet<string> rootOnlyNames, List<string> anyDepthPatterns, List<string> rootOnlyPatterns) LoadSoftIgnoreRules()
         {
-            var softExactNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var softPatterns = new List<string>();
+            var anyDepthNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var rootOnlyNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var anyDepthPatterns = new List<string>();
+            var rootOnlyPatterns = new List<string>();
 
             try
             {
                 string gitIgnorePath = Path.Combine(_projectPath, ".gitignore");
                 if (!File.Exists(gitIgnorePath))
                 {
-                    return (softExactNames, softPatterns);
+                    return (anyDepthNames, rootOnlyNames, anyDepthPatterns, rootOnlyPatterns);
                 }
 
                 foreach (var line in File.ReadAllLines(gitIgnorePath))
@@ -755,12 +757,13 @@ namespace GitDeployPro.Controls
                         continue;
                     }
 
+                    bool rooted = trimmed.StartsWith('/') || trimmed.StartsWith('\\');
                     if (trimmed.Contains('*') || trimmed.Contains('?'))
                     {
                         var clean = trimmed.TrimStart('/', '\\');
                         if (!string.IsNullOrWhiteSpace(clean))
                         {
-                            softPatterns.Add(clean);
+                            (rooted ? rootOnlyPatterns : anyDepthPatterns).Add(clean);
                         }
                     }
                     else
@@ -768,7 +771,7 @@ namespace GitDeployPro.Controls
                         var clean = trimmed.TrimStart('/', '\\').TrimEnd('/', '\\');
                         if (!string.IsNullOrWhiteSpace(clean) && !HardExcludeNames.Contains(clean))
                         {
-                            softExactNames.Add(clean);
+                            (rooted ? rootOnlyNames : anyDepthNames).Add(clean);
                         }
                     }
                 }
@@ -778,17 +781,41 @@ namespace GitDeployPro.Controls
                 // ignore unreadable .gitignore
             }
 
-            return (softExactNames, softPatterns);
+            return (anyDepthNames, rootOnlyNames, anyDepthPatterns, rootOnlyPatterns);
         }
 
-        private bool IsSoftIgnoredName(string name, HashSet<string> softExactNames, List<string> softPatterns)
+        private bool IsSoftIgnoredName(
+            string name,
+            bool atProjectRoot,
+            HashSet<string> anyDepthNames,
+            HashSet<string> rootOnlyNames,
+            List<string> anyDepthPatterns,
+            List<string> rootOnlyPatterns)
         {
-            if (softExactNames.Contains(name))
+            if (anyDepthNames.Contains(name))
             {
                 return true;
             }
 
-            foreach (var pattern in softPatterns)
+            if (atProjectRoot && rootOnlyNames.Contains(name))
+            {
+                return true;
+            }
+
+            foreach (var pattern in anyDepthPatterns)
+            {
+                if (MatchesPattern(name, pattern))
+                {
+                    return true;
+                }
+            }
+
+            if (!atProjectRoot)
+            {
+                return false;
+            }
+
+            foreach (var pattern in rootOnlyPatterns)
             {
                 if (MatchesPattern(name, pattern))
                 {
@@ -799,19 +826,46 @@ namespace GitDeployPro.Controls
             return false;
         }
 
-        private List<FileSystemItem> ScanDirectory(string path)
+        private bool IsProjectRootDirectory(string path)
         {
-            var (softExactNames, softPatterns) = LoadSoftIgnoreRules();
-            return ScanDirectory(path, softExactNames, softPatterns);
+            if (string.IsNullOrWhiteSpace(_projectPath) || string.IsNullOrWhiteSpace(path))
+            {
+                return false;
+            }
+
+            try
+            {
+                var root = Path.GetFullPath(_projectPath)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                var current = Path.GetFullPath(path)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                return string.Equals(root, current, StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return false;
+            }
         }
 
-        private List<FileSystemItem> ScanDirectory(string path, HashSet<string> softExactNames, List<string> softPatterns)
+        private List<FileSystemItem> ScanDirectory(string path)
+        {
+            var (anyDepthNames, rootOnlyNames, anyDepthPatterns, rootOnlyPatterns) = LoadSoftIgnoreRules();
+            return ScanDirectory(path, anyDepthNames, rootOnlyNames, anyDepthPatterns, rootOnlyPatterns);
+        }
+
+        private List<FileSystemItem> ScanDirectory(
+            string path,
+            HashSet<string> anyDepthNames,
+            HashSet<string> rootOnlyNames,
+            List<string> anyDepthPatterns,
+            List<string> rootOnlyPatterns)
         {
             var items = new List<FileSystemItem>();
 
             try
             {
                 var dirInfo = new DirectoryInfo(path);
+                var atProjectRoot = IsProjectRootDirectory(path);
 
                 foreach (var dir in dirInfo.GetDirectories())
                 {
@@ -820,7 +874,13 @@ namespace GitDeployPro.Controls
                         continue;
                     }
 
-                    var softIgnored = IsSoftIgnoredName(dir.Name, softExactNames, softPatterns);
+                    var softIgnored = IsSoftIgnoredName(
+                        dir.Name,
+                        atProjectRoot,
+                        anyDepthNames,
+                        rootOnlyNames,
+                        anyDepthPatterns,
+                        rootOnlyPatterns);
                     // Do not touch live WPF palette brushes here — ScanDirectory runs on a worker thread.
                     var item = new FileSystemItem
                     {
@@ -835,7 +895,7 @@ namespace GitDeployPro.Controls
                     };
 
                     item.Children = new ObservableCollection<FileSystemItem>(
-                        ScanDirectory(dir.FullName, softExactNames, softPatterns));
+                        ScanDirectory(dir.FullName, anyDepthNames, rootOnlyNames, anyDepthPatterns, rootOnlyPatterns));
 
                     foreach (var child in item.Children)
                     {
@@ -853,7 +913,13 @@ namespace GitDeployPro.Controls
                         continue;
                     }
 
-                    var softIgnored = IsSoftIgnoredName(file.Name, softExactNames, softPatterns);
+                    var softIgnored = IsSoftIgnoredName(
+                        file.Name,
+                        atProjectRoot,
+                        anyDepthNames,
+                        rootOnlyNames,
+                        anyDepthPatterns,
+                        rootOnlyPatterns);
                     var item = new FileSystemItem
                     {
                         Name = file.Name,

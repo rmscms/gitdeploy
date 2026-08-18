@@ -381,6 +381,40 @@
                             </StackPanel>
                         </Expander>
 
+                        <Expander Style="{StaticResource Settings.Expander}" IsExpanded="True">
+                            <Expander.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:SymbolIcon Symbol="DocumentText24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Accent.Primary}" VerticalAlignment="Center" />
+                                    <StackPanel>
+                                        <TextBlock x:Name="EditorPrefTitle"
+                                                   Text="Editor"
+                                                   FontWeight="SemiBold"
+                                                   FontSize="13" />
+                                        <TextBlock x:Name="EditorPrefHint"
+                                                   Text="How files open on the Deploy page (all projects)"
+                                                   FontSize="10"
+                                                   Foreground="{StaticResource Text.Muted}" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Expander.Header>
+                            <StackPanel>
+                                <RadioButton x:Name="EditorOpenDockRadio"
+                                             GroupName="DeployEditorOpenMode"
+                                             Content="Docked in Deploy (current)"
+                                             Foreground="{StaticResource Text.Secondary}"
+                                             FontSize="12"
+                                             IsChecked="True"
+                                             Checked="EditorOpenModeRadio_Checked" />
+                                <RadioButton x:Name="EditorOpenFloatRadio"
+                                             GroupName="DeployEditorOpenMode"
+                                             Content="Float window"
+                                             Foreground="{StaticResource Text.Secondary}"
+                                             FontSize="12"
+                                             Margin="0,8,0,0"
+                                             Checked="EditorOpenModeRadio_Checked" />
+                            </StackPanel>
+                        </Expander>
+
                         <Expander Style="{StaticResource Settings.Expander}" IsExpanded="False">
                             <Expander.Header>
                                 <StackPanel Orientation="Horizontal">
@@ -497,6 +531,62 @@
 
                     <!-- TERMINAL -->
                     <StackPanel x:Name="SettingsPanelTerminal" Visibility="Collapsed">
+                        <Border Style="{StaticResource Settings.ToolbarCard}" Margin="0,0,0,12">
+                            <StackPanel>
+                                <TextBlock x:Name="TerminalAppearanceTitle"
+                                           Text="Appearance"
+                                           FontWeight="SemiBold"
+                                           FontSize="15" />
+                                <TextBlock x:Name="TerminalAppearanceHint"
+                                           Text="Font size and text color for every terminal. Same for all projects."
+                                           FontSize="11"
+                                           Foreground="{StaticResource Text.Muted}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,4,0,10" />
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="12" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock x:Name="TerminalFontLabel"
+                                                   Text="Font size"
+                                                   FontSize="11"
+                                                   Foreground="{StaticResource Text.Muted}"
+                                                   Margin="0,0,0,6" />
+                                        <ComboBox x:Name="SettingsTerminalFontCombo"
+                                                  Height="34"
+                                                  Style="{StaticResource App.InputComboBox}"
+                                                  SelectionChanged="SettingsTerminalAppearance_Changed">
+                                            <ComboBoxItem Content="10" />
+                                            <ComboBoxItem Content="12" />
+                                            <ComboBoxItem Content="14" />
+                                            <ComboBoxItem Content="16" />
+                                            <ComboBoxItem Content="18" />
+                                            <ComboBoxItem Content="20" />
+                                        </ComboBox>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock x:Name="TerminalColorLabel"
+                                                   Text="Text color"
+                                                   FontSize="11"
+                                                   Foreground="{StaticResource Text.Muted}"
+                                                   Margin="0,0,0,6" />
+                                        <ComboBox x:Name="SettingsTerminalColorCombo"
+                                                  Height="34"
+                                                  Style="{StaticResource App.InputComboBox}"
+                                                  SelectionChanged="SettingsTerminalAppearance_Changed">
+                                            <ComboBoxItem Content="Gray" Tag="#D4D4D4" />
+                                            <ComboBoxItem Content="White" Tag="#FFFFFF" />
+                                            <ComboBoxItem Content="Green" Tag="#00FF00" />
+                                            <ComboBoxItem Content="Cyan" Tag="#00FFFF" />
+                                            <ComboBoxItem Content="Yellow" Tag="#FFFF00" />
+                                        </ComboBox>
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
                         <Border Style="{StaticResource Settings.ToolbarCard}" Margin="0,0,0,12">
                             <StackPanel>
                                 <TextBlock Text="Terminal suggestions"

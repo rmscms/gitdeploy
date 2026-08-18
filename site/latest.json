@@ -1,16 +1,15 @@
 {
-  "version": "1.4.23",
-  "fileName": "GitDeployPro-1.4.23.exe",
-  "downloadUrl": "versions/GitDeployPro-1.4.23.exe",
-  "sha256": "BDF55A3ED8BC6577FE09C36953568C75EC0B1D7911D1F68FC592826643B3B0BB",
-  "releaseNotes": "- Right-click an FTP/SFTP folder to manage path mappings (list + add, without replacing existing rows)\n- Connection Manager Browse now lists folders for SFTP as well as FTP\n- Direct Upload: right-click a file or folder to see size, created, and modified dates\n- FTP/SFTP: right-click a file or folder to see size, dates, and folder contents\n- FTP/SFTP: change file/folder permissions (chmod) with a reason in the same dialog if the server refuses",
+  "version": "1.4.24",
+  "fileName": "GitDeployPro-1.4.24.exe",
+  "downloadUrl": "versions/GitDeployPro-1.4.24.exe",
+  "sha256": "C80EC31F3D635DF46794FEED1FF6E398F4F4270D1E7F7E1890A74ED000545A78",
+  "releaseNotes": "- Default .gitignore now ignores only the root /vendor/ folder, not nested paths like public/vendor\n- .gitignore is created once and is not rewritten when saving Settings or switching projects\n- Settings: choose whether Deploy opens files docked or in a float window (all projects)\n- Settings: persist terminal font size and text color (also from the terminal toolbar)",
   "changelog": [
-    "Right-click an FTP/SFTP folder to manage path mappings (list + add, without replacing existing rows)",
-    "Connection Manager Browse now lists folders for SFTP as well as FTP",
-    "Direct Upload: right-click a file or folder to see size, created, and modified dates",
-    "FTP/SFTP: right-click a file or folder to see size, dates, and folder contents",
-    "FTP/SFTP: change file/folder permissions (chmod) with a reason in the same dialog if the server refuses"
+    "Default .gitignore now ignores only the root /vendor/ folder, not nested paths like public/vendor",
+    ".gitignore is created once and is not rewritten when saving Settings or switching projects",
+    "Settings: choose whether Deploy opens files docked or in a float window (all projects)",
+    "Settings: persist terminal font size and text color (also from the terminal toolbar)"
   ],
   "mandatory": false,
-  "publishedUtc": "2026-08-15T14:09:23Z"
+  "publishedUtc": "2026-08-18T09:06:04Z"
 }
