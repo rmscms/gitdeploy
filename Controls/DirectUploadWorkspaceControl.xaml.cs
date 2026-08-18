@@ -129,6 +129,9 @@ namespace GitDeployPro.Controls
 
         public bool TryCloseLocalEditor(bool force = false) => LocalEditor?.TryClose(force) ?? true;
 
+        public Task<bool> TryCloseLocalEditorAsync(bool force = false) =>
+            LocalEditor?.TryCloseAsync(force) ?? Task.FromResult(true);
+
         public Task TryReloadLocalEditorIfMatchesAsync(string localPath) =>
             LocalEditor?.TryReloadFromDiskIfMatchesAsync(localPath) ?? Task.CompletedTask;
 
@@ -1547,6 +1550,10 @@ namespace GitDeployPro.Controls
             var relative = TryGetProjectRelativePath(item.FullPath);
             var hasRelative = !string.IsNullOrWhiteSpace(relative);
             var gitEnabled = !_isUploading && IsProjectGitRepository();
+            var alreadyIgnored = hasRelative && GitIgnoreFileHelper.IsItemIgnored(
+                GitIgnoreFileHelper.ReadLines(_projectPath),
+                relative!,
+                item.IsFolder);
 
             var children = new List<AppContextMenuAction>
             {
@@ -1586,11 +1593,13 @@ namespace GitDeployPro.Controls
                 AppContextMenuAction.Separator("git-ignore-sep"),
                 new()
                 {
-                    Id = "git-ignore",
-                    Label = "Add to .gitignore",
-                    IconGlyph = "🚫",
+                    Id = alreadyIgnored ? "git-ignore-remove" : "git-ignore",
+                    Label = alreadyIgnored ? "Remove from .gitignore" : "Add to .gitignore",
+                    IconGlyph = alreadyIgnored ? "✔" : "🚫",
                     IsEnabled = gitEnabled && hasRelative,
-                    Execute = _ => _ = GitAddToIgnoreAsync(item)
+                    Execute = _ => _ = alreadyIgnored
+                        ? GitRemoveFromIgnoreAsync(item)
+                        : GitAddToIgnoreAsync(item)
                 },
                 new()
                 {
@@ -1805,12 +1814,15 @@ namespace GitDeployPro.Controls
                 return;
             }
 
-            var ignoreEntry = item.IsFolder
-                ? relative.TrimEnd('/') + "/"
-                : relative;
+            var ignoreEntry = GitIgnoreFileHelper.BuildEntry(relative, item.IsFolder);
+            if (string.IsNullOrWhiteSpace(ignoreEntry))
+            {
+                ModernMessageBox.Show("Unable to build .gitignore pattern for this path.", "Git", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
 
             var confirm = ModernMessageBox.ShowWithResult(
-                $"Add '{ignoreEntry}' to .gitignore?",
+                $"Add '{ignoreEntry}' to this project's .gitignore?",
                 "Git ignore",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question,
@@ -1823,25 +1835,70 @@ namespace GitDeployPro.Controls
 
             try
             {
-                var gitIgnorePath = Path.Combine(_projectPath, ".gitignore");
-                var lines = File.Exists(gitIgnorePath)
-                    ? File.ReadAllLines(gitIgnorePath).ToList()
-                    : new List<string>();
-                var exists = lines.Any(line => string.Equals(line.Trim(), ignoreEntry, StringComparison.OrdinalIgnoreCase));
-                if (!exists)
-                {
-                    lines.Add(ignoreEntry);
-                    File.WriteAllLines(gitIgnorePath, lines);
-                }
+                GitIgnoreFileHelper.TryAddEntry(_projectPath, ignoreEntry, out var added);
 
                 GitService.SetWorkingDirectory(_projectPath);
-                await _gitService.RemovePathFromIndexAsync(ignoreEntry.TrimEnd('/'));
+                await _gitService.RemovePathFromIndexAsync(ignoreEntry.TrimStart('/').TrimEnd('/'));
                 await RefreshFromDiskAsync(preserveSelection: true, quiet: true);
                 await ApplyGitOverlayAsync();
 
-                StatusText.Text = exists
-                    ? $"'{ignoreEntry}' already in .gitignore."
-                    : $"Added '{ignoreEntry}' to .gitignore.";
+                StatusText.Text = added
+                    ? $"Added '{ignoreEntry}' to .gitignore."
+                    : $"'{ignoreEntry}' already in .gitignore.";
+                ModernMessageBox.Show(StatusText.Text, "Git", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show($"Failed to update .gitignore:\n{ex.Message}", "Git", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private async Task GitRemoveFromIgnoreAsync(FileSystemItem item)
+        {
+            if (_isUploading || !IsProjectGitRepository())
+            {
+                return;
+            }
+
+            var relative = TryGetProjectRelativePath(item.FullPath);
+            if (string.IsNullOrWhiteSpace(relative))
+            {
+                ModernMessageBox.Show("Unable to match this path in .gitignore.", "Git", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var matching = GitIgnoreFileHelper.FindMatchingLines(
+                GitIgnoreFileHelper.ReadLines(_projectPath),
+                relative,
+                item.IsFolder);
+            if (matching.Count == 0)
+            {
+                ModernMessageBox.Show("This path is not listed in this project's .gitignore.", "Git ignore", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var preview = string.Join("\n", matching.Select(line => line.Trim()).Distinct(StringComparer.OrdinalIgnoreCase));
+            var confirm = ModernMessageBox.ShowWithResult(
+                $"Remove from this project's .gitignore?\n\n{preview}",
+                "Git ignore",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question,
+                "Remove",
+                "Cancel");
+            if (confirm != MessageBoxResult.Yes)
+            {
+                return;
+            }
+
+            try
+            {
+                GitIgnoreFileHelper.TryRemoveMatching(_projectPath, relative, item.IsFolder, out var removed);
+                await RefreshFromDiskAsync(preserveSelection: true, quiet: true);
+                await ApplyGitOverlayAsync();
+
+                StatusText.Text = removed.Count == 0
+                    ? "No matching .gitignore line."
+                    : $"Removed from .gitignore: {string.Join(", ", removed)}";
                 ModernMessageBox.Show(StatusText.Text, "Git", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)

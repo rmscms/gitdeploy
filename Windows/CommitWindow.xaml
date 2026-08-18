@@ -97,9 +97,10 @@
                                      SelectionChanged="FilesListBox_SelectionChanged"
                                      MouseDoubleClick="FilesListBox_MouseDoubleClick">
                                 <ListBox.ContextMenu>
-                                    <ContextMenu>
-                                        <MenuItem Header="Add to .gitignore"
-                                                  Click="AddToGitIgnoreMenuItem_Click"/>
+                                    <ContextMenu Opened="FilesContextMenu_Opened">
+                                        <MenuItem x:Name="GitIgnoreMenuItem"
+                                                  Header="Add to .gitignore"
+                                                  Click="GitIgnoreMenuItem_Click"/>
                                         <MenuItem Header="Sync (No Deploy)"
                                                   Click="SyncWithoutDeployMenuItem_Click"/>
                                     </ContextMenu>

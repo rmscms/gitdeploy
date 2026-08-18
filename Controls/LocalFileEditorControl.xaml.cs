@@ -53,6 +53,8 @@ namespace GitDeployPro.Controls
         public event EventHandler<LocalEditorModeChangedEventArgs>? EditorModeChanged;
         public event EventHandler? FloatRequested;
 
+        private bool _isFloated;
+
         public LocalFileEditorControl()
         {
             InitializeComponent();
@@ -113,6 +115,10 @@ namespace GitDeployPro.Controls
                     // ignore
                 }
             }
+
+            ApplyToolbarActionState(SaveButton, _isDirty);
+            ApplyToolbarActionState(RevertButton, _isDirty);
+            ApplyToolbarActionState(FloatEditorButton, _isFloated);
         }
 
         private async Task ApplyMonacoThemeAsync()
@@ -283,52 +289,52 @@ namespace GitDeployPro.Controls
 
         public bool TryClose(bool force = false)
         {
+            if (!force && _isDirty)
+            {
+                return false;
+            }
+
+            return FinishClose();
+        }
+
+        public async Task<bool> TryCloseAsync(bool force = false)
+        {
             if (!IsOpen)
             {
-                Visibility = Visibility.Collapsed;
-                EditorModeChanged?.Invoke(this, new LocalEditorModeChangedEventArgs(false, string.Empty));
-                return true;
+                return FinishClose();
             }
 
             if (!force && _isDirty)
             {
+                // Capture Monaco text before the modal. After ShowDialog, WebView2
+                // ExecuteScriptAsync can hang and the owner looks frozen / click-blocked.
+                var pendingContent = await GetEditorContentAsync();
                 var result = ModernMessageBox.ShowWithResult(
                     "Save changes before closing?",
                     "Local editor",
                     MessageBoxButton.YesNoCancel,
-                    MessageBoxImage.Question);
+                    MessageBoxImage.Question,
+                    context: this);
 
-                if (result == MessageBoxResult.Cancel)
+                if (result == MessageBoxResult.Cancel || result == MessageBoxResult.None)
                 {
                     return false;
                 }
 
                 if (result == MessageBoxResult.Yes)
                 {
-                    if (!_usingSimpleEditor)
+                    if (!await TrySaveContentAsync(pendingContent))
                     {
-                        try
-                        {
-                            var monacoText = GetMonacoContentAsync().GetAwaiter().GetResult();
-                            _suppressTextChanged = true;
-                            CodeEditor.Text = monacoText;
-                            _suppressTextChanged = false;
-                            _usingSimpleEditor = true;
-                        }
-                        catch
-                        {
-                            // fall through to simple buffer
-                        }
-                    }
-
-                    if (!TrySave(out var saveError))
-                    {
-                        ModernMessageBox.Show($"Save failed:\n{saveError}", "Local editor", MessageBoxButton.OK, MessageBoxImage.Error);
                         return false;
                     }
                 }
             }
 
+            return FinishClose();
+        }
+
+        private bool FinishClose()
+        {
             _filePath = string.Empty;
             _originalContent = string.Empty;
             _suppressTextChanged = true;
@@ -343,7 +349,10 @@ namespace GitDeployPro.Controls
             return true;
         }
 
-        private void CloseButton_Click(object sender, RoutedEventArgs e) => TryClose();
+        private async void CloseButton_Click(object sender, RoutedEventArgs e)
+        {
+            await TryCloseAsync();
+        }
 
         private void FloatEditorButton_Click(object sender, RoutedEventArgs e)
         {
@@ -357,8 +366,10 @@ namespace GitDeployPro.Controls
                 return;
             }
 
+            _isFloated = floated;
             FloatEditorButton.Content = floated ? "⊟" : "⧉";
             FloatEditorButton.ToolTip = Loc.T(floated ? "deploy.tip.dockEditor" : "deploy.tip.floatEditor");
+            ApplyToolbarActionState(FloatEditorButton, floated);
         }
 
         private async void RevertButton_Click(object sender, RoutedEventArgs e)
@@ -391,45 +402,23 @@ namespace GitDeployPro.Controls
             }
         }
 
-        private bool TrySave(out string error)
-        {
-            error = string.Empty;
-            try
-            {
-                var content = _usingSimpleEditor
-                    ? (CodeEditor.Text ?? string.Empty)
-                    : GetMonacoContentSyncFallback();
-
-                File.WriteAllText(_filePath, content);
-                _originalContent = content;
-                if (_usingSimpleEditor)
-                {
-                    _suppressTextChanged = true;
-                    CodeEditor.Text = content;
-                    _suppressTextChanged = false;
-                }
-
-                SetDirty(false);
-                StatusText.Text = $"Saved {AppTimeService.LocalNow:HH:mm:ss}";
-                return true;
-            }
-            catch (Exception ex)
-            {
-                error = ex.Message;
-                return false;
-            }
-        }
-
         private async Task<bool> TrySaveAsync()
         {
+            var content = await GetEditorContentAsync();
+            return await TrySaveContentAsync(content);
+        }
+
+        private async Task<bool> TrySaveContentAsync(string content)
+        {
+            if (string.IsNullOrEmpty(_filePath))
+            {
+                return false;
+            }
+
             try
             {
-                var content = _usingSimpleEditor
-                    ? (CodeEditor.Text ?? string.Empty)
-                    : await GetMonacoContentAsync();
-
-                await File.WriteAllTextAsync(_filePath, content);
-                _originalContent = content;
+                await File.WriteAllTextAsync(_filePath, content ?? string.Empty);
+                _originalContent = content ?? string.Empty;
                 SetDirty(false);
                 StatusText.Text = $"Saved {AppTimeService.LocalNow:HH:mm:ss}";
                 return true;
@@ -441,10 +430,14 @@ namespace GitDeployPro.Controls
             }
         }
 
-        private string GetMonacoContentSyncFallback()
+        private async Task<string> GetEditorContentAsync()
         {
-            // Best-effort sync path for TryClose; prefer async save when possible.
-            return CodeEditor.Text ?? string.Empty;
+            if (_usingSimpleEditor || !_monacoReady || EditorWebView?.CoreWebView2 == null)
+            {
+                return CodeEditor.Text ?? string.Empty;
+            }
+
+            return await GetMonacoContentAsync();
         }
 
         private void SetDirty(bool dirty)
@@ -452,6 +445,36 @@ namespace GitDeployPro.Controls
             _isDirty = dirty;
             SaveButton.IsEnabled = dirty;
             RevertButton.IsEnabled = dirty;
+            ApplyToolbarActionState(SaveButton, dirty);
+            ApplyToolbarActionState(RevertButton, dirty);
+        }
+
+        private static void ApplyToolbarActionState(System.Windows.Controls.Button? button, bool active)
+        {
+            if (button == null)
+            {
+                return;
+            }
+
+            button.Tag = active ? "active" : null;
+            if (!active)
+            {
+                button.ClearValue(System.Windows.Controls.Control.ForegroundProperty);
+                button.ClearValue(System.Windows.Controls.Control.BackgroundProperty);
+                button.ClearValue(System.Windows.Controls.Control.BorderBrushProperty);
+                return;
+            }
+
+            var tokens = ThemeService.Instance.CurrentTokens;
+            button.Foreground = tokens.GetBrush(
+                "editor.actionActiveForeground",
+                (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#E6B84D"));
+            button.Background = tokens.GetBrush(
+                "editor.actionActiveBackground",
+                (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#1A1408"));
+            button.BorderBrush = tokens.GetBrush(
+                "editor.actionActiveBorder",
+                (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#E6B84D"));
         }
 
         private void ApplyHighlighting(string extension)
@@ -621,15 +644,32 @@ namespace GitDeployPro.Controls
 
         private async Task<string> GetMonacoContentAsync()
         {
-            if (EditorWebView.CoreWebView2 == null)
+            if (EditorWebView?.CoreWebView2 == null)
             {
                 return CodeEditor.Text ?? string.Empty;
             }
 
-            var scriptResult = await EditorWebView.CoreWebView2.ExecuteScriptAsync("window.__getValue && window.__getValue()");
-            return string.IsNullOrWhiteSpace(scriptResult)
-                ? string.Empty
-                : JsonSerializer.Deserialize<string>(scriptResult) ?? string.Empty;
+            try
+            {
+                var scriptTask = EditorWebView.CoreWebView2.ExecuteScriptAsync("window.__getValue && window.__getValue()");
+                var completed = await Task.WhenAny(scriptTask, Task.Delay(TimeSpan.FromSeconds(2)));
+                if (completed != scriptTask)
+                {
+                    return CodeEditor.Text ?? string.Empty;
+                }
+
+                var scriptResult = await scriptTask;
+                if (string.IsNullOrWhiteSpace(scriptResult) || scriptResult == "null")
+                {
+                    return CodeEditor.Text ?? string.Empty;
+                }
+
+                return JsonSerializer.Deserialize<string>(scriptResult) ?? CodeEditor.Text ?? string.Empty;
+            }
+            catch
+            {
+                return CodeEditor.Text ?? string.Empty;
+            }
         }
 
         private void RememberHome()

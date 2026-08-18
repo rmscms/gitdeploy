@@ -162,7 +162,32 @@ namespace GitDeployPro.Windows
             }
         }
 
-        private async void AddToGitIgnoreMenuItem_Click(object sender, RoutedEventArgs e)
+        private void FilesContextMenu_Opened(object sender, RoutedEventArgs e)
+        {
+            if (GitIgnoreMenuItem == null)
+            {
+                return;
+            }
+
+            if (FilesListBox?.SelectedItem is not FileChangeViewModel vm)
+            {
+                GitIgnoreMenuItem.Header = "Add to .gitignore";
+                GitIgnoreMenuItem.IsEnabled = false;
+                return;
+            }
+
+            GitIgnoreMenuItem.IsEnabled = true;
+            var projectRoot = ResolveWorkingDirectory();
+            var isFolder = Directory.Exists(Path.Combine(projectRoot, vm.Name.Replace('/', Path.DirectorySeparatorChar)));
+            var ignored = GitIgnoreFileHelper.IsItemIgnored(
+                GitIgnoreFileHelper.ReadLines(projectRoot),
+                vm.Name,
+                isFolder);
+            GitIgnoreMenuItem.Header = ignored ? "Remove from .gitignore" : "Add to .gitignore";
+            GitIgnoreMenuItem.Tag = ignored ? "remove" : "add";
+        }
+
+        private async void GitIgnoreMenuItem_Click(object sender, RoutedEventArgs e)
         {
             if (FilesListBox?.SelectedItem is not FileChangeViewModel vm)
             {
@@ -170,43 +195,81 @@ namespace GitDeployPro.Windows
                 return;
             }
 
-            var ignoreEntry = NormalizeGitIgnoreEntry(vm.Name);
-            if (string.IsNullOrWhiteSpace(ignoreEntry))
-            {
-                ModernMessageBox.Show("Unable to build .gitignore pattern for this path.", "Git ignore", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
-            var confirm = ModernMessageBox.ShowWithResult(
-                $"Add '{ignoreEntry}' to .gitignore?",
-                "Git ignore",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question,
-                "Add",
-                "Cancel");
-
-            if (confirm != MessageBoxResult.Yes)
-            {
-                return;
-            }
+            var projectRoot = ResolveWorkingDirectory();
+            var isFolder = Directory.Exists(Path.Combine(projectRoot, vm.Name.Replace('/', Path.DirectorySeparatorChar)))
+                           || (vm.Name ?? string.Empty).EndsWith("/", StringComparison.Ordinal);
+            var remove = string.Equals(GitIgnoreMenuItem?.Tag as string, "remove", StringComparison.OrdinalIgnoreCase)
+                         || GitIgnoreFileHelper.IsItemIgnored(GitIgnoreFileHelper.ReadLines(projectRoot), vm.Name, isFolder);
 
             try
             {
-                var projectRoot = ResolveWorkingDirectory();
-                var gitIgnorePath = Path.Combine(projectRoot, ".gitignore");
-                EnsureGitIgnoreEntry(gitIgnorePath, ignoreEntry, out var addedNow);
-
-                // If path is already tracked, untrack it so gitignore can take effect.
                 var gitService = new GitService();
-                await gitService.RemovePathFromIndexAsync(ignoreEntry.TrimEnd('/'));
+                if (remove)
+                {
+                    var matching = GitIgnoreFileHelper.FindMatchingLines(
+                        GitIgnoreFileHelper.ReadLines(projectRoot),
+                        vm.Name,
+                        isFolder);
+                    if (matching.Count == 0)
+                    {
+                        ModernMessageBox.Show("This path is not listed in this project's .gitignore.", "Git ignore", MessageBoxButton.OK, MessageBoxImage.Information);
+                        return;
+                    }
 
+                    var preview = string.Join("\n", matching.Select(line => line.Trim()).Distinct(StringComparer.OrdinalIgnoreCase));
+                    var removeConfirm = ModernMessageBox.ShowWithResult(
+                        $"Remove from this project's .gitignore?\n\n{preview}",
+                        "Git ignore",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Question,
+                        "Remove",
+                        "Cancel");
+                    if (removeConfirm != MessageBoxResult.Yes)
+                    {
+                        return;
+                    }
+
+                    GitIgnoreFileHelper.TryRemoveMatching(projectRoot, vm.Name, isFolder, out var removed);
+                    if (removed.Count == 0)
+                    {
+                        ModernMessageBox.Show("This path is not listed in this project's .gitignore.", "Git ignore", MessageBoxButton.OK, MessageBoxImage.Information);
+                        return;
+                    }
+
+                    _changes = await gitService.GetUncommittedChangesAsync(includeDiff: true);
+                    LoadChanges();
+                    ModernMessageBox.Show($"Removed from .gitignore:\n{string.Join("\n", removed)}", "Git ignore", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                var ignoreEntry = GitIgnoreFileHelper.BuildEntry(vm.Name, isFolder);
+                if (string.IsNullOrWhiteSpace(ignoreEntry))
+                {
+                    ModernMessageBox.Show("Unable to build .gitignore pattern for this path.", "Git ignore", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                var confirm = ModernMessageBox.ShowWithResult(
+                    $"Add '{ignoreEntry}' to this project's .gitignore?",
+                    "Git ignore",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question,
+                    "Add",
+                    "Cancel");
+                if (confirm != MessageBoxResult.Yes)
+                {
+                    return;
+                }
+
+                GitIgnoreFileHelper.TryAddEntry(projectRoot, ignoreEntry, out var addedNow);
+                await gitService.RemovePathFromIndexAsync(ignoreEntry.TrimStart('/').TrimEnd('/'));
                 _changes = await gitService.GetUncommittedChangesAsync(includeDiff: true);
                 LoadChanges();
-
-                var message = addedNow
-                    ? $"'{ignoreEntry}' added to .gitignore."
-                    : $"'{ignoreEntry}' was already in .gitignore.";
-                ModernMessageBox.Show(message, "Git ignore", MessageBoxButton.OK, MessageBoxImage.Information);
+                ModernMessageBox.Show(
+                    addedNow ? $"'{ignoreEntry}' added to .gitignore." : $"'{ignoreEntry}' was already in .gitignore.",
+                    "Git ignore",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
@@ -284,59 +347,6 @@ namespace GitDeployPro.Windows
                 ? Directory.GetCurrentDirectory()
                 : GitService.WorkingDirectoryPath;
         }
-
-        private static string NormalizeGitIgnoreEntry(string? relativePath)
-        {
-            if (string.IsNullOrWhiteSpace(relativePath))
-            {
-                return string.Empty;
-            }
-
-            var normalized = relativePath.Replace('\\', '/').Trim();
-            while (normalized.StartsWith("./", StringComparison.Ordinal))
-            {
-                normalized = normalized[2..];
-            }
-
-            normalized = normalized.TrimStart('/');
-            if (string.IsNullOrWhiteSpace(normalized))
-            {
-                return string.Empty;
-            }
-
-            var isDirectory = normalized.EndsWith("/", StringComparison.Ordinal);
-            if (!isDirectory)
-            {
-                var fullPath = Path.Combine(ResolveWorkingDirectory(), normalized.Replace('/', Path.DirectorySeparatorChar));
-                if (Directory.Exists(fullPath) && !File.Exists(fullPath))
-                {
-                    isDirectory = true;
-                }
-            }
-
-            return isDirectory
-                ? normalized.TrimEnd('/') + "/"
-                : normalized;
-        }
-
-        private static void EnsureGitIgnoreEntry(string gitIgnorePath, string ignoreEntry, out bool addedNow)
-        {
-            var lines = File.Exists(gitIgnorePath)
-                ? File.ReadAllLines(gitIgnorePath).ToList()
-                : new List<string>();
-
-            var exists = lines.Any(line => string.Equals(line.Trim(), ignoreEntry, StringComparison.OrdinalIgnoreCase));
-            if (exists)
-            {
-                addedNow = false;
-                return;
-            }
-
-            lines.Add(ignoreEntry);
-            File.WriteAllLines(gitIgnorePath, lines);
-            addedNow = true;
-        }
-
     }
 
     public class FileChangeViewModel
