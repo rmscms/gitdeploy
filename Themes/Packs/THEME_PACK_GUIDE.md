@@ -64,6 +64,7 @@ Palette references use `@Key` form, for example `"@Accent.Primary"`.
 | `syntaxComment` / `syntaxString` / `syntaxKeyword` / `syntaxFunction` / `syntaxNumber` / `syntaxDataType` | SQL highlighting |
 | `tabClose` | Close icon on an inactive editor tab |
 | `tabCloseOnAccent` | Close icon on the active editor tab (must contrast on `Accent.Primary`, typically white) |
+| `actionActiveForeground` / `actionActiveBackground` / `actionActiveBorder` | Editor toolbar icons when armed (dirty save/revert, floated) |
 
 ## Color values
 

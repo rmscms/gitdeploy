@@ -107,6 +107,11 @@ namespace GitDeployPro.Pages
                 RefreshThemePacksList();
             }
 
+            if (section == "git")
+            {
+                RefreshGitIgnoreFromDisk();
+            }
+
             if (section == "terminal")
             {
                 var projectPath = _configService.LoadGlobalConfig().LastProjectPath;
@@ -696,6 +701,7 @@ namespace GitDeployPro.Pages
             
             var gitIgnoreLines = LoadOrCreateGitIgnoreLines(path);
             ExcludePatternsTextBox.Text = string.Join(Environment.NewLine, gitIgnoreLines);
+            RefreshIgnorePatternList();
             
             GitService.SetWorkingDirectory(path);
             await LoadGitInfo(projectConfig);
@@ -1103,6 +1109,8 @@ namespace GitDeployPro.Pages
                 projectConfig.ExcludePatterns = ignoreEntries.ToArray();
 
                 _configService.SaveProjectConfig(projectConfig);
+                ReplaceGitIgnoreFile(projectPath, ignoreEntries);
+                RefreshIgnorePatternList();
 
                 if (!string.Equals(requestedTarget, targetBranch, StringComparison.OrdinalIgnoreCase))
                 {
@@ -1219,11 +1227,84 @@ namespace GitDeployPro.Pages
 
         private List<string> GetIgnoreEntriesFromTextBox()
         {
-            return ExcludePatternsTextBox.Text
+            return (ExcludePatternsTextBox?.Text ?? string.Empty)
                 .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
                 .Select(line => line.Trim())
                 .Where(line => !string.IsNullOrWhiteSpace(line))
                 .ToList();
+        }
+
+        private void RefreshGitIgnoreFromDisk()
+        {
+            var path = LocalPathTextBox?.Text?.Trim();
+            if (string.IsNullOrWhiteSpace(path) || ExcludePatternsTextBox == null)
+            {
+                RefreshIgnorePatternList();
+                return;
+            }
+
+            ExcludePatternsTextBox.Text = string.Join(Environment.NewLine, LoadOrCreateGitIgnoreLines(path));
+            RefreshIgnorePatternList();
+        }
+
+        private void RefreshIgnorePatternList()
+        {
+            if (IgnorePatternItemsControl == null)
+            {
+                return;
+            }
+
+            var lines = GetIgnoreEntriesFromTextBox();
+            IgnorePatternItemsControl.ItemsSource = lines;
+            if (IgnorePatternEmptyText != null)
+            {
+                IgnorePatternEmptyText.Visibility = lines.Count == 0
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
+            }
+        }
+
+        private void ExcludePatternsTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            RefreshIgnorePatternList();
+        }
+
+        private void RemoveIgnorePattern_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not System.Windows.Controls.Button button)
+            {
+                return;
+            }
+
+            var target = (button.Tag as string)?.Trim();
+            if (string.IsNullOrWhiteSpace(target))
+            {
+                return;
+            }
+
+            var remaining = GetIgnoreEntriesFromTextBox()
+                .Where(line => !string.Equals(line, target, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            ExcludePatternsTextBox.Text = string.Join(Environment.NewLine, remaining);
+            RefreshIgnorePatternList();
+
+            var projectPath = LocalPathTextBox?.Text?.Trim();
+            if (string.IsNullOrWhiteSpace(projectPath) || !Directory.Exists(projectPath))
+            {
+                return;
+            }
+
+            try
+            {
+                ReplaceGitIgnoreFile(projectPath, remaining);
+                var config = _configService.LoadProjectConfig(projectPath);
+                config.ExcludePatterns = remaining.ToArray();
+                _configService.SaveProjectConfig(config);
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show($"Failed to update .gitignore:\n{ex.Message}", "Git ignore", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         private void WriteGitIgnoreFile(string projectPath, IEnumerable<string> entries)
@@ -1235,7 +1316,7 @@ namespace GitDeployPro.Pages
                 string gitignorePath = Path.Combine(projectPath, ".gitignore");
                 var output = File.Exists(gitignorePath)
                     ? File.ReadAllLines(gitignorePath).ToList()
-                    : DefaultIgnorePatterns.ToList();
+                    : new List<string>();
                 var seen = new HashSet<string>(
                     output.Select(l => l.Trim()).Where(l => !string.IsNullOrWhiteSpace(l)),
                     StringComparer.OrdinalIgnoreCase);
@@ -1256,6 +1337,21 @@ namespace GitDeployPro.Pages
             {
                 System.Diagnostics.Debug.WriteLine($"Failed to update .gitignore: {ex.Message}");
             }
+        }
+
+        private void ReplaceGitIgnoreFile(string projectPath, IEnumerable<string> entries)
+        {
+            if (string.IsNullOrWhiteSpace(projectPath) || !Directory.Exists(projectPath))
+            {
+                return;
+            }
+
+            string gitignorePath = Path.Combine(projectPath, ".gitignore");
+            var output = (entries ?? Enumerable.Empty<string>())
+                .Select(line => line?.Trim() ?? string.Empty)
+                .Where(line => !string.IsNullOrWhiteSpace(line))
+                .ToList();
+            File.WriteAllLines(gitignorePath, output);
         }
 
         private async Task ApplyGitIgnoreRemovals(string projectPath, IEnumerable<string> entries)
@@ -1313,6 +1409,7 @@ namespace GitDeployPro.Pages
 
              WriteGitIgnoreFile(projectPath, entries);
              ExcludePatternsTextBox.Text = string.Join(Environment.NewLine, LoadOrCreateGitIgnoreLines(projectPath));
+             RefreshIgnorePatternList();
              await ApplyGitIgnoreRemovals(projectPath, entries);
              ModernMessageBox.Show(".gitignore updated with app entries!", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
         }

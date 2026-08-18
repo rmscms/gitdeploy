@@ -303,22 +303,19 @@ namespace GitDeployPro.Pages
                 if (_isEditorFloated)
                 {
                     HostActiveEditorInFloatWindow();
-                    CenterEditorOverlayHost.Child = null;
-                    CenterEditorOverlayHost.Visibility = Visibility.Collapsed;
+                    CollapseCenterEditorOverlay();
                     return;
                 }
 
                 DirectUploadDock.HostLocalEditorIn(CenterEditorOverlayHost);
-                CenterEditorOverlayHost.Visibility = Visibility.Visible;
-                System.Windows.Controls.Panel.SetZIndex(CenterEditorOverlayHost, 40);
+                ShowCenterEditorOverlay();
                 return;
             }
 
             DirectUploadDock.RestoreLocalEditorHome();
             if (!_isRemoteEditorOverlayActive)
             {
-                CenterEditorOverlayHost.Child = null;
-                CenterEditorOverlayHost.Visibility = Visibility.Collapsed;
+                CollapseCenterEditorOverlay();
             }
         }
 
@@ -339,8 +336,7 @@ namespace GitDeployPro.Pages
 
             _isEditorFloated = true;
             HostActiveEditorInFloatWindow();
-            CenterEditorOverlayHost.Child = null;
-            CenterEditorOverlayHost.Visibility = Visibility.Collapsed;
+            CollapseCenterEditorOverlay();
             UpdateEditorFloatButtons();
         }
 
@@ -449,21 +445,48 @@ namespace GitDeployPro.Pages
             if (DeployRemoteWorkspace.IsEditorOpen)
             {
                 DeployRemoteWorkspace.HostEditorIn(CenterEditorOverlayHost);
-                CenterEditorOverlayHost.Visibility = Visibility.Visible;
-                System.Windows.Controls.Panel.SetZIndex(CenterEditorOverlayHost, 40);
+                ShowCenterEditorOverlay();
                 return;
             }
 
             if (DirectUploadDock != null && !string.IsNullOrWhiteSpace(DirectUploadDock.GetLocalEditorPath()))
             {
                 DirectUploadDock.HostLocalEditorIn(CenterEditorOverlayHost);
-                CenterEditorOverlayHost.Visibility = Visibility.Visible;
-                System.Windows.Controls.Panel.SetZIndex(CenterEditorOverlayHost, 40);
+                ShowCenterEditorOverlay();
+                return;
+            }
+
+            CollapseCenterEditorOverlay();
+        }
+
+        private void ShowCenterEditorOverlay()
+        {
+            if (CenterEditorOverlayHost == null)
+            {
+                return;
+            }
+
+            if (CenterEditorOverlayHost.Child == null)
+            {
+                CollapseCenterEditorOverlay();
+                return;
+            }
+
+            CenterEditorOverlayHost.Visibility = Visibility.Visible;
+            CenterEditorOverlayHost.IsHitTestVisible = true;
+            System.Windows.Controls.Panel.SetZIndex(CenterEditorOverlayHost, 40);
+        }
+
+        private void CollapseCenterEditorOverlay()
+        {
+            if (CenterEditorOverlayHost == null)
+            {
                 return;
             }
 
             CenterEditorOverlayHost.Child = null;
             CenterEditorOverlayHost.Visibility = Visibility.Collapsed;
+            CenterEditorOverlayHost.IsHitTestVisible = false;
         }
 
         private void UpdateEditorFloatWindowTitle()
@@ -1714,14 +1737,12 @@ namespace GitDeployPro.Pages
                 if (_isEditorFloated)
                 {
                     HostActiveEditorInFloatWindow();
-                    CenterEditorOverlayHost.Child = null;
-                    CenterEditorOverlayHost.Visibility = Visibility.Collapsed;
+                    CollapseCenterEditorOverlay();
                 }
                 else
                 {
                     DeployRemoteWorkspace.HostEditorIn(CenterEditorOverlayHost);
-                    CenterEditorOverlayHost.Visibility = Visibility.Visible;
-                    System.Windows.Controls.Panel.SetZIndex(CenterEditorOverlayHost, 40);
+                    ShowCenterEditorOverlay();
                 }
 
                 ToggleRemoteWorkspaceButton.Content = "✕";
@@ -1732,8 +1753,7 @@ namespace GitDeployPro.Pages
 
             _isRemoteEditorOverlayActive = false;
             DeployRemoteWorkspace.RestoreEditorPanelToDock();
-            CenterEditorOverlayHost.Child = null;
-            CenterEditorOverlayHost.Visibility = Visibility.Collapsed;
+            CollapseCenterEditorOverlay();
 
             if (!ReferenceEquals(RemoteWorkspaceContainer.Child, DeployRemoteWorkspace))
             {
@@ -1768,16 +1788,16 @@ namespace GitDeployPro.Pages
                 ApplyRemoteDockLayout(resetWidth: false);
                 if (_isEditorFloated)
                 {
-                    CenterEditorOverlayHost.Child = null;
-                    CenterEditorOverlayHost.Visibility = Visibility.Collapsed;
+                    CollapseCenterEditorOverlay();
                 }
                 else
                 {
-                    CenterEditorOverlayHost.Visibility = Visibility.Visible;
                     if (CenterEditorOverlayHost.Child == null)
                     {
                         DeployRemoteWorkspace.HostEditorIn(CenterEditorOverlayHost);
                     }
+
+                    ShowCenterEditorOverlay();
                 }
 
                 UpdateRemoteToggleButtonUi();

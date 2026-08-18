@@ -871,19 +871,63 @@
                                     <ui:SymbolIcon Symbol="DismissCircle24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Text.Secondary}" VerticalAlignment="Center" />
                                     <StackPanel>
                                         <TextBlock Text="Ignored files" FontWeight="SemiBold" FontSize="13" />
-                                        <TextBlock Text="Exclude patterns (one per line)"
+                                        <TextBlock Text="This project's .gitignore only — Add/Remove from Direct Upload stays in sync"
                                                    FontSize="10"
                                                    Foreground="{StaticResource Text.Muted}" />
                                     </StackPanel>
                                 </StackPanel>
                             </Expander.Header>
-                            <TextBox x:Name="ExcludePatternsTextBox"
-                                     Style="{StaticResource App.InputTextBox.Multiline}"
-                                     MinHeight="260"
-                                     VerticalScrollBarVisibility="Auto"
-                                     Foreground="{StaticResource Log.Success}"
-                                     FontFamily="{StaticResource FontFamily.Mono}"
-                                     FontSize="12" />
+                            <StackPanel>
+                                <ItemsControl x:Name="IgnorePatternItemsControl"
+                                              Margin="0,0,0,10">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="{StaticResource Surface.Raised}"
+                                                    BorderBrush="{StaticResource Border.Subtle}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="8"
+                                                    Padding="10,6"
+                                                    Margin="0,0,0,6">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Text="{Binding}"
+                                                               VerticalAlignment="Center"
+                                                               FontFamily="{StaticResource FontFamily.Mono}"
+                                                               FontSize="12"
+                                                               Foreground="{StaticResource Log.Success}"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                    <Button Grid.Column="1"
+                                                            Content="Remove"
+                                                            Height="28"
+                                                            MinWidth="78"
+                                                            Padding="10,0"
+                                                            Margin="8,0,0,0"
+                                                            Tag="{Binding}"
+                                                            Style="{StaticResource App.Button.Ghost}"
+                                                            Click="RemoveIgnorePattern_Click" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <TextBlock x:Name="IgnorePatternEmptyText"
+                                           Text="No ignore lines in this project."
+                                           FontSize="11"
+                                           Foreground="{StaticResource Text.Muted}"
+                                           Margin="0,0,0,10"
+                                           Visibility="Collapsed" />
+                                <TextBox x:Name="ExcludePatternsTextBox"
+                                         Style="{StaticResource App.InputTextBox.Multiline}"
+                                         MinHeight="160"
+                                         VerticalScrollBarVisibility="Auto"
+                                         Foreground="{StaticResource Log.Success}"
+                                         FontFamily="{StaticResource FontFamily.Mono}"
+                                         FontSize="12"
+                                         LostFocus="ExcludePatternsTextBox_LostFocus" />
+                            </StackPanel>
                         </Expander>
                     </StackPanel>
 

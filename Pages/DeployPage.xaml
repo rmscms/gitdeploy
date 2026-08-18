@@ -576,6 +576,7 @@
 
                     <Border x:Name="CenterEditorOverlayHost"
                             Visibility="Collapsed"
+                            IsHitTestVisible="False"
                             Background="{StaticResource Surface.Base}"
                             BorderBrush="{StaticResource Border.Subtle}"
                             BorderThickness="1"

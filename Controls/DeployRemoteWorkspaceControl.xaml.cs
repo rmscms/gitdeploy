@@ -84,6 +84,7 @@ namespace GitDeployPro.Controls
         private DateTime _lastEditorWarmupAttemptUtc = DateTime.MinValue;
         private string _lastAutoConnectProfileId = string.Empty;
         private bool _operationLogExpanded;
+        private bool _editorFloated;
         private static string? _codeEditorHtmlTemplate;
 
         public ObservableCollection<RemoteTreeNode> RootNodes { get; } = new();
@@ -163,6 +164,8 @@ namespace GitDeployPro.Controls
 
             ApplyFtpChromeTheme();
             ApplyEditorTabCloseBrush();
+            UpdateSaveUploadButtonAppearance();
+            ApplyToolbarActionState(FloatEditorButton, _editorFloated);
             RemoteTreeBuilder.ApplyThemeToNodes(RootNodes);
             _ = ApplyEditorThemeAsync();
         }
@@ -839,10 +842,24 @@ namespace GitDeployPro.Controls
                 return EditorFallbackTextBox.Text ?? string.Empty;
             }
 
-            var scriptResult = await EditorWebView.CoreWebView2.ExecuteScriptAsync("window.__getValue && window.__getValue()");
-            return string.IsNullOrWhiteSpace(scriptResult)
-                ? string.Empty
-                : JsonSerializer.Deserialize<string>(scriptResult) ?? string.Empty;
+            try
+            {
+                var scriptTask = EditorWebView.CoreWebView2.ExecuteScriptAsync("window.__getValue && window.__getValue()");
+                var completed = await Task.WhenAny(scriptTask, Task.Delay(TimeSpan.FromSeconds(2)));
+                if (completed != scriptTask)
+                {
+                    return EditorFallbackTextBox.Text ?? string.Empty;
+                }
+
+                var scriptResult = await scriptTask;
+                return string.IsNullOrWhiteSpace(scriptResult) || scriptResult == "null"
+                    ? (EditorFallbackTextBox.Text ?? string.Empty)
+                    : JsonSerializer.Deserialize<string>(scriptResult) ?? string.Empty;
+            }
+            catch
+            {
+                return EditorFallbackTextBox.Text ?? string.Empty;
+            }
         }
 
         private async Task SetEditorEditableAsync(bool enabled)
@@ -3382,8 +3399,10 @@ namespace GitDeployPro.Controls
                 return;
             }
 
+            _editorFloated = floated;
             FloatEditorButton.Content = floated ? "⊟" : "⧉";
             FloatEditorButton.ToolTip = Loc.T(floated ? "deploy.tip.dockEditor" : "deploy.tip.floatEditor");
+            ApplyToolbarActionState(FloatEditorButton, floated);
         }
 
         public string GetActiveEditorPath() => _editSession?.FilePath ?? string.Empty;
@@ -3865,9 +3884,36 @@ namespace GitDeployPro.Controls
 
             var hasDirtyChanges = _editSession?.IsDirty == true;
             SaveUploadButton.Content = "⬆";
-            SaveUploadButton.Foreground = hasDirtyChanges
-                ? FindBrush("Status.Warning", System.Windows.Media.Brushes.Orange)
-                : FindBrush("Text.Secondary", System.Windows.Media.Brushes.Gainsboro);
+            ApplyToolbarActionState(SaveUploadButton, hasDirtyChanges);
+            ApplyToolbarActionState(RevertButton, hasDirtyChanges);
+        }
+
+        private static void ApplyToolbarActionState(System.Windows.Controls.Button? button, bool active)
+        {
+            if (button == null)
+            {
+                return;
+            }
+
+            button.Tag = active ? "active" : null;
+            if (!active)
+            {
+                button.ClearValue(System.Windows.Controls.Control.ForegroundProperty);
+                button.ClearValue(System.Windows.Controls.Control.BackgroundProperty);
+                button.ClearValue(System.Windows.Controls.Control.BorderBrushProperty);
+                return;
+            }
+
+            var tokens = ThemeService.Instance.CurrentTokens;
+            button.Foreground = tokens.GetBrush(
+                "editor.actionActiveForeground",
+                (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#E6B84D"));
+            button.Background = tokens.GetBrush(
+                "editor.actionActiveBackground",
+                (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#1A1408"));
+            button.BorderBrush = tokens.GetBrush(
+                "editor.actionActiveBorder",
+                (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#E6B84D"));
         }
 
         private void BeginUploadFeedback(long expectedBytes)

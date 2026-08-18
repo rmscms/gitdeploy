@@ -1,15 +1,16 @@
 {
-  "version": "1.4.24",
-  "fileName": "GitDeployPro-1.4.24.exe",
-  "downloadUrl": "versions/GitDeployPro-1.4.24.exe",
-  "sha256": "C80EC31F3D635DF46794FEED1FF6E398F4F4270D1E7F7E1890A74ED000545A78",
-  "releaseNotes": "- Default .gitignore now ignores only the root /vendor/ folder, not nested paths like public/vendor\n- .gitignore is created once and is not rewritten when saving Settings or switching projects\n- Settings: choose whether Deploy opens files docked or in a float window (all projects)\n- Settings: persist terminal font size and text color (also from the terminal toolbar)",
+  "version": "1.4.25",
+  "fileName": "GitDeployPro-1.4.25.exe",
+  "downloadUrl": "versions/GitDeployPro-1.4.25.exe",
+  "sha256": "8B52F4D61A358F7A4D859DA378A632408F55F7B267C3A6E2E405F2D65ABBF727",
+  "releaseNotes": "- Saving Settings now replaces this project's .gitignore, so removed ignore lines stay gone\n- Direct Upload Git menu shows Remove from .gitignore when the path is already ignored\n- Settings Git list has a Remove button per ignore line (same project file)\n- Closing the local editor after Save changes no longer freezes the Deploy page\n- Editor toolbar Save / Revert / Float use amber when active so Dark mode is readable",
   "changelog": [
-    "Default .gitignore now ignores only the root /vendor/ folder, not nested paths like public/vendor",
-    ".gitignore is created once and is not rewritten when saving Settings or switching projects",
-    "Settings: choose whether Deploy opens files docked or in a float window (all projects)",
-    "Settings: persist terminal font size and text color (also from the terminal toolbar)"
+    "Saving Settings now replaces this project's .gitignore, so removed ignore lines stay gone",
+    "Direct Upload Git menu shows Remove from .gitignore when the path is already ignored",
+    "Settings Git list has a Remove button per ignore line (same project file)",
+    "Closing the local editor after Save changes no longer freezes the Deploy page",
+    "Editor toolbar Save / Revert / Float use amber when active so Dark mode is readable"
   ],
   "mandatory": false,
-  "publishedUtc": "2026-08-18T09:06:04Z"
+  "publishedUtc": "2026-08-18T09:54:24Z"
 }
