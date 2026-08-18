@@ -38,6 +38,17 @@ namespace GitDeployPro.Services
             /// </summary>
             public string TerminalPresetsUiMode { get; set; } = "dock";
 
+            /// <summary>
+            /// When a file opens on Deploy: "dock" (center overlay) or "float" (separate window).
+            /// </summary>
+            public string DeployEditorOpenMode { get; set; } = "dock";
+
+            /// <summary>xterm font size for all terminals (10–20). Default matches the toolbar.</summary>
+            public double TerminalFontSize { get; set; } = 14;
+
+            /// <summary>xterm foreground hex for all terminals. Default Gray (#D4D4D4).</summary>
+            public string TerminalForeground { get; set; } = "#D4D4D4";
+
             /// <summary>Terminal command autocomplete (ghost text + Tab).</summary>
             public bool TerminalAutocompleteEnabled { get; set; } = true;
 

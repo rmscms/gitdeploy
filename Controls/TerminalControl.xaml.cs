@@ -70,6 +70,8 @@ namespace GitDeployPro.Controls
         private bool _presetsUiOpen;
         private bool _suppressPresetsToggle;
         private bool _dockedPresetsWired;
+        private bool _appearanceReady;
+        private bool _suppressAppearanceComboChange;
 
         public bool ShowCommandBar
         {
@@ -115,6 +117,18 @@ namespace GitDeployPro.Controls
             _savedCommandsWindow?.ApplyTheme();
             _ = ApplyXtermThemeAsync();
             _ = PushSuggestionCatalogAsync();
+        }
+
+        private void OnAppearanceChanged()
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(OnAppearanceChanged);
+                return;
+            }
+
+            ApplyAppearanceCombosFromStore();
+            _ = ApplyTerminalSettingsAsync();
         }
 
         private void ApplyHostBackgroundFromTheme()
@@ -173,6 +187,7 @@ namespace GitDeployPro.Controls
             }
 
             await PostTerminalMessageAsync(new { type = "setTheme", theme });
+            await PostTerminalMessageAsync(new { type = "setForeground", value = GetCurrentTextColorHex() });
         }
 
         private static void OnShowCommandBarChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -552,6 +567,8 @@ namespace GitDeployPro.Controls
             ApplyCommandBarVisibility(ShowCommandBar);
             WireDockedSavedCommandsPanel();
             DockedSavedCommandsPanel?.SetPresentationMode(_presetsUiMode);
+            WorkspacePreferencesStore.AppearanceChanged -= OnAppearanceChanged;
+            WorkspacePreferencesStore.AppearanceChanged += OnAppearanceChanged;
 
             if (ShowCommandBar)
             {
@@ -572,6 +589,8 @@ namespace GitDeployPro.Controls
                 {
                     return;
                 }
+                ApplyAppearanceCombosFromStore();
+                _appearanceReady = true;
                 await ApplyTerminalSettingsAsync();
                 await WriteWelcomeAsync();
             }
@@ -588,6 +607,7 @@ namespace GitDeployPro.Controls
             ThemeService.Instance.ThemeChanged -= OnDeployThemeChanged;
             ConfigurationService.ConnectionsChanged -= OnConnectionsChanged;
             TerminalSuggestionStore.SuggestionsChanged -= OnSuggestionsChanged;
+            WorkspacePreferencesStore.AppearanceChanged -= OnAppearanceChanged;
             CloseSavedCommandsWindow();
 
             lock (_activeTerminals)
@@ -928,6 +948,8 @@ namespace GitDeployPro.Controls
             Loaded -= TerminalControl_Loaded;
             Unloaded -= TerminalControl_Unloaded;
             ConfigurationService.ConnectionsChanged -= OnConnectionsChanged;
+            TerminalSuggestionStore.SuggestionsChanged -= OnSuggestionsChanged;
+            WorkspacePreferencesStore.AppearanceChanged -= OnAppearanceChanged;
             CloseSavedCommandsWindow();
 
             lock (_activeTerminals)
@@ -1333,7 +1355,6 @@ namespace GitDeployPro.Controls
         {
             await PostTerminalMessageAsync(new { type = "setTypingEnabled", enabled = _typingEnabled });
             await PostTerminalMessageAsync(new { type = "setFontSize", value = GetCurrentFontSize() });
-            await PostTerminalMessageAsync(new { type = "setForeground", value = GetCurrentTextColorHex() });
             await ApplyXtermThemeAsync();
             await PushSuggestionCatalogAsync();
             TypingOverlay.Visibility = _typingEnabled ? Visibility.Collapsed : Visibility.Visible;
@@ -1493,6 +1514,71 @@ namespace GitDeployPro.Controls
             }
 
             return "#D4D4D4";
+        }
+
+        private void ApplyAppearanceCombosFromStore()
+        {
+            _suppressAppearanceComboChange = true;
+            try
+            {
+                var (fontSize, foreground) = WorkspacePreferencesStore.LoadAppearance();
+                SelectFontSizeCombo(fontSize);
+                SelectTextColorCombo(foreground);
+            }
+            finally
+            {
+                _suppressAppearanceComboChange = false;
+            }
+        }
+
+        private void SelectFontSizeCombo(double size)
+        {
+            if (FontSizeCombo == null)
+            {
+                return;
+            }
+
+            var normalized = WorkspacePreferencesStore.NormalizeFontSize(size).ToString("0");
+            foreach (var item in FontSizeCombo.Items.OfType<ComboBoxItem>())
+            {
+                if (string.Equals(item.Content?.ToString(), normalized, StringComparison.OrdinalIgnoreCase))
+                {
+                    FontSizeCombo.SelectedItem = item;
+                    return;
+                }
+            }
+
+            FontSizeCombo.SelectedIndex = 2;
+        }
+
+        private void SelectTextColorCombo(string hex)
+        {
+            if (TextColorCombo == null)
+            {
+                return;
+            }
+
+            var normalized = WorkspacePreferencesStore.NormalizeForeground(hex);
+            foreach (var item in TextColorCombo.Items.OfType<ComboBoxItem>())
+            {
+                if (string.Equals(item.Tag?.ToString(), normalized, StringComparison.OrdinalIgnoreCase))
+                {
+                    TextColorCombo.SelectedItem = item;
+                    return;
+                }
+            }
+
+            TextColorCombo.SelectedIndex = 0;
+        }
+
+        private void PersistAppearanceFromCombos()
+        {
+            if (!_appearanceReady || _suppressAppearanceComboChange)
+            {
+                return;
+            }
+
+            WorkspacePreferencesStore.SaveAppearance(GetCurrentFontSize(), GetCurrentTextColorHex());
         }
 
         private static string NormalizeOutput(string output)
@@ -1681,11 +1767,13 @@ namespace GitDeployPro.Controls
 
         private async void FontSizeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            PersistAppearanceFromCombos();
             await PostTerminalMessageAsync(new { type = "setFontSize", value = GetCurrentFontSize() });
         }
 
         private async void TextColorCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            PersistAppearanceFromCombos();
             await PostTerminalMessageAsync(new { type = "setForeground", value = GetCurrentTextColorHex() });
         }
 

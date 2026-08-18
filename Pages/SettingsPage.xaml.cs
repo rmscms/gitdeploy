@@ -26,10 +26,12 @@ namespace GitDeployPro.Pages
         private readonly ProjectSetupResetService _setupResetService = new();
         private static readonly string[] DefaultIgnorePatterns = new[]
         {
-            "bin/", "obj/", ".vs/", ".idea/", ".vscode/", ".cursor/", "packages/", "dist/", "build/", "node_modules/", ".env", "*.log", "vendor/", ".gitdeploy.config", ".gitdeploy.history"
+            "bin/", "obj/", ".vs/", ".idea/", ".vscode/", ".cursor/", "packages/", "dist/", "build/", "node_modules/", ".env", "*.log", "/vendor/", ".gitdeploy.config", ".gitdeploy.history"
         };
 
         private bool _suppressLanguageComboChange;
+        private bool _suppressEditorModeChange;
+        private bool _suppressTerminalAppearanceChange;
         private readonly List<string> _draftAssignedFtpIds = new();
         private string _draftDefaultFtpId = string.Empty;
         private bool _draftFtpConfirmed = true;
@@ -148,6 +150,7 @@ namespace GitDeployPro.Pages
                 RefreshUpdateStatus(globalConfig);
                 RefreshThemePacksList();
                 LoadLanguageCombo(globalConfig.UiLanguage);
+                LoadWorkspacePreferences();
                 RefreshLanguageUiTexts();
                 TerminalSuggestionsPanel?.Reload(globalConfig.LastProjectPath);
             }
@@ -178,6 +181,46 @@ namespace GitDeployPro.Pages
             if (LanguageNoteText != null)
             {
                 LanguageNoteText.Text = Loc.T("settings.languageNote");
+            }
+
+            if (EditorPrefTitle != null)
+            {
+                EditorPrefTitle.Text = Loc.T("settings.editor");
+            }
+
+            if (EditorPrefHint != null)
+            {
+                EditorPrefHint.Text = Loc.T("settings.editorHint");
+            }
+
+            if (EditorOpenDockRadio != null)
+            {
+                EditorOpenDockRadio.Content = Loc.T("settings.editorDock");
+            }
+
+            if (EditorOpenFloatRadio != null)
+            {
+                EditorOpenFloatRadio.Content = Loc.T("settings.editorFloat");
+            }
+
+            if (TerminalAppearanceTitle != null)
+            {
+                TerminalAppearanceTitle.Text = Loc.T("settings.terminalAppearance");
+            }
+
+            if (TerminalAppearanceHint != null)
+            {
+                TerminalAppearanceHint.Text = Loc.T("settings.terminalAppearanceHint");
+            }
+
+            if (TerminalFontLabel != null)
+            {
+                TerminalFontLabel.Text = Loc.T("settings.terminalFont");
+            }
+
+            if (TerminalColorLabel != null)
+            {
+                TerminalColorLabel.Text = Loc.T("settings.terminalColor");
             }
 
             if (!_suppressLanguageComboChange)
@@ -230,6 +273,116 @@ namespace GitDeployPro.Pages
 
             LocalizationService.Instance.SetLanguage(code, persist: true, raiseUi: true);
             RefreshLanguageUiTexts();
+        }
+
+        private void LoadWorkspacePreferences()
+        {
+            _suppressEditorModeChange = true;
+            _suppressTerminalAppearanceChange = true;
+            try
+            {
+                var floatMode = WorkspacePreferencesStore.OpenEditorInFloat();
+                if (EditorOpenFloatRadio != null)
+                {
+                    EditorOpenFloatRadio.IsChecked = floatMode;
+                }
+
+                if (EditorOpenDockRadio != null)
+                {
+                    EditorOpenDockRadio.IsChecked = !floatMode;
+                }
+
+                var (fontSize, foreground) = WorkspacePreferencesStore.LoadAppearance();
+                SelectComboByContent(SettingsTerminalFontCombo, fontSize.ToString("0"));
+                SelectComboByTag(SettingsTerminalColorCombo, foreground);
+            }
+            finally
+            {
+                _suppressEditorModeChange = false;
+                _suppressTerminalAppearanceChange = false;
+            }
+        }
+
+        private static void SelectComboByContent(System.Windows.Controls.ComboBox? combo, string content)
+        {
+            if (combo == null)
+            {
+                return;
+            }
+
+            foreach (var item in combo.Items.OfType<ComboBoxItem>())
+            {
+                if (string.Equals(item.Content?.ToString(), content, StringComparison.OrdinalIgnoreCase))
+                {
+                    combo.SelectedItem = item;
+                    return;
+                }
+            }
+
+            if (combo.Items.Count > 0)
+            {
+                combo.SelectedIndex = 0;
+            }
+        }
+
+        private static void SelectComboByTag(System.Windows.Controls.ComboBox? combo, string tag)
+        {
+            if (combo == null)
+            {
+                return;
+            }
+
+            foreach (var item in combo.Items.OfType<ComboBoxItem>())
+            {
+                if (string.Equals(item.Tag?.ToString(), tag, StringComparison.OrdinalIgnoreCase))
+                {
+                    combo.SelectedItem = item;
+                    return;
+                }
+            }
+
+            if (combo.Items.Count > 0)
+            {
+                combo.SelectedIndex = 0;
+            }
+        }
+
+        private void EditorOpenModeRadio_Checked(object sender, RoutedEventArgs e)
+        {
+            if (_suppressEditorModeChange)
+            {
+                return;
+            }
+
+            var mode = EditorOpenFloatRadio?.IsChecked == true
+                ? WorkspacePreferencesStore.EditorModeFloat
+                : WorkspacePreferencesStore.EditorModeDock;
+            WorkspacePreferencesStore.SaveEditorOpenMode(mode);
+        }
+
+        private void SettingsTerminalAppearance_Changed(object sender, SelectionChangedEventArgs e)
+        {
+            if (_suppressTerminalAppearanceChange)
+            {
+                return;
+            }
+
+            double fontSize = WorkspacePreferencesStore.DefaultFontSize;
+            if (SettingsTerminalFontCombo?.SelectedItem is ComboBoxItem fontItem
+                && double.TryParse(fontItem.Content?.ToString(), out var parsed))
+            {
+                fontSize = parsed;
+            }
+
+            var foreground = WorkspacePreferencesStore.DefaultForeground;
+            if (SettingsTerminalColorCombo?.SelectedItem is ComboBoxItem colorItem
+                && colorItem.Tag is string tag
+                && !string.IsNullOrWhiteSpace(tag))
+            {
+                foreground = tag;
+            }
+
+            WorkspacePreferencesStore.SaveAppearance(fontSize, foreground);
         }
 
         private bool _suppressAppThemeComboChange;
@@ -1030,9 +1183,6 @@ namespace GitDeployPro.Pages
                     }
                 }
 
-                WriteGitIgnoreFile(projectPath, ignoreEntries);
-                await ApplyGitIgnoreRemovals(projectPath, ignoreEntries);
-
                 ModernMessageBox.Show("Settings saved successfully!", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
@@ -1059,12 +1209,6 @@ namespace GitDeployPro.Pages
                                 .Where(l => !string.IsNullOrWhiteSpace(l))
                                 .ToList();
 
-                if (lines.Count == 0)
-                {
-                    File.WriteAllLines(gitignorePath, DefaultIgnorePatterns);
-                    return DefaultIgnorePatterns;
-                }
-
                 return lines.ToArray();
             }
             catch
@@ -1089,21 +1233,22 @@ namespace GitDeployPro.Pages
             try
             {
                 string gitignorePath = Path.Combine(projectPath, ".gitignore");
-                var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                var output = new List<string>();
+                var output = File.Exists(gitignorePath)
+                    ? File.ReadAllLines(gitignorePath).ToList()
+                    : DefaultIgnorePatterns.ToList();
+                var seen = new HashSet<string>(
+                    output.Select(l => l.Trim()).Where(l => !string.IsNullOrWhiteSpace(l)),
+                    StringComparer.OrdinalIgnoreCase);
 
-                void AddLine(string line)
+                foreach (var entry in entries)
                 {
-                    if (string.IsNullOrWhiteSpace(line)) return;
-                    var trimmed = line.Trim();
+                    if (string.IsNullOrWhiteSpace(entry)) continue;
+                    var trimmed = entry.Trim();
                     if (seen.Add(trimmed))
                     {
                         output.Add(trimmed);
                     }
                 }
-
-                foreach (var entry in entries) AddLine(entry);
-                foreach (var defaults in DefaultIgnorePatterns) AddLine(defaults);
 
                 File.WriteAllLines(gitignorePath, output);
             }
@@ -1148,12 +1293,26 @@ namespace GitDeployPro.Pages
                  return;
              }
 
-             var entries = GetIgnoreEntriesFromTextBox();
-             if (!entries.Any(e => string.Equals(e, ".gitdeploy.config", StringComparison.OrdinalIgnoreCase))) entries.Add(".gitdeploy.config");
-             if (!entries.Any(e => string.Equals(e, ".gitdeploy.history", StringComparison.OrdinalIgnoreCase))) entries.Add(".gitdeploy.history");
+             var existing = LoadOrCreateGitIgnoreLines(projectPath);
+             var entries = new List<string>();
+             if (!existing.Any(e => string.Equals(e, ".gitdeploy.config", StringComparison.OrdinalIgnoreCase)))
+             {
+                 entries.Add(".gitdeploy.config");
+             }
 
-             ExcludePatternsTextBox.Text = string.Join(Environment.NewLine, entries);
+             if (!existing.Any(e => string.Equals(e, ".gitdeploy.history", StringComparison.OrdinalIgnoreCase)))
+             {
+                 entries.Add(".gitdeploy.history");
+             }
+
+             if (entries.Count == 0)
+             {
+                 ModernMessageBox.Show("Config files are already in .gitignore.", "Git ignore", MessageBoxButton.OK, MessageBoxImage.Information);
+                 return;
+             }
+
              WriteGitIgnoreFile(projectPath, entries);
+             ExcludePatternsTextBox.Text = string.Join(Environment.NewLine, LoadOrCreateGitIgnoreLines(projectPath));
              await ApplyGitIgnoreRemovals(projectPath, entries);
              ModernMessageBox.Show(".gitignore updated with app entries!", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
         }

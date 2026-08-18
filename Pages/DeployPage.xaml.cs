@@ -244,6 +244,7 @@ namespace GitDeployPro.Pages
             if (e.IsOpen)
             {
                 DirectUploadDock?.TryCloseLocalEditor(force: true);
+                _isEditorFloated = WorkspacePreferencesStore.OpenEditorInFloat();
             }
 
             SetRemoteEditorOverlay(e.IsOpen);
@@ -259,6 +260,11 @@ namespace GitDeployPro.Pages
 
         private void DirectUploadDock_EditorModeChanged(object? sender, LocalEditorModeChangedEventArgs e)
         {
+            if (e.IsOpen)
+            {
+                _isEditorFloated = WorkspacePreferencesStore.OpenEditorInFloat();
+            }
+
             SetLocalDirectUploadEditorOverlay(e.IsOpen);
             if (!e.IsOpen)
             {

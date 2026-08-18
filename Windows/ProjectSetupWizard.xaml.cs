@@ -1058,7 +1058,7 @@ namespace GitDeployPro.Windows
             ".svelte-kit/",
             "",
             "# Laravel / PHP",
-            "vendor/",
+            "/vendor/",
             ".env",
             ".env.*",
             "!.env.example",
