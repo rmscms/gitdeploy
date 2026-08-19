@@ -1,16 +1,14 @@
 {
-  "version": "1.4.26",
-  "fileName": "GitDeployPro-1.4.26.exe",
-  "downloadUrl": "versions/GitDeployPro-1.4.26.exe",
-  "sha256": "81B7A3F8FB5AF5E680650D4AC27C3CB74D1AA67756F33E490E55CB8174136E34",
-  "releaseNotes": "- SSH Git remotes no longer fail setup just because Windows ssh-agent is empty\n- Git uses a real ssh.exe and on-disk keys (like CMD), not only ssh-add\n- New SSH key helper: browse, generate ed25519, copy the public key, and Test\n- Settings Git has SSH key path with Browse, Test, and the same helper\n- HTTPS remotes skip the SSH modal; rejected keys show a clear GitHub/GitLab message",
+  "version": "1.4.27",
+  "fileName": "GitDeployPro-1.4.27.exe",
+  "downloadUrl": "versions/GitDeployPro-1.4.27.exe",
+  "sha256": "BBEEF89A67A551237FB6D44F7042E4E91C0F1D2567C8AF3F9F0408C51141FBED",
+  "releaseNotes": "- Deploy/Sync now uses real SFTP for SSH profiles instead of hanging on FTP connect\n- Connection host, port, and protocol come from the saved profile (custom SFTP ports work)\n- FTP deploy is unchanged; SFTP matches the remote browser transport",
   "changelog": [
-    "SSH Git remotes no longer fail setup just because Windows ssh-agent is empty",
-    "Git uses a real ssh.exe and on-disk keys (like CMD), not only ssh-add",
-    "New SSH key helper: browse, generate ed25519, copy the public key, and Test",
-    "Settings Git has SSH key path with Browse, Test, and the same helper",
-    "HTTPS remotes skip the SSH modal; rejected keys show a clear GitHub/GitLab message"
+    "Deploy/Sync now uses real SFTP for SSH profiles instead of hanging on FTP connect",
+    "Connection host, port, and protocol come from the saved profile (custom SFTP ports work)",
+    "FTP deploy is unchanged; SFTP matches the remote browser transport"
   ],
   "mandatory": false,
-  "publishedUtc": "2026-08-19T10:37:00Z"
+  "publishedUtc": "2026-08-19T11:57:40Z"
 }
