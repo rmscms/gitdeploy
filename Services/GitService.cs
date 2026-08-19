@@ -217,9 +217,15 @@ namespace GitDeployPro.Services
             // 5. Set Remote
             if (!string.IsNullOrEmpty(remoteUrl))
             {
-                await RunGitCommandAsync($"remote add origin {remoteUrl}");
-                
-                // Try push if remote is set
+                try
+                {
+                    await RunGitCommandAsync($"remote add origin {remoteUrl}");
+                }
+                catch (GitCommandException)
+                {
+                    await RunGitCommandAsync($"remote set-url origin {remoteUrl}");
+                }
+
                 await EnsureSshKeyForRemoteAsync("origin", remoteUrl);
                 string current = await GetCurrentBranchAsync();
                 await RunGitCommandAsync($"push -u origin {current}");
@@ -801,7 +807,7 @@ namespace GitDeployPro.Services
 
             if (LooksLikeSshRemote(remoteUrl))
             {
-                await _sshAgentService.EnsureDefaultKeyLoadedAsync();
+                await _sshAgentService.EnsureDefaultKeyLoadedAsync(remoteUrl);
             }
 
             await RunGitCommandAsync($"clone \"{remoteUrl}\" \"{targetInfo.Name}\"", parentDirectory);
@@ -1040,7 +1046,12 @@ namespace GitDeployPro.Services
             }
         }
 
-        private static async Task<string> ExecuteGitProcessAsync(string arguments, string resolvedWorkingDirectory, TimeSpan? timeout)
+        public Task<GitSshStatus> PrepareSshForRemoteAsync(string remoteUrl)
+        {
+            return _sshAgentService.PrepareForRemoteAsync(remoteUrl ?? string.Empty);
+        }
+
+        private async Task<string> ExecuteGitProcessAsync(string arguments, string resolvedWorkingDirectory, TimeSpan? timeout)
         {
             using var process = new Process
             {
@@ -1061,6 +1072,11 @@ namespace GitDeployPro.Services
             process.StartInfo.EnvironmentVariables["GIT_TERMINAL_PROMPT"] = "0";
             process.StartInfo.EnvironmentVariables["GIT_ASKPASS"] = "echo";
             process.StartInfo.EnvironmentVariables["SSH_ASKPASS"] = "echo";
+            var gitSshCommand = _sshAgentService.TryGetGitSshCommand();
+            if (!string.IsNullOrWhiteSpace(gitSshCommand))
+            {
+                process.StartInfo.EnvironmentVariables["GIT_SSH_COMMAND"] = gitSshCommand;
+            }
 
             try
             {
@@ -1241,7 +1257,7 @@ namespace GitDeployPro.Services
 
             if (LooksLikeSshRemote(remoteUrl))
             {
-                await _sshAgentService.EnsureDefaultKeyLoadedAsync();
+                await _sshAgentService.EnsureDefaultKeyLoadedAsync(remoteUrl);
             }
         }
 

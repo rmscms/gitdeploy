@@ -1,16 +1,16 @@
 {
-  "version": "1.4.25",
-  "fileName": "GitDeployPro-1.4.25.exe",
-  "downloadUrl": "versions/GitDeployPro-1.4.25.exe",
-  "sha256": "8B52F4D61A358F7A4D859DA378A632408F55F7B267C3A6E2E405F2D65ABBF727",
-  "releaseNotes": "- Saving Settings now replaces this project's .gitignore, so removed ignore lines stay gone\n- Direct Upload Git menu shows Remove from .gitignore when the path is already ignored\n- Settings Git list has a Remove button per ignore line (same project file)\n- Closing the local editor after Save changes no longer freezes the Deploy page\n- Editor toolbar Save / Revert / Float use amber when active so Dark mode is readable",
+  "version": "1.4.26",
+  "fileName": "GitDeployPro-1.4.26.exe",
+  "downloadUrl": "versions/GitDeployPro-1.4.26.exe",
+  "sha256": "81B7A3F8FB5AF5E680650D4AC27C3CB74D1AA67756F33E490E55CB8174136E34",
+  "releaseNotes": "- SSH Git remotes no longer fail setup just because Windows ssh-agent is empty\n- Git uses a real ssh.exe and on-disk keys (like CMD), not only ssh-add\n- New SSH key helper: browse, generate ed25519, copy the public key, and Test\n- Settings Git has SSH key path with Browse, Test, and the same helper\n- HTTPS remotes skip the SSH modal; rejected keys show a clear GitHub/GitLab message",
   "changelog": [
-    "Saving Settings now replaces this project's .gitignore, so removed ignore lines stay gone",
-    "Direct Upload Git menu shows Remove from .gitignore when the path is already ignored",
-    "Settings Git list has a Remove button per ignore line (same project file)",
-    "Closing the local editor after Save changes no longer freezes the Deploy page",
-    "Editor toolbar Save / Revert / Float use amber when active so Dark mode is readable"
+    "SSH Git remotes no longer fail setup just because Windows ssh-agent is empty",
+    "Git uses a real ssh.exe and on-disk keys (like CMD), not only ssh-add",
+    "New SSH key helper: browse, generate ed25519, copy the public key, and Test",
+    "Settings Git has SSH key path with Browse, Test, and the same helper",
+    "HTTPS remotes skip the SSH modal; rejected keys show a clear GitHub/GitLab message"
   ],
   "mandatory": false,
-  "publishedUtc": "2026-08-18T09:54:24Z"
+  "publishedUtc": "2026-08-19T10:37:00Z"
 }

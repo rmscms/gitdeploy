@@ -836,7 +836,7 @@ namespace GitDeployPro.Windows
                             initBranches.Add(targetBranch);
                         }
 
-                        await _gitService.InitRepoAsync(initBranches, remote);
+                        await InitializeRemoteGitAsync(remote, initBranches);
 
                         AddLog("Pulling changes from remote...");
                         try
@@ -942,8 +942,62 @@ namespace GitDeployPro.Windows
             }
         }
 
+        private async Task InitializeRemoteGitAsync(string remote, List<string> initBranches)
+        {
+            if (SshAgentService.LooksLikeSshRemote(remote))
+            {
+                var status = await _gitService.PrepareSshForRemoteAsync(remote);
+                if (!status.IsReady)
+                {
+                    AddLog($"SSH key setup needed: {status.Message}");
+                    if (!SshKeySetupWindow.ShowForRemote(this, remote))
+                    {
+                        throw new InvalidOperationException(status.Message);
+                    }
+
+                    AddLog("SSH key saved. Continuing with Git remote...");
+                }
+            }
+
+            try
+            {
+                await _gitService.InitRepoAsync(initBranches, remote);
+            }
+            catch (Exception ex) when (IsSshSetupException(ex))
+            {
+                AddLog($"SSH authentication failed: {ex.Message}");
+                if (!SshKeySetupWindow.ShowForRemote(this, remote))
+                {
+                    throw;
+                }
+
+                AddLog("Retrying git push...");
+                await _gitService.PushAsync();
+            }
+        }
+
+        private static bool IsSshSetupException(Exception ex)
+        {
+            if (ex is GitSshSetupRequiredException)
+            {
+                return true;
+            }
+
+            if (ex is GitCommandException gitEx)
+            {
+                return SshAgentService.LooksLikeSshAuthFailure(gitEx.GetDetailedMessage());
+            }
+
+            return false;
+        }
+
         private static string GetUserFacingError(Exception ex)
         {
+            if (ex is GitSshSetupRequiredException)
+            {
+                return ex.Message;
+            }
+
             if (ex is GitCommandException gitEx)
             {
                 return $"{gitEx.Command} {gitEx.Arguments} failed (exit {gitEx.ExitCode}). {gitEx.GetDetailedMessage()}";
