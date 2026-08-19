@@ -349,6 +349,76 @@ namespace GitDeployPro.Services.Remote
             }
         }
 
+        public async Task UploadLocalFileAsync(
+            string localPath,
+            string remotePath,
+            IProgress<RemoteUploadProgress>? progress = null,
+            CancellationToken cancellationToken = default)
+        {
+            EnsureConnected();
+            if (string.IsNullOrWhiteSpace(localPath) || !File.Exists(localPath))
+            {
+                throw new FileNotFoundException("Local file was not found.", localPath);
+            }
+
+            var remoteDirectory = GetDirectoryPath(remotePath);
+            if (!string.IsNullOrWhiteSpace(remoteDirectory))
+            {
+                await EnsureDirectoryAsync(remoteDirectory, cancellationToken);
+            }
+
+            var totalBytes = new FileInfo(localPath).Length;
+            progress?.Report(new RemoteUploadProgress
+            {
+                BytesTransferred = 0,
+                TotalBytes = totalBytes,
+                Percent = 0,
+                IsIndeterminate = totalBytes <= 0
+            });
+
+            IProgress<FtpProgress>? ftpProgressReporter = null;
+            if (progress != null)
+            {
+                ftpProgressReporter = new Progress<FtpProgress>(ftpProgress =>
+                {
+                    if (ftpProgress == null)
+                    {
+                        return;
+                    }
+
+                    var bytesTransferred = ftpProgress.TransferredBytes;
+                    var bytesTotal = totalBytes > 0 ? totalBytes : Math.Max(bytesTransferred, 1);
+                    var percent = ftpProgress.Progress >= 0
+                        ? ftpProgress.Progress
+                        : (bytesTotal > 0 ? (double)bytesTransferred / bytesTotal * 100d : 0d);
+                    progress.Report(new RemoteUploadProgress
+                    {
+                        BytesTransferred = bytesTransferred,
+                        TotalBytes = bytesTotal,
+                        Percent = percent,
+                        IsIndeterminate = ftpProgress.Progress < 0 && bytesTotal <= 0
+                    });
+                });
+            }
+
+            await _client!.UploadFile(
+                localPath,
+                remotePath,
+                FtpRemoteExists.Overwrite,
+                true,
+                FtpVerify.None,
+                progress: ftpProgressReporter,
+                token: cancellationToken);
+
+            progress?.Report(new RemoteUploadProgress
+            {
+                BytesTransferred = totalBytes,
+                TotalBytes = totalBytes,
+                Percent = 100,
+                IsIndeterminate = false
+            });
+        }
+
         public async Task EnsureDirectoryAsync(string remoteDirectoryPath, CancellationToken cancellationToken = default)
         {
             EnsureConnected();

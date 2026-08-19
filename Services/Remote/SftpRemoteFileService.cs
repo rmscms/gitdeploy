@@ -384,6 +384,69 @@ namespace GitDeployPro.Services.Remote
             });
         }
 
+        public async Task UploadLocalFileAsync(
+            string localPath,
+            string remotePath,
+            IProgress<RemoteUploadProgress>? progress = null,
+            CancellationToken cancellationToken = default)
+        {
+            EnsureConnected();
+            if (string.IsNullOrWhiteSpace(localPath) || !File.Exists(localPath))
+            {
+                throw new FileNotFoundException("Local file was not found.", localPath);
+            }
+
+            var remoteDirectory = GetDirectoryPath(remotePath);
+            if (!string.IsNullOrWhiteSpace(remoteDirectory))
+            {
+                await EnsureDirectoryAsync(remoteDirectory, cancellationToken);
+            }
+
+            var totalBytes = new FileInfo(localPath).Length;
+            progress?.Report(new RemoteUploadProgress
+            {
+                BytesTransferred = 0,
+                TotalBytes = totalBytes,
+                Percent = 0,
+                IsIndeterminate = totalBytes <= 0
+            });
+
+            await Task.Run(() =>
+            {
+                using var stream = File.OpenRead(localPath);
+                _client!.UploadFile(stream, remotePath, true, uploaded =>
+                {
+                    if (progress == null)
+                    {
+                        return;
+                    }
+
+                    var transferred = (long)uploaded;
+                    var percent = totalBytes > 0 ? (double)transferred / totalBytes * 100d : 0d;
+                    if (percent > 100d)
+                    {
+                        percent = 100d;
+                    }
+
+                    progress.Report(new RemoteUploadProgress
+                    {
+                        BytesTransferred = transferred,
+                        TotalBytes = totalBytes,
+                        Percent = percent,
+                        IsIndeterminate = false
+                    });
+                });
+            }, cancellationToken);
+
+            progress?.Report(new RemoteUploadProgress
+            {
+                BytesTransferred = totalBytes,
+                TotalBytes = totalBytes,
+                Percent = 100,
+                IsIndeterminate = false
+            });
+        }
+
         public async Task EnsureDirectoryAsync(string remoteDirectoryPath, CancellationToken cancellationToken = default)
         {
             EnsureConnected();

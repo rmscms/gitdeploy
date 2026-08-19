@@ -38,6 +38,11 @@ namespace GitDeployPro.Services.Remote
             string content,
             IProgress<RemoteUploadProgress>? progress = null,
             CancellationToken cancellationToken = default);
+        Task UploadLocalFileAsync(
+            string localPath,
+            string remotePath,
+            IProgress<RemoteUploadProgress>? progress = null,
+            CancellationToken cancellationToken = default);
         Task EnsureDirectoryAsync(string remoteDirectoryPath, CancellationToken cancellationToken = default);
         Task<RemoteFileStat> GetFileStatAsync(string remotePath, CancellationToken cancellationToken = default);
         Task<RemoteUnixPermissionInfo> GetUnixPermissionsAsync(string remotePath, CancellationToken cancellationToken = default);
