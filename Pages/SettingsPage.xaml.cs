@@ -158,6 +158,10 @@ namespace GitDeployPro.Pages
                 LoadWorkspacePreferences();
                 RefreshLanguageUiTexts();
                 TerminalSuggestionsPanel?.Reload(globalConfig.LastProjectPath);
+                if (SshKeyPathTextBox != null)
+                {
+                    SshKeyPathTextBox.Text = globalConfig.DefaultSshKeyPath ?? string.Empty;
+                }
             }
             catch (Exception ex)
             {
@@ -1056,6 +1060,124 @@ namespace GitDeployPro.Pages
             });
         }
 
+        private void BrowseSshKeyButton_Click(object sender, RoutedEventArgs e)
+        {
+            var sshDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".ssh");
+            var dialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = "Select SSH private key",
+                CheckFileExists = true,
+                Filter = "SSH private key|id_*;*.pem;*.key|All files|*.*"
+            };
+            if (Directory.Exists(sshDir))
+            {
+                dialog.InitialDirectory = sshDir;
+            }
+
+            if (dialog.ShowDialog() == true)
+            {
+                SshKeyPathTextBox.Text = dialog.FileName;
+                new SshAgentService().RememberKeyPath(dialog.FileName);
+            }
+        }
+
+        private async void TestSshKeyButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var remoteUrl = RemoteUrlTextBox?.Text?.Trim() ?? string.Empty;
+                var keyPath = SshKeyPathTextBox?.Text?.Trim() ?? string.Empty;
+                var ssh = new SshAgentService();
+                if (!string.IsNullOrWhiteSpace(keyPath))
+                {
+                    ssh.RememberKeyPath(keyPath);
+                }
+
+                var host = SshAgentService.ResolveSshHost(remoteUrl);
+                var result = await ssh.TestHostAsync(host, keyPath);
+                if (result.IsReady)
+                {
+                    ModernMessageBox.Show(result.Message, "SSH test", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                var detail = string.IsNullOrWhiteSpace(result.Details) ? result.Message : $"{result.Message}\n\n{result.Details}";
+                ModernMessageBox.Show(detail, "SSH test", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show(ex.Message, "SSH test", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void OpenSshKeyHelperButton_Click(object sender, RoutedEventArgs e)
+        {
+            var remoteUrl = RemoteUrlTextBox?.Text?.Trim() ?? string.Empty;
+            if (SshKeySetupWindow.ShowForRemote(this, remoteUrl))
+            {
+                var config = _configService.LoadGlobalConfig();
+                SshKeyPathTextBox.Text = config.DefaultSshKeyPath ?? string.Empty;
+            }
+        }
+
+        private async Task InitializeGitWithSshHelpAsync(List<string> branches, string remoteUrl)
+        {
+            if (SshAgentService.LooksLikeSshRemote(remoteUrl))
+            {
+                var status = await _gitService.PrepareSshForRemoteAsync(remoteUrl);
+                if (!status.IsReady && !SshKeySetupWindow.ShowForRemote(this, remoteUrl))
+                {
+                    throw new InvalidOperationException(status.Message);
+                }
+            }
+
+            try
+            {
+                await _gitService.InitRepoAsync(branches, remoteUrl);
+            }
+            catch (Exception ex) when (IsSshSetupException(ex))
+            {
+                if (!SshKeySetupWindow.ShowForRemote(this, remoteUrl))
+                {
+                    throw;
+                }
+
+                await _gitService.PushAsync();
+            }
+        }
+
+        private async Task PushWithSshHelpAsync(string remoteUrl)
+        {
+            try
+            {
+                await _gitService.PushAsync();
+            }
+            catch (Exception ex) when (IsSshSetupException(ex))
+            {
+                if (!SshKeySetupWindow.ShowForRemote(this, remoteUrl))
+                {
+                    throw;
+                }
+
+                await _gitService.PushAsync();
+            }
+        }
+
+        private static bool IsSshSetupException(Exception ex)
+        {
+            if (ex is GitSshSetupRequiredException)
+            {
+                return true;
+            }
+
+            if (ex is GitCommandException gitEx)
+            {
+                return SshAgentService.LooksLikeSshAuthFailure(gitEx.GetDetailedMessage());
+            }
+
+            return false;
+        }
+
         private async void SaveSettings_Click(object sender, RoutedEventArgs e)
         {
             try
@@ -1132,6 +1254,7 @@ namespace GitDeployPro.Pages
                     cfg.LaunchOnStartup = launchOnStartup;
                     cfg.ShowBackupSchedulerLocalhostWarning = showBackupLocalhostWarning;
                     cfg.MinimizeToTray = minimizeToTray;
+                    cfg.DefaultSshKeyPath = SshKeyPathTextBox?.Text?.Trim() ?? string.Empty;
                 });
 
                 _autoStartService.SetAutoStart(launchOnStartup);
@@ -1148,7 +1271,7 @@ namespace GitDeployPro.Pages
                     {
                         try
                         {
-                            await _gitService.InitRepoAsync(initWindow.SelectedBranches, initWindow.RemoteUrl);
+                            await InitializeGitWithSshHelpAsync(initWindow.SelectedBranches, initWindow.RemoteUrl);
                             ModernMessageBox.Show("Git repository initialized successfully!", "Git Init", MessageBoxButton.OK, MessageBoxImage.Information);
                             await LoadGitInfo(projectConfig);
                         }
@@ -1179,7 +1302,7 @@ namespace GitDeployPro.Pages
                             {
                                 try 
                                 {
-                                    await _gitService.PushAsync();
+                                    await PushWithSshHelpAsync(newRemote);
                                     ModernMessageBox.Show("Successfully pushed to new remote!", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
                                 }
                                 catch (Exception pushEx)

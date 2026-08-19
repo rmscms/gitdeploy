@@ -823,6 +823,42 @@
                                          Style="{StaticResource App.InputTextBox}"
                                          Foreground="{StaticResource Status.Info}"
                                          Margin="0,0,0,10" />
+                                <TextBlock Text="SSH private key (for git@ remotes)"
+                                           Margin="0,0,0,6"
+                                           Style="{StaticResource App.MutedTextStyle}"
+                                           FontSize="11" />
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="SshKeyPathTextBox"
+                                             Grid.Column="0"
+                                             Style="{StaticResource App.InputTextBox}"
+                                             VerticalAlignment="Center" />
+                                    <Button Grid.Column="1"
+                                            Content="Browse"
+                                            Height="32"
+                                            Padding="12,0"
+                                            Margin="8,0,0,0"
+                                            Style="{StaticResource App.Button.Ghost}"
+                                            Click="BrowseSshKeyButton_Click" />
+                                    <Button Grid.Column="2"
+                                            Content="Test"
+                                            Height="32"
+                                            Padding="12,0"
+                                            Margin="8,0,0,0"
+                                            Style="{StaticResource App.Button.Ghost}"
+                                            Click="TestSshKeyButton_Click" />
+                                </Grid>
+                                <Button Content="Open SSH key helper"
+                                        Height="30"
+                                        HorizontalAlignment="Left"
+                                        Padding="12,0"
+                                        Margin="0,0,0,10"
+                                        Style="{StaticResource App.Button.Ghost}"
+                                        Click="OpenSshKeyHelperButton_Click" />
                                 <Border x:Name="GitPushStatusBadge"
                                         Style="{StaticResource App.StatusBadge.Warning}"
                                         Margin="0,0,0,10"
