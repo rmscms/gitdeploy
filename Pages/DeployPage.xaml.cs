@@ -15,7 +15,6 @@ using GitDeployPro.Services.Localization;
 using GitDeployPro.Services.Remote;
 using GitDeployPro.Services.Theme;
 using GitDeployPro.Models;
-using FluentFTP;
 
 namespace GitDeployPro.Pages
 {
@@ -3349,138 +3348,138 @@ namespace GitDeployPro.Pages
                 TotalSelected = files?.Count ?? 0
             };
 
+            IRemoteFileService? remote = null;
             try
             {
-                var profile = GetActiveConnectionProfile();
-                string ftpHost = profile?.Host ?? _projectConfig.FtpHost;
-                string ftpUser = profile?.Username ?? _projectConfig.FtpUsername;
-                int ftpPort = (profile?.Port ?? 0) > 0 ? profile!.Port : _projectConfig.FtpPort;
-                string ftpPassword = profile != null ? EncryptionService.Decrypt(profile.Password) : _projectConfig.FtpPasswordDecrypted;
-
-                AddLog($"🔌 Connecting to {ftpHost}...");
-                
-                using (var client = new AsyncFtpClient(ftpHost, ftpUser, ftpPassword, ftpPort))
+                var profile = ResolveDeployConnectionProfile();
+                if (profile == null || string.IsNullOrWhiteSpace(profile.Host))
                 {
-                    // Configure timeout for large files (zip files)
-                    client.Config.DataConnectionType = FluentFTP.FtpDataConnectionType.AutoPassive;
-                    client.Config.ReadTimeout = 300000; // 5 minutes
-                    client.Config.DataConnectionReadTimeout = 300000; // 5 minutes
-                    client.Config.RetryAttempts = 3;
-                    
-                    try
+                    result.HasFatalError = true;
+                    result.FatalErrorMessage = "No FTP/SFTP connection is configured.";
+                    AddLog($"❌ {result.FatalErrorMessage}");
+                    return result;
+                }
+
+                var protocol = profile.UseSSH ? "SFTP" : "FTP";
+                var port = profile.Port > 0 ? profile.Port : (profile.UseSSH ? 22 : 21);
+                AddLog($"🔌 Connecting to {profile.Host}:{port} via {protocol}...");
+
+                remote = profile.UseSSH
+                    ? new SftpRemoteFileService()
+                    : new FtpRemoteFileService();
+
+                try
+                {
+                    using var connectCts = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+                    await remote.ConnectAsync(profile, connectCts.Token);
+                }
+                catch (Exception connectEx)
+                {
+                    result.HasFatalError = true;
+                    result.FatalErrorMessage = $"{protocol} connect/login failed: {connectEx.Message}";
+                    AddLog($"❌ {result.FatalErrorMessage}");
+                    return result;
+                }
+
+                AddLog("✅ Connected!");
+
+                int total = files.Count;
+                int current = 0;
+
+                var mapping = GetPrimaryMapping(profile);
+                var defaultRemoteBase = NormalizeRemoteBase(profile.RemotePath ?? _projectConfig.RemotePath);
+                var mappedRemoteBase = mapping != null
+                    ? CombineRemotePaths(defaultRemoteBase, mapping.RemotePath)
+                    : defaultRemoteBase;
+                var mappingLocalSegment = NormalizeLocalMappingSegment(mapping?.LocalPath);
+
+                foreach (var file in files)
+                {
+                    current++;
+                    if (file.Type == ChangeType.Deleted)
                     {
-                        await client.Connect();
+                        result.SkippedCount++;
+                        AddLog($"⏭ Skipped delete sync for {file.Name} (remote delete is not enabled in deploy pipeline).");
+                        continue;
                     }
-                    catch (Exception connectEx)
+
+                    string localPath = System.IO.Path.Combine(_projectConfig.LocalProjectPath, file.Name);
+                    bool isLocalDirectory = System.IO.Directory.Exists(localPath);
+                    bool isLocalFile = System.IO.File.Exists(localPath);
+                    if (!isLocalFile && !isLocalDirectory)
                     {
-                        result.HasFatalError = true;
-                        result.FatalErrorMessage = $"FTP connect/login failed: {connectEx.Message}";
-                        AddLog($"❌ {result.FatalErrorMessage}");
-                        return result;
+                        result.FailedItems.Add(new DeployFailedItem(file.Name, "Local file missing."));
+                        AddLog($"⚠️ Missing local file: {file.Name}");
+                        continue;
                     }
 
-                    AddLog("✅ Connected!");
+                    string relativePath = file.Name.Replace("\\", "/").TrimEnd('/');
+                    string remoteBaseToUse = defaultRemoteBase;
+                    string relativeRemote = relativePath;
 
-                    int total = files.Count;
-                    int current = 0;
-
-                    var mapping = GetPrimaryMapping(profile);
-                    // Use profile RemotePath, not legacy config.RemotePath
-                    var defaultRemoteBase = NormalizeRemoteBase(profile?.RemotePath ?? _projectConfig.RemotePath);
-                    var mappedRemoteBase = mapping != null
-                        ? CombineRemotePaths(defaultRemoteBase, mapping.RemotePath)
-                        : defaultRemoteBase;
-                    var mappingLocalSegment = NormalizeLocalMappingSegment(mapping?.LocalPath);
-
-                    foreach (var file in files)
+                    if (!string.IsNullOrEmpty(mappingLocalSegment))
                     {
-                        current++;
-                        if (file.Type == ChangeType.Deleted)
+                        var prefix = mappingLocalSegment.EndsWith("/")
+                            ? mappingLocalSegment
+                            : mappingLocalSegment + "/";
+
+                        if (relativePath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
                         {
-                            result.SkippedCount++;
-                            AddLog($"⏭ Skipped delete sync for {file.Name} (remote delete is not enabled in deploy pipeline).");
-                            continue;
-                        }
-
-                        string localPath = System.IO.Path.Combine(_projectConfig.LocalProjectPath, file.Name);
-                        bool isLocalDirectory = System.IO.Directory.Exists(localPath);
-                        bool isLocalFile = System.IO.File.Exists(localPath);
-                        if (!isLocalFile && !isLocalDirectory)
-                        {
-                            result.FailedItems.Add(new DeployFailedItem(file.Name, "Local file missing."));
-                            AddLog($"⚠️ Missing local file: {file.Name}");
-                            continue;
-                        }
-
-                        string relativePath = file.Name.Replace("\\", "/").TrimEnd('/');
-                        string remoteBaseToUse = defaultRemoteBase;
-                        string relativeRemote = relativePath;
-
-                        if (!string.IsNullOrEmpty(mappingLocalSegment))
-                        {
-                            var prefix = mappingLocalSegment.EndsWith("/")
-                                ? mappingLocalSegment
-                                : mappingLocalSegment + "/";
-
-                            if (relativePath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                            remoteBaseToUse = mappedRemoteBase;
+                            relativeRemote = relativePath.Substring(prefix.Length);
+                            if (string.IsNullOrWhiteSpace(relativeRemote))
                             {
-                                remoteBaseToUse = mappedRemoteBase;
-                                relativeRemote = relativePath.Substring(prefix.Length);
-                                if (string.IsNullOrWhiteSpace(relativeRemote))
-                                {
-                                    relativeRemote = Path.GetFileName(relativePath);
-                                }
+                                relativeRemote = Path.GetFileName(relativePath);
                             }
                         }
+                    }
 
-                        string remotePath = $"{remoteBaseToUse.TrimEnd('/')}/{relativeRemote}";
+                    string remotePath = $"{remoteBaseToUse.TrimEnd('/')}/{relativeRemote}";
 
-                        if (isLocalDirectory)
-                        {
-                            try
-                            {
-                                AddLog($"📁 Ensuring remote folder {file.Name}...");
-                                ProgressText.Text = $"Creating folder {current}/{total}: {file.Name}";
-                                DeployProgressBar.Value = (current * 100) / total;
-                                await FtpDirectoryEnsure.EnsureAsync(client, remotePath);
-                                result.UploadedCount++;
-                                AddLog($"✅ Folder ready {file.Name}");
-                            }
-                            catch (Exception dirEx)
-                            {
-                                result.FailedItems.Add(new DeployFailedItem(file.Name, dirEx.Message));
-                                AddLog($"❌ Folder failed {file.Name}: {dirEx.Message}");
-                            }
-
-                            continue;
-                        }
-
+                    if (isLocalDirectory)
+                    {
                         try
                         {
-                            AddLog($"📤 Uploading {file.Name}...");
-                            ProgressText.Text = $"Uploading {current}/{total}: {file.Name}";
+                            AddLog($"📁 Ensuring remote folder {file.Name}...");
+                            ProgressText.Text = $"Creating folder {current}/{total}: {file.Name}";
                             DeployProgressBar.Value = (current * 100) / total;
-
-                            await FtpDirectoryEnsure.EnsureParentOfFileAsync(client, remotePath);
-                            await client.UploadFile(localPath, remotePath, FtpRemoteExists.Overwrite, createRemoteDir: true);
+                            await remote.EnsureDirectoryAsync(remotePath);
                             result.UploadedCount++;
-                            AddLog($"✅ Uploaded {file.Name}");
-                            await NotifyOpenEditorsAfterUploadAsync(localPath, remotePath);
+                            AddLog($"✅ Folder ready {file.Name}");
                         }
-                        catch (Exception fileEx)
+                        catch (Exception dirEx)
                         {
-                            if (IsPermissionDeniedError(fileEx))
-                            {
-                                result.FailedItems.Add(new DeployFailedItem(file.Name, fileEx.Message, isPermissionDenied: true));
-                                AddLog($"⚠️ Permission denied for {file.Name}. Continuing with remaining files.");
-                                continue;
-                            }
-
-                            result.HasFatalError = true;
-                            result.FatalErrorMessage = $"Fatal FTP transfer error on {file.Name}: {fileEx.Message}";
-                            AddLog($"❌ {result.FatalErrorMessage}");
-                            break;
+                            result.FailedItems.Add(new DeployFailedItem(file.Name, dirEx.Message));
+                            AddLog($"❌ Folder failed {file.Name}: {dirEx.Message}");
                         }
+
+                        continue;
+                    }
+
+                    try
+                    {
+                        AddLog($"📤 Uploading {file.Name}...");
+                        ProgressText.Text = $"Uploading {current}/{total}: {file.Name}";
+                        DeployProgressBar.Value = (current * 100) / total;
+
+                        await remote.UploadLocalFileAsync(localPath, remotePath);
+                        result.UploadedCount++;
+                        AddLog($"✅ Uploaded {file.Name}");
+                        await NotifyOpenEditorsAfterUploadAsync(localPath, remotePath);
+                    }
+                    catch (Exception fileEx)
+                    {
+                        if (IsPermissionDeniedError(fileEx))
+                        {
+                            result.FailedItems.Add(new DeployFailedItem(file.Name, fileEx.Message, isPermissionDenied: true));
+                            AddLog($"⚠️ Permission denied for {file.Name}. Continuing with remaining files.");
+                            continue;
+                        }
+
+                        result.HasFatalError = true;
+                        result.FatalErrorMessage = $"Fatal {protocol} transfer error on {file.Name}: {fileEx.Message}";
+                        AddLog($"❌ {result.FatalErrorMessage}");
+                        break;
                     }
                 }
 
@@ -3504,6 +3503,29 @@ namespace GitDeployPro.Pages
                 result.FatalErrorMessage = $"Upload failed: {ex.GetType().Name} - {ex.Message}";
                 AddLog($"❌ Upload Error: {ex.Message}");
                 return result;
+            }
+            finally
+            {
+                if (remote != null)
+                {
+                    try
+                    {
+                        remote.Abort();
+                    }
+                    catch
+                    {
+                        // ignore
+                    }
+
+                    try
+                    {
+                        await remote.DisconnectAsync();
+                    }
+                    catch
+                    {
+                        // ignore
+                    }
+                }
             }
         }
 
@@ -3544,6 +3566,35 @@ namespace GitDeployPro.Pages
             {
                 return null;
             }
+        }
+
+        private ConnectionProfile? ResolveDeployConnectionProfile()
+        {
+            var profile = GetActiveConnectionProfile();
+            if (profile != null)
+            {
+                return profile;
+            }
+
+            if (string.IsNullOrWhiteSpace(_projectConfig?.FtpHost))
+            {
+                return null;
+            }
+
+            return new ConnectionProfile
+            {
+                Id = "legacy-project-ftp",
+                Name = _projectConfig.FtpHost,
+                Host = _projectConfig.FtpHost,
+                Username = _projectConfig.FtpUsername,
+                Password = _projectConfig.FtpPassword,
+                Port = _projectConfig.FtpPort > 0
+                    ? _projectConfig.FtpPort
+                    : (_projectConfig.UseSSH ? 22 : 21),
+                UseSSH = _projectConfig.UseSSH,
+                RemotePath = _projectConfig.RemotePath,
+                PassiveMode = true
+            };
         }
 
         private bool ConfirmFtpSyncTargetIfNeeded()
