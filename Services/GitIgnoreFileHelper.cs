@@ -80,6 +80,45 @@ namespace GitDeployPro.Services
         public static bool IsItemIgnored(IEnumerable<string> lines, string relativePath, bool isFolder)
             => FindMatchingLines(lines, relativePath, isFolder).Count > 0;
 
+        /// <summary>
+        /// True when any path segment is covered by a directory ignore rule
+        /// (e.g. pattern <c>.venv/</c> or <c>.venv</c> matches <c>core/.venv/Lib/x.py</c>).
+        /// </summary>
+        public static bool IsPathUnderIgnoredDirectory(IEnumerable<string> lines, string relativePath)
+        {
+            var rel = NormalizeRelative(relativePath);
+            if (string.IsNullOrWhiteSpace(rel))
+            {
+                return false;
+            }
+
+            var segments = rel.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            if (segments.Length == 0)
+            {
+                return false;
+            }
+
+            // Build prefixes: core, core/.venv, core/.venv/Lib, …
+            var prefix = string.Empty;
+            for (var i = 0; i < segments.Length; i++)
+            {
+                prefix = i == 0 ? segments[i] : prefix + "/" + segments[i];
+                var isLast = i == segments.Length - 1;
+                // Intermediate segments are directories; last may be file — still check as folder prefix.
+                if (IsItemIgnored(lines, prefix, isFolder: true))
+                {
+                    return true;
+                }
+
+                if (!isLast && IsItemIgnored(lines, prefix, isFolder: false))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         public static bool TryAddEntry(string projectPath, string entry, out bool added)
         {
             added = false;
@@ -197,7 +236,35 @@ namespace GitDeployPro.Services
 
             if (!body.Contains('/') && !body.Contains('\\'))
             {
-                return string.Equals(itemName, body, StringComparison.OrdinalIgnoreCase);
+                // Unanchored name: match the item itself OR any ancestor directory with that name.
+                // Example: ".venv" matches "core/.venv" and everything under it.
+                if (string.Equals(itemName, body, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+
+                var segments = rel.Split('/', StringSplitOptions.RemoveEmptyEntries);
+                for (var i = 0; i < segments.Length; i++)
+                {
+                    if (!string.Equals(segments[i], body, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    // Directory rule (pattern ends with /) or folder item: match at/under that segment.
+                    if (pattern.TrimEnd().EndsWith('/') || pattern.TrimEnd().EndsWith('\\') || isFolder || i < segments.Length - 1)
+                    {
+                        return true;
+                    }
+
+                    // Bare name also matches a file with that exact name at any depth.
+                    if (i == segments.Length - 1)
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
             }
 
             return false;

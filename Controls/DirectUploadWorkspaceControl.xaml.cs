@@ -39,6 +39,7 @@ namespace GitDeployPro.Controls
         private string _projectPath = string.Empty;
         private string _scanRootPath = string.Empty;
         private string _mappedLocalRoot = string.Empty;
+        private readonly List<string> _mappedLocalRoots = new();
         private string _profileRemoteBasePath = "/";
         private string _activeRemoteBasePath = "/";
         private ObservableCollection<FileSystemItem> _items;
@@ -604,6 +605,7 @@ namespace GitDeployPro.Controls
                 _mappedLocalRoot = mapping != null && !string.Equals(roots.localRoot, _projectPath, StringComparison.OrdinalIgnoreCase)
                     ? roots.localRoot
                     : string.Empty;
+                RefreshMappedLocalRoots(profile);
                 _scanRootPath = _projectPath;
                 _profileRemoteBasePath = NormalizeRemoteBase(profile?.RemotePath ?? config.RemotePath);
                 _activeRemoteBasePath = roots.remoteRoot;
@@ -616,7 +618,6 @@ namespace GitDeployPro.Controls
                 }
 
                 var projectRoot = _projectPath;
-                var mappedLocal = _mappedLocalRoot;
                 var hadItems = _items.Count > 0;
                 var rootItems = await Task.Run(() => ScanDirectory(projectRoot));
 
@@ -625,11 +626,8 @@ namespace GitDeployPro.Controls
                 // Theme brushes must be applied on the UI thread (live palette brushes are not BG-safe).
                 RefreshTreeThemeBrushes(_items);
 
-                if (!string.IsNullOrEmpty(mappedLocal))
-                {
-                    // Only auto-expand the mapped path on first populate; never fight the user on refresh.
-                    MarkMappedFolder(_items, mappedLocal, expandPath: !hadItems);
-                }
+                // Mark ALL mapped folders (api, core, …); expand only primary on first populate.
+                ApplyMappedFolderBadges(expandPrimary: !hadItems);
 
                 if (restoreCheckedPaths != null && restoreCheckedPaths.Count > 0)
                 {
@@ -942,6 +940,65 @@ namespace GitDeployPro.Controls
             catch (IOException) { }
 
             return items;
+        }
+
+        private void RefreshMappedLocalRoots(ConnectionProfile? profile)
+        {
+            _mappedLocalRoots.Clear();
+            if (string.IsNullOrEmpty(_projectPath))
+            {
+                return;
+            }
+
+            foreach (var mapping in RemotePathResolver.GetActiveMappings(profile))
+            {
+                if (RemotePathResolver.IsProjectRootLocalPath(mapping.LocalPath))
+                {
+                    continue;
+                }
+
+                var segment = RemotePathResolver.NormalizeLocalMappingPath(mapping.LocalPath)
+                    .Replace("/", Path.DirectorySeparatorChar.ToString());
+                try
+                {
+                    var full = Path.GetFullPath(Path.Combine(_projectPath, segment))
+                        .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                    if (Directory.Exists(full) &&
+                        !_mappedLocalRoots.Contains(full, StringComparer.OrdinalIgnoreCase))
+                    {
+                        _mappedLocalRoots.Add(full);
+                    }
+                }
+                catch
+                {
+                    // ignore invalid path segments
+                }
+            }
+
+            // Keep primary root for Direct Upload default expand / legacy helpers.
+            if (_mappedLocalRoots.Count > 0 && string.IsNullOrEmpty(_mappedLocalRoot))
+            {
+                _mappedLocalRoot = _mappedLocalRoots[0];
+            }
+        }
+
+        private void ApplyMappedFolderBadges(bool expandPrimary)
+        {
+            ClearMappedFolderFlags(_items);
+            if (_mappedLocalRoots.Count == 0)
+            {
+                return;
+            }
+
+            for (var i = 0; i < _mappedLocalRoots.Count; i++)
+            {
+                var expand = expandPrimary && (
+                    !string.IsNullOrEmpty(_mappedLocalRoot)
+                        ? string.Equals(_mappedLocalRoots[i], _mappedLocalRoot, StringComparison.OrdinalIgnoreCase)
+                        : i == 0);
+
+                MarkMappedFolderCore(_items, _mappedLocalRoots[i], expand);
+            }
         }
 
         private static void ClearMappedFolderFlags(IEnumerable<FileSystemItem> items)
@@ -2506,9 +2563,9 @@ namespace GitDeployPro.Controls
                 folder.CheckParentStatus();
                 folder.RefreshUploadStateFromChildren();
 
-                if (!string.IsNullOrEmpty(_mappedLocalRoot))
+                if (_mappedLocalRoots.Count > 0)
                 {
-                    MarkMappedFolder(_items, _mappedLocalRoot, expandPath: false);
+                    ApplyMappedFolderBadges(expandPrimary: false);
                 }
 
                 await ApplyGitOverlayAsync();
@@ -2650,6 +2707,127 @@ namespace GitDeployPro.Controls
             await UploadSpecificFilesAsync(filesToUpload, foldersToCreate, skipConfirm: false);
         }
 
+        /// <summary>
+        /// If selection includes gitignored items, ask: upload them / skip them / cancel.
+        /// Returns false when the user cancels or nothing remains after skip.
+        /// </summary>
+        private bool TryFilterIgnoredUploadSelection(
+            ref List<FileSystemItem> filesToUpload,
+            ref List<FileSystemItem> foldersToCreate)
+        {
+            // Cache gitignore lines once for this selection (can be thousands of files).
+            _ignoreLinesCache = string.IsNullOrEmpty(_projectPath)
+                ? new List<string>()
+                : GitIgnoreFileHelper.ReadLines(_projectPath);
+
+            var ignoredFiles = filesToUpload.Where(IsItemGitIgnored).ToList();
+            var ignoredFolders = foldersToCreate.Where(IsItemGitIgnored).ToList();
+            _ignoreLinesCache = null;
+
+            if (ignoredFiles.Count == 0 && ignoredFolders.Count == 0)
+            {
+                return true;
+            }
+
+            var samples = ignoredFiles.Concat(ignoredFolders)
+                .Select(i =>
+                {
+                    try
+                    {
+                        return Path.GetRelativePath(_projectPath, i.FullPath).Replace("\\", "/");
+                    }
+                    catch
+                    {
+                        return i.Name;
+                    }
+                })
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(8)
+                .ToList();
+            var more = (ignoredFiles.Count + ignoredFolders.Count) - samples.Count;
+            var sampleText = string.Join("\n• ", samples) + (more > 0 ? $"\n• (+{more} more)" : string.Empty);
+
+            var choice = ModernMessageBox.ShowWithResult(
+                $"{ignoredFiles.Count} ignored file(s) and {ignoredFolders.Count} ignored folder(s) are selected.\n\n" +
+                $"Examples:\n• {sampleText}\n\n" +
+                "Include gitignored / ignored items in this upload?",
+                "Ignored files in selection",
+                MessageBoxButton.YesNoCancel,
+                MessageBoxImage.Question,
+                primaryText: "Upload ignored",
+                secondaryText: "Skip ignored",
+                cancelText: "Cancel",
+                context: this);
+
+            if (choice == MessageBoxResult.Cancel || choice == MessageBoxResult.None)
+            {
+                return false;
+            }
+
+            if (choice == MessageBoxResult.No)
+            {
+                _ignoreLinesCache = string.IsNullOrEmpty(_projectPath)
+                    ? new List<string>()
+                    : GitIgnoreFileHelper.ReadLines(_projectPath);
+                filesToUpload = filesToUpload.Where(f => !IsItemGitIgnored(f)).ToList();
+                foldersToCreate = foldersToCreate.Where(f => !IsItemGitIgnored(f)).ToList();
+                _ignoreLinesCache = null;
+
+                if (filesToUpload.Count == 0 && foldersToCreate.Count == 0)
+                {
+                    ModernMessageBox.Show(
+                        "Nothing left to upload after skipping ignored items.",
+                        "Direct Upload",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information,
+                        context: this);
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private List<string>? _ignoreLinesCache;
+
+        private bool IsItemGitIgnored(FileSystemItem item)
+        {
+            // Folder marked ignored (e.g. .venv) → all nested selected files count as ignored.
+            for (var cur = item; cur != null; cur = cur.Parent)
+            {
+                if (cur.GitState == GitItemState.Ignored)
+                {
+                    return true;
+                }
+            }
+
+            if (string.IsNullOrEmpty(_projectPath))
+            {
+                return false;
+            }
+
+            try
+            {
+                var relative = Path.GetRelativePath(_projectPath, item.FullPath).Replace("\\", "/");
+                if (string.IsNullOrWhiteSpace(relative) || relative.StartsWith("..", StringComparison.Ordinal))
+                {
+                    return false;
+                }
+
+                var lines = _ignoreLinesCache ?? GitIgnoreFileHelper.ReadLines(_projectPath);
+                if (GitIgnoreFileHelper.IsItemIgnored(lines, relative, item.IsFolder))
+                {
+                    return true;
+                }
+
+                return GitIgnoreFileHelper.IsPathUnderIgnoredDirectory(lines, relative);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
         private async Task UploadSpecificFilesAsync(IReadOnlyList<FileSystemItem> filesToUpload, bool skipConfirm)
         {
             await UploadSpecificFilesAsync(filesToUpload, Array.Empty<FileSystemItem>(), skipConfirm);
@@ -2660,9 +2838,22 @@ namespace GitDeployPro.Controls
             IReadOnlyList<FileSystemItem> foldersToCreate,
             bool skipConfirm)
         {
-            filesToUpload ??= Array.Empty<FileSystemItem>();
-            foldersToCreate ??= Array.Empty<FileSystemItem>();
-            if (_isUploading || (filesToUpload.Count == 0 && foldersToCreate.Count == 0))
+            var files = (filesToUpload ?? Array.Empty<FileSystemItem>()).ToList();
+            var folders = (foldersToCreate ?? Array.Empty<FileSystemItem>()).ToList();
+            if (_isUploading || (files.Count == 0 && folders.Count == 0))
+            {
+                return;
+            }
+
+            if (!TryFilterIgnoredUploadSelection(ref files, ref folders))
+            {
+                StatusText.Text = "Ready.";
+                return;
+            }
+
+            filesToUpload = files;
+            foldersToCreate = folders;
+            if (filesToUpload.Count == 0 && foldersToCreate.Count == 0)
             {
                 return;
             }
@@ -3085,8 +3276,26 @@ namespace GitDeployPro.Controls
             out string remoteBasePath)
         {
             var projectRoot = !string.IsNullOrEmpty(_projectPath) ? _projectPath : _scanRootPath;
+            var profile = ResolveConnectionProfile(LoadCurrentProjectConfig(out _).ConnectionProfileId);
+            var mappings = RemotePathResolver.GetActiveMappings(profile);
 
-            // Mapping local is a subfolder of the project.
+            if (!string.IsNullOrEmpty(projectRoot) &&
+                RemotePathResolver.TryResolveDeployTargetFromFullPath(
+                    localFullPath,
+                    projectRoot,
+                    mappings,
+                    profileRemoteBase,
+                    out var remoteFullPath,
+                    out _,
+                    out _))
+            {
+                // Caller combines remoteBase + relative; "/" means "use base as final path".
+                remoteBasePath = remoteFullPath;
+                relativePath = "/";
+                return;
+            }
+
+            // Mapping local is a subfolder of the project (legacy primary fallback).
             if (!string.IsNullOrEmpty(_mappedLocalRoot) && IsSameOrNestedPath(_mappedLocalRoot, localFullPath))
             {
                 relativePath = Path.GetRelativePath(_mappedLocalRoot, localFullPath).Replace("\\", "/");
@@ -3096,8 +3305,6 @@ namespace GitDeployPro.Controls
 
             relativePath = Path.GetRelativePath(projectRoot, localFullPath).Replace("\\", "/");
 
-            // Outside mapped local folder → profile remote only.
-            // When mapping has no distinct local folder (maps whole project), use mapped remote.
             if (!string.IsNullOrEmpty(_mappedLocalRoot))
             {
                 remoteBasePath = profileRemoteBase;
@@ -3110,10 +3317,7 @@ namespace GitDeployPro.Controls
 
         private PathMapping? GetPrimaryMapping(ConnectionProfile? profile)
         {
-            if (profile?.PathMappings == null) return null;
-            return profile.PathMappings.FirstOrDefault(pm =>
-                pm != null &&
-                (!string.IsNullOrWhiteSpace(pm.LocalPath) || !string.IsNullOrWhiteSpace(pm.RemotePath)));
+            return RemotePathResolver.GetPrimaryMapping(profile);
         }
 
         private (string localRoot, string remoteRoot) ResolveRoots(ProjectConfig config, PathMapping? mapping)
