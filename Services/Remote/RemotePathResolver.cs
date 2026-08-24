@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using GitDeployPro.Models;
@@ -9,14 +10,24 @@ namespace GitDeployPro.Services.Remote
     {
         public static PathMapping? GetPrimaryMapping(ConnectionProfile? profile)
         {
+            return GetActiveMappings(profile).FirstOrDefault();
+        }
+
+        /// <summary>
+        /// All configured mappings (non-null rows with at least one path set).
+        /// </summary>
+        public static IReadOnlyList<PathMapping> GetActiveMappings(ConnectionProfile? profile)
+        {
             if (profile?.PathMappings == null)
             {
-                return null;
+                return Array.Empty<PathMapping>();
             }
 
-            return profile.PathMappings.FirstOrDefault(pm =>
-                pm != null &&
-                (!string.IsNullOrWhiteSpace(pm.LocalPath) || !string.IsNullOrWhiteSpace(pm.RemotePath)));
+            return profile.PathMappings
+                .Where(pm => pm != null &&
+                             (!string.IsNullOrWhiteSpace(pm.LocalPath) || !string.IsNullOrWhiteSpace(pm.RemotePath)))
+                .Cast<PathMapping>()
+                .ToList();
         }
 
         /// <summary>
@@ -50,6 +61,175 @@ namespace GitDeployPro.Services.Remote
         public static string FormatLocalMappingLabel(string? localPath)
         {
             return IsProjectRootLocalPath(localPath) ? "/" : NormalizeLocalMappingPath(localPath);
+        }
+
+        /// <summary>
+        /// True when <paramref name="relativeProjectPath"/> is the mapped local folder itself
+        /// or a file/folder under it (e.g. mapping <c>api</c> matches <c>api</c> and <c>api/app/x.php</c>,
+        /// but not <c>core/...</c>). Empty mapping segment means whole project (always true).
+        /// </summary>
+        public static bool IsUnderLocalMapping(string? relativeProjectPath, string? mappingLocalSegment)
+        {
+            if (string.IsNullOrWhiteSpace(mappingLocalSegment) || IsProjectRootLocalPath(mappingLocalSegment))
+            {
+                return true;
+            }
+
+            var relative = (relativeProjectPath ?? string.Empty).Replace("\\", "/").Trim('/');
+            var segment = NormalizeLocalMappingPath(mappingLocalSegment).Trim('/');
+            if (string.IsNullOrEmpty(segment))
+            {
+                return true;
+            }
+
+            if (string.IsNullOrEmpty(relative))
+            {
+                return false;
+            }
+
+            return relative.Equals(segment, StringComparison.OrdinalIgnoreCase)
+                   || relative.StartsWith(segment + "/", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Resolve which mapping owns a project-relative path. Longer local segments win
+        /// (e.g. <c>api/public</c> before <c>api</c>). If any non-root mappings exist and none match, returns null (skip).
+        /// If only a project-root mapping exists (or no mappings), uses profile remote base.
+        /// </summary>
+        public static bool TryResolveDeployTarget(
+            string? relativeProjectPath,
+            IReadOnlyList<PathMapping>? mappings,
+            string profileRemoteBase,
+            out string remoteFullPath,
+            out PathMapping? matchedMapping,
+            out string relativeUnderMapping)
+        {
+            remoteFullPath = string.Empty;
+            matchedMapping = null;
+            relativeUnderMapping = (relativeProjectPath ?? string.Empty).Replace("\\", "/").Trim('/');
+
+            var profileBase = NormalizeRemoteBase(profileRemoteBase);
+            var active = (mappings ?? Array.Empty<PathMapping>())
+                .Where(pm => pm != null &&
+                             (!string.IsNullOrWhiteSpace(pm.LocalPath) || !string.IsNullOrWhiteSpace(pm.RemotePath)))
+                .ToList();
+
+            if (active.Count == 0)
+            {
+                remoteFullPath = string.IsNullOrEmpty(relativeUnderMapping)
+                    ? profileBase.TrimEnd('/')
+                    : CombineRemotePaths(profileBase, relativeUnderMapping);
+                return true;
+            }
+
+            // Prefer most specific (longest) local folder match.
+            var ranked = active
+                .Select(pm => new
+                {
+                    Mapping = pm,
+                    Local = IsProjectRootLocalPath(pm.LocalPath)
+                        ? string.Empty
+                        : NormalizeLocalMappingPath(pm.LocalPath).Trim('/'),
+                    IsRoot = IsProjectRootLocalPath(pm.LocalPath)
+                })
+                .OrderByDescending(x => x.Local.Length)
+                .ThenBy(x => x.IsRoot ? 1 : 0)
+                .ToList();
+
+            var hasSubfolderMappings = ranked.Any(x => !x.IsRoot && !string.IsNullOrEmpty(x.Local));
+
+            foreach (var item in ranked.Where(x => !x.IsRoot))
+            {
+                if (!IsUnderLocalMapping(relativeUnderMapping, item.Local))
+                {
+                    continue;
+                }
+
+                matchedMapping = item.Mapping;
+                var prefix = item.Local + "/";
+                if (relativeUnderMapping.Equals(item.Local, StringComparison.OrdinalIgnoreCase))
+                {
+                    relativeUnderMapping = string.Empty;
+                }
+                else if (relativeUnderMapping.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    relativeUnderMapping = relativeUnderMapping[prefix.Length..];
+                }
+
+                var mappedRemote = CombineRemotePaths(profileBase, item.Mapping.RemotePath);
+                remoteFullPath = string.IsNullOrEmpty(relativeUnderMapping)
+                    ? mappedRemote.TrimEnd('/')
+                    : CombineRemotePaths(mappedRemote, relativeUnderMapping);
+                return true;
+            }
+
+            // Fall back to an explicit project-root mapping if present.
+            var rootMapping = ranked.FirstOrDefault(x => x.IsRoot);
+            if (rootMapping != null)
+            {
+                matchedMapping = rootMapping.Mapping;
+                var mappedRemote = CombineRemotePaths(profileBase, rootMapping.Mapping.RemotePath);
+                remoteFullPath = string.IsNullOrEmpty(relativeUnderMapping)
+                    ? mappedRemote.TrimEnd('/')
+                    : CombineRemotePaths(mappedRemote, relativeUnderMapping);
+                return true;
+            }
+
+            // Subfolder-only mappings (api + core): paths outside them must not upload.
+            if (hasSubfolderMappings)
+            {
+                return false;
+            }
+
+            remoteFullPath = string.IsNullOrEmpty(relativeUnderMapping)
+                ? profileBase.TrimEnd('/')
+                : CombineRemotePaths(profileBase, relativeUnderMapping);
+            return true;
+        }
+
+        /// <summary>
+        /// Resolve upload target from an absolute local file path under the project root.
+        /// </summary>
+        public static bool TryResolveDeployTargetFromFullPath(
+            string localFullPath,
+            string projectRoot,
+            IReadOnlyList<PathMapping>? mappings,
+            string profileRemoteBase,
+            out string remoteFullPath,
+            out PathMapping? matchedMapping,
+            out string relativeUnderMapping)
+        {
+            remoteFullPath = string.Empty;
+            matchedMapping = null;
+            relativeUnderMapping = string.Empty;
+
+            if (string.IsNullOrWhiteSpace(projectRoot) || string.IsNullOrWhiteSpace(localFullPath))
+            {
+                return false;
+            }
+
+            string relative;
+            try
+            {
+                relative = Path.GetRelativePath(projectRoot, localFullPath).Replace("\\", "/");
+            }
+            catch
+            {
+                return false;
+            }
+
+            if (relative.StartsWith("..", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            return TryResolveDeployTarget(
+                relative,
+                mappings,
+                profileRemoteBase,
+                out remoteFullPath,
+                out matchedMapping,
+                out relativeUnderMapping);
         }
 
         /// <summary>

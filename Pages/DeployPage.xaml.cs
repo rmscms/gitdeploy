@@ -3386,12 +3386,18 @@ namespace GitDeployPro.Pages
                 int total = files.Count;
                 int current = 0;
 
-                var mapping = GetPrimaryMapping(profile);
                 var defaultRemoteBase = NormalizeRemoteBase(profile.RemotePath ?? _projectConfig.RemotePath);
-                var mappedRemoteBase = mapping != null
-                    ? CombineRemotePaths(defaultRemoteBase, mapping.RemotePath)
-                    : defaultRemoteBase;
-                var mappingLocalSegment = NormalizeLocalMappingSegment(mapping?.LocalPath);
+                var mappings = RemotePathResolver.GetActiveMappings(profile);
+                if (mappings.Count > 0)
+                {
+                    AddLog("🗺️ Multi path mappings:");
+                    foreach (var m in mappings)
+                    {
+                        var localLabel = RemotePathResolver.FormatLocalMappingLabel(m.LocalPath);
+                        var remoteLabel = CombineRemotePaths(defaultRemoteBase, m.RemotePath);
+                        AddLog($"   • {localLabel} → {remoteLabel}");
+                    }
+                }
 
                 foreach (var file in files)
                 {
@@ -3414,27 +3420,24 @@ namespace GitDeployPro.Pages
                     }
 
                     string relativePath = file.Name.Replace("\\", "/").TrimEnd('/');
-                    string remoteBaseToUse = defaultRemoteBase;
-                    string relativeRemote = relativePath;
 
-                    if (!string.IsNullOrEmpty(mappingLocalSegment))
+                    if (!RemotePathResolver.TryResolveDeployTarget(
+                            relativePath,
+                            mappings,
+                            defaultRemoteBase,
+                            out var remotePath,
+                            out var matchedMapping,
+                            out _))
                     {
-                        var prefix = mappingLocalSegment.EndsWith("/")
-                            ? mappingLocalSegment
-                            : mappingLocalSegment + "/";
-
-                        if (relativePath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                        {
-                            remoteBaseToUse = mappedRemoteBase;
-                            relativeRemote = relativePath.Substring(prefix.Length);
-                            if (string.IsNullOrWhiteSpace(relativeRemote))
-                            {
-                                relativeRemote = Path.GetFileName(relativePath);
-                            }
-                        }
+                        result.SkippedCount++;
+                        AddLog($"⏭ Skipped {file.Name} (outside all path mappings).");
+                        continue;
                     }
 
-                    string remotePath = $"{remoteBaseToUse.TrimEnd('/')}/{relativeRemote}";
+                    if (matchedMapping != null)
+                    {
+                        AddLog($"🗺️ {file.Name} via {RemotePathResolver.FormatLocalMappingLabel(matchedMapping.LocalPath)} → {matchedMapping.RemotePath}");
+                    }
 
                     if (isLocalDirectory)
                     {
@@ -3445,12 +3448,18 @@ namespace GitDeployPro.Pages
                             DeployProgressBar.Value = (current * 100) / total;
                             await remote.EnsureDirectoryAsync(remotePath);
                             result.UploadedCount++;
-                            AddLog($"✅ Folder ready {file.Name}");
+                            AddLog($"✅ Folder ready {file.Name} → {remotePath}");
                         }
                         catch (Exception dirEx)
                         {
-                            result.FailedItems.Add(new DeployFailedItem(file.Name, dirEx.Message));
-                            AddLog($"❌ Folder failed {file.Name}: {dirEx.Message}");
+                            var dirDetail = RemoteTransferErrorFormatter.Format(
+                                dirEx,
+                                fileName: file.Name,
+                                remotePath: remotePath,
+                                protocol: protocol,
+                                profileName: profile.Name);
+                            result.FailedItems.Add(new DeployFailedItem(file.Name, dirDetail));
+                            AddLog($"❌ Folder failed {file.Name}: {RemoteTransferErrorFormatter.ResolveRootCause(dirEx)}");
                         }
 
                         continue;
@@ -3464,22 +3473,30 @@ namespace GitDeployPro.Pages
 
                         await remote.UploadLocalFileAsync(localPath, remotePath);
                         result.UploadedCount++;
-                        AddLog($"✅ Uploaded {file.Name}");
+                        AddLog($"✅ Uploaded {file.Name} → {remotePath}");
                         await NotifyOpenEditorsAfterUploadAsync(localPath, remotePath);
                     }
                     catch (Exception fileEx)
                     {
-                        if (IsPermissionDeniedError(fileEx))
+                        var rootCause = RemoteTransferErrorFormatter.ResolveRootCause(fileEx);
+                        var detail = RemoteTransferErrorFormatter.Format(
+                            fileEx,
+                            fileName: file.Name,
+                            remotePath: remotePath,
+                            protocol: protocol,
+                            profileName: profile.Name);
+
+                        if (IsPermissionDeniedError(fileEx, rootCause))
                         {
-                            result.FailedItems.Add(new DeployFailedItem(file.Name, fileEx.Message, isPermissionDenied: true));
-                            AddLog($"⚠️ Permission denied for {file.Name}. Continuing with remaining files.");
+                            result.FailedItems.Add(new DeployFailedItem(file.Name, detail, isPermissionDenied: true));
+                            AddLog($"⚠️ Permission denied for {file.Name}: {rootCause}. Continuing with remaining files.");
                             continue;
                         }
 
-                        result.HasFatalError = true;
-                        result.FatalErrorMessage = $"Fatal {protocol} transfer error on {file.Name}: {fileEx.Message}";
-                        AddLog($"❌ {result.FatalErrorMessage}");
-                        break;
+                        // Non-permission transfer errors: record and continue so remaining files still try
+                        // (nested folder / ownership issues often look like generic FluentFTP wrappers).
+                        result.FailedItems.Add(new DeployFailedItem(file.Name, detail));
+                        AddLog($"❌ Upload failed {file.Name}: {rootCause}");
                     }
                 }
 
@@ -3746,6 +3763,18 @@ namespace GitDeployPro.Pages
             int total = files.Count;
             int current = 0;
 
+            var profile = ResolveDeployConnectionProfile();
+            var defaultRemoteBase = NormalizeRemoteBase(profile?.RemotePath ?? _projectConfig?.RemotePath);
+            var mappings = RemotePathResolver.GetActiveMappings(profile);
+            if (mappings.Count > 0)
+            {
+                AddLog("[SIMULATION] 🗺️ Multi path mappings:");
+                foreach (var m in mappings)
+                {
+                    AddLog($"   • {RemotePathResolver.FormatLocalMappingLabel(m.LocalPath)} → {CombineRemotePaths(defaultRemoteBase, m.RemotePath)}");
+                }
+            }
+
             foreach (var file in files)
             {
                 current++;
@@ -3756,7 +3785,21 @@ namespace GitDeployPro.Pages
                     continue;
                 }
 
-                AddLog($"[SIMULATION] 📤 Uploading {file.Name}...");
+                var relativePath = file.Name.Replace("\\", "/").TrimEnd('/');
+                if (!RemotePathResolver.TryResolveDeployTarget(
+                        relativePath,
+                        mappings,
+                        defaultRemoteBase,
+                        out var remotePath,
+                        out _,
+                        out _))
+                {
+                    result.SkippedCount++;
+                    AddLog($"[SIMULATION] ⏭ Skipped {file.Name} (outside all path mappings).");
+                    continue;
+                }
+
+                AddLog($"[SIMULATION] 📤 Uploading {file.Name} → {remotePath}");
                 ProgressText.Text = $"Simulating {current}/{total}: {file.Name}";
                 DeployProgressBar.Value = (current * 100) / total;
                 await Task.Delay(200); 
@@ -3802,12 +3845,19 @@ namespace GitDeployPro.Pages
             }
         }
 
-        private static bool IsPermissionDeniedError(Exception ex)
+        private static bool IsPermissionDeniedError(Exception ex, string? rootCause = null)
         {
-            var message = ex.ToString();
+            var message = string.IsNullOrWhiteSpace(rootCause)
+                ? RemoteTransferErrorFormatter.ResolveRootCause(ex)
+                : rootCause;
+            var full = ex.ToString();
             return message.Contains("permission denied", StringComparison.OrdinalIgnoreCase) ||
                    message.Contains("access denied", StringComparison.OrdinalIgnoreCase) ||
-                   message.Contains("550", StringComparison.OrdinalIgnoreCase);
+                   message.Contains("not permitted", StringComparison.OrdinalIgnoreCase) ||
+                   message.Contains("550", StringComparison.OrdinalIgnoreCase) ||
+                   message.Contains("553", StringComparison.OrdinalIgnoreCase) ||
+                   full.Contains("permission denied", StringComparison.OrdinalIgnoreCase) ||
+                   full.Contains("550", StringComparison.OrdinalIgnoreCase);
         }
 
         private static string BuildPartialDeployMessage(DeployExecutionResult result)

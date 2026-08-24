@@ -1,14 +1,15 @@
 {
-  "version": "1.4.27",
-  "fileName": "GitDeployPro-1.4.27.exe",
-  "downloadUrl": "versions/GitDeployPro-1.4.27.exe",
-  "sha256": "BBEEF89A67A551237FB6D44F7042E4E91C0F1D2567C8AF3F9F0408C51141FBED",
-  "releaseNotes": "- Deploy/Sync now uses real SFTP for SSH profiles instead of hanging on FTP connect\n- Connection host, port, and protocol come from the saved profile (custom SFTP ports work)\n- FTP deploy is unchanged; SFTP matches the remote browser transport",
+  "version": "1.4.28",
+  "fileName": "GitDeployPro-1.4.28.exe",
+  "downloadUrl": "versions/GitDeployPro-1.4.28.exe",
+  "sha256": "2EF5B78F0645936EE18D74A71E34AE96E3FFC31FD8F8C0D2BEAFD2FCEB75273E",
+  "releaseNotes": "- Deploy uses all path mappings (e.g. api to /, core to /core); paths outside mappings are skipped\n- Mapped badge shows for every mapped folder, not only the first mapping\n- Upload of gitignored paths asks Yes / Skip / Cancel before continuing\n- Ignored detection covers nested paths under ignored folders (e.g. .venv)",
   "changelog": [
-    "Deploy/Sync now uses real SFTP for SSH profiles instead of hanging on FTP connect",
-    "Connection host, port, and protocol come from the saved profile (custom SFTP ports work)",
-    "FTP deploy is unchanged; SFTP matches the remote browser transport"
+    "Deploy uses all path mappings (e.g. api to /, core to /core); paths outside mappings are skipped",
+    "Mapped badge shows for every mapped folder, not only the first mapping",
+    "Upload of gitignored paths asks Yes / Skip / Cancel before continuing",
+    "Ignored detection covers nested paths under ignored folders (e.g. .venv)"
   ],
   "mandatory": false,
-  "publishedUtc": "2026-08-19T11:57:40Z"
+  "publishedUtc": "2026-08-24T15:30:14Z"
 }

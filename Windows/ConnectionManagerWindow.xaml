@@ -710,7 +710,7 @@
                         </Grid.RowDefinitions>
 
                         <TextBlock Grid.Row="0"
-                                   Text="Route a local folder (relative to the project root) to a remote directory. The first mapping becomes the Direct Upload root."
+                                   Text="Route local folders (relative to the project root) to remote directories. Deploy uses ALL mappings (e.g. api→/ and core→/core). The first mapping is the Direct Upload default root."
                                    TextWrapping="Wrap"
                                    Foreground="{StaticResource Text.Muted}"
                                    Margin="0,0,0,10"/>
