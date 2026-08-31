@@ -31,6 +31,10 @@ namespace GitDeployPro.Services.Remote
             string localDirectoryPath,
             IProgress<RemoteDownloadProgress>? progress = null,
             CancellationToken cancellationToken = default);
+        Task<IReadOnlyList<RemoteTransferJob>> PlanDownloadDirectoryAsync(
+            string remoteDirectoryPath,
+            string localDirectoryPath,
+            CancellationToken cancellationToken = default);
         Task RenameAsync(string sourcePath, string destinationPath, CancellationToken cancellationToken = default);
         Task DeleteAsync(string remotePath, bool isDirectory, CancellationToken cancellationToken = default);
         Task UploadTextFileAsync(

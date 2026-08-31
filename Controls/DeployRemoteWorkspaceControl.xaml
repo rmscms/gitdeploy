@@ -1,6 +1,7 @@
 <UserControl x:Class="GitDeployPro.Controls.DeployRemoteWorkspaceControl"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:behaviors="clr-namespace:GitDeployPro.Behaviors"
+             xmlns:local="clr-namespace:GitDeployPro.Controls"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:wv="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
@@ -217,7 +218,9 @@
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
                     <StackPanel Margin="0,0,0,6">
@@ -241,7 +244,38 @@
                         </Border>
                     </StackPanel>
 
-                    <Grid Grid.Row="1">
+                    <Border x:Name="RemoteTreeSearchBar"
+                            Grid.Row="1"
+                            Margin="0,0,0,6"
+                            Padding="6,4"
+                            CornerRadius="6"
+                            Background="{StaticResource Surface.Input}"
+                            BorderBrush="{StaticResource Border.Subtle}"
+                            BorderThickness="1"
+                            Visibility="Collapsed">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="RemoteTreeSearchBox"
+                                     Style="{StaticResource App.InputTextBox}"
+                                     FontSize="12"
+                                     VerticalContentAlignment="Center"
+                                     TextChanged="RemoteTreeSearchBox_TextChanged" />
+                            <Button x:Name="RemoteTreeSearchClearButton"
+                                    Grid.Column="1"
+                                    Margin="6,0,0,0"
+                                    Width="26"
+                                    Height="26"
+                                    Style="{StaticResource App.IconButton}"
+                                    Foreground="{StaticResource Text.Muted}"
+                                    Click="RemoteTreeSearchClear_Click"
+                                    Content="✕" />
+                        </Grid>
+                    </Border>
+
+                    <Grid Grid.Row="2">
                         <TreeView x:Name="RemoteTreeView"
                                   ItemsSource="{Binding RootNodes}"
                                   Background="Transparent"
@@ -249,6 +283,7 @@
                                   behaviors:ContextMenuSelectionBehavior.Enable="True"
                                   behaviors:TreeViewExtendedSelectionBehavior.Enable="True"
                                   PreviewKeyDown="RemoteTreeView_PreviewKeyDown"
+                                  PreviewTextInput="RemoteTreeView_PreviewTextInput"
                                   MouseRightButtonUp="RemoteTreeView_MouseRightButtonUp"
                                   MouseDoubleClick="RemoteTreeView_MouseDoubleClick">
                             <TreeView.Resources>
@@ -261,6 +296,7 @@
                                 <Style TargetType="TreeViewItem" BasedOn="{StaticResource App.TreeViewItem.FullRow}">
                                     <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
                                     <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}" />
+                                    <Setter Property="Visibility" Value="{Binding SearchVisibility, Mode=OneWay}" />
                                     <Setter Property="Margin" Value="0,1,0,1" />
                                     <Setter Property="Padding" Value="2" />
                                     <Setter Property="FontSize" Value="12" />
@@ -327,11 +363,17 @@
                                         </Border>
 
                                         <TextBlock Grid.Column="2"
-                                                   Text="{Binding Name}"
                                                    VerticalAlignment="Center"
                                                    Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TreeViewItem}}"
                                                    TextTrimming="CharacterEllipsis"
-                                                   FontSize="12" />
+                                                   FontSize="12">
+                                            <Run Text="{Binding NamePrefix, Mode=OneWay}" />
+                                            <Run Text="{Binding NameMatch, Mode=OneWay}"
+                                                 Background="{DynamicResource Tree.SearchMatchBackground}"
+                                                 Foreground="{DynamicResource Tree.SearchMatchForeground}"
+                                                 FontWeight="SemiBold" />
+                                            <Run Text="{Binding NameSuffix, Mode=OneWay}" />
+                                        </TextBlock>
                                     </Grid>
                                 </HierarchicalDataTemplate>
                             </TreeView.ItemTemplate>
@@ -441,6 +483,69 @@
                             </Border>
                         </Border>
                     </Grid>
+
+                    <Border x:Name="DownloadProgressPanel"
+                            Grid.Row="3"
+                            Margin="0,6,0,0"
+                            Padding="8,6"
+                            CornerRadius="6"
+                            Background="{StaticResource Surface.Input}"
+                            BorderBrush="{StaticResource Border.Subtle}"
+                            BorderThickness="1"
+                            Visibility="Collapsed">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <TextBlock x:Name="DownloadProgressFileText"
+                                       Text=""
+                                       FontSize="11"
+                                       TextTrimming="CharacterEllipsis"
+                                       Foreground="{StaticResource Text.Secondary}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock x:Name="DownloadProgressPercentText"
+                                       Grid.Column="1"
+                                       Margin="8,0,0,0"
+                                       FontSize="11"
+                                       FontWeight="SemiBold"
+                                       Foreground="{StaticResource Accent.Primary}"
+                                       VerticalAlignment="Center" />
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="8,0,0,0">
+                                <Button x:Name="FloatDownloadReportButton"
+                                        Height="24"
+                                        MinWidth="56"
+                                        Padding="8,0"
+                                        Margin="0,0,6,0"
+                                        Style="{StaticResource App.Button.Ghost}"
+                                        Click="FloatDownloadReportButton_Click"
+                                        Content="Report" />
+                                <Button x:Name="CancelDownloadButton"
+                                        Height="24"
+                                        MinWidth="64"
+                                        Padding="8,0"
+                                        Style="{StaticResource App.Button.Ghost}"
+                                        Click="CancelDownloadButton_Click"
+                                        Content="Cancel" />
+                            </StackPanel>
+                            <ProgressBar x:Name="DownloadProgressBar"
+                                         Grid.Row="1"
+                                         Grid.ColumnSpan="3"
+                                         Margin="0,6,0,0"
+                                         Height="5"
+                                         Minimum="0"
+                                         Maximum="100"
+                                         Value="0"
+                                         Background="{StaticResource Border.Subtle}"
+                                         Foreground="{StaticResource Accent.Primary}"
+                                         BorderThickness="0" />
+                        </Grid>
+                    </Border>
                 </Grid>
             </Border>
 
@@ -449,6 +554,8 @@
                     Padding="8,6,8,8"
                     Visibility="Collapsed">
                 <ScrollViewer x:Name="EditorPanelScrollViewer"
+                              Focusable="False"
+                              KeyboardNavigation.DirectionalNavigation="None"
                               HorizontalScrollBarVisibility="Auto"
                               VerticalScrollBarVisibility="Disabled"
                               CanContentScroll="False"
@@ -679,11 +786,16 @@
                     <Grid Grid.Row="2">
                         <wv:WebView2 x:Name="EditorWebView"
                                      Visibility="Visible"
-                                     DefaultBackgroundColor="#FF1E1E1E" />
+                                     KeyboardNavigation.DirectionalNavigation="None"
+                                     KeyboardNavigation.TabNavigation="Once"
+                                     DefaultBackgroundColor="#FF1E1E1E"
+                                     GotFocus="EditorWebView_GotFocus"
+                                     PreviewMouseLeftButtonDown="EditorWebView_PreviewMouseLeftButtonDown" />
 
                         <TextBox x:Name="EditorFallbackTextBox"
                                  Visibility="Collapsed"
                                  Style="{x:Null}"
+                                 KeyboardNavigation.DirectionalNavigation="None"
                                  Background="{StaticResource Surface.Input}"
                                  Foreground="{StaticResource Text.Primary}"
                                  BorderBrush="{StaticResource Border.Subtle}"
@@ -766,5 +878,16 @@
                 </ScrollViewer>
             </Grid>
         </Border>
+
+        <local:TransferMonitorPanel x:Name="DownloadTransferMonitor"
+                                    Grid.Row="0"
+                                    Grid.RowSpan="3"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Bottom"
+                                    Width="360"
+                                    MaxHeight="420"
+                                    Margin="10,10,10,52"
+                                    Panel.ZIndex="25"
+                                    Visibility="Collapsed"/>
     </Grid>
 </UserControl>

@@ -33,6 +33,7 @@ Open the full guide from Settings → Themes → **Open guide**, or the file `TH
 | `deploy.branches` | Branch chip, action, rollback, push badge |
 | `deploy.changedFiles` | Status badge colors (NEW / MODIFIED / DELETED) |
 | `deploy.directUpload` | Tree selection, icons, git badges, mapped rows |
+| `deploy.tree` | Type-to-search name highlight (`searchMatchBackground` / `searchMatchForeground`) |
 | `deploy.ftp.chrome` | Remote tree selection, overlays, skeletons |
 | `deploy.ftp.fileTypes` | Per-type icon/badge colors (`php`, `js`, `directory`, …) |
 | `deploy.logs` | Log accents |

@@ -1,15 +1,16 @@
 {
-  "version": "1.4.28",
-  "fileName": "GitDeployPro-1.4.28.exe",
-  "downloadUrl": "versions/GitDeployPro-1.4.28.exe",
-  "sha256": "2EF5B78F0645936EE18D74A71E34AE96E3FFC31FD8F8C0D2BEAFD2FCEB75273E",
-  "releaseNotes": "- Deploy uses all path mappings (e.g. api to /, core to /core); paths outside mappings are skipped\n- Mapped badge shows for every mapped folder, not only the first mapping\n- Upload of gitignored paths asks Yes / Skip / Cancel before continuing\n- Ignored detection covers nested paths under ignored folders (e.g. .venv)",
+  "version": "1.4.74",
+  "fileName": "GitDeployPro-1.4.74.exe",
+  "downloadUrl": "versions/GitDeployPro-1.4.74.exe",
+  "sha256": "87AF4036E4451DFDD4501A6A5EAC077192918481CF5850E50C7100351A0CA19D",
+  "releaseNotes": "- Parallel download/upload workers (ask how many, each takes whole files, then verify)\n- In-app transfer report with live per-worker slots (does not lock other Windows apps)\n- Type-to-search in the FTP tree and Direct Upload path list\n- Mapped folder download with overwrite confirm and cancelable progress\n- Fixes: scrollbar drag, open-file Error dialog, editor arrow keys, worker count stuck at 2W",
   "changelog": [
-    "Deploy uses all path mappings (e.g. api to /, core to /core); paths outside mappings are skipped",
-    "Mapped badge shows for every mapped folder, not only the first mapping",
-    "Upload of gitignored paths asks Yes / Skip / Cancel before continuing",
-    "Ignored detection covers nested paths under ignored folders (e.g. .venv)"
+    "Parallel download/upload workers (ask how many, each takes whole files, then verify)",
+    "In-app transfer report with live per-worker slots (does not lock other Windows apps)",
+    "Type-to-search in the FTP tree and Direct Upload path list",
+    "Mapped folder download with overwrite confirm and cancelable progress",
+    "Fixes: scrollbar drag, open-file Error dialog, editor arrow keys, worker count stuck at 2W"
   ],
   "mandatory": false,
-  "publishedUtc": "2026-08-24T15:30:14Z"
+  "publishedUtc": "2026-08-31T05:31:13Z"
 }

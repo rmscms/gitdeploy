@@ -6,7 +6,9 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using GitDeployPro.Services;
 using GitDeployPro.Services.Localization;
 using GitDeployPro.Services.Theme;
@@ -242,6 +244,7 @@ namespace GitDeployPro.Controls
                 EditorModeChanged?.Invoke(this, new LocalEditorModeChangedEventArgs(true, _filePath));
 
                 _ = PromoteToMonacoAsync();
+                FocusEditorSurface();
                 return true;
             }
             catch (Exception ex)
@@ -344,6 +347,7 @@ namespace GitDeployPro.Controls
             PathText.Text = "No file open";
             StatusText.Text = "Closed.";
             Visibility = Visibility.Collapsed;
+            EditorKeyboardScope.DisarmMonaco(EditorWebView);
             RestoreHome();
             EditorModeChanged?.Invoke(this, new LocalEditorModeChangedEventArgs(false, string.Empty));
             return true;
@@ -521,6 +525,7 @@ namespace GitDeployPro.Controls
                 _usingSimpleEditor = false;
                 SetDirty(!string.Equals(buffer, _originalContent, StringComparison.Ordinal));
                 StatusText.Text = "Monaco editor ready.";
+                FocusEditorSurface();
             }
             catch (Exception ex)
             {
@@ -629,6 +634,49 @@ namespace GitDeployPro.Controls
 
             await EditorWebView.CoreWebView2.ExecuteScriptAsync($"window.__loadCode && window.__loadCode({payload});");
             await EditorWebView.CoreWebView2.ExecuteScriptAsync("window.__markClean && window.__markClean();");
+            await EditorWebView.CoreWebView2.ExecuteScriptAsync("window.__focusEditor && window.__focusEditor();");
+        }
+
+        private void EditorWebView_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            FocusEditorSurface();
+        }
+
+        private void EditorWebView_GotFocus(object sender, RoutedEventArgs e)
+        {
+            FocusEditorSurface(monacoOnly: true);
+        }
+
+        private void FocusEditorSurface(bool monacoOnly = false)
+        {
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (_usingSimpleEditor)
+                {
+                    EditorKeyboardScope.ArmAvalon(CodeEditor);
+                    if (!monacoOnly)
+                    {
+                        CodeEditor.Focus();
+                        CodeEditor.TextArea?.Focus();
+                    }
+
+                    return;
+                }
+
+                if (EditorWebView != null && EditorWebView.Visibility == Visibility.Visible)
+                {
+                    EditorKeyboardScope.ArmMonaco(EditorWebView);
+                    if (!monacoOnly)
+                    {
+                        EditorWebView.Focus();
+                    }
+
+                    if (EditorWebView.CoreWebView2 != null)
+                    {
+                        _ = EditorWebView.CoreWebView2.ExecuteScriptAsync("window.__focusEditor && window.__focusEditor();");
+                    }
+                }
+            }), DispatcherPriority.Input);
         }
 
         private async Task SetMonacoEditableAsync(bool enabled)

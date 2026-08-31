@@ -2,6 +2,8 @@ using System.Collections;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Windows;
+using GitDeployPro.Services;
 
 namespace GitDeployPro.Models
 {
@@ -16,6 +18,10 @@ namespace GitDeployPro.Models
         private string _badgeBackground = "#1A2B3442";
         private string _badgeBorder = "#2A3E4F69";
         private string _badgeForeground = "#FF9AA8B5";
+        private bool _isSearchVisible = true;
+        private string? _namePrefix;
+        private string _nameMatch = string.Empty;
+        private string _nameSuffix = string.Empty;
 
         public string Name { get; set; } = string.Empty;
         public string FullPath { get; set; } = string.Empty;
@@ -86,17 +92,50 @@ namespace GitDeployPro.Models
             set => SetProperty(ref _isLoaded, value);
         }
 
+        public bool IsSearchVisible
+        {
+            get => _isSearchVisible;
+            set
+            {
+                if (SetProperty(ref _isSearchVisible, value, nameof(IsSearchVisible)))
+                {
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SearchVisibility)));
+                }
+            }
+        }
+
+        public Visibility SearchVisibility =>
+            _isSearchVisible ? Visibility.Visible : Visibility.Collapsed;
+
+        public string NamePrefix => _namePrefix ?? Name;
+        public string NameMatch => _nameMatch;
+        public string NameSuffix => _nameSuffix;
+
+        public void ApplySearchVisual(bool visible, TreeNameSearch.NameParts parts, bool expand)
+        {
+            IsSearchVisible = visible;
+            _namePrefix = parts.Prefix;
+            SetProperty(ref _nameMatch, parts.Match ?? string.Empty, nameof(NameMatch));
+            SetProperty(ref _nameSuffix, parts.Suffix ?? string.Empty, nameof(NameSuffix));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(NamePrefix)));
+            if (expand)
+            {
+                IsExpanded = true;
+            }
+        }
+
         public event PropertyChangedEventHandler? PropertyChanged;
 
-        private void SetProperty<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
+        private bool SetProperty<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
         {
             if (Equals(field, value))
             {
-                return;
+                return false;
             }
 
             field = value;
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+            return true;
         }
     }
 }

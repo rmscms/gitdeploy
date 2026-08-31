@@ -247,6 +247,7 @@ namespace GitDeployPro.Services.Theme
             pack.Deploy.Branches = MergeDict(pack.Deploy.Branches, defaults.Deploy.Branches);
             pack.Deploy.ChangedFiles = MergeDict(pack.Deploy.ChangedFiles, defaults.Deploy.ChangedFiles);
             pack.Deploy.DirectUpload = MergeDict(pack.Deploy.DirectUpload, defaults.Deploy.DirectUpload);
+            pack.Deploy.Tree = MergeDict(pack.Deploy.Tree, defaults.Deploy.Tree);
             pack.Deploy.Logs = MergeDict(pack.Deploy.Logs, defaults.Deploy.Logs);
             pack.Deploy.Editor = MergeDict(pack.Deploy.Editor, defaults.Deploy.Editor);
             pack.Deploy.Diff = MergeDict(pack.Deploy.Diff, defaults.Deploy.Diff);

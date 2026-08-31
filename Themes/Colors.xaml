@@ -68,4 +68,9 @@
     <SolidColorBrush x:Key="Shadow.Color" Color="#66000000" />
 
     <SolidColorBrush x:Key="Log.Success" Color="#65FFB2" />
+
+    <Color x:Key="Color.Tree.SearchMatchBackground">#FFBF47</Color>
+    <Color x:Key="Color.Tree.SearchMatchForeground">#10131A</Color>
+    <SolidColorBrush x:Key="Tree.SearchMatchBackground" Color="{StaticResource Color.Tree.SearchMatchBackground}" />
+    <SolidColorBrush x:Key="Tree.SearchMatchForeground" Color="{StaticResource Color.Tree.SearchMatchForeground}" />
 </ResourceDictionary>

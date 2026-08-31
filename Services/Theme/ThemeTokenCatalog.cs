@@ -16,7 +16,8 @@ namespace GitDeployPro.Services.Theme
             "Status.Success", "Status.Warning", "Status.Error", "Status.Info",
             "Status.SuccessSurface", "Status.WarningSurface", "Status.ErrorSurface", "Status.InfoSurface",
             "State.Hover", "State.Pressed", "State.DisabledOverlay",
-            "Shadow.Color", "Log.Success"
+            "Shadow.Color", "Log.Success",
+            "Tree.SearchMatchBackground", "Tree.SearchMatchForeground"
         };
 
         public static readonly string[] FileTypeKeys =
@@ -80,7 +81,9 @@ namespace GitDeployPro.Services.Theme
             ["State.Pressed"] = "#2FFFFFFF",
             ["State.DisabledOverlay"] = "#AA2D3442",
             ["Shadow.Color"] = "#66000000",
-            ["Log.Success"] = "#65FFB2"
+            ["Log.Success"] = "#65FFB2",
+            ["Tree.SearchMatchBackground"] = "#FFBF47",
+            ["Tree.SearchMatchForeground"] = "#10131A"
         };
 
         public static Dictionary<string, string> BuildDarkPalette() => new(System.StringComparer.OrdinalIgnoreCase)
@@ -113,7 +116,9 @@ namespace GitDeployPro.Services.Theme
             ["State.Pressed"] = "#22FFFFFF",
             ["State.DisabledOverlay"] = "#AA0A0A0A",
             ["Shadow.Color"] = "#99000000",
-            ["Log.Success"] = "#5CFFB0"
+            ["Log.Success"] = "#5CFFB0",
+            ["Tree.SearchMatchBackground"] = "#E6B84D",
+            ["Tree.SearchMatchForeground"] = "#000000"
         };
 
         private static void FillDeployDefaults(ThemePack pack, bool isDark)
@@ -167,6 +172,12 @@ namespace GitDeployPro.Services.Theme
                 ["gitUntracked"] = "@Status.Info",
                 ["gitIgnored"] = "@Text.Muted",
                 ["gitConflicted"] = "@Status.Warning"
+            };
+
+            pack.Deploy.Tree = new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase)
+            {
+                ["searchMatchBackground"] = "@Tree.SearchMatchBackground",
+                ["searchMatchForeground"] = "@Tree.SearchMatchForeground"
             };
 
             pack.Deploy.Ftp.Chrome = new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase)
@@ -288,6 +299,7 @@ namespace GitDeployPro.Services.Theme
                 "directUpload.folderIcon", "directUpload.fileIcon", "directUpload.mappedRowBackground",
                 "directUpload.gitClean", "directUpload.gitModified", "directUpload.gitUntracked",
                 "directUpload.gitIgnored", "directUpload.gitConflicted",
+                "tree.searchMatchBackground", "tree.searchMatchForeground",
                 "ftp.chrome.treeSelection", "ftp.chrome.treeSelectionText", "ftp.chrome.overlay",
                 "ftp.chrome.skeleton1", "ftp.chrome.skeleton2", "ftp.chrome.skeleton3",
                 "logs.background", "logs.foreground", "logs.success", "logs.warning", "logs.error",

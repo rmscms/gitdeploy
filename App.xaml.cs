@@ -44,6 +44,7 @@ namespace GitDeployPro
             base.OnStartup(e);
             LocalizationService.Instance.ApplyFlowDirection();
             RegisterGlobalMouseWheelScrolling();
+            RegisterGlobalEditorArrowKeys();
             Log("Application started.");
             _schedulerRunner.Start();
             PerformanceSampler.Instance.Mark("app", "lifecycle", "startup-end");
@@ -76,6 +77,15 @@ namespace GitDeployPro
                 HandleException(ex.Exception, "TaskScheduler.UnobservedTaskException");
                 ex.SetObserved();
             };
+        }
+
+        private static void RegisterGlobalEditorArrowKeys()
+        {
+            EventManager.RegisterClassHandler(
+                typeof(Window),
+                UIElement.PreviewKeyDownEvent,
+                new System.Windows.Input.KeyEventHandler((_, e) => EditorKeyboardScope.TryHandlePreviewKey(e)),
+                handledEventsToo: true);
         }
 
         private static void RegisterGlobalMouseWheelScrolling()

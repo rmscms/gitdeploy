@@ -44,6 +44,11 @@ namespace GitDeployPro.Controls
         private string _activeRemoteBasePath = "/";
         private ObservableCollection<FileSystemItem> _items;
         private bool _isUploading = false;
+        private readonly TransferMonitorController _transferMonitor = new();
+        private string _treeSearchQuery = string.Empty;
+        private bool _suppressTreeSearchText;
+        private readonly ObservableCollection<LocalTreeSearchHit> _searchHits = new();
+        private const int LocalSearchHitLimit = 300;
         private bool _isRefreshingFromDisk = false;
         private bool _uploadPanelManuallyOpen = false;
         private CancellationTokenSource? _cancellationTokenSource;
@@ -77,9 +82,14 @@ namespace GitDeployPro.Controls
         public DirectUploadWorkspaceControl()
         {
             InitializeComponent();
+            _transferMonitor.Attach(UploadTransferMonitor);
             _configService = new ConfigurationService();
             _items = new ObservableCollection<FileSystemItem>();
             FileTreeView.ItemsSource = _items;
+            if (LocalTreeSearchResults != null)
+            {
+                LocalTreeSearchResults.ItemsSource = _searchHits;
+            }
 
             Loaded += DirectUploadWorkspaceControl_Loaded;
             Unloaded += DirectUploadWorkspaceControl_Unloaded;
@@ -625,6 +635,7 @@ namespace GitDeployPro.Controls
                 MergeTreeItems(_items, rootItems, parent: null);
                 // Theme brushes must be applied on the UI thread (live palette brushes are not BG-safe).
                 RefreshTreeThemeBrushes(_items);
+                ApplyLocalTreeSearch();
 
                 // Mark ALL mapped folders (api, core, …); expand only primary on first populate.
                 ApplyMappedFolderBadges(expandPrimary: !hadItems);
@@ -1360,6 +1371,11 @@ namespace GitDeployPro.Controls
 
         private void FileTreeView_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
+            if (HandleLocalTreeSearchKey(e))
+            {
+                return;
+            }
+
             if (e.Key == Key.Delete)
             {
                 e.Handled = true;
@@ -1379,6 +1395,262 @@ namespace GitDeployPro.Controls
 
             e.Handled = true;
             _ = PasteClipboardFilesAsync();
+        }
+
+        private void FileTreeView_PreviewTextInput(object sender, TextCompositionEventArgs e)
+        {
+            if (e.OriginalSource is System.Windows.Controls.TextBox || TreeNameSearch.ShouldIgnoreTypedSearch(e))
+            {
+                return;
+            }
+
+            e.Handled = true;
+            SetLocalTreeSearchQuery(_treeSearchQuery + e.Text);
+        }
+
+        private bool HandleLocalTreeSearchKey(System.Windows.Input.KeyEventArgs e)
+        {
+            if (e.Key == Key.Escape && !string.IsNullOrEmpty(_treeSearchQuery))
+            {
+                e.Handled = true;
+                SetLocalTreeSearchQuery(string.Empty);
+                return true;
+            }
+
+            if (e.OriginalSource is System.Windows.Controls.TextBox)
+            {
+                return false;
+            }
+
+            if (e.Key == Key.Back && !string.IsNullOrEmpty(_treeSearchQuery))
+            {
+                e.Handled = true;
+                SetLocalTreeSearchQuery(_treeSearchQuery[..^1]);
+                return true;
+            }
+
+            return false;
+        }
+
+        private void LocalTreeSearchBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_suppressTreeSearchText)
+            {
+                return;
+            }
+
+            SetLocalTreeSearchQuery(LocalTreeSearchBox.Text ?? string.Empty, syncBox: false);
+        }
+
+        private void LocalTreeSearchBox_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (e.Key == Key.Escape)
+            {
+                e.Handled = true;
+                SetLocalTreeSearchQuery(string.Empty);
+                FileTreeView.Focus();
+                return;
+            }
+
+            if (e.Key == Key.Enter && _searchHits.Count > 0)
+            {
+                e.Handled = true;
+                var hit = LocalTreeSearchResults?.SelectedItem as LocalTreeSearchHit ?? _searchHits[0];
+                RevealLocalSearchHit(hit);
+                return;
+            }
+
+            if (e.Key == Key.Down && _searchHits.Count > 0 && LocalTreeSearchResults != null)
+            {
+                e.Handled = true;
+                LocalTreeSearchResults.Focus();
+                if (LocalTreeSearchResults.SelectedIndex < 0)
+                {
+                    LocalTreeSearchResults.SelectedIndex = 0;
+                }
+            }
+        }
+
+        private void LocalTreeSearchResults_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (e.Key == Key.Escape)
+            {
+                e.Handled = true;
+                SetLocalTreeSearchQuery(string.Empty);
+                FileTreeView.Focus();
+                return;
+            }
+
+            if (e.Key == Key.Enter && LocalTreeSearchResults.SelectedItem is LocalTreeSearchHit hit)
+            {
+                e.Handled = true;
+                RevealLocalSearchHit(hit);
+            }
+        }
+
+        private void LocalTreeSearchResults_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            if (FindParent<ListBoxItem>(e.OriginalSource as DependencyObject) == null)
+            {
+                return;
+            }
+
+            if (LocalTreeSearchResults.SelectedItem is LocalTreeSearchHit hit)
+            {
+                e.Handled = true;
+                RevealLocalSearchHit(hit);
+            }
+        }
+
+        private void LocalTreeSearchClear_Click(object sender, RoutedEventArgs e)
+        {
+            SetLocalTreeSearchQuery(string.Empty);
+            FileTreeView.Focus();
+        }
+
+        private void SetLocalTreeSearchQuery(string query, bool syncBox = true)
+        {
+            _treeSearchQuery = query ?? string.Empty;
+            if (syncBox && LocalTreeSearchBox != null)
+            {
+                _suppressTreeSearchText = true;
+                LocalTreeSearchBox.Text = _treeSearchQuery;
+                LocalTreeSearchBox.CaretIndex = LocalTreeSearchBox.Text.Length;
+                _suppressTreeSearchText = false;
+            }
+
+            ApplyLocalTreeSearch();
+        }
+
+        private void ApplyLocalTreeSearch()
+        {
+            var query = _treeSearchQuery;
+            var active = !string.IsNullOrEmpty(query);
+            if (LocalTreeSearchBar != null)
+            {
+                LocalTreeSearchBar.Visibility = active ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            TreeNameSearch.SetSearchActive(FileTreeView, active);
+            RebuildLocalSearchHits(query);
+
+            if (FileTreeView != null)
+            {
+                FileTreeView.Visibility = active ? Visibility.Collapsed : Visibility.Visible;
+            }
+
+            if (LocalTreeSearchResults != null)
+            {
+                LocalTreeSearchResults.Visibility = active ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            if (LocalTreeSearchEmpty != null)
+            {
+                LocalTreeSearchEmpty.Visibility = active && _searchHits.Count == 0
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
+            }
+
+            if (active && LocalTreeSearchBox != null && !LocalTreeSearchBox.IsKeyboardFocusWithin)
+            {
+                LocalTreeSearchBox.Focus();
+                LocalTreeSearchBox.CaretIndex = LocalTreeSearchBox.Text.Length;
+            }
+        }
+
+        private void RebuildLocalSearchHits(string query)
+        {
+            _searchHits.Clear();
+            if (string.IsNullOrEmpty(query))
+            {
+                return;
+            }
+
+            var matches = TreeNameSearch.CollectMatches(
+                _items,
+                query,
+                item => item.Name,
+                item => item.Children);
+
+            foreach (var item in matches.Take(LocalSearchHitLimit))
+            {
+                _searchHits.Add(LocalTreeSearchHit.FromItem(item, query, _projectPath));
+            }
+        }
+
+        private void RevealLocalSearchHit(LocalTreeSearchHit hit)
+        {
+            if (hit?.Item == null)
+            {
+                return;
+            }
+
+            var target = hit.Item;
+            SetLocalTreeSearchQuery(string.Empty);
+            ExpandAncestorsOnly(target);
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                var container = FindLocalTreeViewItem(FileTreeView, target);
+                if (container != null)
+                {
+                    TreeViewExtendedSelectionBehavior.ClearSelection(FileTreeView);
+                    TreeViewExtendedSelectionBehavior.ApplyRightClickSelection(FileTreeView, target);
+                    container.IsSelected = true;
+                    container.BringIntoView();
+                    container.Focus();
+                }
+            }), DispatcherPriority.Loaded);
+        }
+
+        private static void ExpandAncestorsOnly(FileSystemItem item)
+        {
+            for (var parent = item.Parent; parent != null; parent = parent.Parent)
+            {
+                parent.IsExpanded = true;
+            }
+        }
+
+        private static TreeViewItem? FindLocalTreeViewItem(ItemsControl parent, FileSystemItem target)
+        {
+            if (parent == null || target == null)
+            {
+                return null;
+            }
+
+            parent.UpdateLayout();
+            if (parent.ItemContainerGenerator.ContainerFromItem(target) is TreeViewItem direct)
+            {
+                return direct;
+            }
+
+            var ancestors = new Stack<FileSystemItem>();
+            for (var node = target; node != null; node = node.Parent)
+            {
+                ancestors.Push(node);
+            }
+
+            ItemsControl current = parent;
+            TreeViewItem? last = null;
+            while (ancestors.Count > 0)
+            {
+                var step = ancestors.Pop();
+                current.UpdateLayout();
+                if (current.ItemContainerGenerator.ContainerFromItem(step) is not TreeViewItem child)
+                {
+                    return last;
+                }
+
+                last = child;
+                if (!ReferenceEquals(step, target))
+                {
+                    child.IsExpanded = true;
+                    child.UpdateLayout();
+                }
+
+                current = child;
+            }
+
+            return last;
         }
 
         private void FileTreeView_MouseDoubleClick(object sender, MouseButtonEventArgs e)
@@ -2559,6 +2831,7 @@ namespace GitDeployPro.Controls
                 // Keep nested open folders; only add/remove/update children in place.
                 MergeTreeItems(folder.Children, children, folder);
                 RefreshTreeThemeBrushes(folder.Children);
+                ApplyLocalTreeSearch();
                 folder.IsExpanded = wasExpanded;
                 folder.CheckParentStatus();
                 folder.RefreshUploadStateFromChildren();
@@ -2633,19 +2906,7 @@ namespace GitDeployPro.Controls
         }
 
         private static T? FindParent<T>(DependencyObject? child) where T : DependencyObject
-        {
-            while (child != null)
-            {
-                if (child is T typedParent)
-                {
-                    return typedParent;
-                }
-
-                child = VisualTreeHelper.GetParent(child);
-            }
-
-            return null;
-        }
+            => DependencyObjectAncestors.Find<T>(child);
 
         private void UpdateStats()
         {
@@ -2929,6 +3190,20 @@ namespace GitDeployPro.Controls
                 }
             }
 
+            var profile = ResolveUploadProfile(config);
+            if (profile == null || string.IsNullOrWhiteSpace(profile.Host))
+            {
+                ModernMessageBox.Show("No deployment connection is assigned to this project yet. Open Settings → Connection Manager and select a connection.", "Connection Missing", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var workers = 1;
+            if (filesToUpload.Count > 1 && !TransferWorkerPrompt.TryAsk(this, "upload", filesToUpload.Count, out workers))
+            {
+                StatusText.Text = "Ready.";
+                return;
+            }
+
             // Start Upload
             _isUploading = true;
             StartUploadButton.IsEnabled = false;
@@ -2956,29 +3231,35 @@ namespace GitDeployPro.Controls
             Action? pendingDialog = null;
             try
             {
-                using (var client = new AsyncFtpClient(config.FtpHost, config.FtpUsername, EncryptionService.Decrypt(config.FtpPassword), config.FtpPort))
+                StatusText.Text = $"Connecting · {workers} workers requested";
+                AddUploadLog($"Workers requested: {workers}");
+                _transferMonitor.Show(this, $"Upload · {workers} workers requested");
+                _transferMonitor.Update(new ParallelTransferProgress
                 {
-                    // Configure timeout for large files (zip files)
-                    client.Config.DataConnectionType = FluentFTP.FtpDataConnectionType.AutoPassive;
-                    client.Config.ReadTimeout = 300000; // 5 minutes
-                    client.Config.DataConnectionReadTimeout = 300000; // 5 minutes
-                    client.Config.RetryAttempts = 3;
-                    
-                    StatusText.Text = "Connecting...";
-                    await client.AutoConnect(token);
+                    Phase = "Preparing",
+                    RequestedWorkers = workers,
+                    Headline = $"{workers} workers requested · preparing folders",
+                    LastLine = "Ensuring remote folders",
+                    Sequence = 1
+                });
 
-                    // Prefer mapped remote when uploading under the mapped local folder;
-                    // otherwise use the connection profile remote root.
-                    string defaultRemoteBase = !string.IsNullOrWhiteSpace(_activeRemoteBasePath)
-                        ? _activeRemoteBasePath
-                        : NormalizeRemoteBase(config.RemotePath);
-                    string profileRemoteBase = !string.IsNullOrWhiteSpace(_profileRemoteBasePath)
-                        ? _profileRemoteBasePath
-                        : NormalizeRemoteBase(config.RemotePath);
+                string defaultRemoteBase = !string.IsNullOrWhiteSpace(_activeRemoteBasePath)
+                    ? _activeRemoteBasePath
+                    : NormalizeRemoteBase(config.RemotePath);
+                string profileRemoteBase = !string.IsNullOrWhiteSpace(_profileRemoteBasePath)
+                    ? _profileRemoteBasePath
+                    : NormalizeRemoteBase(config.RemotePath);
 
-                    int processed = 0;
-                    int skipped = 0;
-                    int foldersCreated = 0;
+                int processed = 0;
+                int skipped = 0;
+                int foldersCreated = 0;
+                var skipIfExists = OverwriteCheck.IsChecked != true;
+                var useSession = UseSessionCheck.IsChecked == true;
+
+                IRemoteFileService? folderService = RemoteFileServiceFactory.Create(profile);
+                try
+                {
+                    await folderService.ConnectAsync(profile, token);
 
                     foreach (var folder in foldersToCreate)
                     {
@@ -2993,158 +3274,186 @@ namespace GitDeployPro.Controls
                         StatusText.Text = $"Creating folder: {folder.Name}";
                         AddUploadLog($"[{AppTimeService.LocalNow:HH:mm:ss}] Ensure folder: {folder.Name}");
                         AddUploadLog($"  → Remote Path: {remotePath}");
-                        await FtpDirectoryEnsure.EnsureAsync(client, remotePath, token);
+                        await folderService.EnsureDirectoryAsync(remotePath, token);
                         foldersCreated++;
                         AddUploadLog($"  ✓ Folder ready");
                         AddUploadLog("");
                     }
-
-                    foreach (var file in filesToUpload)
+                }
+                finally
+                {
+                    try
                     {
-                        if (token.IsCancellationRequested) break;
+                        await folderService.DisconnectAsync();
+                    }
+                    catch
+                    {
+                        folderService.Abort();
+                    }
+                }
 
+                var jobs = new List<RemoteTransferJob>();
+                foreach (var file in filesToUpload)
+                {
+                    if (token.IsCancellationRequested) break;
+
+                    ResolveUploadPaths(file.FullPath, profileRemoteBase, defaultRemoteBase,
+                        out string relativePath, out string remoteBasePath);
+
+                    if (resumeSession && uploadedFiles.Contains(relativePath))
+                    {
+                        skipped++;
                         processed++;
                         Dispatcher.Invoke(() => UploadProgressBar.Value = processed);
-
-                        try
+                        StatusText.Text = $"Skipped (Session): {file.Name}";
+                        string skippedRemotePath = CombineRemotePaths(remoteBasePath, relativePath);
+                        Dispatcher.Invoke(() =>
                         {
-                            ResolveUploadPaths(file.FullPath, profileRemoteBase, defaultRemoteBase,
-                                out string relativePath, out string remoteBasePath);
+                            file.UploadState = UploadState.Uploaded;
+                            UpdateUploadDetailText(file.Name, 100, file.Size, file.Size, "Already uploaded (session)");
+                            AddUploadLog($"[{AppTimeService.LocalNow:HH:mm:ss}] Skipped (Session): {file.Name}");
+                            AddUploadLog($"  → Remote Path: {skippedRemotePath}");
+                            AddUploadLog($"  ↺ Already uploaded in previous session");
+                            AddUploadLog("");
+                        });
+                        continue;
+                    }
 
-                            // Check Session Skip
-                            if (resumeSession && uploadedFiles.Contains(relativePath))
+                    string remotePath = CombineRemotePaths(remoteBasePath, relativePath);
+                    Dispatcher.Invoke(() =>
+                    {
+                        file.UploadState = UploadState.InProgress;
+                        AddUploadLog($"[{AppTimeService.LocalNow:HH:mm:ss}] Queued: {file.Name}");
+                        AddUploadLog($"  → Remote Path: {remotePath}");
+                    });
+
+                    jobs.Add(new RemoteTransferJob
+                    {
+                        RemotePath = remotePath,
+                        LocalPath = file.FullPath,
+                        SizeBytes = file.Size > 0 ? file.Size : GetFileSizeSafe(file.FullPath),
+                        Tag = relativePath,
+                        Source = file
+                    });
+                }
+
+                ParallelTransferResult? transferResult = null;
+                if (jobs.Count > 0 && !token.IsCancellationRequested)
+                {
+                    var uploadProgress = new Progress<RemoteUploadProgress>(p =>
+                    {
+                        Dispatcher.BeginInvoke(() =>
+                        {
+                            StatusText.Text = string.IsNullOrWhiteSpace(p.CurrentFileName)
+                                ? "Uploading..."
+                                : p.CurrentFileName;
+                            var done = foldersCreated + skipped + (int)Math.Round(p.Percent / 100d * jobs.Count);
+                            UploadProgressBar.Value = Math.Clamp(done, 0, progressMax);
+                            UpdateUploadDetailText(
+                                p.CurrentFileName,
+                                p.Percent,
+                                p.BytesTransferred,
+                                p.TotalBytes);
+                        }, DispatcherPriority.Background);
+                    });
+
+                    transferResult = await ParallelRemoteTransfer.UploadAsync(
+                        profile,
+                        jobs,
+                        workers,
+                        uploadProgress,
+                        token,
+                        skipIfExists,
+                        (job, ok, error) =>
+                        {
+                            var item = job.Source as FileSystemItem;
+                            Dispatcher.Invoke(() =>
                             {
-                                skipped++;
-                                StatusText.Text = $"Skipped (Session): {file.Name}";
-                                string skippedRemotePath = CombineRemotePaths(remoteBasePath, relativePath);
-                                Dispatcher.Invoke(() =>
+                                processed++;
+                                UploadProgressBar.Value = Math.Min(progressMax, processed);
+                                if (item != null)
                                 {
-                                    file.UploadState = UploadState.Uploaded;
-                                    UpdateUploadDetailText(file.Name, 100, file.Size, file.Size, "Already uploaded (session)");
-                                    AddUploadLog($"[{AppTimeService.LocalNow:HH:mm:ss}] Skipped (Session): {file.Name}");
-                                    AddUploadLog($"  → Remote Path: {skippedRemotePath}");
-                                    AddUploadLog($"  ↺ Already uploaded in previous session");
+                                    item.UploadState = ok ? UploadState.Uploaded : UploadState.Failed;
+                                    var size = job.SizeBytes;
+                                    UpdateUploadDetailText(
+                                        item.Name,
+                                        ok ? 100 : 0,
+                                        ok ? size : 0,
+                                        size,
+                                        ok ? "Completed" : "Failed");
+                                }
+
+                                if (ok)
+                                {
+                                    AddUploadLog($"  ✓ {job.DisplayName}");
                                     AddUploadLog("");
-                                });
-                                continue; 
-                            }
-
-                            // Combine remote base with relative path properly
-                            string remotePath = CombineRemotePaths(remoteBasePath, relativePath);
-                            StatusText.Text = $"Uploading ({processed}/{progressMax}): {file.Name}";
-                            Dispatcher.Invoke(() => 
-                            {
-                                file.UploadState = UploadState.InProgress;
-                                // Log upload path to console
-                                AddUploadLog($"[{AppTimeService.LocalNow:HH:mm:ss}] Uploading: {file.Name}");
-                                AddUploadLog($"  → Remote Path: {remotePath}");
-                            });
-
-                            long fileSize = file.Size > 0 ? file.Size : GetFileSizeSafe(file.FullPath);
-                            var progressHandler = new Progress<FtpProgress>(ftpProgress =>
-                            {
-                                var transferred = (long)Math.Max(0, ftpProgress.TransferredBytes);
-                                var totalBytes = fileSize > 0 ? fileSize : Math.Max(transferred, 1);
-                                double percent = fileSize > 0
-                                    ? (double)transferred / totalBytes * 100
-                                    : Math.Max(ftpProgress.Progress, 0);
-                                Dispatcher.BeginInvoke(new Action(() =>
+                                    if (useSession && !string.IsNullOrWhiteSpace(job.Tag))
+                                    {
+                                        try
+                                        {
+                                            File.AppendAllText(sessionPath, job.Tag + Environment.NewLine);
+                                            CheckSessionStatus();
+                                        }
+                                        catch
+                                        {
+                                        }
+                                    }
+                                }
+                                else
                                 {
-                                    UpdateUploadDetailText(file.Name, percent, transferred, totalBytes);
-                                }), DispatcherPriority.Background);
+                                    AddUploadLog($"  ✗ {job.DisplayName}: {error}");
+                                    AddUploadLog("");
+                                }
                             });
+                        },
+                        new Progress<ParallelTransferProgress>(_transferMonitor.Update));
+                }
 
-                            Dispatcher.Invoke(() => UpdateUploadDetailText(file.Name, 0, 0, fileSize));
-
-                            // Create parent directories segment-by-segment (nested new folders).
-                            await FtpDirectoryEnsure.EnsureParentOfFileAsync(client, remotePath, token);
-
-                            // Upload
-                            var existsMode = OverwriteCheck.IsChecked == true ? FtpRemoteExists.Overwrite : FtpRemoteExists.Skip;
-                            await client.UploadFile(file.FullPath, remotePath, existsMode, true, FtpVerify.None, progressHandler, token);
-
-                            Dispatcher.Invoke(() =>
-                            {
-                                file.UploadState = UploadState.Uploaded;
-                                UpdateUploadDetailText(file.Name, 100, fileSize, fileSize, "Completed");
-                                AddUploadLog($"  ✓ Uploaded successfully!");
-                                AddUploadLog("");
-                            });
-
-                            // Log to Session File
-                            if (UseSessionCheck.IsChecked == true)
-                            {
-                                try 
-                                { 
-                                    File.AppendAllText(sessionPath, relativePath + Environment.NewLine);
-                                    Dispatcher.Invoke(() => CheckSessionStatus()); // Live update session count
-                                } catch { }
-                            }
-                        }
-                        catch (Exception fileEx)
-                        {
-                            ResolveUploadPaths(file.FullPath, profileRemoteBase, defaultRemoteBase,
-                                out string relativePath, out string remoteBasePath);
-                            string remotePath = CombineRemotePaths(remoteBasePath, relativePath);
-                            var protocol = config.UseSSH ? "SFTP" : "FTP";
-                            var detail = RemoteTransferErrorFormatter.Format(
-                                fileEx,
-                                fileName: file.Name,
-                                remotePath: remotePath,
-                                protocol: protocol,
-                                profileName: config.FtpHost);
-                            
-                            Dispatcher.Invoke(() =>
-                            {
-                                file.UploadState = UploadState.Failed;
-                                UpdateUploadDetailText(file.Name, 0, 0, 0, "Failed");
-                                AddUploadLog($"  ✗ Upload FAILED!");
-                                AddUploadLog($"  {detail.Replace(Environment.NewLine, Environment.NewLine + "  ")}");
-                                AddUploadLog("");
-                            });
-                            
-                            pendingDialog = () => ModernMessageBox.Show(
-                                detail,
-                                "Upload Error",
-                                MessageBoxButton.OK,
-                                MessageBoxImage.Error);
-                            break; // Stop upload on error
-                        }
+                if (token.IsCancellationRequested)
+                {
+                    _transferMonitor.Finish("Upload cancelled");
+                    StatusText.Text = "Upload Stopped by User 🛑";
+                    if (!skipConfirm)
+                    {
+                        pendingDialog = () => ModernMessageBox.Show(
+                            "Upload process was stopped.",
+                            "Stopped",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Warning);
+                    }
+                }
+                else if (transferResult != null && !transferResult.IsComplete)
+                {
+                    var missingCount = transferResult.Missing.Count;
+                    var errorCount = transferResult.Errors.Count;
+                    StatusText.Text = "Upload incomplete.";
+                    AddUploadLog($"Verify: completed {transferResult.Completed}/{jobs.Count}, missing {missingCount}, errors {errorCount}, workers {transferResult.WorkerCount}");
+                    _transferMonitor.Finish($"Incomplete: {transferResult.Completed}/{jobs.Count} · {transferResult.WorkerCount} workers");
+                    pendingDialog = () => ModernMessageBox.Show(
+                        $"Upload finished with gaps.\nUploaded: {transferResult.Completed}/{jobs.Count}\nWorkers: {transferResult.WorkerCount}\nMissing on server: {missingCount}\nErrors: {errorCount}",
+                        "Upload",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                }
+                else
+                {
+                    StatusText.Text = "Upload Completed! ✅";
+                    _transferMonitor.Finish($"Done: {transferResult?.Completed ?? 0} files · {transferResult?.WorkerCount ?? workers} workers");
+                    if (!skipConfirm && File.Exists(sessionPath))
+                    {
+                        File.Delete(sessionPath);
                     }
 
-                    if (token.IsCancellationRequested)
+                    CheckSessionStatus();
+                    if (!skipConfirm)
                     {
-                        StatusText.Text = "Upload Stopped by User 🛑";
-                        if (!skipConfirm)
-                        {
-                            pendingDialog = () => ModernMessageBox.Show(
-                                "Upload process was stopped.",
-                                "Stopped",
-                                MessageBoxButton.OK,
-                                MessageBoxImage.Warning);
-                        }
-                    }
-                    else
-                    {
-                        StatusText.Text = "Upload Completed! ✅";
-                        // Upload finished successfully, delete session
-                        if (!skipConfirm && File.Exists(sessionPath))
-                        {
-                            File.Delete(sessionPath);
-                        }
-
-                        CheckSessionStatus();
-                        if (!skipConfirm)
-                        {
-                            var uploadedCount = processed - skipped - foldersCreated;
-                            var folderCount = foldersCreated;
-                            var skippedCount = skipped;
-                            pendingDialog = () => ModernMessageBox.Show(
-                                $"Upload Complete!\nUploaded: {uploadedCount}\nFolders: {folderCount}\nSkipped: {skippedCount}",
-                                "Success",
-                                MessageBoxButton.OK,
-                                MessageBoxImage.Information);
-                        }
+                        var uploadedCount = transferResult?.Completed ?? 0;
+                        var skippedCount = skipped + (transferResult?.Skipped ?? 0);
+                        pendingDialog = () => ModernMessageBox.Show(
+                            $"Upload Complete!\nUploaded: {uploadedCount}\nFolders: {foldersCreated}\nSkipped: {skippedCount}\nWorkers: {workers}",
+                            "Success",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Information);
                     }
                 }
             }
@@ -3502,6 +3811,33 @@ namespace GitDeployPro.Controls
             }
         }
 
+        private ConnectionProfile? ResolveUploadProfile(ProjectConfig config)
+        {
+            var profile = ResolveConnectionProfile(config.ConnectionProfileId);
+            if (profile != null && !string.IsNullOrWhiteSpace(profile.Host))
+            {
+                return profile;
+            }
+
+            if (string.IsNullOrWhiteSpace(config.FtpHost))
+            {
+                return null;
+            }
+
+            return new ConnectionProfile
+            {
+                Id = string.IsNullOrWhiteSpace(config.ConnectionProfileId) ? "legacy-project-ftp" : config.ConnectionProfileId,
+                Name = config.FtpHost,
+                Host = config.FtpHost,
+                Username = config.FtpUsername,
+                Password = config.FtpPassword,
+                Port = config.FtpPort > 0 ? config.FtpPort : (config.UseSSH ? 22 : 21),
+                UseSSH = config.UseSSH,
+                RemotePath = config.RemotePath,
+                PassiveMode = true
+            };
+        }
+
         private void AddUploadLog(string message)
         {
             if (UploadLogTextBox == null) return;
@@ -3590,6 +3926,66 @@ namespace GitDeployPro.Controls
         Failed
     }
 
+    public sealed class LocalTreeSearchHit
+    {
+        public FileSystemItem Item { get; init; } = null!;
+        public string DisplayPath { get; init; } = string.Empty;
+        public string PathPrefix { get; init; } = string.Empty;
+        public string PathMatch { get; init; } = string.Empty;
+        public string PathSuffix { get; init; } = string.Empty;
+        public string Icon { get; init; } = string.Empty;
+        public System.Windows.Media.Brush IconColor { get; init; } = System.Windows.Media.Brushes.White;
+
+        public static LocalTreeSearchHit FromItem(FileSystemItem item, string query, string projectRoot)
+        {
+            var display = BuildDisplayPath(item.FullPath, projectRoot);
+            var parts = TreeNameSearch.Split(display, query);
+            return new LocalTreeSearchHit
+            {
+                Item = item,
+                DisplayPath = display,
+                PathPrefix = parts.Prefix,
+                PathMatch = parts.Match,
+                PathSuffix = parts.Suffix,
+                Icon = item.Icon,
+                IconColor = item.IconColor
+            };
+        }
+
+        private static string BuildDisplayPath(string? fullPath, string? projectRoot)
+        {
+            if (string.IsNullOrWhiteSpace(fullPath))
+            {
+                return "/";
+            }
+
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(projectRoot))
+                {
+                    var relative = Path.GetRelativePath(projectRoot, fullPath).Replace('\\', '/');
+                    if (string.IsNullOrWhiteSpace(relative) || relative == ".")
+                    {
+                        return "/";
+                    }
+
+                    if (relative.StartsWith("..", StringComparison.Ordinal))
+                    {
+                        return "/" + Path.GetFileName(fullPath);
+                    }
+
+                    return "/" + relative.TrimStart('/');
+                }
+            }
+            catch
+            {
+                // Fall through to file name.
+            }
+
+            return "/" + Path.GetFileName(fullPath);
+        }
+    }
+
     public class FileSystemItem : INotifyPropertyChanged, ITreeMultiSelectable
     {
         private bool? _isChecked = false;
@@ -3598,6 +3994,10 @@ namespace GitDeployPro.Controls
         private UploadState _uploadState = UploadState.Pending;
         private GitItemState _gitState = GitItemState.None;
         private bool _isMappedFolder;
+        private bool _isSearchVisible = true;
+        private string? _namePrefix;
+        private string _nameMatch = string.Empty;
+        private string _nameSuffix = string.Empty;
 
         private static System.Windows.Media.Brush GetThemeBrush(string resourceKey, System.Windows.Media.Brush fallback)
         {
@@ -3691,6 +4091,50 @@ namespace GitDeployPro.Controls
             if (snapshot.GitState == GitItemState.Ignored || GitState == GitItemState.Ignored)
             {
                 GitState = snapshot.GitState;
+            }
+        }
+
+        public bool IsSearchVisible
+        {
+            get => _isSearchVisible;
+            set
+            {
+                if (_isSearchVisible != value)
+                {
+                    _isSearchVisible = value;
+                    OnPropertyChanged(nameof(IsSearchVisible));
+                    OnPropertyChanged(nameof(SearchVisibility));
+                }
+            }
+        }
+
+        public Visibility SearchVisibility =>
+            _isSearchVisible ? Visibility.Visible : Visibility.Collapsed;
+
+        public string NamePrefix => _namePrefix ?? Name;
+        public string NameMatch => _nameMatch;
+        public string NameSuffix => _nameSuffix;
+
+        public void ApplySearchVisual(bool visible, TreeNameSearch.NameParts parts, bool expand)
+        {
+            IsSearchVisible = visible;
+            _namePrefix = parts.Prefix;
+            if (!string.Equals(_nameMatch, parts.Match, StringComparison.Ordinal))
+            {
+                _nameMatch = parts.Match ?? string.Empty;
+                OnPropertyChanged(nameof(NameMatch));
+            }
+
+            if (!string.Equals(_nameSuffix, parts.Suffix, StringComparison.Ordinal))
+            {
+                _nameSuffix = parts.Suffix ?? string.Empty;
+                OnPropertyChanged(nameof(NameSuffix));
+            }
+
+            OnPropertyChanged(nameof(NamePrefix));
+            if (expand)
+            {
+                IsExpanded = true;
             }
         }
 

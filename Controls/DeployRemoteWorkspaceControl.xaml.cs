@@ -64,6 +64,11 @@ namespace GitDeployPro.Controls
         private bool _editorWebEventsBound;
         private bool _editorUsingFallback;
         private bool _isBusy;
+        private bool _isDownloading;
+        private CancellationTokenSource? _downloadCts;
+        private readonly TransferMonitorController _transferMonitor = new();
+        private string _treeSearchQuery = string.Empty;
+        private bool _suppressTreeSearchText;
         private int _connectGeneration;
         private CancellationTokenSource? _connectCts;
         private bool _isEditorOpen;
@@ -96,6 +101,7 @@ namespace GitDeployPro.Controls
         public DeployRemoteWorkspaceControl()
         {
             InitializeComponent();
+            _transferMonitor.Attach(DownloadTransferMonitor);
             DataContext = this;
             RemoteTreeView.ItemsSource = RootNodes;
             EditorTabsListBox.ItemsSource = OpenSessions;
@@ -367,6 +373,7 @@ namespace GitDeployPro.Controls
         private void ShowBrowserMode(bool notify = true)
         {
             _isEditorOpen = false;
+            EditorKeyboardScope.DisarmMonaco(EditorWebView);
             RestoreEditorPanelToDock();
             RemoteBrowserPanel.Visibility = Visibility.Visible;
             RemoteEditorPanel.Visibility = Visibility.Collapsed;
@@ -815,6 +822,7 @@ namespace GitDeployPro.Controls
                 await EditorWebView.CoreWebView2.ExecuteScriptAsync($"window.__loadCode && window.__loadCode({payload});");
                 await SetEditorEditableAsync(true);
                 await EditorWebView.CoreWebView2.ExecuteScriptAsync("window.__markClean && window.__markClean();");
+                await EditorWebView.CoreWebView2.ExecuteScriptAsync("window.__focusEditor && window.__focusEditor();");
             }
             catch (Exception ex)
             {
@@ -1720,6 +1728,7 @@ namespace GitDeployPro.Controls
 
             RootNodes.Clear();
             RootNodes.Add(rootNode);
+            ApplyRemoteTreeSearch();
 
             // Force-expand after the TreeViewItem container exists.
             Dispatcher.BeginInvoke(new Action(() =>
@@ -1875,6 +1884,7 @@ namespace GitDeployPro.Controls
             var children = _treeBuilder.BuildNodes(entries);
             MergeFolderChildren(node, children);
             node.IsLoaded = true;
+            ApplyRemoteTreeSearch();
 
             if (!string.IsNullOrWhiteSpace(selectedPath))
             {
@@ -1982,6 +1992,11 @@ namespace GitDeployPro.Controls
 
         private void RemoteTreeView_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
+            if (HandleRemoteTreeSearchKey(e))
+            {
+                return;
+            }
+
             if (e.Key != Key.Delete)
             {
                 return;
@@ -1989,6 +2004,89 @@ namespace GitDeployPro.Controls
 
             e.Handled = true;
             _ = DeleteSelectedRemoteNodesAsync();
+        }
+
+        private void RemoteTreeView_PreviewTextInput(object sender, TextCompositionEventArgs e)
+        {
+            if (e.OriginalSource is System.Windows.Controls.TextBox || TreeNameSearch.ShouldIgnoreTypedSearch(e))
+            {
+                return;
+            }
+
+            e.Handled = true;
+            SetRemoteTreeSearchQuery(_treeSearchQuery + e.Text);
+        }
+
+        private bool HandleRemoteTreeSearchKey(System.Windows.Input.KeyEventArgs e)
+        {
+            if (e.Key == Key.Escape && !string.IsNullOrEmpty(_treeSearchQuery))
+            {
+                e.Handled = true;
+                SetRemoteTreeSearchQuery(string.Empty);
+                return true;
+            }
+
+            if (e.OriginalSource is System.Windows.Controls.TextBox)
+            {
+                return false;
+            }
+
+            if (e.Key == Key.Back && !string.IsNullOrEmpty(_treeSearchQuery))
+            {
+                e.Handled = true;
+                SetRemoteTreeSearchQuery(_treeSearchQuery[..^1]);
+                return true;
+            }
+
+            return false;
+        }
+
+        private void RemoteTreeSearchBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_suppressTreeSearchText)
+            {
+                return;
+            }
+
+            SetRemoteTreeSearchQuery(RemoteTreeSearchBox.Text ?? string.Empty, syncBox: false);
+        }
+
+        private void RemoteTreeSearchClear_Click(object sender, RoutedEventArgs e)
+        {
+            SetRemoteTreeSearchQuery(string.Empty);
+            RemoteTreeView.Focus();
+        }
+
+        private void SetRemoteTreeSearchQuery(string query, bool syncBox = true)
+        {
+            _treeSearchQuery = query ?? string.Empty;
+            if (syncBox && RemoteTreeSearchBox != null)
+            {
+                _suppressTreeSearchText = true;
+                RemoteTreeSearchBox.Text = _treeSearchQuery;
+                RemoteTreeSearchBox.CaretIndex = RemoteTreeSearchBox.Text.Length;
+                _suppressTreeSearchText = false;
+            }
+
+            ApplyRemoteTreeSearch();
+        }
+
+        private void ApplyRemoteTreeSearch()
+        {
+            var query = _treeSearchQuery;
+            var active = !string.IsNullOrEmpty(query);
+            if (RemoteTreeSearchBar != null)
+            {
+                RemoteTreeSearchBar.Visibility = active ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            TreeNameSearch.SetSearchActive(RemoteTreeView, active);
+            TreeNameSearch.Apply(
+                RootNodes,
+                query,
+                node => node.Name,
+                node => node.Children,
+                (node, visible, parts, expand) => node.ApplySearchVisual(visible, parts, expand));
         }
 
         private async void RemoteTreeView_MouseDoubleClick(object sender, MouseButtonEventArgs e)
@@ -2098,6 +2196,10 @@ namespace GitDeployPro.Controls
             SyncTabSelection(session);
             ShowEditorMode();
             UpdateUiState();
+            if (!_isBusy)
+            {
+                FocusEditorSurface();
+            }
         }
 
         private async void EditorTabsListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -2343,19 +2445,7 @@ namespace GitDeployPro.Controls
         }
 
         private static T? FindParent<T>(DependencyObject? child) where T : DependencyObject
-        {
-            while (child != null)
-            {
-                if (child is T typedParent)
-                {
-                    return typedParent;
-                }
-
-                child = VisualTreeHelper.GetParent(child);
-            }
-
-            return null;
-        }
+            => DependencyObjectAncestors.Find<T>(child);
 
         private IReadOnlyList<AppContextMenuAction> BuildRemoteContextActions(RemoteTreeNode node)
             => BuildRemoteContextActions(node, new[] { node });
@@ -2810,7 +2900,7 @@ namespace GitDeployPro.Controls
 
         private async Task DownloadNodesAsync(IReadOnlyList<RemoteTreeNode> nodes)
         {
-            if (_isBusy || _remoteService == null || !_remoteService.IsConnected || _currentProfile == null)
+            if (_isDownloading || _remoteService == null || !_remoteService.IsConnected || _currentProfile == null)
             {
                 return;
             }
@@ -2824,6 +2914,192 @@ namespace GitDeployPro.Controls
                 return;
             }
 
+            if (!TryResolveDownloadRoot(out var localRoot))
+            {
+                return;
+            }
+
+            var remoteRoot = RemotePathResolver.BuildRemoteRoot(_currentProfile);
+            var planned = targets.Select(node => (
+                Node: node,
+                LocalTarget: RemotePathResolver.BuildLocalDownloadPath(
+                    localRoot,
+                    remoteRoot,
+                    node.FullPath,
+                    node.IsDirectory,
+                    node.Name))).ToList();
+
+            var existing = planned
+                .Where(item => LocalDownloadTargetExists(item.LocalTarget, item.Node.IsDirectory))
+                .Select(item => item.LocalTarget)
+                .ToList();
+            if (existing.Count > 0 && !ConfirmDownloadOverwrite(existing))
+            {
+                return;
+            }
+
+            var askWorkers = targets.Count > 1 || targets.Any(node => node.IsDirectory);
+            var workers = 1;
+            if (askWorkers && !TransferWorkerPrompt.TryAsk(
+                    this,
+                    "download",
+                    Math.Max(targets.Count, 2),
+                    out workers,
+                    forceAsk: true))
+            {
+                SetStatus("Download cancelled.", warning: true);
+                return;
+            }
+
+            _isDownloading = true;
+            _downloadCts?.Dispose();
+            _downloadCts = new CancellationTokenSource();
+            var token = _downloadCts.Token;
+            _transferMonitor.Show(this, $"Download · {workers} workers requested");
+            ShowDownloadProgress($"Planning with {workers} workers requested…", 0, indeterminate: true);
+            _transferMonitor.Update(new ParallelTransferProgress
+            {
+                Phase = "Planning",
+                RequestedWorkers = workers,
+                Headline = $"{workers} workers requested · listing files…",
+                LastLine = "Planning remote files",
+                Sequence = 1
+            });
+            try
+            {
+                var jobs = new List<RemoteTransferJob>();
+                foreach (var item in planned)
+                {
+                    token.ThrowIfCancellationRequested();
+                    if (item.Node.IsDirectory)
+                    {
+                        ShowDownloadProgress($"Planning folder {item.Node.Name}…", 0, indeterminate: true);
+                        var plannedFiles = await ExecuteRemoteAsync(
+                            service => service.PlanDownloadDirectoryAsync(item.Node.FullPath, item.LocalTarget, token),
+                            $"Plan {item.Node.Name}");
+                        jobs.AddRange(plannedFiles);
+                        AddLog($"Planned folder {item.Node.FullPath} → {plannedFiles.Count} files");
+                        _transferMonitor.Update(new ParallelTransferProgress
+                        {
+                            Phase = "Planning",
+                            RequestedWorkers = workers,
+                            Total = jobs.Count,
+                            Headline = $"{workers} workers requested · {jobs.Count} files listed",
+                            LastLine = $"{item.Node.Name}: {plannedFiles.Count} files",
+                            Sequence = jobs.Count + 1
+                        });
+                    }
+                    else
+                    {
+                        var localDir = Path.GetDirectoryName(item.LocalTarget);
+                        if (!string.IsNullOrWhiteSpace(localDir))
+                        {
+                            Directory.CreateDirectory(localDir);
+                        }
+
+                        jobs.Add(new RemoteTransferJob
+                        {
+                            RemotePath = item.Node.FullPath,
+                            LocalPath = item.LocalTarget,
+                            SizeBytes = item.Node.SizeBytes
+                        });
+                    }
+                }
+
+                if (jobs.Count == 0)
+                {
+                    SetStatus("Nothing to download (empty folder).", success: true);
+                    AddLog("Download plan was empty.");
+                    return;
+                }
+
+                workers = Math.Clamp(workers, 1, Math.Min(TransferWorkerPrompt.MaxWorkers, Math.Max(1, jobs.Count)));
+                AddLog($"Download: {jobs.Count} files with {workers} worker(s) (requested kept unless fewer files)");
+                ShowDownloadProgress($"{workers} workers · {jobs.Count} files · connecting…", 0, indeterminate: true);
+                var progress = new Progress<RemoteDownloadProgress>(ApplyDownloadProgress);
+                var result = await ParallelRemoteTransfer.DownloadAsync(
+                    _currentProfile,
+                    jobs,
+                    workers,
+                    progress,
+                    token,
+                    new Progress<ParallelTransferProgress>(_transferMonitor.Update));
+
+                if (!result.IsComplete)
+                {
+                    var parts = new List<string>();
+                    if (result.Missing.Count > 0)
+                    {
+                        parts.Add($"{result.Missing.Count} missing locally");
+                    }
+
+                    if (result.Errors.Count > 0)
+                    {
+                        parts.Add($"{result.Errors.Count} errors");
+                    }
+
+                    var summary = string.Join(", ", parts);
+                    SetStatus($"Download incomplete: {result.Completed}/{jobs.Count} — {summary}", warning: true);
+                    AddLog($"Download verify failed: {summary}");
+                    foreach (var error in result.Errors.Take(8))
+                    {
+                        AddLog($"  • {error}");
+                    }
+
+                    foreach (var missing in result.Missing.Take(8))
+                    {
+                        AddLog($"  • missing {missing.RemotePath}");
+                    }
+
+                    _transferMonitor.Finish($"Incomplete: {result.Completed}/{jobs.Count} · {summary}");
+                    ModernMessageBox.Show(
+                        $"Download finished with gaps.\nCompleted: {result.Completed}/{jobs.Count}\nWorkers used: {result.WorkerCount}\n{summary}",
+                        "Remote workspace",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                    return;
+                }
+
+                SetStatus(
+                    $"Downloaded {result.Completed} files with {result.WorkerCount} live workers → {localRoot}",
+                    success: true);
+                AddLog($"Download verified: {result.Completed}/{jobs.Count} files, {result.WorkerCount} workers, under {localRoot}");
+                _transferMonitor.Finish($"Done: {result.Completed} files · {result.WorkerCount} workers");
+            }
+            catch (OperationCanceledException)
+            {
+                SetStatus("Download cancelled.", warning: true);
+                AddLog("Download cancelled.");
+                _transferMonitor.Finish("Cancelled");
+            }
+            catch (Exception ex)
+            {
+                SetStatus($"Download failed: {ex.Message}", warning: true);
+                AddLog($"Download failed: {ex.Message}");
+                _transferMonitor.Finish($"Failed: {ex.Message}");
+                ModernMessageBox.Show($"Download failed:\n{ex.Message}", "Remote workspace", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                _isDownloading = false;
+                _downloadCts?.Dispose();
+                _downloadCts = null;
+                HideDownloadProgress();
+            }
+        }
+
+        private bool TryResolveDownloadRoot(out string localRoot)
+        {
+            localRoot = string.Empty;
+            var mapping = RemotePathResolver.GetPrimaryMapping(_currentProfile);
+            if (mapping != null)
+            {
+                localRoot = RemotePathResolver.ResolveLocalDownloadRoot(
+                    _configService.LoadGlobalConfig().LastProjectPath,
+                    mapping);
+                return !string.IsNullOrWhiteSpace(localRoot);
+            }
+
             using var dialog = new Forms.FolderBrowserDialog
             {
                 Description = "Choose where to download remote files",
@@ -2832,55 +3108,94 @@ namespace GitDeployPro.Controls
 
             if (dialog.ShowDialog() != Forms.DialogResult.OK || string.IsNullOrWhiteSpace(dialog.SelectedPath))
             {
+                return false;
+            }
+
+            localRoot = dialog.SelectedPath;
+            return true;
+        }
+
+        private static bool LocalDownloadTargetExists(string path, bool isDirectory)
+        {
+            return isDirectory ? Directory.Exists(path) : File.Exists(path);
+        }
+
+        private bool ConfirmDownloadOverwrite(IReadOnlyList<string> existingPaths)
+        {
+            var preview = string.Join(Environment.NewLine, existingPaths.Take(5));
+            var extra = existingPaths.Count > 5
+                ? $"{Environment.NewLine}… and {existingPaths.Count - 5} more"
+                : string.Empty;
+            var result = ModernMessageBox.ShowWithResult(
+                $"This destination already exists. Overwrite?{Environment.NewLine}{Environment.NewLine}{preview}{extra}",
+                "Download",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning,
+                primaryText: "Overwrite",
+                secondaryText: "Cancel",
+                context: this);
+            return result == MessageBoxResult.Yes;
+        }
+
+        private void ShowDownloadProgress(string fileName, double percent, bool indeterminate)
+        {
+            if (DownloadProgressPanel == null)
+            {
                 return;
             }
 
-            _isBusy = true;
-            UpdateUiState();
-            try
-            {
-                var remoteRoot = RemotePathResolver.BuildRemoteRoot(_currentProfile);
-                foreach (var node in targets)
-                {
-                    var localTarget = RemotePathResolver.BuildLocalDownloadPath(
-                        dialog.SelectedPath,
-                        remoteRoot,
-                        node.FullPath,
-                        node.IsDirectory,
-                        node.Name);
+            DownloadProgressPanel.Visibility = Visibility.Visible;
+            DownloadProgressFileText.Text = string.IsNullOrWhiteSpace(fileName) ? "Downloading..." : fileName;
+            DownloadProgressPercentText.Text = indeterminate ? "" : $"{percent:0}%";
+            DownloadProgressBar.IsIndeterminate = indeterminate;
+            DownloadProgressBar.Value = Math.Clamp(percent, 0, 100);
+        }
 
-                    if (node.IsDirectory)
-                    {
-                        await ExecuteRemoteAsync(
-                            service => service.DownloadDirectoryAsync(node.FullPath, localTarget),
-                            $"Download directory {node.Name}");
-                        AddLog($"Downloaded folder {node.FullPath} -> {localTarget}");
-                    }
-                    else
-                    {
-                        await ExecuteRemoteAsync(
-                            service => service.DownloadFileAsync(node.FullPath, localTarget),
-                            $"Download file {node.Name}");
-                        AddLog($"Downloaded file {node.FullPath} -> {localTarget}");
-                    }
-                }
+        private void ApplyDownloadProgress(RemoteDownloadProgress progress)
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.BeginInvoke(() => ApplyDownloadProgress(progress));
+                return;
+            }
 
-                SetStatus(
-                    targets.Count == 1
-                        ? $"Downloaded {targets[0].Name}"
-                        : $"Downloaded {targets.Count} items",
-                    success: true);
-            }
-            catch (Exception ex)
+            ShowDownloadProgress(
+                progress.CurrentFileName,
+                progress.Percent,
+                progress.IsIndeterminate);
+            _transferMonitor.Update(progress.Detail);
+        }
+
+        private void HideDownloadProgress()
+        {
+            if (DownloadProgressPanel == null)
             {
-                SetStatus($"Download failed: {ex.Message}", warning: true);
-                AddLog($"Download failed: {ex.Message}");
-                ModernMessageBox.Show($"Download failed:\n{ex.Message}", "Remote workspace", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
             }
-            finally
+
+            DownloadProgressPanel.Visibility = Visibility.Collapsed;
+            DownloadProgressBar.IsIndeterminate = false;
+            DownloadProgressBar.Value = 0;
+            DownloadProgressFileText.Text = string.Empty;
+            DownloadProgressPercentText.Text = string.Empty;
+        }
+
+        private void FloatDownloadReportButton_Click(object sender, RoutedEventArgs e)
+        {
+            _transferMonitor.Show(this, "Download report");
+        }
+
+        private void CancelDownloadButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (!_isDownloading)
             {
-                _isBusy = false;
-                UpdateUiState();
+                return;
+            }
+
+            _downloadCts?.Cancel();
+            if (DownloadProgressFileText != null)
+            {
+                DownloadProgressFileText.Text = "Cancelling...";
             }
         }
 
@@ -3379,7 +3694,57 @@ namespace GitDeployPro.Controls
             {
                 _isBusy = false;
                 UpdateUiState();
+                if (_isEditorOpen)
+                {
+                    FocusEditorSurface();
+                }
             }
+        }
+
+        private void EditorWebView_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            FocusEditorSurface();
+        }
+
+        private void EditorWebView_GotFocus(object sender, RoutedEventArgs e)
+        {
+            FocusEditorSurface(monacoOnly: true);
+        }
+
+        private void FocusEditorSurface(bool monacoOnly = false)
+        {
+            if (!_isEditorOpen)
+            {
+                return;
+            }
+
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (_editorUsingFallback)
+                {
+                    EditorKeyboardScope.ArmTextBox(EditorFallbackTextBox);
+                    if (!monacoOnly && EditorFallbackTextBox.IsEnabled)
+                    {
+                        EditorFallbackTextBox.Focus();
+                    }
+
+                    return;
+                }
+
+                if (EditorWebView != null && EditorWebView.IsEnabled && EditorWebView.Visibility == Visibility.Visible)
+                {
+                    EditorKeyboardScope.ArmMonaco(EditorWebView);
+                    if (!monacoOnly)
+                    {
+                        EditorWebView.Focus();
+                    }
+
+                    if (EditorWebView.CoreWebView2 != null)
+                    {
+                        _ = EditorWebView.CoreWebView2.ExecuteScriptAsync("window.__focusEditor && window.__focusEditor();");
+                    }
+                }
+            }), DispatcherPriority.Input);
         }
 
         private async void SaveUploadButton_Click(object sender, RoutedEventArgs e)
@@ -3948,8 +4313,11 @@ namespace GitDeployPro.Controls
 
             if (progress.TotalBytes > 0)
             {
+                var fileHint = string.IsNullOrWhiteSpace(progress.CurrentFileName)
+                    ? string.Empty
+                    : $"{progress.CurrentFileName} · ";
                 SetUploadHint(
-                    $"{FormatSize(progress.BytesTransferred)} / {FormatSize(progress.TotalBytes)} ({Math.Max(0, Math.Min(100, progress.Percent)):0}%)",
+                    $"{fileHint}{FormatSize(progress.BytesTransferred)} / {FormatSize(progress.TotalBytes)} ({Math.Max(0, Math.Min(100, progress.Percent)):0}%)",
                     warning: false,
                     success: false,
                     uploading: true);

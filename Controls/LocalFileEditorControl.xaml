@@ -81,6 +81,7 @@
                                    FontSize="13"
                                    ShowLineNumbers="True"
                                    WordWrap="False"
+                                   KeyboardNavigation.DirectionalNavigation="None"
                                    Background="{StaticResource Surface.Input}"
                                    Foreground="{StaticResource Text.Primary}"
                                    HorizontalScrollBarVisibility="Auto"
@@ -88,7 +89,11 @@
 
                 <wv:WebView2 x:Name="EditorWebView"
                              Visibility="Collapsed"
-                             DefaultBackgroundColor="#FF1E1E1E" />
+                             KeyboardNavigation.DirectionalNavigation="None"
+                             KeyboardNavigation.TabNavigation="Once"
+                             DefaultBackgroundColor="#FF1E1E1E"
+                             GotFocus="EditorWebView_GotFocus"
+                             PreviewMouseLeftButtonDown="EditorWebView_PreviewMouseLeftButtonDown" />
             </Grid>
         </Grid>
     </Border>
