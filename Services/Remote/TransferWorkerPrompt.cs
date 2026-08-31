@@ -10,6 +10,8 @@ namespace GitDeployPro.Services.Remote
         public const int MaxWorkers = 8;
         public const int DefaultWorkers = 8;
 
+        public static int GetDefaultWorkers() => TransferWorkerSettings.GetDefaultWorkers();
+
         public static bool TryAsk(
             DependencyObject context,
             string action,
@@ -24,8 +26,8 @@ namespace GitDeployPro.Services.Remote
             }
 
             var suggested = forceAsk
-                ? DefaultWorkers
-                : Math.Clamp(Math.Min(DefaultWorkers, Math.Max(fileCount, 2)), MinWorkers, MaxWorkers);
+                ? GetDefaultWorkers()
+                : Math.Clamp(Math.Min(GetDefaultWorkers(), Math.Max(fileCount, 2)), MinWorkers, MaxWorkers);
             var countLine = fileCount > 1 && !forceAsk
                 ? $"{fileCount} files ready to {action}."
                 : $"Folder ready to {action}.";

@@ -162,6 +162,14 @@ namespace GitDeployPro.Pages
                 {
                     SshKeyPathTextBox.Text = globalConfig.DefaultSshKeyPath ?? string.Empty;
                 }
+
+                if (DeployDefaultWorkersTextBox != null)
+                {
+                    DeployDefaultWorkersTextBox.Text = Math.Clamp(
+                        globalConfig.DeployDefaultWorkers > 0 ? globalConfig.DeployDefaultWorkers : 8,
+                        1,
+                        8).ToString();
+                }
             }
             catch (Exception ex)
             {
@@ -1247,6 +1255,14 @@ namespace GitDeployPro.Pages
                 bool launchOnStartup = LaunchOnStartupCheckBox.IsChecked == true;
                 bool showBackupLocalhostWarning = ShowBackupLocalhostWarningCheckBox.IsChecked != false;
                 bool minimizeToTray = MinimizeToTrayCheckBox.IsChecked != false;
+                var deployWorkers = 8;
+                if (DeployDefaultWorkersTextBox != null
+                    && int.TryParse((DeployDefaultWorkersTextBox.Text ?? string.Empty).Trim(), out var parsedWorkers))
+                {
+                    deployWorkers = parsedWorkers;
+                }
+
+                deployWorkers = Math.Clamp(deployWorkers, 1, 8);
 
                 _configService.UpdateGlobalConfig(cfg =>
                 {
@@ -1255,7 +1271,13 @@ namespace GitDeployPro.Pages
                     cfg.ShowBackupSchedulerLocalhostWarning = showBackupLocalhostWarning;
                     cfg.MinimizeToTray = minimizeToTray;
                     cfg.DefaultSshKeyPath = SshKeyPathTextBox?.Text?.Trim() ?? string.Empty;
+                    cfg.DeployDefaultWorkers = deployWorkers;
                 });
+
+                if (DeployDefaultWorkersTextBox != null)
+                {
+                    DeployDefaultWorkersTextBox.Text = deployWorkers.ToString();
+                }
 
                 _autoStartService.SetAutoStart(launchOnStartup);
                 RefreshStartupAudit();

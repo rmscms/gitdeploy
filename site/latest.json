@@ -1,15 +1,14 @@
-{
-  "version": "1.5.11",
-  "fileName": "GitDeployPro-1.5.11.exe",
-  "downloadUrl": "versions/GitDeployPro-1.5.11.exe",
-  "sha256": "3F08AA68B5C92969C912D281774D79A0DA419853E2F5C12B689A79D10A244CD2",
-  "releaseNotes": "- Per-file upload budget from size with idle-stall watchdog for large files\n- Phased upload: small files first, large files with your worker count + single-worker retry\n- Unified byte-volume progress bar (total MB live during large uploads)\n- Fixes: false missing-on-server verify, Overwrite vs Crash Recovery skip, FTP folder-named-like-file (550), worker count on large files, clear FTP errors, unified progress UI, partial directory cleanup",
-  "changelog": [
-    "Per-file upload budget from size with idle-stall watchdog for large files",
-    "Phased upload: small files first, large files with your worker count + single-worker retry",
-    "Unified byte-volume progress bar (total MB live during large uploads)",
-    "Fixes: false missing-on-server verify, Overwrite vs Crash Recovery skip, FTP folder-named-like-file (550), worker count on large files, clear FTP errors, unified progress UI, partial directory cleanup"
-  ],
-  "mandatory": false,
-  "publishedUtc": "2026-08-31T06:20:00Z"
-}
+{
+  "version": "1.5.33",
+  "fileName": "GitDeployPro-1.5.33.exe",
+  "downloadUrl": "versions/GitDeployPro-1.5.33.exe",
+  "sha256": "C61BC77B2A8AE74489238BBF5885F499FA58D0B8D9BC732CD2A80B588778CF09",
+  "releaseNotes": "- Global default upload workers for Commit + Deploy (icon + Settings; no worker prompt)\n- Transfer monitor floats over the terminal while upload is active\n- Fixes: transfer card clipping beside console; tucks behind terminal when done",
+  "changelog": [
+    "Global default upload workers for Commit + Deploy (icon + Settings; no worker prompt)",
+    "Transfer monitor floats over the terminal while upload is active",
+    "Fixes: transfer card clipping beside console; tucks behind terminal when done"
+  ],
+  "mandatory": false,
+  "publishedUtc": "2026-08-31T15:15:00Z"
+}

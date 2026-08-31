@@ -898,6 +898,28 @@
                                 <CheckBox x:Name="AutoInitGitCheckBox" Content="Auto-init Git if not exists" IsChecked="True" Foreground="{StaticResource Text.Secondary}" FontSize="12" Margin="0,3" />
                                 <CheckBox x:Name="AutoCommitCheckBox" Content="Auto-commit before deploy" IsChecked="True" Foreground="{StaticResource Text.Secondary}" FontSize="12" Margin="0,3" />
                                 <CheckBox x:Name="AutoPushCheckBox" Content="Auto-push after deploy" IsChecked="False" Foreground="{StaticResource Text.Secondary}" FontSize="12" Margin="0,3" />
+                                <StackPanel Margin="0,10,0,0">
+                                    <TextBlock Text="{loc:T settings.deployDefaultWorkers}"
+                                               FontSize="11"
+                                               Foreground="{StaticResource Text.Muted}"
+                                               Margin="0,0,0,6" />
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBox x:Name="DeployDefaultWorkersTextBox"
+                                                 Width="52"
+                                                 Height="32"
+                                                 MaxLength="1"
+                                                 VerticalContentAlignment="Center"
+                                                 HorizontalContentAlignment="Center"
+                                                 Style="{StaticResource App.InputTextBox}" />
+                                        <TextBlock Text="{loc:T settings.deployDefaultWorkersHint}"
+                                                   FontSize="10"
+                                                   Foreground="{StaticResource Text.Muted}"
+                                                   TextWrapping="Wrap"
+                                                   VerticalAlignment="Center"
+                                                   Margin="10,0,0,0"
+                                                   MaxWidth="420" />
+                                    </StackPanel>
+                                </StackPanel>
                             </StackPanel>
                         </Expander>
 

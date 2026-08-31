@@ -98,6 +98,7 @@ namespace GitDeployPro.Pages
         {
             InitializeComponent();
             _transferMonitor.Attach(DeployTransferMonitorPanel);
+            _transferMonitor.AttachOverlay(BottomDockShell, DeployTransferMonitorHost);
             _isLoaded = false;
             _gitService = new GitService();
             _historyService = new HistoryService();
@@ -144,6 +145,7 @@ namespace GitDeployPro.Pages
             UpdateUploadActionsToggleButton();
             ApplyBranchDetailsVisibility();
             UpdateBranchSummaryUi();
+            RefreshDefaultWorkersButtonToolTip();
             AttachDeployThemeHandlers();
         }
 
@@ -2887,6 +2889,12 @@ namespace GitDeployPro.Pages
                 SkipReviewCheckBox.Visibility = isCommitAction ? Visibility.Visible : Visibility.Collapsed;
             }
 
+            if (DefaultWorkersButton != null)
+            {
+                DefaultWorkersButton.Visibility = isCommitAction ? Visibility.Visible : Visibility.Collapsed;
+                RefreshDefaultWorkersButtonToolTip();
+            }
+
             if (isCommitAction && SkipReviewCheckBox?.IsChecked == true)
             {
                 ActionButton.Content = "⚡ DEPLOY → COMMIT + PUSH";
@@ -2908,6 +2916,27 @@ namespace GitDeployPro.Pages
             ActionButton.Content = SkipReviewCheckBox?.IsChecked == true
                 ? "⚡ DEPLOY → COMMIT + PUSH"
                 : "📝 COMMIT && REVIEW";
+        }
+
+        private void DefaultWorkersButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (TransferWorkerSettings.TryConfigureDefault(this))
+            {
+                RefreshDefaultWorkersButtonToolTip();
+                AddLog($"👷 Default upload workers set to {TransferWorkerSettings.GetDefaultWorkers()} (Commit + Deploy).");
+            }
+        }
+
+        private void RefreshDefaultWorkersButtonToolTip()
+        {
+            if (DefaultWorkersButton == null)
+            {
+                return;
+            }
+
+            var count = TransferWorkerSettings.GetDefaultWorkers();
+            DefaultWorkersButton.ToolTip =
+                $"{Loc.T("deploy.tip.defaultWorkers")} ({count})";
         }
 
         private async void ActionButton_Click(object sender, RoutedEventArgs e)
@@ -3368,14 +3397,8 @@ namespace GitDeployPro.Pages
                 var likelyFileCount = files.Count(file =>
                     file.Type != ChangeType.Deleted &&
                     File.Exists(Path.Combine(_projectConfig.LocalProjectPath ?? string.Empty, file.Name)));
-                var workers = 1;
-                if (likelyFileCount > 1 && !TransferWorkerPrompt.TryAsk(this, "upload", likelyFileCount, out workers))
-                {
-                    result.HasFatalError = true;
-                    result.FatalErrorMessage = "Upload cancelled before workers started.";
-                    AddLog("⏸ Upload cancelled — worker count not confirmed.");
-                    return result;
-                }
+                var workers = TransferWorkerSettings.ResolveForDeploy(likelyFileCount);
+                AddLog($"👷 Using {workers} worker(s) from Commit + Deploy default (saved in Settings).");
 
                 _transferMonitor.Show(this, $"Deploy upload · {workers} workers requested");
                 AddLog($"🔌 Connecting to {profile.Host}:{port} via {protocol}...");
