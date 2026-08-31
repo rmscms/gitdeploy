@@ -299,28 +299,48 @@
                                 </StackPanel>
 
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                    <CheckBox x:Name="SkipReviewCheckBox"
-                                              Margin="0,0,0,6"
-                                              HorizontalAlignment="Right"
-                                              VerticalAlignment="Center"
-                                              FontSize="11"
-                                              FontWeight="SemiBold"
-                                              Foreground="{StaticResource Text.Secondary}"
-                                              Visibility="Collapsed"
-                                              ToolTip="{loc:T deploy.tip.skipReview}"
-                                              Checked="SkipReviewCheckBox_Changed"
-                                              Unchecked="SkipReviewCheckBox_Changed">
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="⚡"
-                                                       FontSize="11"
-                                                       Margin="0,0,5,0"
+                                    <StackPanel Orientation="Horizontal"
+                                                HorizontalAlignment="Right"
+                                                Margin="0,0,0,6">
+                                        <CheckBox x:Name="SkipReviewCheckBox"
+                                                  HorizontalAlignment="Right"
+                                                  VerticalAlignment="Center"
+                                                  FontSize="11"
+                                                  FontWeight="SemiBold"
+                                                  Foreground="{StaticResource Text.Secondary}"
+                                                  Visibility="Collapsed"
+                                                  ToolTip="{loc:T deploy.tip.skipReview}"
+                                                  Checked="SkipReviewCheckBox_Changed"
+                                                  Unchecked="SkipReviewCheckBox_Changed">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="⚡"
+                                                           FontSize="11"
+                                                           Margin="0,0,5,0"
+                                                           VerticalAlignment="Center"
+                                                           Foreground="{StaticResource Status.Warning}" />
+                                                <TextBlock Text="Skip review"
+                                                           VerticalAlignment="Center"
+                                                           Foreground="{StaticResource Text.Secondary}" />
+                                            </StackPanel>
+                                        </CheckBox>
+                                        <Button x:Name="DefaultWorkersButton"
+                                                Width="28"
+                                                Height="28"
+                                                MinWidth="28"
+                                                MinHeight="28"
+                                                Margin="6,0,0,0"
+                                                Padding="0"
+                                                VerticalAlignment="Center"
+                                                Style="{StaticResource App.IconButton}"
+                                                ToolTip="{loc:T deploy.tip.defaultWorkers}"
+                                                Visibility="Collapsed"
+                                                Click="DefaultWorkersButton_Click">
+                                            <TextBlock Text="👷"
+                                                       FontSize="12"
                                                        VerticalAlignment="Center"
-                                                       Foreground="{StaticResource Status.Warning}" />
-                                            <TextBlock Text="Skip review"
-                                                       VerticalAlignment="Center"
-                                                       Foreground="{StaticResource Text.Secondary}" />
-                                        </StackPanel>
-                                    </CheckBox>
+                                                       HorizontalAlignment="Center" />
+                                        </Button>
+                                    </StackPanel>
                                     <Button x:Name="ActionButton"
                                             Content="🔍 COMPARE"
                                             MinWidth="168"
@@ -655,6 +675,7 @@
                     LostMouseCapture="BottomDockResizeGrip_LostMouseCapture" />
             <Border x:Name="BottomDockContainer"
                     Grid.Row="1"
+                    Panel.ZIndex="1"
                     Background="{StaticResource Surface.Shell}"
                     BorderBrush="{StaticResource Border.Subtle}"
                     BorderThickness="0,1,0,0"
@@ -866,17 +887,23 @@
                     </Grid>
                 </Grid>
             </Border>
-        </Grid>
 
-        <controls:TransferMonitorPanel x:Name="DeployTransferMonitorPanel"
-                                       Grid.Column="0"
-                                       Grid.ColumnSpan="7"
-                                       HorizontalAlignment="Right"
-                                       VerticalAlignment="Bottom"
-                                       Width="360"
-                                       MaxHeight="420"
-                                       Margin="12,12,64,16"
-                                       Panel.ZIndex="50"
-                                       Visibility="Collapsed"/>
+            <ContentControl x:Name="DeployTransferMonitorHost"
+                            Grid.Row="0"
+                            Grid.RowSpan="2"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Bottom"
+                            Width="360"
+                            MaxHeight="420"
+                            Margin="12,12,12,12"
+                            Panel.ZIndex="2"
+                            Focusable="False"
+                            IsTabStop="False">
+                <controls:TransferMonitorPanel x:Name="DeployTransferMonitorPanel"
+                                               Width="360"
+                                               MaxHeight="420"
+                                               Visibility="Collapsed"/>
+            </ContentControl>
+        </Grid>
     </Grid>
 </Page>

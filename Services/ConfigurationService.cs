@@ -91,6 +91,11 @@ namespace GitDeployPro.Services
             public string UiLanguage { get; set; } = "en";
 
             /// <summary>
+            /// Default parallel FTP/SFTP workers for Commit + Deploy uploads (1–8).
+            /// </summary>
+            public int DeployDefaultWorkers { get; set; } = 8;
+
+            /// <summary>
             /// Legacy alias kept in sync with <see cref="AppThemeId"/> for older configs / Deploy UI.
             /// </summary>
             public string DeployThemeId { get; set; } = "default";
