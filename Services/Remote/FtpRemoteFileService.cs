@@ -33,10 +33,14 @@ namespace GitDeployPro.Services.Remote
                 Config =
                 {
                     DataConnectionType = profile.PassiveMode ? FtpDataConnectionType.AutoPassive : FtpDataConnectionType.AutoActive,
-                    ConnectTimeout = 20000,
-                    ReadTimeout = 45000,
-                    DataConnectionReadTimeout = 45000,
-                    RetryAttempts = 1
+                    ConnectTimeout = TransferTimeoutPolicy.ConnectMs,
+                    ReadTimeout = TransferTimeoutPolicy.IdleStallMs,
+                    DataConnectionReadTimeout = TransferTimeoutPolicy.IdleStallMs,
+                    RetryAttempts = 3,
+                    SocketKeepAlive = true,
+                    UploadDataType = FtpDataType.Binary,
+                    DownloadDataType = FtpDataType.Binary,
+                    LocalFileBufferSize = 128 * 1024
                 }
             };
 
@@ -155,6 +159,7 @@ namespace GitDeployPro.Services.Remote
             }
 
             var currentFileName = Path.GetFileName(remotePath);
+            ApplyIdleTimeouts();
             progress?.Report(new RemoteDownloadProgress
             {
                 BytesTransferred = 0,
@@ -164,39 +169,49 @@ namespace GitDeployPro.Services.Remote
                 CurrentFileName = currentFileName
             });
 
-            IProgress<FtpProgress>? ftpProgress = null;
-            if (progress != null)
+            using var stall = new TransferStallWatchdog(cancellationToken, TransferTimeoutPolicy.IdleStallMsFor(totalBytes));
+            IProgress<FtpProgress> ftpProgress = new Progress<FtpProgress>(ftp =>
             {
-                ftpProgress = new Progress<FtpProgress>(ftp =>
+                if (ftp == null)
                 {
-                    if (ftp == null)
-                    {
-                        return;
-                    }
+                    return;
+                }
 
-                    var transferred = Math.Max(0, ftp.TransferredBytes);
-                    var inferredTotal = totalBytes > 0 ? totalBytes : Math.Max(transferred, 1);
-                    var percent = ftp.Progress >= 0
-                        ? ftp.Progress
-                        : (inferredTotal > 0 ? (double)transferred / inferredTotal * 100d : 0d);
-                    progress.Report(new RemoteDownloadProgress
-                    {
-                        BytesTransferred = transferred,
-                        TotalBytes = inferredTotal,
-                        Percent = percent,
-                        IsIndeterminate = inferredTotal <= 0,
-                        CurrentFileName = currentFileName
-                    });
+                var transferred = Math.Max(0, ftp.TransferredBytes);
+                stall.Pulse(transferred);
+                if (progress == null)
+                {
+                    return;
+                }
+
+                var inferredTotal = totalBytes > 0 ? totalBytes : Math.Max(transferred, 1);
+                var percent = ftp.Progress >= 0
+                    ? ftp.Progress
+                    : (inferredTotal > 0 ? (double)transferred / inferredTotal * 100d : 0d);
+                progress.Report(new RemoteDownloadProgress
+                {
+                    BytesTransferred = transferred,
+                    TotalBytes = inferredTotal,
+                    Percent = percent,
+                    IsIndeterminate = inferredTotal <= 0,
+                    CurrentFileName = currentFileName
                 });
-            }
+            });
 
-            await _client!.DownloadFile(
-                localPath,
-                remotePath,
-                FtpLocalExists.Overwrite,
-                FtpVerify.None,
-                progress: ftpProgress,
-                token: cancellationToken);
+            try
+            {
+                await _client!.DownloadFile(
+                    localPath,
+                    remotePath,
+                    FtpLocalExists.Overwrite,
+                    FtpVerify.None,
+                    progress: ftpProgress,
+                    token: stall.Token);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                throw new TimeoutException(TransferTimeoutPolicy.StalledMessage(totalBytes));
+            }
 
             if (progress != null)
             {
@@ -312,11 +327,7 @@ namespace GitDeployPro.Services.Remote
             CancellationToken cancellationToken = default)
         {
             EnsureConnected();
-            var remoteDirectory = GetDirectoryPath(remotePath);
-            if (!string.IsNullOrWhiteSpace(remoteDirectory))
-            {
-                await EnsureDirectoryAsync(remoteDirectory, cancellationToken);
-            }
+            await PrepareRemoteFileUploadAsync(remotePath, cancellationToken);
 
             var tempFile = Path.Combine(Path.GetTempPath(), $"gdp-remote-edit-{Guid.NewGuid():N}.txt");
             var totalBytes = Encoding.UTF8.GetByteCount(content ?? string.Empty);
@@ -360,7 +371,7 @@ namespace GitDeployPro.Services.Remote
                     tempFile,
                     remotePath,
                     FtpRemoteExists.Overwrite,
-                    true,
+                    false,
                     FtpVerify.None,
                     progress: ftpProgressReporter,
                     token: cancellationToken);
@@ -401,13 +412,10 @@ namespace GitDeployPro.Services.Remote
                 throw new FileNotFoundException("Local file was not found.", localPath);
             }
 
-            var remoteDirectory = GetDirectoryPath(remotePath);
-            if (!string.IsNullOrWhiteSpace(remoteDirectory))
-            {
-                await EnsureDirectoryAsync(remoteDirectory, cancellationToken);
-            }
+            await PrepareRemoteFileUploadAsync(remotePath, cancellationToken);
 
             var totalBytes = new FileInfo(localPath).Length;
+            ApplyIdleTimeouts();
             progress?.Report(new RemoteUploadProgress
             {
                 BytesTransferred = 0,
@@ -416,39 +424,54 @@ namespace GitDeployPro.Services.Remote
                 IsIndeterminate = totalBytes <= 0
             });
 
-            IProgress<FtpProgress>? ftpProgressReporter = null;
-            if (progress != null)
+            using var stall = new TransferStallWatchdog(cancellationToken, TransferTimeoutPolicy.IdleStallMsFor(totalBytes));
+            IProgress<FtpProgress> ftpProgressReporter = new Progress<FtpProgress>(ftpProgress =>
             {
-                ftpProgressReporter = new Progress<FtpProgress>(ftpProgress =>
+                if (ftpProgress == null)
                 {
-                    if (ftpProgress == null)
-                    {
-                        return;
-                    }
+                    return;
+                }
 
-                    var bytesTransferred = ftpProgress.TransferredBytes;
-                    var bytesTotal = totalBytes > 0 ? totalBytes : Math.Max(bytesTransferred, 1);
-                    var percent = ftpProgress.Progress >= 0
-                        ? ftpProgress.Progress
-                        : (bytesTotal > 0 ? (double)bytesTransferred / bytesTotal * 100d : 0d);
-                    progress.Report(new RemoteUploadProgress
-                    {
-                        BytesTransferred = bytesTransferred,
-                        TotalBytes = bytesTotal,
-                        Percent = percent,
-                        IsIndeterminate = ftpProgress.Progress < 0 && bytesTotal <= 0
-                    });
+                var bytesTransferred = ftpProgress.TransferredBytes;
+                stall.Pulse(bytesTransferred);
+                if (progress == null)
+                {
+                    return;
+                }
+
+                var bytesTotal = totalBytes > 0 ? totalBytes : Math.Max(bytesTransferred, 1);
+                var percent = ftpProgress.Progress >= 0
+                    ? ftpProgress.Progress
+                    : (bytesTotal > 0 ? (double)bytesTransferred / bytesTotal * 100d : 0d);
+                progress.Report(new RemoteUploadProgress
+                {
+                    BytesTransferred = bytesTransferred,
+                    TotalBytes = bytesTotal,
+                    Percent = percent,
+                    IsIndeterminate = ftpProgress.Progress < 0 && bytesTotal <= 0
                 });
-            }
+            });
 
-            await _client!.UploadFile(
-                localPath,
-                remotePath,
-                FtpRemoteExists.Overwrite,
-                true,
-                FtpVerify.None,
-                progress: ftpProgressReporter,
-                token: cancellationToken);
+            try
+            {
+                await _client!.UploadFile(
+                    localPath,
+                    remotePath,
+                    FtpRemoteExists.Overwrite,
+                    false,
+                    FtpVerify.None,
+                    progress: ftpProgressReporter,
+                    token: stall.Token);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                throw new TimeoutException(TransferTimeoutPolicy.StalledMessage(totalBytes));
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException && ex is not TimeoutException)
+            {
+                var root = RemoteTransferErrorFormatter.ResolveRootCause(ex);
+                throw new IOException($"{Path.GetFileName(localPath)}: {root}", ex);
+            }
 
             progress?.Report(new RemoteUploadProgress
             {
@@ -470,12 +493,55 @@ namespace GitDeployPro.Services.Remote
             await FtpDirectoryEnsure.EnsureAsync(_client!, remoteDirectoryPath, cancellationToken);
         }
 
+        private async Task PrepareRemoteFileUploadAsync(string remotePath, CancellationToken cancellationToken)
+        {
+            EnsureConnected();
+            if (string.IsNullOrWhiteSpace(remotePath))
+            {
+                return;
+            }
+
+            // FluentFTP createRemoteDir uses Windows Path APIs and can turn the filename into a folder.
+            try
+            {
+                if (await _client!.DirectoryExists(remotePath, cancellationToken))
+                {
+                    await _client.DeleteDirectory(remotePath, FtpListOption.Recursive, cancellationToken);
+                }
+            }
+            catch
+            {
+                // Best-effort cleanup from a previous bad upload.
+            }
+
+            await FtpDirectoryEnsure.EnsureParentOfFileAsync(_client!, remotePath, cancellationToken);
+        }
+
         public async Task<RemoteFileStat> GetFileStatAsync(string remotePath, CancellationToken cancellationToken = default)
         {
             EnsureConnected();
             if (string.IsNullOrWhiteSpace(remotePath))
             {
                 return new RemoteFileStat { FullPath = string.Empty, Exists = false };
+            }
+
+            try
+            {
+                if (await _client!.FileExists(remotePath, cancellationToken))
+                {
+                    var size = await _client.GetFileSize(remotePath, -1, cancellationToken);
+                    return new RemoteFileStat
+                    {
+                        FullPath = remotePath,
+                        Exists = true,
+                        IsDirectory = false,
+                        SizeBytes = size < 0 ? 0 : size
+                    };
+                }
+            }
+            catch
+            {
+                // Fall through to a directory listing.
             }
 
             var parent = GetDirectoryPath(remotePath);
@@ -511,6 +577,17 @@ namespace GitDeployPro.Services.Remote
                 ModifiedUtc = ToUtcOrNull(hit.Modified),
                 CreatedUtc = ToUtcOrNull(hit.Created)
             };
+        }
+
+        private void ApplyIdleTimeouts()
+        {
+            if (_client == null)
+            {
+                return;
+            }
+
+            _client.Config.ReadTimeout = TransferTimeoutPolicy.IdleStallMs;
+            _client.Config.DataConnectionReadTimeout = TransferTimeoutPolicy.IdleStallMs;
         }
 
         private static string GetDirectoryPath(string remotePath)

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Sockets;
 using FluentFTP.Exceptions;
 using GitDeployPro.Services.Localization;
 using Renci.SshNet.Common;
@@ -13,7 +14,8 @@ namespace GitDeployPro.Services.Remote
         private static readonly string[] GenericPhrases =
         {
             "See InnerException for more info",
-            "Error while uploading the file to the server."
+            "Error while uploading the file to the server.",
+            "Error while uploading the file to the server"
         };
 
         private static readonly string[] ProtectedFileNames =
@@ -100,6 +102,20 @@ namespace GitDeployPro.Services.Remote
                     }
                 }
 
+                if (current is FtpException ftp)
+                {
+                    var message = StripGeneric(ftp.Message);
+                    if (!string.IsNullOrWhiteSpace(message) && !IsGenericUploadWrapper(message))
+                    {
+                        return message;
+                    }
+                }
+
+                if (current is SocketException socket)
+                {
+                    return $"Connection lost ({socket.SocketErrorCode})";
+                }
+
                 if (current is SftpPermissionDeniedException permission)
                 {
                     var message = StripGeneric(permission.Message);
@@ -115,9 +131,7 @@ namespace GitDeployPro.Services.Remote
                 }
             }
 
-            return StripGeneric(exception?.Message) is { Length: > 0 } fallback
-                ? fallback
-                : "Unknown upload error";
+            return "FTP upload failed — check host size limits or retry with 1 worker";
         }
 
         private static IEnumerable<Exception> EnumerateExceptions(Exception? exception)
@@ -172,6 +186,7 @@ namespace GitDeployPro.Services.Remote
 
             return rootCause.Contains("550", StringComparison.OrdinalIgnoreCase)
                    || rootCause.Contains("553", StringComparison.OrdinalIgnoreCase)
+                   || rootCause.Contains("not a regular file", StringComparison.OrdinalIgnoreCase)
                    || rootCause.Contains("permission denied", StringComparison.OrdinalIgnoreCase)
                    || rootCause.Contains("access denied", StringComparison.OrdinalIgnoreCase)
                    || rootCause.Contains("not permitted", StringComparison.OrdinalIgnoreCase);

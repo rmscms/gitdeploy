@@ -85,7 +85,7 @@ namespace GitDeployPro.Services.Remote
                 info.Timeout = TimeSpan.FromSeconds(45);
                 client = new SftpClient(info);
                 client.KeepAliveInterval = TimeSpan.FromSeconds(15);
-                client.OperationTimeout = TimeSpan.FromSeconds(45);
+                client.OperationTimeout = TimeSpan.FromMilliseconds(TransferTimeoutPolicy.IdleStallMs);
                 cancellationToken.ThrowIfCancellationRequested();
                 client.Connect();
                 cancellationToken.ThrowIfCancellationRequested();
@@ -224,6 +224,7 @@ namespace GitDeployPro.Services.Remote
             }
 
             var currentFileName = Path.GetFileName(remotePath);
+            ApplyIdleTimeout();
             progress?.Report(new RemoteDownloadProgress
             {
                 BytesTransferred = 0,
@@ -233,27 +234,36 @@ namespace GitDeployPro.Services.Remote
                 CurrentFileName = currentFileName
             });
 
-            await Task.Run(async () =>
+            using var stall = new TransferStallWatchdog(cancellationToken, TransferTimeoutPolicy.IdleStallMsFor(totalBytes));
+            try
             {
-                using var remoteStream = _client!.OpenRead(remotePath);
-                await using var localStream = new FileStream(localPath, FileMode.Create, FileAccess.Write, FileShare.None, 64 * 1024, useAsync: true);
-                var buffer = new byte[64 * 1024];
-                long transferred = 0;
-                int read;
-                while ((read = await remoteStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken)) > 0)
+                await Task.Run(async () =>
                 {
-                    await localStream.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
-                    transferred += read;
-                    progress?.Report(new RemoteDownloadProgress
+                    using var remoteStream = _client!.OpenRead(remotePath);
+                    await using var localStream = new FileStream(localPath, FileMode.Create, FileAccess.Write, FileShare.None, 64 * 1024, useAsync: true);
+                    var buffer = new byte[64 * 1024];
+                    long transferred = 0;
+                    int read;
+                    while ((read = await remoteStream.ReadAsync(buffer, 0, buffer.Length, stall.Token)) > 0)
                     {
-                        BytesTransferred = transferred,
-                        TotalBytes = totalBytes > 0 ? totalBytes : transferred,
-                        Percent = totalBytes > 0 ? (double)transferred / totalBytes * 100d : 0d,
-                        IsIndeterminate = totalBytes <= 0,
-                        CurrentFileName = currentFileName
-                    });
-                }
-            }, cancellationToken);
+                        await localStream.WriteAsync(buffer.AsMemory(0, read), stall.Token);
+                        transferred += read;
+                        stall.Pulse(transferred);
+                        progress?.Report(new RemoteDownloadProgress
+                        {
+                            BytesTransferred = transferred,
+                            TotalBytes = totalBytes > 0 ? totalBytes : transferred,
+                            Percent = totalBytes > 0 ? (double)transferred / totalBytes * 100d : 0d,
+                            IsIndeterminate = totalBytes <= 0,
+                            CurrentFileName = currentFileName
+                        });
+                    }
+                }, stall.Token);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                throw new TimeoutException(TransferTimeoutPolicy.StalledMessage(totalBytes));
+            }
 
             if (progress != null)
             {
@@ -435,13 +445,10 @@ namespace GitDeployPro.Services.Remote
                 throw new FileNotFoundException("Local file was not found.", localPath);
             }
 
-            var remoteDirectory = GetDirectoryPath(remotePath);
-            if (!string.IsNullOrWhiteSpace(remoteDirectory))
-            {
-                await EnsureDirectoryAsync(remoteDirectory, cancellationToken);
-            }
+            await PrepareRemoteFileUploadAsync(remotePath, cancellationToken);
 
             var totalBytes = new FileInfo(localPath).Length;
+            ApplyFileTimeout(totalBytes);
             progress?.Report(new RemoteUploadProgress
             {
                 BytesTransferred = 0,
@@ -450,32 +457,42 @@ namespace GitDeployPro.Services.Remote
                 IsIndeterminate = totalBytes <= 0
             });
 
-            await Task.Run(() =>
+            using var stall = new TransferStallWatchdog(cancellationToken, TransferTimeoutPolicy.IdleStallMsFor(totalBytes));
+            try
             {
-                using var stream = File.OpenRead(localPath);
-                _client!.UploadFile(stream, remotePath, true, uploaded =>
+                await Task.Run(() =>
                 {
-                    if (progress == null)
+                    using var stream = File.OpenRead(localPath);
+                    _client!.UploadFile(stream, remotePath, true, uploaded =>
                     {
-                        return;
-                    }
+                        var transferred = (long)uploaded;
+                        stall.Pulse(transferred);
+                        if (progress == null)
+                        {
+                            return;
+                        }
 
-                    var transferred = (long)uploaded;
-                    var percent = totalBytes > 0 ? (double)transferred / totalBytes * 100d : 0d;
-                    if (percent > 100d)
-                    {
-                        percent = 100d;
-                    }
+                        var percent = totalBytes > 0 ? (double)transferred / totalBytes * 100d : 0d;
+                        if (percent > 100d)
+                        {
+                            percent = 100d;
+                        }
 
-                    progress.Report(new RemoteUploadProgress
-                    {
-                        BytesTransferred = transferred,
-                        TotalBytes = totalBytes,
-                        Percent = percent,
-                        IsIndeterminate = false
+                        progress.Report(new RemoteUploadProgress
+                        {
+                            BytesTransferred = transferred,
+                            TotalBytes = totalBytes,
+                            Percent = percent,
+                            IsIndeterminate = false
+                        });
                     });
-                });
-            }, cancellationToken);
+                    stall.Token.ThrowIfCancellationRequested();
+                }, stall.Token);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                throw new TimeoutException(TransferTimeoutPolicy.StalledMessage(totalBytes));
+            }
 
             progress?.Report(new RemoteUploadProgress
             {
@@ -508,6 +525,30 @@ namespace GitDeployPro.Services.Remote
                     }
                 }
             }, cancellationToken);
+        }
+
+        private async Task PrepareRemoteFileUploadAsync(string remotePath, CancellationToken cancellationToken)
+        {
+            EnsureConnected();
+            if (string.IsNullOrWhiteSpace(remotePath))
+            {
+                return;
+            }
+
+            await Task.Run(() =>
+            {
+                if (_client!.Exists(remotePath) && _client.GetAttributes(remotePath).IsDirectory)
+                {
+                    DeleteDirectoryRecursive(remotePath);
+                    _client.DeleteDirectory(remotePath);
+                }
+            }, cancellationToken);
+
+            var parent = GetDirectoryPath(remotePath);
+            if (!string.IsNullOrWhiteSpace(parent))
+            {
+                await EnsureDirectoryAsync(parent, cancellationToken);
+            }
         }
 
         public async Task<RemoteFileStat> GetFileStatAsync(string remotePath, CancellationToken cancellationToken = default)
@@ -653,6 +694,26 @@ namespace GitDeployPro.Services.Remote
 
                 _client.DeleteFile(entry.FullName);
             }
+        }
+
+        private void ApplyIdleTimeout()
+        {
+            if (_client == null)
+            {
+                return;
+            }
+
+            _client.OperationTimeout = TimeSpan.FromMilliseconds(TransferTimeoutPolicy.IdleStallMs);
+        }
+
+        private void ApplyFileTimeout(long sizeBytes)
+        {
+            if (_client == null)
+            {
+                return;
+            }
+
+            _client.OperationTimeout = TransferTimeoutPolicy.ForFileBytes(sizeBytes);
         }
 
         private void EnsureConnected()
