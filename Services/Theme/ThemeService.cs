@@ -157,6 +157,14 @@ namespace GitDeployPro.Services.Theme
 
             ApplyPalette(pack);
             CurrentTokens = DeployThemeTokens.Resolve(pack, ResolvePaletteColor);
+            PushTokenToPalette(
+                "Tree.SearchMatchBackground",
+                "tree.searchMatchBackground",
+                System.Windows.Media.Color.FromRgb(0xFF, 0xBF, 0x47));
+            PushTokenToPalette(
+                "Tree.SearchMatchForeground",
+                "tree.searchMatchForeground",
+                System.Windows.Media.Color.FromRgb(0x10, 0x13, 0x1A));
             CurrentPack = pack;
             CurrentThemeId = theme.Id;
             ThemeChanged?.Invoke(this, EventArgs.Empty);
@@ -275,6 +283,16 @@ namespace GitDeployPro.Services.Theme
                 {
                     colorsDict[colorKey] = mediaColor;
                 }
+            }
+        }
+
+        private void PushTokenToPalette(string paletteKey, string tokenPath, System.Windows.Media.Color fallback)
+        {
+            var color = CurrentTokens.GetColor(tokenPath, fallback);
+            _paletteColors[paletteKey] = color;
+            if (_colorHolders.TryGetValue(paletteKey, out var holder))
+            {
+                holder.Color = color;
             }
         }
 

@@ -8,6 +8,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using GitDeployPro.Models;
+using GitDeployPro.Services;
 using TreeView = System.Windows.Controls.TreeView;
 using TreeViewItem = System.Windows.Controls.TreeViewItem;
 using KeyEventArgs = System.Windows.Input.KeyEventArgs;
@@ -119,6 +120,8 @@ namespace GitDeployPro.Behaviors
                 return;
             }
 
+            EditorKeyboardScope.Disarm();
+
             var treeItem = FindAncestor<TreeViewItem>(source);
             if (treeItem?.DataContext is not ITreeMultiSelectable item || !item.IncludeInMultiSelect)
             {
@@ -176,7 +179,7 @@ namespace GitDeployPro.Behaviors
 
         private static void OnPreviewKeyDown(object sender, KeyEventArgs e)
         {
-            if (sender is not TreeView tree)
+            if (sender is not TreeView tree || !tree.IsKeyboardFocusWithin)
             {
                 return;
             }
@@ -187,6 +190,11 @@ namespace GitDeployPro.Behaviors
 
             if (key == Key.Escape)
             {
+                if (TreeNameSearch.GetSearchActive(tree))
+                {
+                    return;
+                }
+
                 ClearSelection(tree);
                 e.Handled = true;
                 return;
@@ -437,6 +445,12 @@ namespace GitDeployPro.Behaviors
 
         private static bool ShouldIgnoreMouseSource(DependencyObject source)
         {
+            if (FindAncestor<System.Windows.Controls.Primitives.ScrollBar>(source) != null
+                || FindAncestor<System.Windows.Controls.Primitives.Thumb>(source) != null)
+            {
+                return true;
+            }
+
             if (FindAncestor<CheckBox>(source) != null)
             {
                 return true;
@@ -447,19 +461,7 @@ namespace GitDeployPro.Behaviors
         }
 
         private static T? FindAncestor<T>(DependencyObject? current) where T : DependencyObject
-        {
-            while (current != null)
-            {
-                if (current is T matched)
-                {
-                    return matched;
-                }
-
-                current = VisualTreeHelper.GetParent(current);
-            }
-
-            return null;
-        }
+            => DependencyObjectAncestors.Find<T>(current);
 
         private static SelectionState GetState(TreeView tree)
         {

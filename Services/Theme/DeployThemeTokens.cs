@@ -74,6 +74,7 @@ namespace GitDeployPro.Services.Theme
             AddMap("branches", deploy.Branches);
             AddMap("changedFiles", deploy.ChangedFiles);
             AddMap("directUpload", deploy.DirectUpload);
+            AddMap("tree", deploy.Tree);
             AddMap("logs", deploy.Logs);
             AddMap("editor", deploy.Editor);
             AddMap("diff", deploy.Diff);

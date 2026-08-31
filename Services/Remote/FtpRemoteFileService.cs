@@ -154,12 +154,14 @@ namespace GitDeployPro.Services.Remote
                 // Best-effort size detection.
             }
 
+            var currentFileName = Path.GetFileName(remotePath);
             progress?.Report(new RemoteDownloadProgress
             {
                 BytesTransferred = 0,
                 TotalBytes = totalBytes,
                 Percent = 0,
-                IsIndeterminate = totalBytes <= 0
+                IsIndeterminate = totalBytes <= 0,
+                CurrentFileName = currentFileName
             });
 
             IProgress<FtpProgress>? ftpProgress = null;
@@ -182,7 +184,8 @@ namespace GitDeployPro.Services.Remote
                         BytesTransferred = transferred,
                         TotalBytes = inferredTotal,
                         Percent = percent,
-                        IsIndeterminate = inferredTotal <= 0
+                        IsIndeterminate = inferredTotal <= 0,
+                        CurrentFileName = currentFileName
                     });
                 });
             }
@@ -203,7 +206,8 @@ namespace GitDeployPro.Services.Remote
                     BytesTransferred = finalBytes,
                     TotalBytes = finalBytes,
                     Percent = 100,
-                    IsIndeterminate = false
+                    IsIndeterminate = false,
+                    CurrentFileName = currentFileName
                 });
             }
         }
@@ -228,13 +232,30 @@ namespace GitDeployPro.Services.Remote
                 BytesTransferred = 0,
                 TotalBytes = totalBytes,
                 Percent = 0,
-                IsIndeterminate = totalBytes <= 0
+                IsIndeterminate = totalBytes <= 0,
+                CurrentFileName = fileQueue.Count > 0 ? Path.GetFileName(fileQueue[0].RemotePath) : string.Empty
             });
 
             foreach (var file in fileQueue)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                await DownloadFileAsync(file.RemotePath, file.LocalPath, null, cancellationToken);
+                var fileName = Path.GetFileName(file.RemotePath);
+                var fileBase = transferredBytes;
+                IProgress<RemoteDownloadProgress>? fileProgress = progress == null
+                    ? null
+                    : new Progress<RemoteDownloadProgress>(p =>
+                    {
+                        var combined = fileBase + Math.Max(0, p.BytesTransferred);
+                        progress.Report(new RemoteDownloadProgress
+                        {
+                            BytesTransferred = combined,
+                            TotalBytes = totalBytes,
+                            Percent = totalBytes > 0 ? (double)combined / totalBytes * 100d : p.Percent,
+                            IsIndeterminate = totalBytes <= 0,
+                            CurrentFileName = fileName
+                        });
+                    });
+                await DownloadFileAsync(file.RemotePath, file.LocalPath, fileProgress, cancellationToken);
                 var actualBytes = File.Exists(file.LocalPath) ? new FileInfo(file.LocalPath).Length : Math.Max(0, file.SizeBytes);
                 transferredBytes += actualBytes;
                 progress?.Report(new RemoteDownloadProgress
@@ -242,9 +263,28 @@ namespace GitDeployPro.Services.Remote
                     BytesTransferred = transferredBytes,
                     TotalBytes = totalBytes,
                     Percent = totalBytes > 0 ? (double)transferredBytes / totalBytes * 100d : 100d,
-                    IsIndeterminate = totalBytes <= 0
+                    IsIndeterminate = totalBytes <= 0,
+                    CurrentFileName = fileName
                 });
             }
+        }
+
+        public async Task<IReadOnlyList<RemoteTransferJob>> PlanDownloadDirectoryAsync(
+            string remoteDirectoryPath,
+            string localDirectoryPath,
+            CancellationToken cancellationToken = default)
+        {
+            EnsureConnected();
+            Directory.CreateDirectory(localDirectoryPath);
+            var normalizedRemoteRoot = RemotePathResolver.EnsureTrailingSlash(remoteDirectoryPath).TrimEnd('/');
+            var fileQueue = new List<(string RemotePath, string LocalPath, long SizeBytes)>();
+            await BuildDownloadQueueAsync(normalizedRemoteRoot, localDirectoryPath, fileQueue, cancellationToken);
+            return fileQueue.Select(item => new RemoteTransferJob
+            {
+                RemotePath = item.RemotePath,
+                LocalPath = item.LocalPath,
+                SizeBytes = item.SizeBytes
+            }).ToList();
         }
 
         public async Task RenameAsync(string sourcePath, string destinationPath, CancellationToken cancellationToken = default)

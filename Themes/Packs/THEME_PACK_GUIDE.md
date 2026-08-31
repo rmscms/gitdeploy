@@ -33,6 +33,7 @@ Palette references use `@Key` form, for example `"@Accent.Primary"`.
 | `deploy.branches` | Branch chip, action, rollback, push badge |
 | `deploy.changedFiles` | Status badge colors (NEW / MODIFIED / DELETED) |
 | `deploy.directUpload` | Tree selection, icons, git badges, mapped rows |
+| `deploy.tree` | Type-to-search name highlight in FTP and Direct Upload trees |
 | `deploy.ftp.chrome` | Remote tree selection, overlays, skeletons |
 | `deploy.ftp.fileTypes` | Per-type icon/badge colors (`php`, `js`, `directory`, …) |
 | `deploy.logs` | Log accents |
@@ -65,6 +66,13 @@ Palette references use `@Key` form, for example `"@Accent.Primary"`.
 | `tabClose` | Close icon on an inactive editor tab |
 | `tabCloseOnAccent` | Close icon on the active editor tab (must contrast on `Accent.Primary`, typically white) |
 | `actionActiveForeground` / `actionActiveBackground` / `actionActiveBorder` | Editor toolbar icons when armed (dirty save/revert, floated) |
+
+### Useful `deploy.tree` keys
+
+| Key | Purpose |
+|-----|---------|
+| `searchMatchBackground` | Highlight behind the typed match in file/folder names |
+| `searchMatchForeground` | Text color on that highlight (must stay readable in Default and Dark) |
 
 ## Color values
 

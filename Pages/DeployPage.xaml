@@ -577,6 +577,7 @@
                     <Border x:Name="CenterEditorOverlayHost"
                             Visibility="Collapsed"
                             IsHitTestVisible="False"
+                            KeyboardNavigation.DirectionalNavigation="None"
                             Background="{StaticResource Surface.Base}"
                             BorderBrush="{StaticResource Border.Subtle}"
                             BorderThickness="1"
@@ -866,5 +867,16 @@
                 </Grid>
             </Border>
         </Grid>
+
+        <controls:TransferMonitorPanel x:Name="DeployTransferMonitorPanel"
+                                       Grid.Column="0"
+                                       Grid.ColumnSpan="7"
+                                       HorizontalAlignment="Right"
+                                       VerticalAlignment="Bottom"
+                                       Width="360"
+                                       MaxHeight="420"
+                                       Margin="12,12,64,16"
+                                       Panel.ZIndex="50"
+                                       Visibility="Collapsed"/>
     </Grid>
 </Page>

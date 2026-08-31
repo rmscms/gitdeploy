@@ -98,6 +98,16 @@
       font-family: Consolas, "Cascadia Mono", monospace;
     }
 
+    #suggest-picker .picker-desc {
+      flex: 0 1 38%;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: #a0a0a0;
+      font-size: 11px;
+    }
+
     #suggest-picker .scope-badge {
       flex: 0 0 auto;
       padding: 1px 6px;
@@ -313,6 +323,12 @@
 
           return catalog.some((item) => {
             const cmd = (item.command || '').trim().toLowerCase();
+            const desc = (item.description || '').trim().toLowerCase();
+
+            if (desc && (desc.startsWith(q) || desc.includes(q))) {
+              return true;
+            }
+
             if (!cmd) {
               return false;
             }
@@ -372,19 +388,55 @@
 
         const activeMatch = () => matches.length > 0 ? matches[matchIndex] : null;
 
-        const activeSuffix = () => {
+        const scoreMatch = (item, query) => {
+          const q = (query || '').toLowerCase();
+          if (!q) {
+            return null;
+          }
+
+          const cmd = (item.command || '').toLowerCase();
+          const desc = (item.description || '').toLowerCase();
+          const rank = typeof item.rank === 'number' ? item.rank : 9;
+
+          if (cmd && cmd.startsWith(q) && cmd !== q) {
+            return { kind: 'cmd-prefix', score: rank * 10 + 0 };
+          }
+          if (desc && desc.startsWith(q)) {
+            return { kind: 'desc-prefix', score: rank * 10 + 1 };
+          }
+          if (desc && desc.includes(q)) {
+            return { kind: 'desc-contains', score: rank * 10 + 2 };
+          }
+          return null;
+        };
+
+        /** @returns {{ mode: 'append'|'replace', text: string, command: string } | null} */
+        const getCompletion = () => {
           const match = activeMatch();
           if (!match || !lineBuffer) {
-            return '';
+            return null;
           }
+
           const cmd = match.command || '';
-          if (cmd.length <= lineBuffer.length) {
-            return '';
+          if (!cmd) {
+            return null;
           }
-          if (!cmd.toLowerCase().startsWith(lineBuffer.toLowerCase())) {
-            return '';
+
+          const q = lineBuffer;
+          if (cmd.toLowerCase().startsWith(q.toLowerCase())) {
+            if (cmd.length <= q.length) {
+              return null;
+            }
+            return { mode: 'append', text: cmd.slice(q.length), command: cmd };
           }
-          return cmd.slice(lineBuffer.length);
+
+          // Matched via description — Tab replaces typed text with full command
+          return { mode: 'replace', text: cmd, command: cmd };
+        };
+
+        const activeSuffix = () => {
+          const completion = getCompletion();
+          return completion && completion.mode === 'append' ? completion.text : '';
         };
 
         const findMatches = () => {
@@ -395,19 +447,23 @@
             return;
           }
 
-          matches = catalog
-            .filter((item) => {
-              const cmd = (item.command || '').toLowerCase();
-              return cmd.startsWith(query.toLowerCase()) && cmd !== query.toLowerCase();
-            })
-            .sort((a, b) => {
-              const rankA = typeof a.rank === 'number' ? a.rank : 9;
-              const rankB = typeof b.rank === 'number' ? b.rank : 9;
-              if (rankA !== rankB) {
-                return rankA - rankB;
-              }
-              return (a.command || '').localeCompare(b.command || '', undefined, { sensitivity: 'base' });
-            });
+          const scored = [];
+          catalog.forEach((item) => {
+            const hit = scoreMatch(item, query);
+            if (!hit) {
+              return;
+            }
+            scored.push({ item, score: hit.score, kind: hit.kind });
+          });
+
+          scored.sort((a, b) => {
+            if (a.score !== b.score) {
+              return a.score - b.score;
+            }
+            return (a.item.command || '').localeCompare(b.item.command || '', undefined, { sensitivity: 'base' });
+          });
+
+          matches = scored.map((row) => row.item);
 
           if (matchIndex >= matches.length) {
             matchIndex = 0;
@@ -419,7 +475,7 @@
             return;
           }
 
-          if (!suggestionsEnabled || matches.length < 2 || !activeSuffix()) {
+          if (!suggestionsEnabled || matches.length < 2 || !getCompletion()) {
             pickerEl.style.display = 'none';
             pickerEl.innerHTML = '';
             return;
@@ -438,8 +494,10 @@
               : (item.scope === 'global' ? 'scope-badge' : 'scope-badge other');
             const activeClass = index === matchIndex ? ' picker-row active' : ' picker-row';
             const rowStyle = index === matchIndex ? ` style="background:${listActive}"` : '';
+            const desc = item.description ? `<span class="picker-desc">${escapeHtml(item.description)}</span>` : '';
             return `<div class="${activeClass.trim()}"${rowStyle} data-index="${index}">`
               + `<span class="picker-cmd">${escapeHtml(item.command || '')}</span>`
+              + desc
               + `<span class="${badgeClass}">${escapeHtml(label)}</span>`
               + '</div>';
           }).join('');
@@ -468,11 +526,11 @@
 
           syncDictWarning(stageRect, cursorRect, fontSize);
 
-          const suffix = activeSuffix();
+          const completion = getCompletion();
           const match = activeMatch();
-          const showPicker = suggestionsEnabled && matches.length >= 2 && !!suffix;
+          const showPicker = suggestionsEnabled && matches.length >= 2 && !!completion;
 
-          if (!suggestionsEnabled || !match || !suffix) {
+          if (!suggestionsEnabled || !match || !completion) {
             hideAutocompleteOverlays();
             return;
           }
@@ -481,12 +539,17 @@
             return;
           }
 
-          ghostEl.style.color = ghostColor;
-          ghostEl.textContent = suffix;
-          ghostEl.style.fontSize = `${fontSize}px`;
-          ghostEl.style.display = 'block';
-          ghostEl.style.left = `${cursorRect.right - stageRect.left}px`;
-          ghostEl.style.top = `${cursorRect.top - stageRect.top}px`;
+          if (completion.mode === 'append' && completion.text) {
+            ghostEl.style.color = ghostColor;
+            ghostEl.textContent = completion.text;
+            ghostEl.style.fontSize = `${fontSize}px`;
+            ghostEl.style.display = 'block';
+            ghostEl.style.left = `${cursorRect.right - stageRect.left}px`;
+            ghostEl.style.top = `${cursorRect.top - stageRect.top}px`;
+          } else {
+            ghostEl.style.display = 'none';
+            ghostEl.textContent = '';
+          }
 
           if (showPicker) {
             barEl.style.display = 'none';
@@ -509,7 +572,13 @@
             }
 
             if (descEl) {
-              descEl.textContent = match.description || match.command || '';
+              // When matched by description, show command prominently; else show description
+              if (completion.mode === 'replace') {
+                descEl.textContent = completion.command
+                  + (match.description ? ` · ${match.description}` : '');
+              } else {
+                descEl.textContent = match.description || match.command || '';
+              }
             }
           }
         };
@@ -581,13 +650,26 @@
         };
 
         const acceptGhost = () => {
-          const suffix = activeSuffix();
-          if (!suffix || !getTypingEnabled()) {
+          const completion = getCompletion();
+          if (!completion || !getTypingEnabled()) {
             return false;
           }
 
-          lineBuffer += suffix;
-          post({ type: 'input', data: suffix });
+          if (completion.mode === 'append') {
+            if (!completion.text) {
+              return false;
+            }
+            lineBuffer += completion.text;
+            post({ type: 'input', data: completion.text });
+            clearGhost();
+            return true;
+          }
+
+          // Description match: erase typed query, insert full command
+          const typed = lineBuffer;
+          const erase = typed.length > 0 ? '\u007f'.repeat(typed.length) : '';
+          lineBuffer = completion.command;
+          post({ type: 'input', data: erase + completion.command });
           clearGhost();
           return true;
         };
@@ -617,7 +699,7 @@
             return false;
           }
 
-          if (key === 'arrowright' && !ctrl && !shift && activeSuffix()) {
+          if (key === 'arrowright' && !ctrl && !shift && getCompletion()) {
             if (acceptGhost()) {
               return true;
             }

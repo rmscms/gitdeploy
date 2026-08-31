@@ -256,6 +256,34 @@
       notifyHost({ Type: "dirty", Value: false });
     };
 
+    window.__focusEditor = function() {
+      if (editor) {
+        editor.focus();
+      }
+    };
+
+    window.__moveCursor = function(direction, opts) {
+      if (!editor) return;
+      editor.focus();
+      opts = opts || {};
+      const shift = !!opts.shift;
+      const ctrl = !!opts.ctrl;
+      const table = {
+        left: ctrl ? (shift ? "cursorWordLeftSelect" : "cursorWordLeft") : (shift ? "cursorLeftSelect" : "cursorLeft"),
+        right: ctrl ? (shift ? "cursorWordRightSelect" : "cursorWordRight") : (shift ? "cursorRightSelect" : "cursorRight"),
+        up: ctrl ? (shift ? "cursorTopSelect" : "cursorTop") : (shift ? "cursorUpSelect" : "cursorUp"),
+        down: ctrl ? (shift ? "cursorBottomSelect" : "cursorBottom") : (shift ? "cursorDownSelect" : "cursorDown"),
+        home: ctrl ? (shift ? "cursorTopSelect" : "cursorTop") : (shift ? "cursorHomeSelect" : "cursorHome"),
+        end: ctrl ? (shift ? "cursorBottomSelect" : "cursorBottom") : (shift ? "cursorEndSelect" : "cursorEnd"),
+        pageup: shift ? "cursorPageUpSelect" : "cursorPageUp",
+        pagedown: shift ? "cursorPageDownSelect" : "cursorPageDown"
+      };
+      const id = table[direction];
+      if (id) {
+        editor.trigger("keyboard", id, null);
+      }
+    };
+
     require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
     require(["vs/editor/editor.main"], initEditor);
   </script>

@@ -47,6 +47,9 @@ namespace GitDeployPro.Services.Theme
         [JsonProperty("directUpload")]
         public Dictionary<string, string> DirectUpload { get; set; } = new(System.StringComparer.OrdinalIgnoreCase);
 
+        [JsonProperty("tree")]
+        public Dictionary<string, string> Tree { get; set; } = new(System.StringComparer.OrdinalIgnoreCase);
+
         [JsonProperty("ftp")]
         public ThemePackFtpSection Ftp { get; set; } = new();
 

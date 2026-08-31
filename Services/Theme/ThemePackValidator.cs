@@ -84,6 +84,7 @@ namespace GitDeployPro.Services.Theme
             ValidateMap(result, "deploy.branches", pack.Deploy?.Branches);
             ValidateMap(result, "deploy.changedFiles", pack.Deploy?.ChangedFiles);
             ValidateMap(result, "deploy.directUpload", pack.Deploy?.DirectUpload);
+            ValidateMap(result, "deploy.tree", pack.Deploy?.Tree);
             ValidateMap(result, "deploy.logs", pack.Deploy?.Logs);
             ValidateMap(result, "deploy.editor", pack.Deploy?.Editor, allowNonColorKeys: new[] { "monacoTheme" });
             ValidateMap(result, "deploy.diff", pack.Deploy?.Diff);

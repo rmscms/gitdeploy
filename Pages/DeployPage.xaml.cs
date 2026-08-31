@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -38,6 +39,7 @@ namespace GitDeployPro.Pages
         private const double CenterContentMinHeight = 180;
 
         private bool isDeploying = false;
+        private readonly TransferMonitorController _transferMonitor = new();
         private GitService _gitService;
         private HistoryService _historyService;
         private ConfigurationService _configService;
@@ -95,6 +97,7 @@ namespace GitDeployPro.Pages
         public DeployPage()
         {
             InitializeComponent();
+            _transferMonitor.Attach(DeployTransferMonitorPanel);
             _isLoaded = false;
             _gitService = new GitService();
             _historyService = new HistoryService();
@@ -3362,6 +3365,19 @@ namespace GitDeployPro.Pages
 
                 var protocol = profile.UseSSH ? "SFTP" : "FTP";
                 var port = profile.Port > 0 ? profile.Port : (profile.UseSSH ? 22 : 21);
+                var likelyFileCount = files.Count(file =>
+                    file.Type != ChangeType.Deleted &&
+                    File.Exists(Path.Combine(_projectConfig.LocalProjectPath ?? string.Empty, file.Name)));
+                var workers = 1;
+                if (likelyFileCount > 1 && !TransferWorkerPrompt.TryAsk(this, "upload", likelyFileCount, out workers))
+                {
+                    result.HasFatalError = true;
+                    result.FatalErrorMessage = "Upload cancelled before workers started.";
+                    AddLog("⏸ Upload cancelled — worker count not confirmed.");
+                    return result;
+                }
+
+                _transferMonitor.Show(this, $"Deploy upload · {workers} workers requested");
                 AddLog($"🔌 Connecting to {profile.Host}:{port} via {protocol}...");
 
                 remote = profile.UseSSH
@@ -3399,6 +3415,7 @@ namespace GitDeployPro.Pages
                     }
                 }
 
+                var uploadJobs = new List<RemoteTransferJob>();
                 foreach (var file in files)
                 {
                     current++;
@@ -3465,38 +3482,85 @@ namespace GitDeployPro.Pages
                         continue;
                     }
 
-                    try
+                    uploadJobs.Add(new RemoteTransferJob
                     {
-                        AddLog($"📤 Uploading {file.Name}...");
-                        ProgressText.Text = $"Uploading {current}/{total}: {file.Name}";
-                        DeployProgressBar.Value = (current * 100) / total;
+                        RemotePath = remotePath,
+                        LocalPath = localPath,
+                        SizeBytes = new FileInfo(localPath).Length,
+                        Tag = file.Name,
+                        Source = file
+                    });
+                }
 
-                        await remote.UploadLocalFileAsync(localPath, remotePath);
-                        result.UploadedCount++;
-                        AddLog($"✅ Uploaded {file.Name} → {remotePath}");
-                        await NotifyOpenEditorsAfterUploadAsync(localPath, remotePath);
+                if (uploadJobs.Count == 0)
+                {
+                    if (!result.HasFatalError && result.FailedItems.Count == 0)
+                    {
+                        AddLog("🎉 All files uploaded successfully!");
                     }
-                    catch (Exception fileEx)
+                    else if (!result.HasFatalError)
                     {
-                        var rootCause = RemoteTransferErrorFormatter.ResolveRootCause(fileEx);
-                        var detail = RemoteTransferErrorFormatter.Format(
-                            fileEx,
-                            fileName: file.Name,
-                            remotePath: remotePath,
-                            protocol: protocol,
-                            profileName: profile.Name);
+                        AddLog($"⚠️ Upload completed with warnings. Uploaded: {result.UploadedCount}, Failed: {result.FailedItems.Count}");
+                    }
 
-                        if (IsPermissionDeniedError(fileEx, rootCause))
+                    return result;
+                }
+
+                workers = Math.Clamp(workers, 1, Math.Min(TransferWorkerPrompt.MaxWorkers, uploadJobs.Count));
+                AddLog($"🚚 Uploading {uploadJobs.Count} files with {workers} live worker(s)...");
+                var uploadProgress = new Progress<RemoteUploadProgress>(p =>
+                {
+                    ProgressText.Text = string.IsNullOrWhiteSpace(p.CurrentFileName)
+                        ? "Uploading..."
+                        : p.CurrentFileName;
+                    DeployProgressBar.Value = Math.Max(0, Math.Min(100, p.Percent));
+                    _transferMonitor.Update(p.Detail);
+                });
+
+                var resultLock = new object();
+                var transferResult = await ParallelRemoteTransfer.UploadAsync(
+                    profile,
+                    uploadJobs,
+                    workers,
+                    uploadProgress,
+                    CancellationToken.None,
+                    skipIfExists: false,
+                    onJobDone: (job, ok, error) =>
+                    {
+                        var change = job.Source as FileChange;
+                        var name = change?.Name ?? job.DisplayName;
+                        lock (resultLock)
                         {
-                            result.FailedItems.Add(new DeployFailedItem(file.Name, detail, isPermissionDenied: true));
-                            AddLog($"⚠️ Permission denied for {file.Name}: {rootCause}. Continuing with remaining files.");
-                            continue;
+                            if (ok)
+                            {
+                                result.UploadedCount++;
+                                AddLog($"✅ Uploaded {name} → {job.RemotePath}");
+                            }
+                            else
+                            {
+                                var detail = error ?? "Upload failed.";
+                                result.FailedItems.Add(new DeployFailedItem(name, detail));
+                                AddLog($"❌ Upload failed {name}: {detail}");
+                            }
                         }
 
-                        // Non-permission transfer errors: record and continue so remaining files still try
-                        // (nested folder / ownership issues often look like generic FluentFTP wrappers).
-                        result.FailedItems.Add(new DeployFailedItem(file.Name, detail));
-                        AddLog($"❌ Upload failed {file.Name}: {rootCause}");
+                        if (ok)
+                        {
+                            _ = NotifyOpenEditorsAfterUploadAsync(job.LocalPath, job.RemotePath);
+                        }
+                    },
+                    detailed: new Progress<ParallelTransferProgress>(_transferMonitor.Update));
+
+                if (!transferResult.IsComplete)
+                {
+                    foreach (var missing in transferResult.Missing)
+                    {
+                        var name = (missing.Source as FileChange)?.Name ?? missing.DisplayName;
+                        if (!result.FailedItems.Any(item => string.Equals(item.Path, name, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            result.FailedItems.Add(new DeployFailedItem(name, "Missing on server after verify."));
+                            AddLog($"⚠️ Missing after verify: {name}");
+                        }
                     }
                 }
 
@@ -3505,10 +3569,12 @@ namespace GitDeployPro.Pages
                     if (result.FailedItems.Count == 0)
                     {
                         AddLog("🎉 All files uploaded successfully!");
+                        _transferMonitor.Finish($"Done: {transferResult.Completed} files · {transferResult.WorkerCount} workers");
                     }
                     else
                     {
                         AddLog($"⚠️ Upload completed with warnings. Uploaded: {result.UploadedCount}, Failed: {result.FailedItems.Count}");
+                        _transferMonitor.Finish($"Warnings: {result.UploadedCount} uploaded · {result.FailedItems.Count} failed · {transferResult.WorkerCount} workers");
                     }
                 }
 
@@ -3519,6 +3585,7 @@ namespace GitDeployPro.Pages
                 result.HasFatalError = true;
                 result.FatalErrorMessage = $"Upload failed: {ex.GetType().Name} - {ex.Message}";
                 AddLog($"❌ Upload Error: {ex.Message}");
+                _transferMonitor.Finish($"Failed: {ex.Message}");
                 return result;
             }
             finally

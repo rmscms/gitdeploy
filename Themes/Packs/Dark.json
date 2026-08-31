@@ -33,7 +33,9 @@
     "State.Pressed": "#22FFFFFF",
     "State.DisabledOverlay": "#AA0A0A0A",
     "Shadow.Color": "#99000000",
-    "Log.Success": "#5CFFB0"
+    "Log.Success": "#5CFFB0",
+    "Tree.SearchMatchBackground": "#E6B84D",
+    "Tree.SearchMatchForeground": "#000000"
   },
   "deploy": {
     "shell": {
@@ -76,6 +78,10 @@
       "gitUntracked": "@Status.Info",
       "gitIgnored": "@Text.Muted",
       "gitConflicted": "@Status.Warning"
+    },
+    "tree": {
+      "searchMatchBackground": "@Tree.SearchMatchBackground",
+      "searchMatchForeground": "@Tree.SearchMatchForeground"
     },
     "ftp": {
       "chrome": {

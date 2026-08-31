@@ -1,0 +1,115 @@
+<UserControl x:Class="GitDeployPro.Controls.TransferMonitorPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             MinWidth="300"
+             MaxWidth="400">
+    <Border Background="{StaticResource Surface.Card}"
+            BorderBrush="{StaticResource Border.Subtle}"
+            BorderThickness="1"
+            CornerRadius="8"
+            Padding="12,10">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="16" ShadowDepth="0" Color="#44000000" Opacity="0.35"/>
+        </Border.Effect>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <DockPanel>
+                <Button x:Name="HideButton"
+                        DockPanel.Dock="Right"
+                        Content="Hide"
+                        Height="22"
+                        MinWidth="48"
+                        Padding="8,0"
+                        Style="{StaticResource App.Button.Ghost}"
+                        Click="HideButton_Click"/>
+                <TextBlock x:Name="SessionTitle"
+                           Text="Transfer"
+                           FontSize="13"
+                           FontWeight="SemiBold"
+                           VerticalAlignment="Center"
+                           Foreground="{StaticResource Text.Primary}"/>
+            </DockPanel>
+
+            <TextBlock x:Name="HeadlineText"
+                       Grid.Row="1"
+                       Margin="0,6,0,0"
+                       FontSize="11"
+                       TextWrapping="Wrap"
+                       Foreground="{StaticResource Status.Info}"
+                       Text="Waiting…"/>
+
+            <ProgressBar x:Name="OverallBar"
+                         Grid.Row="2"
+                         Height="6"
+                         Margin="0,8,0,0"
+                         Minimum="0"
+                         Maximum="100"
+                         Value="0"
+                         Background="{StaticResource Border.Subtle}"
+                         Foreground="{StaticResource Accent.Primary}"
+                         BorderThickness="0"/>
+
+            <TextBlock x:Name="PercentText"
+                       Grid.Row="3"
+                       Margin="0,4,0,0"
+                       FontSize="11"
+                       FontWeight="SemiBold"
+                       Foreground="{StaticResource Accent.Primary}"
+                       Text=""/>
+
+            <ItemsControl x:Name="WorkerList" Grid.Row="4" Margin="0,8,0,0">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="32"/>
+                                <ColumnDefinition Width="72"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{Binding IdLabel}"
+                                       FontWeight="SemiBold"
+                                       FontSize="11"
+                                       Foreground="{StaticResource Accent.Primary}"/>
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding State}"
+                                       FontSize="11"
+                                       Foreground="{StaticResource Status.Info}"/>
+                            <TextBlock Grid.Column="2"
+                                       Text="{Binding FileName}"
+                                       FontSize="11"
+                                       TextTrimming="CharacterEllipsis"
+                                       Foreground="{StaticResource Text.Secondary}"/>
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <ScrollViewer x:Name="LogScroll"
+                          Grid.Row="5"
+                          Margin="0,8,0,0"
+                          MaxHeight="120"
+                          VerticalScrollBarVisibility="Auto">
+                <TextBlock x:Name="LogText"
+                           TextWrapping="Wrap"
+                           FontFamily="Consolas"
+                           FontSize="10"
+                           Foreground="{StaticResource Text.Secondary}"/>
+            </ScrollViewer>
+
+            <TextBlock Grid.Row="6"
+                       Margin="0,8,0,0"
+                       FontSize="10"
+                       Foreground="{StaticResource Text.Muted}"
+                       Text="Hide only closes this card. Transfer keeps running."/>
+        </Grid>
+    </Border>
+</UserControl>

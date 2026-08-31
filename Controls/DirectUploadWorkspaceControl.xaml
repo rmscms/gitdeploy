@@ -252,6 +252,7 @@
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
@@ -263,8 +264,40 @@
                                TextWrapping="Wrap"
                                Text="Legend: green name = clean · red = changed · blue = untracked · grey = ignored · green background = path mapping" />
 
+                    <Border x:Name="LocalTreeSearchBar"
+                            Grid.Row="1"
+                            Margin="10,0,10,6"
+                            Padding="6,4"
+                            CornerRadius="6"
+                            Background="{StaticResource Surface.Input}"
+                            BorderBrush="{StaticResource Border.Subtle}"
+                            BorderThickness="1"
+                            Visibility="Collapsed">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="LocalTreeSearchBox"
+                                     Style="{StaticResource App.InputTextBox}"
+                                     FontSize="12"
+                                     VerticalContentAlignment="Center"
+                                     TextChanged="LocalTreeSearchBox_TextChanged"
+                                     PreviewKeyDown="LocalTreeSearchBox_PreviewKeyDown" />
+                            <Button x:Name="LocalTreeSearchClearButton"
+                                    Grid.Column="1"
+                                    Margin="6,0,0,0"
+                                    Width="26"
+                                    Height="26"
+                                    Style="{StaticResource App.IconButton}"
+                                    Foreground="{StaticResource Text.Muted}"
+                                    Click="LocalTreeSearchClear_Click"
+                                    Content="✕" />
+                        </Grid>
+                    </Border>
+
+                    <Grid Grid.Row="2">
                     <TreeView x:Name="FileTreeView"
-                              Grid.Row="1"
                               Background="Transparent"
                               BorderThickness="0"
                               Padding="10"
@@ -274,6 +307,7 @@
                               behaviors:ContextMenuSelectionBehavior.Enable="True"
                               behaviors:TreeViewExtendedSelectionBehavior.Enable="True"
                               PreviewKeyDown="FileTreeView_PreviewKeyDown"
+                              PreviewTextInput="FileTreeView_PreviewTextInput"
                               MouseRightButtonUp="FileTreeView_MouseRightButtonUp"
                               MouseDoubleClick="FileTreeView_MouseDoubleClick">
                     <TreeView.Resources>
@@ -324,9 +358,14 @@
                                                Foreground="{Binding IconColor}"
                                                Margin="0,0,4,0"
                                                FontFamily="Segoe UI Emoji" />
-                                    <TextBlock Text="{Binding Name}"
-                                               Foreground="{Binding NameBrush}"
-                                               VerticalAlignment="Center" />
+                                    <TextBlock VerticalAlignment="Center">
+                                        <Run Text="{Binding NamePrefix, Mode=OneWay}" Foreground="{Binding NameBrush}" />
+                                        <Run Text="{Binding NameMatch, Mode=OneWay}"
+                                             Background="{DynamicResource Tree.SearchMatchBackground}"
+                                             Foreground="{DynamicResource Tree.SearchMatchForeground}"
+                                             FontWeight="SemiBold" />
+                                        <Run Text="{Binding NameSuffix, Mode=OneWay}" Foreground="{Binding NameBrush}" />
+                                    </TextBlock>
                                     <TextBlock Text="{Binding SizeDisplay}"
                                                FontSize="10"
                                                Foreground="{StaticResource Text.Muted}"
@@ -363,6 +402,76 @@
                         </HierarchicalDataTemplate>
                     </TreeView.ItemTemplate>
                 </TreeView>
+
+                    <ListBox x:Name="LocalTreeSearchResults"
+                             Visibility="Collapsed"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             Padding="6,0"
+                             Style="{StaticResource App.ListBox.Host}"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             PreviewKeyDown="LocalTreeSearchResults_PreviewKeyDown"
+                             PreviewMouseLeftButtonUp="LocalTreeSearchResults_PreviewMouseLeftButtonUp">
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem" BasedOn="{StaticResource App.ListBoxItem.Transparent}">
+                                <Setter Property="Padding" Value="6,4" />
+                                <Setter Property="Margin" Value="0,1" />
+                                <Setter Property="Cursor" Value="Hand" />
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListBoxItem">
+                                            <Border x:Name="Hit"
+                                                    Background="Transparent"
+                                                    CornerRadius="4"
+                                                    Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="Hit" Property="Background" Value="{StaticResource State.Hover}" />
+                                                </Trigger>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter TargetName="Hit" Property="Background" Value="{StaticResource State.Pressed}" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{Binding Icon}"
+                                               Foreground="{Binding IconColor}"
+                                               Margin="0,0,8,0"
+                                               FontFamily="Segoe UI Emoji"
+                                               VerticalAlignment="Center" />
+                                    <TextBlock VerticalAlignment="Center"
+                                               FontFamily="{StaticResource FontFamily.Mono}"
+                                               FontSize="12"
+                                               TextTrimming="CharacterEllipsis">
+                                        <Run Text="{Binding PathPrefix, Mode=OneWay}" Foreground="{StaticResource Text.Secondary}" />
+                                        <Run Text="{Binding PathMatch, Mode=OneWay}"
+                                             Background="{DynamicResource Tree.SearchMatchBackground}"
+                                             Foreground="{DynamicResource Tree.SearchMatchForeground}"
+                                             FontWeight="SemiBold" />
+                                        <Run Text="{Binding PathSuffix, Mode=OneWay}" Foreground="{StaticResource Text.Secondary}" />
+                                    </TextBlock>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <TextBlock x:Name="LocalTreeSearchEmpty"
+                               Visibility="Collapsed"
+                               Margin="16"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               FontSize="12"
+                               Foreground="{StaticResource Text.Muted}"
+                               Text="No matching files or folders" />
+                    </Grid>
                 </Grid>
             </Border>
 
@@ -403,5 +512,13 @@
     <local:LocalFileEditorControl x:Name="LocalEditor"
                                   Visibility="Collapsed"
                                   Panel.ZIndex="60" />
+    <local:TransferMonitorPanel x:Name="UploadTransferMonitor"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Bottom"
+                                Width="360"
+                                MaxHeight="420"
+                                Margin="10,10,10,16"
+                                Panel.ZIndex="40"
+                                Visibility="Collapsed"/>
     </Grid>
 </UserControl>

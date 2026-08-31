@@ -96,18 +96,6 @@ namespace GitDeployPro.Behaviors
         }
 
         private static T? FindAncestor<T>(DependencyObject current) where T : DependencyObject
-        {
-            while (current != null)
-            {
-                if (current is T matched)
-                {
-                    return matched;
-                }
-
-                current = VisualTreeHelper.GetParent(current);
-            }
-
-            return null;
-        }
+            => DependencyObjectAncestors.Find<T>(current);
     }
 }
