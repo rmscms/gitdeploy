@@ -73,7 +73,8 @@
                                   IsChecked="True"
                                   Foreground="{StaticResource Text.Muted}"
                                   VerticalAlignment="Center"
-                                  Margin="0,0,12,4" />
+                                  Margin="0,0,12,4"
+                                  ToolTip="{loc:T deploy.tip.overwriteDetail}" />
                         <CheckBox x:Name="AutoDiskSyncCheck"
                                   Content="Auto Sync Disk"
                                   IsChecked="True"
@@ -515,10 +516,10 @@
     <local:TransferMonitorPanel x:Name="UploadTransferMonitor"
                                 HorizontalAlignment="Right"
                                 VerticalAlignment="Bottom"
-                                Width="360"
-                                MaxHeight="420"
-                                Margin="10,10,10,16"
-                                Panel.ZIndex="40"
+                                Width="400"
+                                MaxHeight="460"
+                                Margin="12,12,12,20"
+                                Panel.ZIndex="80"
                                 Visibility="Collapsed"/>
     </Grid>
 </UserControl>

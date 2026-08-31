@@ -91,11 +91,20 @@ namespace GitDeployPro.Services.Remote
             }
 
             workers = Math.Clamp(workers, 1, Math.Min(TransferWorkerPrompt.MaxWorkers, list.Count));
-            var queue = new ConcurrentQueue<RemoteTransferJob>(
-                list.OrderByDescending(job => job.SizeBytes));
-            var errors = new ConcurrentBag<string>();
+            var smallJobs = list
+                .Where(job => job.SizeBytes < TransferTimeoutPolicy.LargeFileBytes)
+                .OrderByDescending(job => job.SizeBytes)
+                .ToList();
+            var largeJobs = list
+                .Where(job => job.SizeBytes >= TransferTimeoutPolicy.LargeFileBytes)
+                .OrderByDescending(job => job.SizeBytes)
+                .ToList();
+            var queue = new ConcurrentQueue<RemoteTransferJob>();
+            var jobErrors = new ConcurrentDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var succeeded = new ConcurrentBag<RemoteTransferJob>();
             var snapshots = new ConcurrentDictionary<int, ParallelWorkerSnapshot>();
             var filesDoneByWorker = new int[workers];
+            var workerInflightBytes = new long[workers];
             var completed = 0;
             var skipped = 0;
             var transferredBytes = 0L;
@@ -113,7 +122,13 @@ namespace GitDeployPro.Services.Remote
                 var active = slots.Count(slot =>
                     slot.State is "Connecting" or "Busy");
                 var done = Volatile.Read(ref completed);
-                var bytes = Interlocked.Read(ref transferredBytes);
+                long inflight = 0;
+                for (var i = 0; i < workers; i++)
+                {
+                    inflight += Volatile.Read(ref workerInflightBytes[i]);
+                }
+
+                var bytes = Interlocked.Read(ref transferredBytes) + inflight;
                 var percent = totalBytes > 0
                     ? (double)bytes / totalBytes * 100d
                     : (list.Count == 0 ? 100d : done * 100d / list.Count);
@@ -125,7 +140,7 @@ namespace GitDeployPro.Services.Remote
                     Completed = done,
                     Total = list.Count,
                     Skipped = Volatile.Read(ref skipped),
-                    ErrorCount = errors.Count,
+                    ErrorCount = jobErrors.Count,
                     BytesTransferred = bytes,
                     TotalBytes = totalBytes,
                     Percent = percent,
@@ -185,7 +200,29 @@ namespace GitDeployPro.Services.Remote
                 SetWorker(i, "Waiting", "queued", string.Empty);
             }
 
-            Publish("Starting workers", $"Requested {workers} workers for {list.Count} files");
+            Publish(
+                "Starting workers",
+                largeJobs.Count == 0
+                    ? $"Requested {workers} workers for {list.Count} files"
+                    : $"{smallJobs.Count} small with {workers} workers, then {largeJobs.Count} large");
+
+            IProgress<RemoteUploadProgress> CreateUploadJobProgress(int workerId, RemoteTransferJob job) =>
+                new Progress<RemoteUploadProgress>(p =>
+                {
+                    Volatile.Write(ref workerInflightBytes[workerId], Math.Max(0, p.BytesTransferred));
+                    var filePct = p.TotalBytes > 0 ? p.Percent : 0d;
+                    SetWorker(workerId, "Busy", job.DisplayName, $"{filePct:0}%");
+                    Publish("Transferring", $"W{workerId + 1} {verb} {job.DisplayName} · {filePct:0}%");
+                });
+
+            IProgress<RemoteDownloadProgress> CreateDownloadJobProgress(int workerId, RemoteTransferJob job) =>
+                new Progress<RemoteDownloadProgress>(p =>
+                {
+                    Volatile.Write(ref workerInflightBytes[workerId], Math.Max(0, p.BytesTransferred));
+                    var filePct = p.TotalBytes > 0 ? p.Percent : 0d;
+                    SetWorker(workerId, "Busy", job.DisplayName, $"{filePct:0}%");
+                    Publish("Transferring", $"W{workerId + 1} {verb} {job.DisplayName} · {filePct:0}%");
+                });
 
             async Task WorkerAsync(int workerId)
             {
@@ -201,8 +238,9 @@ namespace GitDeployPro.Services.Remote
                     while (queue.TryDequeue(out var job))
                     {
                         cancellationToken.ThrowIfCancellationRequested();
-                        SetWorker(workerId, "Busy", job.DisplayName, job.RemotePath);
-                        Publish("Transferring", $"W{workerId + 1} {verb} {job.DisplayName}");
+                        var budget = TransferTimeoutPolicy.Describe(job.SizeBytes);
+                        SetWorker(workerId, "Busy", job.DisplayName, $"budget {budget}");
+                        Publish("Transferring", $"W{workerId + 1} {verb} {job.DisplayName} · budget {budget}");
                         try
                         {
                             if (download)
@@ -213,7 +251,13 @@ namespace GitDeployPro.Services.Remote
                                     Directory.CreateDirectory(localDir);
                                 }
 
-                                await service.DownloadFileAsync(job.RemotePath, job.LocalPath, null, cancellationToken);
+                                Volatile.Write(ref workerInflightBytes[workerId], 0);
+                                await service.DownloadFileAsync(
+                                    job.RemotePath,
+                                    job.LocalPath,
+                                    CreateDownloadJobProgress(workerId, job),
+                                    cancellationToken);
+                                Volatile.Write(ref workerInflightBytes[workerId], 0);
                             }
                             else
                             {
@@ -226,6 +270,8 @@ namespace GitDeployPro.Services.Remote
                                         Interlocked.Increment(ref completed);
                                         Interlocked.Add(ref transferredBytes, Math.Max(0, job.SizeBytes));
                                         filesDoneByWorker[workerId]++;
+                                        succeeded.Add(job);
+                                        jobErrors.TryRemove(job.RemotePath, out _);
                                         onJobDone?.Invoke(job, true, null);
                                         SetWorker(workerId, "Idle", $"skipped {job.DisplayName}", "exists");
                                         Publish("Transferring", $"W{workerId + 1} skipped {job.DisplayName}");
@@ -233,32 +279,44 @@ namespace GitDeployPro.Services.Remote
                                     }
                                 }
 
-                                await service.UploadLocalFileAsync(job.LocalPath, job.RemotePath, null, cancellationToken);
+                                Volatile.Write(ref workerInflightBytes[workerId], 0);
+                                await service.UploadLocalFileAsync(
+                                    job.LocalPath,
+                                    job.RemotePath,
+                                    CreateUploadJobProgress(workerId, job),
+                                    cancellationToken);
+                                Volatile.Write(ref workerInflightBytes[workerId], 0);
                             }
 
                             Interlocked.Add(ref transferredBytes, Math.Max(0, job.SizeBytes));
                             Interlocked.Increment(ref completed);
                             filesDoneByWorker[workerId]++;
+                            succeeded.Add(job);
+                            jobErrors.TryRemove(job.RemotePath, out _);
                             onJobDone?.Invoke(job, true, null);
                             SetWorker(workerId, "Idle", $"done {job.DisplayName}", $"{filesDoneByWorker[workerId]} files");
                             Publish("Transferring", $"W{workerId + 1} finished {job.DisplayName}");
                         }
-                        catch (OperationCanceledException)
+                        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                         {
+                            Volatile.Write(ref workerInflightBytes[workerId], 0);
+                            await TryRemovePartialAsync(service, job, download);
                             SetWorker(workerId, "Cancelled", job.DisplayName, string.Empty);
                             throw;
                         }
                         catch (Exception ex)
                         {
-                            errors.Add($"{job.DisplayName}: {ex.Message}");
-                            onJobDone?.Invoke(job, false, ex.Message);
-                            SetWorker(workerId, "Error", job.DisplayName, ex.Message);
-                            Publish("Transferring", $"W{workerId + 1} failed {job.DisplayName}: {ex.Message}");
+                            Volatile.Write(ref workerInflightBytes[workerId], 0);
+                            await TryRemovePartialAsync(service, job, download);
+                            var detail = FormatJobError(job, ex);
+                            jobErrors[job.RemotePath] = detail;
+                            SetWorker(workerId, "Error", job.DisplayName, detail);
+                            Publish("Transferring", $"W{workerId + 1} failed {job.DisplayName}: {detail}");
                         }
                     }
 
-                    SetWorker(workerId, "Done", $"{filesDoneByWorker[workerId]} files", "queue empty");
-                    Publish("Transferring", $"W{workerId + 1} done");
+                    SetWorker(workerId, "Done", $"{filesDoneByWorker[workerId]} files", "batch done");
+                    Publish("Transferring", $"W{workerId + 1} batch done ({filesDoneByWorker[workerId]} files)");
                 }
                 finally
                 {
@@ -273,36 +331,80 @@ namespace GitDeployPro.Services.Remote
                 }
             }
 
-            var tasks = Enumerable.Range(0, workers)
-                .Select(WorkerAsync)
-                .ToArray();
-            await Task.WhenAll(tasks);
+            async Task RunPoolAsync(IReadOnlyList<RemoteTransferJob> batch, int poolWorkers, string label)
+            {
+                if (batch.Count == 0)
+                {
+                    return;
+                }
 
-            List<RemoteTransferJob> missing;
+                queue = new ConcurrentQueue<RemoteTransferJob>(batch);
+                var n = Math.Clamp(poolWorkers, 1, batch.Count);
+                for (var i = 0; i < workers; i++)
+                {
+                    Volatile.Write(ref workerInflightBytes[i], 0);
+                }
+
+                Publish(label, $"{label}: {batch.Count} files · {n} workers");
+                await Task.WhenAll(Enumerable.Range(0, n).Select(WorkerAsync));
+            }
+
+            if (smallJobs.Count > 0)
+            {
+                await RunPoolAsync(smallJobs, workers, "Small files");
+            }
+
+            if (largeJobs.Count > 0)
+            {
+                var largeWorkers = Math.Clamp(workers, 1, largeJobs.Count);
+                await RunPoolAsync(largeJobs, largeWorkers, "Large files");
+                var retry = largeJobs.Where(job => !succeeded.Contains(job)).ToList();
+                if (retry.Count > 0)
+                {
+                    await RunPoolAsync(retry, 1, "Retry large files");
+                }
+            }
+
+            foreach (var failed in list.Where(job => !succeeded.Contains(job)))
+            {
+                if (jobErrors.TryGetValue(failed.RemotePath, out var detail))
+                {
+                    onJobDone?.Invoke(failed, false, detail);
+                }
+            }
+
+            var failedJobs = list.Where(job => !succeeded.Contains(job)).ToList();
+            List<RemoteTransferJob> verifyMissing;
             if (download)
             {
                 Publish("Verifying", "Checking local files…");
-                missing = list.Where(job => !File.Exists(job.LocalPath)).ToList();
+                verifyMissing = succeeded.Where(job => !File.Exists(job.LocalPath)).ToList();
             }
             else
             {
                 Publish("Verifying", "Checking remote files…");
-                missing = await VerifyRemoteFilesAsync(profile, list, cancellationToken);
+                verifyMissing = await VerifyRemoteFilesAsync(profile, succeeded.ToList(), cancellationToken);
             }
 
+            var missing = failedJobs.Concat(verifyMissing).Distinct().ToList();
             var result = new ParallelTransferResult
             {
                 WorkerCount = workers,
                 Completed = Volatile.Read(ref completed),
                 Skipped = Volatile.Read(ref skipped),
                 Missing = missing,
-                Errors = errors.ToList()
+                Errors = list
+                    .Where(job => !succeeded.Contains(job))
+                    .Select(job => jobErrors.TryGetValue(job.RemotePath, out var detail)
+                        ? $"{job.DisplayName}: {detail}"
+                        : $"{job.DisplayName}: Upload failed")
+                    .ToList()
             };
             Publish(
                 "Finished",
                 result.IsComplete
                     ? $"All {result.Completed} files verified with {result.WorkerCount} workers"
-                    : $"Finished with gaps: {result.Completed}/{list.Count}, missing {result.Missing.Count}, errors {result.Errors.Count}");
+                    : $"Finished with gaps: {result.Completed}/{list.Count}, failed {result.Errors.Count}");
             return result;
         }
 
@@ -312,6 +414,11 @@ namespace GitDeployPro.Services.Remote
             CancellationToken cancellationToken)
         {
             var missing = new List<RemoteTransferJob>();
+            if (jobs.Count == 0)
+            {
+                return missing;
+            }
+
             var service = RemoteFileServiceFactory.Create(profile);
             try
             {
@@ -319,12 +426,24 @@ namespace GitDeployPro.Services.Remote
                 foreach (var job in jobs)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    var stat = await service.GetFileStatAsync(job.RemotePath, cancellationToken);
-                    if (!stat.Exists || stat.IsDirectory)
+                    try
                     {
-                        missing.Add(job);
+                        var stat = await service.GetFileStatAsync(job.RemotePath, cancellationToken);
+                        // Only a directory clash is a confident miss. Exists=false is often a listing flake.
+                        if (stat.Exists && stat.IsDirectory)
+                        {
+                            missing.Add(job);
+                        }
+                    }
+                    catch
+                    {
+                        // Listing/STAT flake must not mark a successful upload as missing.
                     }
                 }
+            }
+            catch
+            {
+                return new List<RemoteTransferJob>();
             }
             finally
             {
@@ -339,6 +458,69 @@ namespace GitDeployPro.Services.Remote
             }
 
             return missing;
+        }
+
+        private static string FormatJobError(RemoteTransferJob job, Exception ex)
+        {
+            var root = RemoteTransferErrorFormatter.ResolveRootCause(ex);
+            if (string.IsNullOrWhiteSpace(root))
+            {
+                root = ex.Message;
+            }
+
+            if (ex is TimeoutException || ContainsCancel(ex))
+            {
+                return string.IsNullOrWhiteSpace(root)
+                    ? TransferTimeoutPolicy.StalledMessage(job.SizeBytes)
+                    : root;
+            }
+
+            return $"{root} Partial removed — retry this file.";
+        }
+
+        private static bool ContainsCancel(Exception exception)
+        {
+            for (var current = exception; current != null; current = current.InnerException)
+            {
+                if (current is OperationCanceledException or TaskCanceledException)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static async Task TryRemovePartialAsync(
+            IRemoteFileService service,
+            RemoteTransferJob job,
+            bool download)
+        {
+            try
+            {
+                if (download)
+                {
+                    if (!string.IsNullOrWhiteSpace(job.LocalPath) && File.Exists(job.LocalPath))
+                    {
+                        File.Delete(job.LocalPath);
+                    }
+
+                    return;
+                }
+
+                await service.DeleteAsync(job.RemotePath, isDirectory: false, CancellationToken.None);
+            }
+            catch
+            {
+                try
+                {
+                    await service.DeleteAsync(job.RemotePath, isDirectory: true, CancellationToken.None);
+                }
+                catch
+                {
+                    // Partial cleanup is best-effort.
+                }
+            }
         }
     }
 }

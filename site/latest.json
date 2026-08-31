@@ -1,16 +1,15 @@
-{
-  "version": "1.4.74",
-  "fileName": "GitDeployPro-1.4.74.exe",
-  "downloadUrl": "versions/GitDeployPro-1.4.74.exe",
-  "sha256": "87AF4036E4451DFDD4501A6A5EAC077192918481CF5850E50C7100351A0CA19D",
-  "releaseNotes": "- Parallel download/upload workers (ask how many, each takes whole files, then verify)\n- In-app transfer report with live per-worker slots (does not lock other Windows apps)\n- Type-to-search in the FTP tree and Direct Upload path list\n- Mapped folder download with overwrite confirm and cancelable progress\n- Fixes: scrollbar drag, open-file Error dialog, editor arrow keys, worker count stuck at 2W",
-  "changelog": [
-    "Parallel download/upload workers (ask how many, each takes whole files, then verify)",
-    "In-app transfer report with live per-worker slots (does not lock other Windows apps)",
-    "Type-to-search in the FTP tree and Direct Upload path list",
-    "Mapped folder download with overwrite confirm and cancelable progress",
-    "Fixes: scrollbar drag, open-file Error dialog, editor arrow keys, worker count stuck at 2W"
-  ],
-  "mandatory": false,
-  "publishedUtc": "2026-08-31T05:31:13Z"
-}
+{
+  "version": "1.5.11",
+  "fileName": "GitDeployPro-1.5.11.exe",
+  "downloadUrl": "versions/GitDeployPro-1.5.11.exe",
+  "sha256": "3F08AA68B5C92969C912D281774D79A0DA419853E2F5C12B689A79D10A244CD2",
+  "releaseNotes": "- Per-file upload budget from size with idle-stall watchdog for large files\n- Phased upload: small files first, large files with your worker count + single-worker retry\n- Unified byte-volume progress bar (total MB live during large uploads)\n- Fixes: false missing-on-server verify, Overwrite vs Crash Recovery skip, FTP folder-named-like-file (550), worker count on large files, clear FTP errors, unified progress UI, partial directory cleanup",
+  "changelog": [
+    "Per-file upload budget from size with idle-stall watchdog for large files",
+    "Phased upload: small files first, large files with your worker count + single-worker retry",
+    "Unified byte-volume progress bar (total MB live during large uploads)",
+    "Fixes: false missing-on-server verify, Overwrite vs Crash Recovery skip, FTP folder-named-like-file (550), worker count on large files, clear FTP errors, unified progress UI, partial directory cleanup"
+  ],
+  "mandatory": false,
+  "publishedUtc": "2026-08-31T06:20:00Z"
+}

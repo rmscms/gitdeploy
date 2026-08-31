@@ -36,14 +36,16 @@ namespace GitDeployPro.Controls
 
             RunOnUi(() =>
             {
-                HeadlineText.Text = string.IsNullOrWhiteSpace(progress.Headline)
-                    ? progress.Phase
-                    : progress.Headline;
+                HeadlineText.Text = progress.TotalBytes > 0
+                    ? $"{progress.ActiveWorkers}/{progress.RequestedWorkers} workers · {progress.Completed}/{progress.Total} files · {progress.Phase}"
+                    : (string.IsNullOrWhiteSpace(progress.Headline) ? progress.Phase : progress.Headline);
                 OverallBar.IsIndeterminate = progress.IsIndeterminate;
                 OverallBar.Value = Math.Clamp(progress.Percent, 0, 100);
-                PercentText.Text = progress.IsIndeterminate
-                    ? progress.Phase
-                    : $"{progress.Percent:0}% · {progress.Completed}/{progress.Total} files · {progress.ActiveWorkers}/{progress.RequestedWorkers} live";
+                PercentText.Text = progress.TotalBytes > 0
+                    ? $"{FormatBytes(progress.BytesTransferred)} / {FormatBytes(progress.TotalBytes)} ({progress.Percent:0.1}%)"
+                    : (progress.IsIndeterminate
+                        ? progress.Phase
+                        : $"{progress.Percent:0}% · {progress.Completed}/{progress.Total} files");
 
                 _workers.Clear();
                 foreach (var worker in progress.Workers)
@@ -87,6 +89,20 @@ namespace GitDeployPro.Controls
             }
 
             action();
+        }
+
+        private static string FormatBytes(long bytes)
+        {
+            string[] units = { "B", "KB", "MB", "GB", "TB" };
+            double value = Math.Max(0, bytes);
+            var index = 0;
+            while (value >= 1024 && index < units.Length - 1)
+            {
+                value /= 1024;
+                index++;
+            }
+
+            return $"{value:0.##} {units[index]}";
         }
     }
 }

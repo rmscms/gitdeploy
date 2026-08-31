@@ -3139,8 +3139,20 @@ namespace GitDeployPro.Controls
             HashSet<string> uploadedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             string sessionPath = Path.Combine(_projectPath, SessionFileName);
             bool resumeSession = false;
+            var forceUpload = OverwriteCheck.IsChecked == true;
 
-            if (!skipConfirm && UseSessionCheck.IsChecked == true && File.Exists(sessionPath))
+            if (forceUpload && !skipConfirm && UseSessionCheck.IsChecked == true)
+            {
+                // Overwrite always re-sends selected files. Keep a fresh crash log only.
+                if (File.Exists(sessionPath))
+                {
+                    File.Delete(sessionPath);
+                }
+
+                File.Create(sessionPath).Close();
+                CheckSessionStatus();
+            }
+            else if (!skipConfirm && UseSessionCheck.IsChecked == true && File.Exists(sessionPath))
             {
                 CheckSessionStatus();
                 var result = ModernMessageBox.Show(
@@ -3198,11 +3210,6 @@ namespace GitDeployPro.Controls
             }
 
             var workers = 1;
-            if (filesToUpload.Count > 1 && !TransferWorkerPrompt.TryAsk(this, "upload", filesToUpload.Count, out workers))
-            {
-                StatusText.Text = "Ready.";
-                return;
-            }
 
             // Start Upload
             _isUploading = true;
@@ -3253,7 +3260,7 @@ namespace GitDeployPro.Controls
                 int processed = 0;
                 int skipped = 0;
                 int foldersCreated = 0;
-                var skipIfExists = OverwriteCheck.IsChecked != true;
+                var skipIfExists = !forceUpload;
                 var useSession = UseSessionCheck.IsChecked == true;
 
                 IRemoteFileService? folderService = RemoteFileServiceFactory.Create(profile);
@@ -3300,7 +3307,7 @@ namespace GitDeployPro.Controls
                     ResolveUploadPaths(file.FullPath, profileRemoteBase, defaultRemoteBase,
                         out string relativePath, out string remoteBasePath);
 
-                    if (resumeSession && uploadedFiles.Contains(relativePath))
+                    if (!forceUpload && resumeSession && uploadedFiles.Contains(relativePath))
                     {
                         skipped++;
                         processed++;
@@ -3338,22 +3345,65 @@ namespace GitDeployPro.Controls
                 }
 
                 ParallelTransferResult? transferResult = null;
-                if (jobs.Count > 0 && !token.IsCancellationRequested)
+                if (jobs.Count == 0 && !token.IsCancellationRequested)
+                {
+                    StatusText.Text = skipped > 0
+                        ? "Nothing uploaded — files were skipped."
+                        : "Nothing to upload.";
+                    _transferMonitor.Finish(skipped > 0
+                        ? $"Skipped {skipped} (crash recovery). Overwrite forces a re-upload."
+                        : "No files queued");
+                    if (!skipConfirm && skipped > 0)
+                    {
+                        pendingDialog = () => ModernMessageBox.Show(
+                            $"No files uploaded.\nSkipped: {skipped}\n\nCrash Recovery treated them as already sent.\nTurn Overwrite on to force upload.",
+                            "Upload",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Warning);
+                    }
+                }
+                else if (jobs.Count > 1 && !TransferWorkerPrompt.TryAsk(this, "upload", jobs.Count, out workers))
+                {
+                    StatusText.Text = "Ready.";
+                    _transferMonitor.Finish("Cancelled before workers");
+                }
+                else if (jobs.Count > 0 && !token.IsCancellationRequested)
                 {
                     var uploadProgress = new Progress<RemoteUploadProgress>(p =>
                     {
                         Dispatcher.BeginInvoke(() =>
                         {
-                            StatusText.Text = string.IsNullOrWhiteSpace(p.CurrentFileName)
-                                ? "Uploading..."
-                                : p.CurrentFileName;
-                            var done = foldersCreated + skipped + (int)Math.Round(p.Percent / 100d * jobs.Count);
-                            UploadProgressBar.Value = Math.Clamp(done, 0, progressMax);
-                            UpdateUploadDetailText(
-                                p.CurrentFileName,
-                                p.Percent,
-                                p.BytesTransferred,
-                                p.TotalBytes);
+                            var detail = p.Detail;
+                            var bytes = detail?.BytesTransferred ?? p.BytesTransferred;
+                            var total = detail?.TotalBytes ?? p.TotalBytes;
+                            var percent = detail?.Percent ?? p.Percent;
+
+                            if (detail != null)
+                            {
+                                StatusText.Text = $"{detail.ActiveWorkers}/{detail.RequestedWorkers} workers · {detail.Completed}/{detail.Total} files · {detail.Phase}";
+                            }
+                            else
+                            {
+                                StatusText.Text = string.IsNullOrWhiteSpace(p.CurrentFileName)
+                                    ? "Uploading..."
+                                    : p.CurrentFileName;
+                            }
+
+                            UploadProgressBar.Maximum = 100;
+                            UploadProgressBar.Value = Math.Clamp(percent, 0, 100);
+
+                            if (total > 0)
+                            {
+                                UploadDetailText.Text = $"{FormatSizeReadable(bytes)} / {FormatSizeReadable(total)} ({percent:0.1}%)";
+                            }
+                            else if (detail != null)
+                            {
+                                UploadDetailText.Text = $"{detail.Completed}/{detail.Total} files ({percent:0}%)";
+                            }
+                            else
+                            {
+                                UploadDetailText.Text = string.Empty;
+                            }
                         }, DispatcherPriority.Background);
                     });
 
@@ -3374,13 +3424,6 @@ namespace GitDeployPro.Controls
                                 if (item != null)
                                 {
                                     item.UploadState = ok ? UploadState.Uploaded : UploadState.Failed;
-                                    var size = job.SizeBytes;
-                                    UpdateUploadDetailText(
-                                        item.Name,
-                                        ok ? 100 : 0,
-                                        ok ? size : 0,
-                                        size,
-                                        ok ? "Completed" : "Failed");
                                 }
 
                                 if (ok)
@@ -3422,15 +3465,24 @@ namespace GitDeployPro.Controls
                             MessageBoxImage.Warning);
                     }
                 }
-                else if (transferResult != null && !transferResult.IsComplete)
+                else if (jobs.Count == 0 || transferResult == null)
                 {
-                    var missingCount = transferResult.Missing.Count;
+                    // Skip/cancel already set StatusText and pendingDialog.
+                }
+                else if (!transferResult.IsComplete)
+                {
                     var errorCount = transferResult.Errors.Count;
                     StatusText.Text = "Upload incomplete.";
-                    AddUploadLog($"Verify: completed {transferResult.Completed}/{jobs.Count}, missing {missingCount}, errors {errorCount}, workers {transferResult.WorkerCount}");
-                    _transferMonitor.Finish($"Incomplete: {transferResult.Completed}/{jobs.Count} · {transferResult.WorkerCount} workers");
+                    AddUploadLog($"Verify: completed {transferResult.Completed}/{jobs.Count}, failed {errorCount}, workers {transferResult.WorkerCount}");
+                    foreach (var error in transferResult.Errors.Take(8))
+                    {
+                        AddUploadLog($"  • {error}");
+                    }
+
+                    _transferMonitor.Finish($"Incomplete: {transferResult.Completed}/{jobs.Count} · {errorCount} failed");
+                    var errorPreview = string.Join("\n", transferResult.Errors.Take(6));
                     pendingDialog = () => ModernMessageBox.Show(
-                        $"Upload finished with gaps.\nUploaded: {transferResult.Completed}/{jobs.Count}\nWorkers: {transferResult.WorkerCount}\nMissing on server: {missingCount}\nErrors: {errorCount}",
+                        $"Upload finished with gaps.\nUploaded: {transferResult.Completed}/{jobs.Count}\nWorkers: {transferResult.WorkerCount}\nFailed: {errorCount}\n\n{errorPreview}",
                         "Upload",
                         MessageBoxButton.OK,
                         MessageBoxImage.Warning);
@@ -3447,7 +3499,7 @@ namespace GitDeployPro.Controls
                     CheckSessionStatus();
                     if (!skipConfirm)
                     {
-                        var uploadedCount = transferResult?.Completed ?? 0;
+                        var uploadedCount = Math.Max(0, (transferResult?.Completed ?? 0) - (transferResult?.Skipped ?? 0));
                         var skippedCount = skipped + (transferResult?.Skipped ?? 0);
                         pendingDialog = () => ModernMessageBox.Show(
                             $"Upload Complete!\nUploaded: {uploadedCount}\nFolders: {foldersCreated}\nSkipped: {skippedCount}\nWorkers: {workers}",
