@@ -300,7 +300,7 @@ namespace GitDeployPro.Services.Theme
                 "directUpload.gitClean", "directUpload.gitModified", "directUpload.gitUntracked",
                 "directUpload.gitIgnored", "directUpload.gitConflicted",
                 "tree.searchMatchBackground", "tree.searchMatchForeground",
-                "ftp.chrome.treeSelection", "ftp.chrome.treeSelectionText", "ftp.chrome.overlay",
+                "ftp.chrome.treeSelection", "ftp.chrome.treeSelectionText", "ftp.chrome.checkboxModeActive", "ftp.chrome.overlay",
                 "ftp.chrome.skeleton1", "ftp.chrome.skeleton2", "ftp.chrome.skeleton3",
                 "logs.background", "logs.foreground", "logs.success", "logs.warning", "logs.error",
                 "terminal.hostBackground", "terminal.statusConnected", "terminal.statusDisconnected",

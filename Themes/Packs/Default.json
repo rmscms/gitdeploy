@@ -87,6 +87,7 @@
       "chrome": {
         "treeSelection": "#2B65D9",
         "treeSelectionText": "#FFFFFF",
+        "checkboxModeActive": "#1E3A5F88",
         "overlay": "#AF151C26",
         "skeleton1": "#213D4F66",
         "skeleton2": "#1B3D4F66",

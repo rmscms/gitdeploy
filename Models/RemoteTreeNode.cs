@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using GitDeployPro.Services;
@@ -12,6 +13,7 @@ namespace GitDeployPro.Models
         private bool _isExpanded;
         private bool _isSelected;
         private bool _isMultiSelected;
+        private bool? _isChecked;
         private bool _isLoaded;
         private string _iconColor = "#FF9AA8B5";
         private string _badgeText = "FILE";
@@ -63,6 +65,84 @@ namespace GitDeployPro.Models
         }
 
         public ObservableCollection<RemoteTreeNode> Children { get; } = new();
+
+        public RemoteTreeNode? Parent { get; set; }
+
+        public bool? IsChecked
+        {
+            get => _isChecked;
+            set
+            {
+                if (_isChecked == value)
+                {
+                    return;
+                }
+
+                _isChecked = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsChecked)));
+
+                if (_isChecked.HasValue)
+                {
+                    foreach (var child in Children)
+                    {
+                        child.SetIsCheckedFromParent(_isChecked.Value);
+                    }
+                }
+
+                Parent?.CheckParentStatus();
+            }
+        }
+
+        public void SetIsCheckedFromParent(bool value)
+        {
+            if (_isChecked == value)
+            {
+                return;
+            }
+
+            _isChecked = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsChecked)));
+            foreach (var child in Children)
+            {
+                child.SetIsCheckedFromParent(value);
+            }
+        }
+
+        public void CheckParentStatus()
+        {
+            if (Children.Count == 0)
+            {
+                return;
+            }
+
+            var allChecked = Children.All(x => x.IsChecked == true);
+            var allUnchecked = Children.All(x => x.IsChecked == false);
+            if (allChecked)
+            {
+                _isChecked = true;
+            }
+            else if (allUnchecked)
+            {
+                _isChecked = false;
+            }
+            else
+            {
+                _isChecked = null;
+            }
+
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsChecked)));
+            Parent?.CheckParentStatus();
+        }
+
+        public void ClearChecked()
+        {
+            _isChecked = false;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsChecked)));
+            foreach (var child in Children)
+            {
+                child.ClearChecked();
+            }
+        }
 
         public bool IsExpanded
         {

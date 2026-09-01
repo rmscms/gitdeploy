@@ -98,6 +98,27 @@ namespace GitDeployPro.Controls
         public event EventHandler? EditorFloatRequested;
         public bool IsEditorOpen => _isEditorOpen;
 
+        public static readonly DependencyProperty RemoteCheckboxModeEnabledProperty =
+            DependencyProperty.Register(
+                nameof(RemoteCheckboxModeEnabled),
+                typeof(bool),
+                typeof(DeployRemoteWorkspaceControl),
+                new PropertyMetadata(false, OnRemoteCheckboxModeEnabledChanged));
+
+        public bool RemoteCheckboxModeEnabled
+        {
+            get => (bool)GetValue(RemoteCheckboxModeEnabledProperty);
+            set => SetValue(RemoteCheckboxModeEnabledProperty, value);
+        }
+
+        private static void OnRemoteCheckboxModeEnabledChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            if (d is DeployRemoteWorkspaceControl control)
+            {
+                control.ApplyRemoteCheckboxModeUi();
+            }
+        }
+
         public DeployRemoteWorkspaceControl()
         {
             InitializeComponent();
@@ -204,6 +225,11 @@ namespace GitDeployPro.Controls
                 RemoteTreeView.Resources[System.Windows.SystemColors.InactiveSelectionHighlightBrushKey] = new SolidColorBrush(selection);
                 RemoteTreeView.Resources[System.Windows.SystemColors.HighlightTextBrushKey] = new SolidColorBrush(selectionText);
                 RemoteTreeView.Resources[System.Windows.SystemColors.InactiveSelectionHighlightTextBrushKey] = new SolidColorBrush(selectionText);
+            }
+
+            if (RemoteCheckboxModeEnabled)
+            {
+                ApplyRemoteCheckboxModeUi();
             }
 
             if (RemoteLoadingOverlay != null)
@@ -1728,6 +1754,7 @@ namespace GitDeployPro.Controls
 
             RootNodes.Clear();
             RootNodes.Add(rootNode);
+            WireParentLinks(RootNodes);
             ApplyRemoteTreeSearch();
 
             // Force-expand after the TreeViewItem container exists.
@@ -1942,6 +1969,20 @@ namespace GitDeployPro.Controls
             foreach (var child in next)
             {
                 folder.Children.Add(child);
+            }
+
+            WireParentLinks(folder.Children, folder);
+        }
+
+        private static void WireParentLinks(IEnumerable<RemoteTreeNode> nodes, RemoteTreeNode? parent = null)
+        {
+            foreach (var node in nodes)
+            {
+                node.Parent = parent;
+                if (node.Children.Count > 0)
+                {
+                    WireParentLinks(node.Children, node);
+                }
             }
         }
 
@@ -2454,6 +2495,7 @@ namespace GitDeployPro.Controls
             RemoteTreeNode node,
             IReadOnlyList<RemoteTreeNode> selected)
         {
+            var checkedActions = BuildCheckedDownloadContextActions();
             var items = selected.Count > 0 ? selected : new[] { node };
             var multi = items.Count > 1;
             var deletable = items.Where(item => !IsBrowseRootNode(item) && !item.IsPlaceholder).ToList();
@@ -2461,31 +2503,43 @@ namespace GitDeployPro.Controls
 
             if (multi)
             {
-                return new List<AppContextMenuAction>
+                var multiActions = new List<AppContextMenuAction>();
+                if (checkedActions.Count > 0)
                 {
-                    new()
-                    {
-                        Id = "download",
-                        Label = $"Download ({deletable.Count} items)",
-                        IconGlyph = "⬇",
-                        IsEnabled = canDelete,
-                        Execute = _ => _ = DownloadNodesAsync(deletable)
-                    },
-                    AppContextMenuAction.Separator("remote-action-separator"),
-                    new()
-                    {
-                        Id = "delete",
-                        Label = $"Delete ({deletable.Count} items)",
-                        IconGlyph = "🗑",
-                        IsDestructive = true,
-                        IsEnabled = canDelete,
-                        Execute = _ => _ = DeleteNodesAsync(deletable)
-                    }
-                };
+                    multiActions.AddRange(checkedActions);
+                    multiActions.Add(AppContextMenuAction.Separator("remote-checked-separator"));
+                }
+
+                multiActions.Add(new AppContextMenuAction
+                {
+                    Id = "download",
+                    Label = $"Download ({deletable.Count} items)",
+                    IconGlyph = "⬇",
+                    IsEnabled = canDelete,
+                    Execute = _ => _ = DownloadNodesAsync(deletable)
+                });
+                multiActions.Add(AppContextMenuAction.Separator("remote-action-separator"));
+                multiActions.Add(new AppContextMenuAction
+                {
+                    Id = "delete",
+                    Label = $"Delete ({deletable.Count} items)",
+                    IconGlyph = "🗑",
+                    IsDestructive = true,
+                    IsEnabled = canDelete,
+                    Execute = _ => _ = DeleteNodesAsync(deletable)
+                });
+                return multiActions;
             }
 
             var isRoot = IsBrowseRootNode(node);
-            var actions = new List<AppContextMenuAction>
+            var menuActions = new List<AppContextMenuAction>();
+            if (checkedActions.Count > 0)
+            {
+                menuActions.AddRange(checkedActions);
+                menuActions.Add(AppContextMenuAction.Separator("remote-checked-separator-single"));
+            }
+
+            menuActions.AddRange(new List<AppContextMenuAction>
             {
                 new()
                 {
@@ -2551,12 +2605,12 @@ namespace GitDeployPro.Controls
                     IsEnabled = !isRoot,
                     Execute = _ => _ = DeleteNodeAsync(node)
                 }
-            };
+            });
 
             if (node.IsDirectory)
             {
-                actions.Add(AppContextMenuAction.Separator("remote-mapping-separator"));
-                actions.Add(new AppContextMenuAction
+                menuActions.Add(AppContextMenuAction.Separator("remote-mapping-separator"));
+                menuActions.Add(new AppContextMenuAction
                 {
                     Id = "mapping",
                     Label = "Mapping",
@@ -2565,8 +2619,8 @@ namespace GitDeployPro.Controls
                 });
             }
 
-            actions.Add(AppContextMenuAction.Separator("remote-properties-separator"));
-            actions.Add(new AppContextMenuAction
+            menuActions.Add(AppContextMenuAction.Separator("remote-properties-separator"));
+            menuActions.Add(new AppContextMenuAction
             {
                 Id = "permissions",
                 Label = "Permissions",
@@ -2574,7 +2628,7 @@ namespace GitDeployPro.Controls
                 IsEnabled = !node.IsPlaceholder,
                 Execute = _ => ShowRemotePermissions(node)
             });
-            actions.Add(new AppContextMenuAction
+            menuActions.Add(new AppContextMenuAction
             {
                 Id = "properties",
                 Label = "Properties",
@@ -2583,7 +2637,7 @@ namespace GitDeployPro.Controls
                 Execute = _ => ShowRemoteItemProperties(node)
             });
 
-            return actions;
+            return menuActions;
         }
 
         private string ResolveRemoteParentDirectory(RemoteTreeNode node)
@@ -2895,6 +2949,201 @@ namespace GitDeployPro.Controls
             return RemotePathResolver.ResolveLocalDownloadRoot(projectRoot, mapping);
         }
 
+        private void ToggleRemoteCheckboxModeButton_Click(object sender, RoutedEventArgs e)
+        {
+            RemoteCheckboxModeEnabled = !RemoteCheckboxModeEnabled;
+        }
+
+        private void RemoteSelectAllButton_Click(object sender, RoutedEventArgs e)
+        {
+            SetAllRemoteChecked(true);
+        }
+
+        private void RemoteDeselectAllButton_Click(object sender, RoutedEventArgs e)
+        {
+            SetAllRemoteChecked(false);
+        }
+
+        private void DownloadCheckedButton_Click(object sender, RoutedEventArgs e)
+        {
+            var targets = GetCheckedDownloadTargets();
+            if (targets.Count == 0)
+            {
+                ModernMessageBox.Show(
+                    Loc.T("deploy.remoteDownloadNothingChecked"),
+                    Loc.T("deploy.remoteDownloadChecked"),
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information,
+                    context: this);
+                return;
+            }
+
+            _ = DownloadNodesAsync(targets);
+        }
+
+        private void RemoteItemCheckBox_Click(object sender, RoutedEventArgs e)
+        {
+            UpdateRemoteCheckedDownloadUi();
+        }
+
+        private void ApplyRemoteCheckboxModeUi()
+        {
+            var enabled = RemoteCheckboxModeEnabled;
+            var bulkVisibility = enabled ? Visibility.Visible : Visibility.Collapsed;
+            if (RemoteSelectAllButton != null)
+            {
+                RemoteSelectAllButton.Visibility = bulkVisibility;
+            }
+
+            if (RemoteDeselectAllButton != null)
+            {
+                RemoteDeselectAllButton.Visibility = bulkVisibility;
+            }
+
+            if (DownloadCheckedButton != null)
+            {
+                DownloadCheckedButton.Visibility = bulkVisibility;
+            }
+
+            if (ToggleRemoteCheckboxModeButton != null)
+            {
+                ToggleRemoteCheckboxModeButton.ToolTip = enabled
+                    ? Loc.T("deploy.remoteCheckboxMode.on")
+                    : Loc.T("deploy.tip.remoteCheckboxMode");
+                var tokens = ThemeService.Instance.CurrentTokens;
+                var activeColor = tokens.GetColor(
+                    "ftp.chrome.checkboxModeActive",
+                    (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#1E3A5F"));
+                ToggleRemoteCheckboxModeButton.Background = enabled
+                    ? new SolidColorBrush(activeColor)
+                    : System.Windows.Media.Brushes.Transparent;
+            }
+
+            if (!enabled)
+            {
+                ClearRemoteCheckedSelection();
+            }
+
+            UpdateRemoteCheckedDownloadUi();
+        }
+
+        private void ClearRemoteCheckedSelection()
+        {
+            foreach (var node in RootNodes)
+            {
+                node.ClearChecked();
+            }
+        }
+
+        private void SetAllRemoteChecked(bool value)
+        {
+            foreach (var root in RootNodes)
+            {
+                if (IsBrowseRootNode(root))
+                {
+                    foreach (var child in root.Children.Where(c => !c.IsPlaceholder))
+                    {
+                        child.IsChecked = value;
+                    }
+                }
+                else
+                {
+                    root.IsChecked = value;
+                }
+            }
+
+            UpdateRemoteCheckedDownloadUi();
+        }
+
+        private static void CollectCheckedDownloadTargets(
+            IEnumerable<RemoteTreeNode> nodes,
+            ICollection<RemoteTreeNode> folders,
+            ICollection<RemoteTreeNode> files)
+        {
+            foreach (var node in nodes)
+            {
+                if (node.IsPlaceholder)
+                {
+                    continue;
+                }
+
+                if (node.IsDirectory)
+                {
+                    var realChildren = node.Children.Where(child => !child.IsPlaceholder).ToList();
+                    if (realChildren.Count > 0)
+                    {
+                        CollectCheckedDownloadTargets(realChildren, folders, files);
+                    }
+                    else if (node.IsChecked == true)
+                    {
+                        folders.Add(node);
+                    }
+                }
+                else if (node.IsChecked == true)
+                {
+                    files.Add(node);
+                }
+            }
+        }
+
+        private IReadOnlyList<RemoteTreeNode> GetCheckedDownloadTargets()
+        {
+            var folders = new List<RemoteTreeNode>();
+            var files = new List<RemoteTreeNode>();
+            CollectCheckedDownloadTargets(RootNodes, folders, files);
+            var combined = folders.Concat(files)
+                .Where(node => !IsBrowseRootNode(node))
+                .ToList();
+            return TreeMultiSelectHelpers.CollapseNestedByPath(
+                combined,
+                node => node.FullPath,
+                node => node.IsDirectory);
+        }
+
+        private int CountCheckedDownloadTargets()
+        {
+            return GetCheckedDownloadTargets().Count;
+        }
+
+        private void UpdateRemoteCheckedDownloadUi()
+        {
+            if (!RemoteCheckboxModeEnabled || DownloadCheckedButton == null)
+            {
+                return;
+            }
+
+            var count = CountCheckedDownloadTargets();
+            DownloadCheckedButton.IsEnabled = count > 0;
+            DownloadCheckedButton.ToolTip = count > 0
+                ? $"{Loc.T("deploy.remoteDownloadChecked")} ({count})"
+                : Loc.T("deploy.remoteDownloadChecked");
+        }
+
+        private IReadOnlyList<AppContextMenuAction> BuildCheckedDownloadContextActions()
+        {
+            if (!RemoteCheckboxModeEnabled)
+            {
+                return Array.Empty<AppContextMenuAction>();
+            }
+
+            var checkedTargets = GetCheckedDownloadTargets();
+            if (checkedTargets.Count == 0)
+            {
+                return Array.Empty<AppContextMenuAction>();
+            }
+
+            return new[]
+            {
+                new AppContextMenuAction
+                {
+                    Id = "download-checked",
+                    Label = $"{Loc.T("deploy.remoteDownloadChecked")} ({checkedTargets.Count})",
+                    IconGlyph = "⬇",
+                    Execute = _ => _ = DownloadNodesAsync(checkedTargets)
+                }
+            };
+        }
+
         private Task DownloadNodeAsync(RemoteTreeNode node) =>
             DownloadNodesAsync(node == null ? Array.Empty<RemoteTreeNode>() : new[] { node });
 
@@ -2914,20 +3163,53 @@ namespace GitDeployPro.Controls
                 return;
             }
 
-            if (!TryResolveDownloadRoot(out var localRoot))
+            var projectRoot = _configService.LoadGlobalConfig().LastProjectPath;
+            var planned = new List<(RemoteTreeNode Node, string LocalTarget)>();
+            var skipped = new List<string>();
+            foreach (var node in targets)
             {
+                if (!RemotePathResolver.TryResolveDownloadTargetFromRemotePath(
+                        node.FullPath,
+                        _currentProfile,
+                        projectRoot,
+                        node.IsDirectory,
+                        node.Name,
+                        out var localTarget,
+                        out _))
+                {
+                    skipped.Add(node.FullPath);
+                    continue;
+                }
+
+                planned.Add((node, localTarget));
+            }
+
+            if (planned.Count == 0)
+            {
+                var message = skipped.Count > 0
+                    ? Loc.T("deploy.remoteDownloadUnmapped")
+                    : "Nothing to download.";
+                SetStatus(message, warning: true);
+                AddLog(message);
+                ModernMessageBox.Show(
+                    message,
+                    Loc.T("deploy.remoteDownloadChecked"),
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning,
+                    context: this);
                 return;
             }
 
-            var remoteRoot = RemotePathResolver.BuildRemoteRoot(_currentProfile);
-            var planned = targets.Select(node => (
-                Node: node,
-                LocalTarget: RemotePathResolver.BuildLocalDownloadPath(
-                    localRoot,
-                    remoteRoot,
-                    node.FullPath,
-                    node.IsDirectory,
-                    node.Name))).ToList();
+            if (skipped.Count > 0)
+            {
+                var skipMessage = $"{Loc.T("deploy.remoteDownloadUnmapped")} ({skipped.Count})";
+                SetStatus(skipMessage, warning: true);
+                AddLog(skipMessage);
+                foreach (var path in skipped.Take(5))
+                {
+                    AddLog($"  • skipped {path}");
+                }
+            }
 
             var existing = planned
                 .Where(item => LocalDownloadTargetExists(item.LocalTarget, item.Node.IsDirectory))
@@ -3061,9 +3343,17 @@ namespace GitDeployPro.Controls
                 }
 
                 SetStatus(
-                    $"Downloaded {result.Completed} files with {result.WorkerCount} live workers → {localRoot}",
+                    $"Downloaded {result.Completed} files with {result.WorkerCount} live workers",
                     success: true);
-                AddLog($"Download verified: {result.Completed}/{jobs.Count} files, {result.WorkerCount} workers, under {localRoot}");
+                var destinationHint = planned
+                    .Select(item => item.LocalTarget)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Take(2)
+                    .ToList();
+                var destinationText = destinationHint.Count == 1
+                    ? destinationHint[0]
+                    : $"{destinationHint.Count} mapped destinations";
+                AddLog($"Download verified: {result.Completed}/{jobs.Count} files, {result.WorkerCount} workers → {destinationText}");
                 _transferMonitor.Finish($"Done: {result.Completed} files · {result.WorkerCount} workers");
             }
             catch (OperationCanceledException)
@@ -3086,33 +3376,6 @@ namespace GitDeployPro.Controls
                 _downloadCts = null;
                 HideDownloadProgress();
             }
-        }
-
-        private bool TryResolveDownloadRoot(out string localRoot)
-        {
-            localRoot = string.Empty;
-            var mapping = RemotePathResolver.GetPrimaryMapping(_currentProfile);
-            if (mapping != null)
-            {
-                localRoot = RemotePathResolver.ResolveLocalDownloadRoot(
-                    _configService.LoadGlobalConfig().LastProjectPath,
-                    mapping);
-                return !string.IsNullOrWhiteSpace(localRoot);
-            }
-
-            using var dialog = new Forms.FolderBrowserDialog
-            {
-                Description = "Choose where to download remote files",
-                SelectedPath = ResolveDefaultDownloadRoot()
-            };
-
-            if (dialog.ShowDialog() != Forms.DialogResult.OK || string.IsNullOrWhiteSpace(dialog.SelectedPath))
-            {
-                return false;
-            }
-
-            localRoot = dialog.SelectedPath;
-            return true;
         }
 
         private static bool LocalDownloadTargetExists(string path, bool isDirectory)
