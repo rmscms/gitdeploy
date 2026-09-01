@@ -432,5 +432,137 @@ namespace GitDeployPro.Services.Remote
 
             return result;
         }
+
+        /// <summary>
+        /// Resolve local download path from a remote path using all active mappings.
+        /// Longer remote mapping segments win (mirror of upload local-segment ranking).
+        /// </summary>
+        public static bool TryResolveDownloadTargetFromRemotePath(
+            string remotePath,
+            ConnectionProfile? profile,
+            string? projectRoot,
+            bool isDirectory,
+            string fallbackName,
+            out string localFullPath,
+            out PathMapping? matchedMapping)
+        {
+            localFullPath = string.Empty;
+            matchedMapping = null;
+
+            if (string.IsNullOrWhiteSpace(remotePath) || profile == null)
+            {
+                return false;
+            }
+
+            var mappings = GetActiveMappings(profile);
+            var profileBase = NormalizeRemoteBase(profile.RemotePath).TrimEnd('/');
+
+            if (mappings.Count == 0)
+            {
+                var localRoot = ResolveLocalDownloadRoot(projectRoot, null);
+                localFullPath = BuildLocalDownloadPath(
+                    localRoot,
+                    profileBase,
+                    remotePath,
+                    isDirectory,
+                    fallbackName);
+                return true;
+            }
+
+            var ranked = mappings
+                .Select(pm => new
+                {
+                    Mapping = pm,
+                    MappedRemoteFull = CombineRemotePaths(profileBase, pm.RemotePath).TrimEnd('/'),
+                    RemoteSegment = GetRemoteMappingSegment(profile.RemotePath, pm.RemotePath),
+                    IsRoot = IsRootRemoteMapping(profile.RemotePath, pm.RemotePath)
+                })
+                .OrderByDescending(x => x.RemoteSegment.Length)
+                .ThenBy(x => x.IsRoot ? 1 : 0)
+                .ToList();
+
+            var hasSubfolderMappings = ranked.Any(x => !x.IsRoot && !string.IsNullOrEmpty(x.RemoteSegment));
+
+            foreach (var item in ranked.Where(x => !x.IsRoot))
+            {
+                if (!IsUnderRemoteMapping(remotePath, item.MappedRemoteFull))
+                {
+                    continue;
+                }
+
+                matchedMapping = item.Mapping;
+                var localRoot = ResolveLocalDownloadRoot(projectRoot, item.Mapping);
+                localFullPath = BuildLocalDownloadPath(
+                    localRoot,
+                    item.MappedRemoteFull,
+                    remotePath,
+                    isDirectory,
+                    fallbackName);
+                return true;
+            }
+
+            var rootMapping = ranked.FirstOrDefault(x => x.IsRoot);
+            if (rootMapping != null && IsUnderRemoteMapping(remotePath, profileBase))
+            {
+                matchedMapping = rootMapping.Mapping;
+                var localRoot = ResolveLocalDownloadRoot(projectRoot, rootMapping.Mapping);
+                localFullPath = BuildLocalDownloadPath(
+                    localRoot,
+                    profileBase,
+                    remotePath,
+                    isDirectory,
+                    fallbackName);
+                return true;
+            }
+
+            if (hasSubfolderMappings)
+            {
+                return false;
+            }
+
+            if (IsUnderRemoteMapping(remotePath, profileBase))
+            {
+                var localRoot = ResolveLocalDownloadRoot(projectRoot, null);
+                localFullPath = BuildLocalDownloadPath(
+                    localRoot,
+                    profileBase,
+                    remotePath,
+                    isDirectory,
+                    fallbackName);
+                return true;
+            }
+
+            return false;
+        }
+
+        private static string GetRemoteMappingSegment(string? profileRemotePath, string? storedRemoteMapping)
+        {
+            var normalizedStored = NormalizeStoredRemoteMapping(storedRemoteMapping, profileRemotePath);
+            if (normalizedStored is "/" or "")
+            {
+                return string.Empty;
+            }
+
+            return normalizedStored.Trim('/').Trim();
+        }
+
+        private static bool IsRootRemoteMapping(string? profileRemotePath, string? storedRemoteMapping)
+        {
+            var normalizedStored = NormalizeStoredRemoteMapping(storedRemoteMapping, profileRemotePath);
+            return normalizedStored is "/" or "";
+        }
+
+        private static bool IsUnderRemoteMapping(string remotePath, string mappedRemoteFull)
+        {
+            var path = NormalizeRemoteBase(remotePath).TrimEnd('/');
+            var mapped = NormalizeRemoteBase(mappedRemoteFull).TrimEnd('/');
+            if (string.IsNullOrWhiteSpace(mapped) || mapped == "/")
+            {
+                return !string.IsNullOrWhiteSpace(path);
+            }
+
+            return path.Equals(mapped, StringComparison.OrdinalIgnoreCase)
+                   || path.StartsWith(mapped + "/", StringComparison.OrdinalIgnoreCase);
+        }
     }
 }

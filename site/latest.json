@@ -1,14 +1,13 @@
 {
-  "version": "1.5.33",
-  "fileName": "GitDeployPro-1.5.33.exe",
-  "downloadUrl": "versions/GitDeployPro-1.5.33.exe",
-  "sha256": "C61BC77B2A8AE74489238BBF5885F499FA58D0B8D9BC732CD2A80B588778CF09",
-  "releaseNotes": "- Global default upload workers for Commit + Deploy (icon + Settings; no worker prompt)\n- Transfer monitor floats over the terminal while upload is active\n- Fixes: transfer card clipping beside console; tucks behind terminal when done",
+  "version": "1.5.53",
+  "fileName": "GitDeployPro-1.5.53.exe",
+  "downloadUrl": "versions/GitDeployPro-1.5.53.exe",
+  "sha256": "1B7F4AAF18D983EBDB7A332E1EE00B4BCD643F7D1FB87599C40E55FE9636B783",
+  "releaseNotes": "- Optional FTP checkbox mode: pick files/folders from different branches, download together\n- Download respects all path mappings per file/folder (not just primary mapping)",
   "changelog": [
-    "Global default upload workers for Commit + Deploy (icon + Settings; no worker prompt)",
-    "Transfer monitor floats over the terminal while upload is active",
-    "Fixes: transfer card clipping beside console; tucks behind terminal when done"
+    "Optional FTP checkbox mode: pick files/folders from different branches, download together",
+    "Download respects all path mappings per file/folder (not just primary mapping)"
   ],
   "mandatory": false,
-  "publishedUtc": "2026-08-31T15:15:00Z"
+  "publishedUtc": "2026-09-01T06:05:00Z"
 }
