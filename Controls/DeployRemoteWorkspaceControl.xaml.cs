@@ -3144,6 +3144,11 @@ namespace GitDeployPro.Controls
             };
         }
 
+        private async void SyncManifestButton_Click(object sender, RoutedEventArgs e)
+        {
+            await RunSyncPullAsync();
+        }
+
         private async Task RunSyncPullAsync()
         {
             if (_remoteService == null || !_remoteService.IsConnected || _currentProfile == null || _isBusy || _isDownloading)
