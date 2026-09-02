@@ -645,6 +645,11 @@
                         Content="🗂"
                         ToolTip="{loc:T deploy.tip.remoteHost}"
                         Click="ToggleRemoteWorkspaceButton_Click" />
+                <Button x:Name="EditSyncManifestRailButton"
+                        Style="{StaticResource DeployRailButtonStyle}"
+                        Content="📋"
+                        ToolTip="{loc:T deploy.tip.editSync}"
+                        Click="EditSyncManifestRailButton_Click" />
             </StackPanel>
         </Border>
 
