@@ -3144,6 +3144,153 @@ namespace GitDeployPro.Controls
             };
         }
 
+        private async Task RunSyncPullAsync()
+        {
+            if (_remoteService == null || !_remoteService.IsConnected || _currentProfile == null || _isBusy || _isDownloading)
+            {
+                SetStatus(Loc.T("deploy.sync.notConnected"), warning: true);
+                return;
+            }
+
+            var manifestPath = SyncManifestService.GetRemoteManifestPath(_currentProfile);
+            var loadResult = await SyncManifestService.LoadAsync(_remoteService, _currentProfile);
+            if (!string.IsNullOrWhiteSpace(loadResult.ErrorMessage))
+            {
+                ModernMessageBox.Show(
+                    $"{Loc.T("deploy.sync.corrupt")}{Environment.NewLine}{Environment.NewLine}{loadResult.ErrorMessage}",
+                    Loc.T("deploy.sync"),
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning,
+                    context: this);
+                return;
+            }
+
+            if (!loadResult.Found || loadResult.Manifest.Paths.Count == 0)
+            {
+                var create = ModernMessageBox.ShowWithResult(
+                    Loc.T("deploy.sync.noManifest"),
+                    Loc.T("deploy.sync"),
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question,
+                    primaryText: Loc.T("deploy.sync.edit"),
+                    secondaryText: Loc.T("common.cancel"),
+                    context: this);
+                if (create == MessageBoxResult.Yes)
+                {
+                    await OpenSyncEditorAsync();
+                }
+
+                return;
+            }
+
+            if (await TryBootstrapMappingsFromManifestAsync(loadResult.Manifest))
+            {
+                await LoadRootAsync();
+            }
+
+            var preview = new SyncPreviewWindow(
+                manifestPath,
+                SyncManifestService.BuildPreviewItems(loadResult.Manifest));
+            if (WindowOwnerService.ShowDialogOwned(preview, this) != true)
+            {
+                return;
+            }
+
+            var nodes = SyncManifestService.ResolveDownloadNodes(preview.SelectedPaths, RootNodes);
+            if (nodes.Count == 0)
+            {
+                ModernMessageBox.Show(
+                    Loc.T("deploy.sync.previewEmpty"),
+                    Loc.T("deploy.sync"),
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information,
+                    context: this);
+                return;
+            }
+
+            await DownloadNodesAsync(nodes);
+        }
+
+        public async Task OpenSyncEditorAsync()
+        {
+            if (_remoteService == null || !_remoteService.IsConnected || _currentProfile == null || _isBusy)
+            {
+                SetStatus(Loc.T("deploy.sync.notConnected"), warning: true);
+                return;
+            }
+
+            var manifestPath = SyncManifestService.GetRemoteManifestPath(_currentProfile);
+            var loadResult = await SyncManifestService.LoadAsync(_remoteService, _currentProfile);
+            var manifest = loadResult.Manifest;
+
+            if (RemoteCheckboxModeEnabled)
+            {
+                var checkedManifest = SyncManifestService.BuildFromCheckedNodes(
+                    RootNodes,
+                    _currentProfile,
+                    IsBrowseRootNode);
+                if (checkedManifest.Paths.Count > 0 && manifest.Paths.Count == 0)
+                {
+                    manifest = checkedManifest;
+                }
+            }
+
+            var editor = new SyncManifestEditorWindow(
+                _currentProfile,
+                manifestPath,
+                RootNodes,
+                manifest,
+                IsBrowseRootNode);
+            if (WindowOwnerService.ShowDialogOwned(editor, this) != true)
+            {
+                return;
+            }
+
+            try
+            {
+                await SyncManifestService.SaveAsync(_remoteService, _currentProfile, editor.SavedManifest);
+                SetStatus(Loc.T("deploy.sync.saved"), success: true);
+                AddLog($"Saved sync manifest to {manifestPath} ({editor.SavedManifest.Paths.Count} paths)");
+            }
+            catch (Exception ex)
+            {
+                SetStatus($"{Loc.T("deploy.sync.saveFailed")}: {ex.Message}", warning: true);
+                AddLog($"Sync manifest save failed: {ex.Message}");
+                ModernMessageBox.Show(
+                    ex.Message,
+                    Loc.T("deploy.sync.edit"),
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error,
+                    context: this);
+            }
+        }
+
+        private async Task<bool> TryBootstrapMappingsFromManifestAsync(SyncManifest manifest)
+        {
+            if (_currentProfile == null || !SyncManifestService.ShouldOfferMappingBootstrap(_currentProfile, manifest))
+            {
+                return false;
+            }
+
+            var apply = ModernMessageBox.ShowWithResult(
+                Loc.T("deploy.sync.applyMappings"),
+                Loc.T("deploy.sync"),
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question,
+                primaryText: Loc.T("common.yes"),
+                secondaryText: Loc.T("common.no"),
+                context: this);
+            if (apply != MessageBoxResult.Yes)
+            {
+                return false;
+            }
+
+            SyncManifestService.ApplyMappingsToProfile(_currentProfile, manifest, _configService);
+            UpdateMappingBanner();
+            AddLog("Applied path mappings from sync manifest.");
+            return true;
+        }
+
         private Task DownloadNodeAsync(RemoteTreeNode node) =>
             DownloadNodesAsync(node == null ? Array.Empty<RemoteTreeNode>() : new[] { node });
 

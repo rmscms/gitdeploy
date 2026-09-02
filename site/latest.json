@@ -1,13 +1,14 @@
 {
-  "version": "1.5.53",
-  "fileName": "GitDeployPro-1.5.53.exe",
-  "downloadUrl": "versions/GitDeployPro-1.5.53.exe",
-  "sha256": "1B7F4AAF18D983EBDB7A332E1EE00B4BCD643F7D1FB87599C40E55FE9636B783",
-  "releaseNotes": "- Optional FTP checkbox mode: pick files/folders from different branches, download together\n- Download respects all path mappings per file/folder (not just primary mapping)",
+  "version": "1.5.74",
+  "fileName": "GitDeployPro-1.5.74.exe",
+  "downloadUrl": "versions/GitDeployPro-1.5.74.exe",
+  "sha256": "32BB170AB12983E4850040C6438F8E2D0C511CD91B40275549D389D0BA2AE3D8",
+  "releaseNotes": "- FTP sync manifest (.gitdeploy.sync.json): preview and pull selected paths with workers and path mapping\n- Edit Sync on deploy rail: checkbox tree editor, save manifest to FTP, optional mapping bootstrap for new devs\n- Fix: sync editor correctly counts and saves checked paths under browse root",
   "changelog": [
-    "Optional FTP checkbox mode: pick files/folders from different branches, download together",
-    "Download respects all path mappings per file/folder (not just primary mapping)"
+    "FTP sync manifest (.gitdeploy.sync.json): preview and pull selected paths with workers and path mapping",
+    "Edit Sync on deploy rail: checkbox tree editor, save manifest to FTP, optional mapping bootstrap for new devs",
+    "Fix: sync editor correctly counts and saves checked paths under browse root"
   ],
   "mandatory": false,
-  "publishedUtc": "2026-09-01T06:05:00Z"
+  "publishedUtc": "2026-09-02T03:20:00Z"
 }

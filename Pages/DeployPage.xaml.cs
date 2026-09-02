@@ -547,6 +547,28 @@ namespace GitDeployPro.Pages
             ApplyWorkspaceLayout(force: true);
         }
 
+        private async void EditSyncManifestRailButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_isRemoteEditorOverlayActive || DeployRemoteWorkspace.IsEditorOpen)
+            {
+                if (!await DeployRemoteWorkspace.TryCloseEditorViewAsync(promptUnsaved: true))
+                {
+                    return;
+                }
+
+                ApplyWorkspaceLayout(force: true);
+            }
+
+            if (_isRemoteWorkspaceCollapsed)
+            {
+                _isRemoteWorkspaceCollapsed = false;
+                _compactPanelOpenedByUser = true;
+                ApplyWorkspaceLayout(force: true);
+            }
+
+            await DeployRemoteWorkspace.OpenSyncEditorAsync();
+        }
+
         private void OpenBottomTerminalButton_Click(object sender, RoutedEventArgs e)
         {
             // PhpStorm-style: same tool icon toggles the tool window closed.

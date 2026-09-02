@@ -1,0 +1,127 @@
+<mah:MetroWindow x:Class="GitDeployPro.Windows.SyncManifestEditorWindow"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
+                 xmlns:loc="clr-namespace:GitDeployPro.Services.Localization"
+                 Title="{loc:T deploy.sync.edit}"
+                 Width="760"
+                 MinWidth="620"
+                 Height="620"
+                 MinHeight="480"
+                 WindowStartupLocation="CenterOwner"
+                 ResizeMode="CanResizeWithGrip"
+                 Background="{StaticResource Surface.Base}"
+                 Foreground="{StaticResource Text.Primary}"
+                 WindowTitleBrush="{StaticResource Surface.Card}"
+                 NonActiveWindowTitleBrush="{StaticResource Surface.Card}">
+    <Grid Margin="20,16,20,20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,10">
+            <TextBlock x:Name="HeaderText"
+                       FontSize="14"
+                       FontWeight="SemiBold"
+                       TextWrapping="Wrap"
+                       Foreground="{StaticResource Text.Primary}" />
+            <TextBlock x:Name="ManifestPathText"
+                       Margin="0,4,0,0"
+                       FontFamily="{StaticResource FontFamily.Mono}"
+                       FontSize="11"
+                       Foreground="{StaticResource Text.Muted}"
+                       TextWrapping="Wrap" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="1"
+                    Orientation="Horizontal"
+                    Margin="0,0,0,8">
+            <Button Content="{loc:T deploy.remoteSelectAll}"
+                    Style="{StaticResource App.Button.Ghost}"
+                    Height="28"
+                    Padding="10,0"
+                    Margin="0,0,6,0"
+                    Click="SelectAll_Click" />
+            <Button Content="{loc:T deploy.remoteDeselectAll}"
+                    Style="{StaticResource App.Button.Ghost}"
+                    Height="28"
+                    Padding="10,0"
+                    Margin="0,0,6,0"
+                    Click="DeselectAll_Click" />
+            <TextBlock x:Name="CheckedCountText"
+                       VerticalAlignment="Center"
+                       FontSize="11"
+                       Foreground="{StaticResource Text.Muted}" />
+        </StackPanel>
+
+        <Border Grid.Row="2"
+                Background="{StaticResource Surface.Card}"
+                BorderBrush="{StaticResource Border.Subtle}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="6">
+            <TreeView x:Name="EditorTreeView"
+                      Background="Transparent"
+                      BorderThickness="0">
+                <TreeView.ItemContainerStyle>
+                    <Style TargetType="TreeViewItem" BasedOn="{StaticResource App.TreeViewItem.FullRow}">
+                        <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+                        <Setter Property="Margin" Value="0,1,0,1" />
+                        <Setter Property="Padding" Value="2" />
+                        <Setter Property="FontSize" Value="12" />
+                        <Setter Property="Foreground" Value="{StaticResource Text.Secondary}" />
+                    </Style>
+                </TreeView.ItemContainerStyle>
+                <TreeView.ItemTemplate>
+                    <HierarchicalDataTemplate ItemsSource="{Binding Children}">
+                        <StackPanel Orientation="Horizontal">
+                            <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}"
+                                      VerticalAlignment="Center"
+                                      Margin="0,0,8,0"
+                                      Click="ItemCheckBox_Click" />
+                            <TextBlock Text="{Binding IconGlyph}"
+                                       Margin="0,0,6,0"
+                                       VerticalAlignment="Center"
+                                       FontSize="13"
+                                       Foreground="{Binding IconColor}" />
+                            <TextBlock Text="{Binding Name}"
+                                       VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"
+                                       Foreground="{StaticResource Text.Primary}" />
+                        </StackPanel>
+                    </HierarchicalDataTemplate>
+                </TreeView.ItemTemplate>
+            </TreeView>
+        </Border>
+
+        <TextBlock Grid.Row="3"
+                   Margin="0,10,0,0"
+                   Text="{loc:T deploy.sync.editHint}"
+                   TextWrapping="Wrap"
+                   FontSize="11"
+                   Foreground="{StaticResource Text.Muted}" />
+
+        <StackPanel Grid.Row="4"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Margin="0,14,0,0">
+            <Button Content="{loc:T common.cancel}"
+                    Style="{StaticResource App.Button.Ghost}"
+                    Width="96"
+                    Height="34"
+                    Margin="0,0,8,0"
+                    IsCancel="True"
+                    Click="Cancel_Click" />
+            <Button Content="{loc:T deploy.sync.saveManifest}"
+                    Style="{StaticResource App.Button.Primary}"
+                    Width="140"
+                    Height="34"
+                    IsDefault="True"
+                    Click="Save_Click" />
+        </StackPanel>
+    </Grid>
+</mah:MetroWindow>
