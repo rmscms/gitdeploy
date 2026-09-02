@@ -183,6 +183,12 @@
                             Visibility="Collapsed"
                             ToolTip="{loc:T deploy.remoteDownloadChecked}"
                             Click="DownloadCheckedButton_Click" />
+                    <Button x:Name="SyncManifestButton"
+                            Style="{StaticResource FtpToolbarIconButtonStyle}"
+                            Content="⟳"
+                            Margin="4,0,0,0"
+                            ToolTip="{loc:T deploy.tip.sync}"
+                            Click="SyncManifestButton_Click" />
                     <Button x:Name="ConnectionToggleButton"
                             Style="{StaticResource FtpToolbarIconButtonStyle}"
                             Content="⚡"

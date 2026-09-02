@@ -1,14 +1,12 @@
 {
-  "version": "1.5.74",
-  "fileName": "GitDeployPro-1.5.74.exe",
-  "downloadUrl": "versions/GitDeployPro-1.5.74.exe",
-  "sha256": "32BB170AB12983E4850040C6438F8E2D0C511CD91B40275549D389D0BA2AE3D8",
-  "releaseNotes": "- FTP sync manifest (.gitdeploy.sync.json): preview and pull selected paths with workers and path mapping\n- Edit Sync on deploy rail: checkbox tree editor, save manifest to FTP, optional mapping bootstrap for new devs\n- Fix: sync editor correctly counts and saves checked paths under browse root",
+  "version": "1.5.75",
+  "fileName": "GitDeployPro-1.5.75.exe",
+  "downloadUrl": "versions/GitDeployPro-1.5.75.exe",
+  "sha256": "8139C96E63E98AAF9DA22CA09E391C8167D5C1AFD8A8DDE35AD534B7B806542C",
+  "releaseNotes": "- Fix: Sync pull button (⟳) restored on FTP toolbar; Edit Sync (📋) stays on deploy rail",
   "changelog": [
-    "FTP sync manifest (.gitdeploy.sync.json): preview and pull selected paths with workers and path mapping",
-    "Edit Sync on deploy rail: checkbox tree editor, save manifest to FTP, optional mapping bootstrap for new devs",
-    "Fix: sync editor correctly counts and saves checked paths under browse root"
+    "Fix: Sync pull button (⟳) restored on FTP toolbar; Edit Sync (📋) stays on deploy rail"
   ],
   "mandatory": false,
-  "publishedUtc": "2026-09-02T03:20:00Z"
+  "publishedUtc": "2026-09-02T03:43:00Z"
 }
