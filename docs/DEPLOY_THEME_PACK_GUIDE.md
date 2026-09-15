@@ -27,7 +27,7 @@ Open the full guide from Settings → Themes → **Open guide**, or the file `TH
 | `id` | Stable id (sanitized); avoid `default` / `dark` for customs |
 | `displayName` | ComboBox label |
 | `basedOn` | `default` or `dark` — missing keys are filled from that pack |
-| `palette` | App brush keys (`Surface.Base`, `Text.Primary`, …) |
+| `palette` | App brush keys (`Surface.Base`, `Text.Primary`, `Chat.BubbleIn`, …) |
 | `deploy.shell` | Page / rails / docks / splitters |
 | `deploy.header` | Title / subtitle |
 | `deploy.branches` | Branch chip, action, rollback, push badge |

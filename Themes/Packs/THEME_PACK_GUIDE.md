@@ -19,6 +19,8 @@ Use this document when creating custom themes, debugging colors, or when an AI/a
 
 Palette references use `@Key` form, for example `"@Accent.Primary"`.
 
+Chat UI keys in `palette` (Telegram page): `Chat.BubbleIn`, `Chat.BubbleOut`, `Chat.BubbleInText`, `Chat.BubbleOutText`, `Chat.Composer`, `Chat.Unread`, `Chat.ThreadHover`.
+
 ## Schema overview
 
 | Section | Purpose |
@@ -27,7 +29,7 @@ Palette references use `@Key` form, for example `"@Accent.Primary"`.
 | `id` | Stable id (sanitized); avoid `default` / `dark` for customs |
 | `displayName` | Picker label |
 | `basedOn` | `default` or `dark` — missing keys are filled from that pack |
-| `palette` | App brush keys (`Surface.Base`, `Text.Primary`, …) |
+| `palette` | App brush keys (`Surface.Base`, `Text.Primary`, `Chat.BubbleIn`, …) |
 | `deploy.shell` | Page / rails / docks / splitters |
 | `deploy.header` | Title / subtitle |
 | `deploy.branches` | Branch chip, action, rollback, push badge |

@@ -243,6 +243,24 @@
                                 <TextBlock Text="Terminal" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
+                        <Button x:Name="NavTelegramButton"
+                                Style="{StaticResource Settings.NavButton}"
+                                Click="SettingsNav_Click"
+                                Tag="telegram">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="Chat24" FontSize="15" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                <TextBlock Text="Telegram" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="NavVpnButton"
+                                Style="{StaticResource Settings.NavButton}"
+                                Click="SettingsNav_Click"
+                                Tag="vpn">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="Globe24" FontSize="15" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                <TextBlock Text="{loc:T vpn.nav}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
                         <Button x:Name="NavThemesButton"
                                 Style="{StaticResource Settings.NavButton}"
                                 Click="SettingsNav_Click"
@@ -985,6 +1003,298 @@
                                          FontFamily="{StaticResource FontFamily.Mono}"
                                          FontSize="12"
                                          LostFocus="ExcludePatternsTextBox_LostFocus" />
+                            </StackPanel>
+                        </Expander>
+                    </StackPanel>
+
+                    <!-- VPN -->
+                    <StackPanel x:Name="SettingsPanelVpn" Visibility="Collapsed">
+                        <Expander Style="{StaticResource Settings.Expander}" IsExpanded="True">
+                            <Expander.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:SymbolIcon Symbol="Globe24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Accent.Primary}" VerticalAlignment="Center" />
+                                    <StackPanel>
+                                        <TextBlock Text="{loc:T vpn.title}" FontWeight="SemiBold" FontSize="13" />
+                                        <TextBlock Text="{loc:T vpn.subtitle}"
+                                                   FontSize="10"
+                                                   Foreground="{StaticResource Text.Muted}" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Expander.Header>
+                            <StackPanel>
+                                <CheckBox x:Name="VpnEnabledCheckBox"
+                                          Content="{loc:T vpn.enabled}"
+                                          Foreground="{StaticResource Text.Secondary}"
+                                          FontSize="12"
+                                          Margin="0,0,0,10" />
+                                <TextBlock Text="{loc:T vpn.provider}" Margin="0,0,0,6" Style="{StaticResource App.MutedTextStyle}" FontSize="11" />
+                                <ComboBox x:Name="VpnProviderCombo"
+                                          Height="34"
+                                          SelectionChanged="VpnProviderCombo_SelectionChanged">
+                                    <ComboBoxItem Content="OpenVPN Connect" Tag="OpenVpnConnect" />
+                                    <ComboBoxItem Content="OpenVPN GUI (Community)" Tag="OpenVpn" />
+                                </ComboBox>
+
+                                <TextBlock x:Name="VpnExePathLabel"
+                                           Text="{loc:T vpn.exePath}"
+                                           Margin="0,12,0,6"
+                                           Style="{StaticResource App.MutedTextStyle}"
+                                           FontSize="11" />
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="VpnGuiPathTextBox"
+                                             Style="{StaticResource App.InputTextBox}"
+                                             mah:TextBoxHelper.Watermark="C:\Program Files\OpenVPN Connect\OpenVPNConnect.exe" />
+                                    <Button Grid.Column="1"
+                                            Content="{loc:T vpn.detect}"
+                                            Height="34"
+                                            MinWidth="88"
+                                            Margin="8,0,0,0"
+                                            Style="{StaticResource App.Button.Ghost}"
+                                            Click="VpnDetectButton_Click" />
+                                </Grid>
+
+                                <TextBlock Text="{loc:T vpn.profile}" Margin="0,12,0,6" Style="{StaticResource App.MutedTextStyle}" FontSize="11" />
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <ComboBox x:Name="VpnProfileCombo"
+                                              Height="34"
+                                              SelectedValuePath="Name">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding DisplayLabel}" />
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                    <Button Grid.Column="1"
+                                            Content="{loc:T vpn.refreshProfiles}"
+                                            Height="34"
+                                            MinWidth="88"
+                                            Margin="8,0,0,0"
+                                            Style="{StaticResource App.Button.Ghost}"
+                                            Click="VpnRefreshProfilesButton_Click" />
+                                </Grid>
+
+                                <CheckBox x:Name="VpnConnectOnStartupCheckBox"
+                                          Content="{loc:T vpn.connectOnStartup}"
+                                          Foreground="{StaticResource Text.Secondary}"
+                                          FontSize="12"
+                                          Margin="0,12,0,0" />
+                                <CheckBox x:Name="VpnAutoReconnectCheckBox"
+                                          Content="{loc:T vpn.autoReconnect}"
+                                          Foreground="{StaticResource Text.Secondary}"
+                                          FontSize="12"
+                                          Margin="0,8,0,0" />
+
+                                <Grid Margin="0,12,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Margin="0,0,6,0">
+                                        <TextBlock Text="{loc:T vpn.healthInterval}" Margin="0,0,0,6" Style="{StaticResource App.MutedTextStyle}" FontSize="11" />
+                                        <TextBox x:Name="VpnHealthIntervalTextBox"
+                                                 Style="{StaticResource App.InputTextBox}"
+                                                 Text="30" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Margin="6,0,0,0">
+                                        <TextBlock Text="{loc:T vpn.maxAttempts}" Margin="0,0,0,6" Style="{StaticResource App.MutedTextStyle}" FontSize="11" />
+                                        <TextBox x:Name="VpnMaxAttemptsTextBox"
+                                                 Style="{StaticResource App.InputTextBox}"
+                                                 mah:TextBoxHelper.Watermark="0 = unlimited"
+                                                 Text="0" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <TextBlock Text="{loc:T vpn.probeHost}" Margin="0,12,0,6" Style="{StaticResource App.MutedTextStyle}" FontSize="11" />
+                                <TextBox x:Name="VpnProbeHostTextBox"
+                                         Style="{StaticResource App.InputTextBox}"
+                                         mah:TextBoxHelper.Watermark="optional e.g. 10.8.0.1" />
+
+                                <WrapPanel Margin="0,14,0,8">
+                                    <Button Content="{loc:T vpn.connect}"
+                                            Height="32"
+                                            MinWidth="96"
+                                            Margin="0,0,8,8"
+                                            Style="{StaticResource App.Button.Primary}"
+                                            Click="VpnConnectButton_Click" />
+                                    <Button Content="{loc:T vpn.disconnect}"
+                                            Height="32"
+                                            MinWidth="96"
+                                            Margin="0,0,8,8"
+                                            Style="{StaticResource App.Button.Ghost}"
+                                            Click="VpnDisconnectButton_Click" />
+                                    <Button Content="{loc:T vpn.reconnect}"
+                                            Height="32"
+                                            MinWidth="96"
+                                            Margin="0,0,8,8"
+                                            Style="{StaticResource App.Button.Ghost}"
+                                            Click="VpnReconnectButton_Click" />
+                                    <Button Content="{loc:T vpn.save}"
+                                            Height="32"
+                                            MinWidth="96"
+                                            Margin="0,0,0,8"
+                                            Style="{StaticResource App.Button.Secondary}"
+                                            Click="VpnSaveButton_Click" />
+                                </WrapPanel>
+                                <TextBlock x:Name="VpnStatusText"
+                                           FontSize="11"
+                                           Foreground="{StaticResource Text.Muted}"
+                                           TextWrapping="Wrap"
+                                           Text="{loc:T vpn.statusIdle}" />
+                            </StackPanel>
+                        </Expander>
+                    </StackPanel>
+
+                    <!-- TELEGRAM -->
+                    <StackPanel x:Name="SettingsPanelTelegram" Visibility="Collapsed">
+                        <Expander Style="{StaticResource Settings.Expander}" IsExpanded="True">
+                            <Expander.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:SymbolIcon Symbol="Chat24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Accent.Primary}" VerticalAlignment="Center" />
+                                    <StackPanel>
+                                        <TextBlock Text="Telegram bot" FontWeight="SemiBold" FontSize="13" />
+                                        <TextBlock Text="Long-poll while GitDeploy is running. Each project is a separate chat."
+                                                   FontSize="10"
+                                                   Foreground="{StaticResource Text.Muted}" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Expander.Header>
+                            <StackPanel>
+                                <CheckBox x:Name="TelegramEnabledCheckBox"
+                                          Content="Enable Telegram polling"
+                                          Foreground="{StaticResource Text.Secondary}"
+                                          FontSize="12"
+                                          Margin="0,0,0,14" />
+
+                                <TextBlock Text="Bot token" Margin="0,0,0,6" Style="{StaticResource App.MutedTextStyle}" FontSize="11" />
+                                <PasswordBox x:Name="TelegramTokenBox"
+                                             Height="34"
+                                             PasswordChanged="TelegramTokenBox_PasswordChanged" />
+                                <TextBlock x:Name="TelegramTokenHint"
+                                           Margin="0,6,0,14"
+                                           FontSize="11"
+                                           Foreground="{StaticResource Text.Muted}"
+                                           TextWrapping="Wrap" />
+
+                                <TextBlock Text="Allowed user ids" Margin="0,0,0,6" Style="{StaticResource App.MutedTextStyle}" FontSize="11" />
+                                <TextBox x:Name="TelegramAllowedIdsTextBox"
+                                         Style="{StaticResource App.InputTextBox}"
+                                         mah:TextBoxHelper.Watermark="123456789, 987654321" />
+                                <TextBlock Text="Only these Telegram user ids can send. Get yours from @userinfobot."
+                                           Margin="0,6,0,14"
+                                           FontSize="11"
+                                           Foreground="{StaticResource Text.Muted}"
+                                           TextWrapping="Wrap" />
+
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                    <Button Content="Test connection"
+                                            Height="32"
+                                            MinWidth="120"
+                                            Style="{StaticResource App.Button.Ghost}"
+                                            Click="TelegramTestButton_Click" />
+                                    <Button Content="Save Telegram"
+                                            Height="32"
+                                            MinWidth="120"
+                                            Margin="8,0,0,0"
+                                            Style="{StaticResource App.Button.Primary}"
+                                            Click="TelegramSaveButton_Click" />
+                                </StackPanel>
+                                <TextBlock x:Name="TelegramStatusText"
+                                           FontSize="11"
+                                           Foreground="{StaticResource Text.Muted}"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Expander>
+
+                        <Expander Style="{StaticResource Settings.Expander}" IsExpanded="True" Margin="0,12,0,0">
+                            <Expander.Header>
+                                <Grid>
+                                    <StackPanel Orientation="Horizontal">
+                                        <ui:SymbolIcon Symbol="Code24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Accent.Primary}" VerticalAlignment="Center" />
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock Text="Cursor agent" FontWeight="SemiBold" FontSize="13" />
+                                            <TextBlock Text="Forward real chat messages to Cursor CLI (agent -p --force --trust)."
+                                                       FontSize="10"
+                                                       Foreground="{StaticResource Text.Muted}" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <Button HorizontalAlignment="Right"
+                                            VerticalAlignment="Center"
+                                            Style="{StaticResource App.IconButton}"
+                                            Width="32"
+                                            Height="32"
+                                            Padding="0"
+                                            ToolTip="Cursor CLI setup guide"
+                                            Click="CursorHelpButton_Click">
+                                        <ui:SymbolIcon Symbol="Info24" FontSize="16" Foreground="{StaticResource Accent.Primary}" />
+                                    </Button>
+                                </Grid>
+                            </Expander.Header>
+                            <StackPanel>
+                                <CheckBox x:Name="CursorAgentEnabledCheckBox"
+                                          Content="Enable Cursor bridge for project chats"
+                                          Foreground="{StaticResource Text.Secondary}"
+                                          FontSize="12"
+                                          Margin="0,0,0,10" />
+
+                                <TextBlock FontSize="11"
+                                           Margin="0,0,0,12"
+                                           TextWrapping="Wrap"
+                                           Foreground="{StaticResource Text.Muted}">
+                                    <Run Text="Guide: " />
+                                    <Hyperlink NavigateUri="https://cursor.com/docs/cli/overview"
+                                               RequestNavigate="CursorDocsLink_RequestNavigate">
+                                        <Run Text="cursor.com/docs/cli/overview" Foreground="{StaticResource Accent.Primary}" />
+                                    </Hyperlink>
+                                </TextBlock>
+
+                                <TextBlock Text="Agent executable (optional)" Margin="0,0,0,6" Style="{StaticResource App.MutedTextStyle}" FontSize="11" />
+                                <TextBox x:Name="CursorAgentPathTextBox"
+                                         Style="{StaticResource App.InputTextBox}"
+                                         mah:TextBoxHelper.Watermark="Leave empty to auto-detect agent / cursor-agent" />
+                                <TextBlock Text="On Windows GitDeploy can install Cursor CLI for you, or paste the full path to agent.exe."
+                                           Margin="0,6,0,14"
+                                           FontSize="11"
+                                           Foreground="{StaticResource Text.Muted}"
+                                           TextWrapping="Wrap" />
+
+                                <TextBlock Text="Model (optional)" Margin="0,0,0,6" Style="{StaticResource App.MutedTextStyle}" FontSize="11" />
+                                <TextBox x:Name="CursorAgentModelTextBox"
+                                         Style="{StaticResource App.InputTextBox}"
+                                         mah:TextBoxHelper.Watermark="e.g. composer-2.5" />
+
+                                <StackPanel Orientation="Horizontal" Margin="0,14,0,10">
+                                    <Button x:Name="CursorInstallButton"
+                                            Content="Install CLI"
+                                            Height="32"
+                                            MinWidth="120"
+                                            Style="{StaticResource App.Button.Primary}"
+                                            Click="CursorInstallButton_Click"
+                                            ToolTip="Runs: irm 'https://cursor.com/install?win32=true' | iex" />
+                                    <Button Content="Detect agent"
+                                            Height="32"
+                                            MinWidth="120"
+                                            Margin="8,0,0,0"
+                                            Style="{StaticResource App.Button.Ghost}"
+                                            Click="CursorDetectButton_Click" />
+                                    <Button Content="Save Cursor"
+                                            Height="32"
+                                            MinWidth="120"
+                                            Margin="8,0,0,0"
+                                            Style="{StaticResource App.Button.Ghost}"
+                                            Click="CursorSaveButton_Click" />
+                                </StackPanel>
+                                <TextBlock x:Name="CursorStatusText"
+                                           FontSize="11"
+                                           Foreground="{StaticResource Text.Muted}"
+                                           TextWrapping="Wrap" />
                             </StackPanel>
                         </Expander>
                     </StackPanel>

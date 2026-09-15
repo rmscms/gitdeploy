@@ -17,7 +17,9 @@ namespace GitDeployPro.Services.Theme
             "Status.SuccessSurface", "Status.WarningSurface", "Status.ErrorSurface", "Status.InfoSurface",
             "State.Hover", "State.Pressed", "State.DisabledOverlay",
             "Shadow.Color", "Log.Success",
-            "Tree.SearchMatchBackground", "Tree.SearchMatchForeground"
+            "Tree.SearchMatchBackground", "Tree.SearchMatchForeground",
+            "Chat.BubbleIn", "Chat.BubbleOut", "Chat.BubbleInText", "Chat.BubbleOutText",
+            "Chat.Composer", "Chat.Unread", "Chat.ThreadHover"
         };
 
         public static readonly string[] FileTypeKeys =
@@ -83,7 +85,14 @@ namespace GitDeployPro.Services.Theme
             ["Shadow.Color"] = "#66000000",
             ["Log.Success"] = "#65FFB2",
             ["Tree.SearchMatchBackground"] = "#FFBF47",
-            ["Tree.SearchMatchForeground"] = "#10131A"
+            ["Tree.SearchMatchForeground"] = "#10131A",
+            ["Chat.BubbleIn"] = "#29313D",
+            ["Chat.BubbleOut"] = "#5C8DFF",
+            ["Chat.BubbleInText"] = "#F4F7FF",
+            ["Chat.BubbleOutText"] = "#F4F7FF",
+            ["Chat.Composer"] = "#202733",
+            ["Chat.Unread"] = "#5C8DFF",
+            ["Chat.ThreadHover"] = "#1FFFFFFF"
         };
 
         public static Dictionary<string, string> BuildDarkPalette() => new(System.StringComparer.OrdinalIgnoreCase)
@@ -118,7 +127,14 @@ namespace GitDeployPro.Services.Theme
             ["Shadow.Color"] = "#99000000",
             ["Log.Success"] = "#5CFFB0",
             ["Tree.SearchMatchBackground"] = "#E6B84D",
-            ["Tree.SearchMatchForeground"] = "#000000"
+            ["Tree.SearchMatchForeground"] = "#000000",
+            ["Chat.BubbleIn"] = "#1A1A1A",
+            ["Chat.BubbleOut"] = "#4C8DFF",
+            ["Chat.BubbleInText"] = "#E8E8E8",
+            ["Chat.BubbleOutText"] = "#FFFFFF",
+            ["Chat.Composer"] = "#0D0D0D",
+            ["Chat.Unread"] = "#4C8DFF",
+            ["Chat.ThreadHover"] = "#14FFFFFF"
         };
 
         private static void FillDeployDefaults(ThemePack pack, bool isDark)

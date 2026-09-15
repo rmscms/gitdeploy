@@ -1,0 +1,53 @@
+using System;
+using GitDeployPro.Services;
+
+namespace GitDeployPro.Services.Telegram
+{
+    /// <summary>
+    /// Mirrors Telegram active-project switches onto the GitDeploy workspace UI.
+    /// </summary>
+    public static class TelegramProjectSync
+    {
+        public static void ApplyToGitDeploy(string projectPath)
+        {
+            if (string.IsNullOrWhiteSpace(projectPath) || TelegramPaths.IsUnassigned(projectPath))
+            {
+                TelegramChatStore.Instance.SetActiveProjectPath(
+                    string.IsNullOrWhiteSpace(projectPath) ? TelegramPaths.UnassignedPath : projectPath);
+                return;
+            }
+
+            var path = projectPath.Trim();
+            var app = System.Windows.Application.Current;
+            if (app?.Dispatcher == null)
+            {
+                TelegramChatStore.Instance.SetActiveProjectPath(path);
+                ProjectWorkspace.Notify(path);
+                CursorAgentBridge.Instance.PrewarmForProject(path);
+                return;
+            }
+
+            void Apply()
+            {
+                if (app.MainWindow is MainWindow main)
+                {
+                    main.SetCurrentProject(path, showSetupWizard: false);
+                    return;
+                }
+
+                TelegramChatStore.Instance.SetActiveProjectPath(path);
+                ProjectWorkspace.Notify(path);
+                CursorAgentBridge.Instance.PrewarmForProject(path);
+            }
+
+            if (app.Dispatcher.CheckAccess())
+            {
+                Apply();
+            }
+            else
+            {
+                app.Dispatcher.Invoke(Apply);
+            }
+        }
+    }
+}
