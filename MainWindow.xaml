@@ -7,7 +7,7 @@
         Title="GitDeploy Pro"
         Height="650"
         Width="1100"
-        Icon="gitDeployPro.ico"
+        Icon="pack://application:,,,/gitDeployPro.ico"
         WindowStartupLocation="CenterScreen"
         Background="Transparent"
         BorderThickness="0"
