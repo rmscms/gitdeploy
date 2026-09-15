@@ -14,7 +14,9 @@ using System.Windows.Media;
 using System.Windows.Media.Media3D;
 using GitDeployPro.Services;
 using GitDeployPro.Services.Localization;
+using GitDeployPro.Services.Telegram;
 using GitDeployPro.Services.Theme;
+using GitDeployPro.Services.Vpn;
 
 namespace GitDeployPro
 {
@@ -47,12 +49,38 @@ namespace GitDeployPro
             RegisterGlobalEditorArrowKeys();
             Log("Application started.");
             _schedulerRunner.Start();
+            TelegramPoller.Instance.Start();
+            try
+            {
+                VpnKeepAliveService.Instance.StartFromConfig();
+            }
+            catch
+            {
+            }
+
             PerformanceSampler.Instance.Mark("app", "lifecycle", "startup-end");
         }
 
         protected override void OnExit(ExitEventArgs e)
         {
             PerformanceSampler.Instance.Mark("app", "lifecycle", "exit-begin");
+            try
+            {
+                CursorAgentBridge.Instance.Shutdown();
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                VpnKeepAliveService.Instance.Dispose();
+            }
+            catch
+            {
+            }
+
+            TelegramPoller.Instance.Dispose();
             _schedulerRunner.Dispose();
             base.OnExit(e);
             PerformanceSampler.Instance.Mark("app", "lifecycle", "exit-end");

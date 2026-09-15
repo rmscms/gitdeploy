@@ -2,966 +2,214 @@
 <html lang="en" dir="ltr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>GitDeploy Pro</title>
-  <link rel="icon" type="image/x-icon" href="faveicon.ico">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <style>
-    body {
-      font-family: "Outfit", sans-serif;
-      background: radial-gradient(circle at top, #1dc8ff 0%, transparent 40%), linear-gradient(135deg, #09192a, #050914);
-      color: #f5f7ff;
-      min-height: 100vh;
-      padding: 60px 15px 100px;
-    }
-    .glass {
-      background: rgba(7, 12, 24, 0.7);
-      border-radius: 30px;
-      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
-      backdrop-filter: blur(18px);
-    }
-    .nav-link {
-      color: #9aa5c7 !important;
-    }
-    .nav-link:hover {
-      color: #61f6ff !important;
-    }
-    .text-muted {
-      color: #ced8ff !important;
-    }
-    .btn-glow {
-      background: linear-gradient(90deg, #8dffe6, #58f0ff, #00d5ff);
-      color: #04121f;
-      border: none;
-      border-radius: 999px;
-      font-weight: 600;
-      box-shadow: 0 20px 45px rgba(0, 196, 255, 0.35);
-    }
-    .feature-icon {
-      width: 56px;
-      height: 56px;
-      border-radius: 18px;
-      background: rgba(255, 255, 255, 0.05);
-      display: grid;
-      place-items: center;
-      font-size: 1.3rem;
-      color: #61f6ff;
-    }
-    .profile-card {
-      background: #101828;
-      border-radius: 24px;
-      padding: 32px;
-      text-align: center;
-      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
-    }
-    .profile-card img {
-      width: 120px;
-      height: 120px;
-      border-radius: 50%;
-      border: 3px solid rgba(97, 246, 255, 0.45);
-      object-fit: cover;
-      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6);
-    }
-    .download-card {
-      border-radius: 20px;
-      padding: 20px;
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.05);
-    }
-    .section-label {
-      text-transform: uppercase;
-      letter-spacing: 0.3em;
-      font-size: 0.78rem;
-      color: #6be2ff;
-    }
-    .doc-card {
-      background: rgba(20, 28, 50, 0.7);
-      border-radius: 20px;
-      padding: 24px;
-      border: 1px solid rgba(255, 255, 255, 0.05);
-      height: 100%;
-    }
-    .doc-card h5 {
-      margin-bottom: 10px;
-    }
-    .doc-card ul {
-      padding-left: 18px;
-      margin-bottom: 0;
-      color: #ced8ff;
-    }
-    .screen-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-      gap: 18px;
-      margin-top: 30px;
-    }
-    .screen-card {
-      background: rgba(255, 255, 255, 0.04);
-      border-radius: 18px;
-      overflow: hidden;
-      border: 1px solid rgba(255, 255, 255, 0.05);
-      cursor: pointer;
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-    .screen-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
-    }
-    .screen-card img {
-      width: 100%;
-      height: 190px;
-      object-fit: cover;
-    }
-    .screen-card p {
-      margin: 0;
-      padding: 14px 16px 18px;
-      color: #ccd6ff;
-    }
-    .lightbox {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.85);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 32px;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.25s ease;
-      z-index: 9999;
-    }
-    .lightbox.show {
-      opacity: 1;
-      pointer-events: auto;
-    }
-    .lightbox-content {
-      max-width: 90vw;
-      max-height: 85vh;
-      text-align: center;
-    }
-    .lightbox-content img {
-      width: 100%;
-      height: auto;
-      max-height: 70vh;
-      object-fit: contain;
-      border-radius: 16px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.65);
-    }
-    .lightbox-caption {
-      margin-top: 18px;
-      font-size: 1rem;
-      color: #dfe6ff;
-    }
-    .lightbox-close {
-      position: absolute;
-      top: 24px;
-      right: 36px;
-      font-size: 2rem;
-      color: #fff;
-      background: transparent;
-      border: none;
-      cursor: pointer;
-    }
-    .changelog {
-      border-radius: 24px;
-      background: rgba(12, 18, 35, 0.75);
-      border: 1px solid rgba(255, 255, 255, 0.05);
-      padding: 24px 28px;
-      color: #dfe6ff;
-    }
-    .changelog h4 {
-      margin-bottom: 12px;
-    }
-    .changelog small {
-      color: #8eb5ff;
-      display: block;
-      margin-bottom: 12px;
-    }
-    .changelog ul {
-      margin: 0;
-      padding-left: 18px;
-      color: #c4d1ff;
-    }
-    .portal-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 14px;
-      margin-top: 16px;
-    }
-    .portal-card {
-      border-radius: 16px;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      background: rgba(20, 30, 56, 0.62);
-      padding: 16px;
-      text-decoration: none;
-      color: #f1f5ff;
-      transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
-      display: block;
-      height: 100%;
-    }
-    .portal-card:hover {
-      transform: translateY(-3px);
-      border-color: rgba(97, 246, 255, 0.45);
-      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
-      color: #fff;
-    }
-    .portal-card h5 {
-      margin: 0 0 8px;
-      color: #8dffe6;
-    }
-    .portal-card p {
-      margin: 0;
-      color: #ced8ff;
-      font-size: 0.95rem;
-      line-height: 1.55;
-    }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GitDeploy Pro 2.0 — Desktop command center for deploy</title>
+  <meta name="description" content="GitDeploy Pro 2.0: Git, FTP/SFTP deploy, terminal, database, backups, Telegram agent, and VPN keep-alive in one Windows desktop hub." />
+  <link rel="icon" type="image/x-icon" href="faveicon.ico" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/landing.css" />
 </head>
-<body>
-  <div class="container-lg glass p-5">
-    <header class="d-flex flex-column flex-md-row align-items-center justify-content-between gap-4">
-      <div class="d-flex align-items-center gap-3">
-        <svg width="44" height="44" viewBox="0 0 48 48" fill="#61f6ff" xmlns="http://www.w3.org/2000/svg">
-          <path d="M34.8 10.4c-5.2 0-9.5 4.3-9.5 9.5 0 3.6 2 6.7 4.9 8.4-1.1 2.8-3.8 4.7-6.9 4.7-4.1 0-7.5-3.4-7.5-7.5 0-2.7 1.4-5.1 3.6-6.4l-2.2-4.3C13 16.7 10 21 10 26.2 10 34 16.3 40.3 24.1 40.3c6.9 0 12.6-4.9 14-11.4 4.1-1.4 7.1-5.4 7.1-9.9 0-5.8-4.7-10.6-10.4-10.6z" />
-        </svg>
-        <h5 class="mb-0 fw-semibold">GitDeploy Pro</h5>
-      </div>
-      <nav class="nav gap-3">
-        <a class="nav-link" href="#features">Features</a>
-        <a class="nav-link" href="#docs-portal">Pages</a>
-        <a class="nav-link" href="#docs">Docs</a>
-        <a class="nav-link" href="#screens">Gallery</a>
-        <a class="nav-link" href="#changelog">Changelog</a>
-        <a class="btn btn-sm btn-outline-light rounded-pill px-4" href="https://github.com/rmscms/gitdeploy" target="_blank" rel="noreferrer">GitHub</a>
+<body class="landing-2" data-page="home">
+  <div class="bg-stage" id="bgStage" aria-hidden="true"></div>
+  <div class="bg-noise" aria-hidden="true"></div>
+
+  <div class="shell">
+    <header class="topbar">
+      <a class="brand" href="./">
+        <img src="faveicon.ico" alt="" width="36" height="36" />
+        <span>GitDeploy Pro</span>
+      </a>
+      <nav class="nav" aria-label="Primary">
+        <a href="#capabilities">Capabilities</a>
+        <a href="#workflow">Workflow</a>
+        <a href="#screens">Screens</a>
+        <a href="#download">Download</a>
+        <a href="#docs">Docs</a>
+        <a class="ghost" href="https://github.com/rmscms/gitdeploy" target="_blank" rel="noreferrer">GitHub</a>
       </nav>
     </header>
 
-    <section class="text-center my-5">
-      <p class="text-uppercase text-info fw-semibold small mb-2">GitDeploy Pro</p>
-      <h1 class="display-4 fw-semibold">Command every deployment from one desktop hub</h1>
-      <p class="text-muted mx-auto" style="max-width:540px;">Coordinate Git workflows, terminals, SSH sessions, database ops, and release automation for any language stack directly inside GitDeploy Pro.</p>
-      <a class="btn btn-glow btn-lg px-5 mt-3" href="pages/platform-overview.html">Get Started</a>
-    </section>
-
-    <section id="docs-portal" class="mb-5">
-      <p class="section-label mb-2">Documentation Portal</p>
-      <h2>Multi-page product docs (new)</h2>
-      <p class="text-muted" style="max-width:690px;">We now maintain dedicated pages for each major capability so teams can onboard faster and find operational details without scrolling one giant page.</p>
-      <div class="portal-grid">
-        <a class="portal-card" href="pages/platform-overview.html">
-          <h5>Platform Overview</h5>
-          <p>Architecture map, workspace mission, and navigation strategy for the full product.</p>
-        </a>
-        <a class="portal-card" href="pages/deploy-workflows.html">
-          <h5>Deploy Workflows</h5>
-          <p>Compare-select-deploy flow, remote editor behavior, and operational verification patterns.</p>
-        </a>
-        <a class="portal-card" href="pages/backup-automation.html">
-          <h5>Backup Automation</h5>
-          <p>Scheduler lifecycle, validation stages, integrity sampling, and history-driven reruns.</p>
-        </a>
-        <a class="portal-card" href="pages/terminal-database-suite.html">
-          <h5>Terminal + Database Suite</h5>
-          <p>Incident-friendly shell and SQL workflows for fast diagnosis and production support.</p>
-        </a>
-        <a class="portal-card" href="pages/release-and-distribution.html">
-          <h5>Release and Distribution</h5>
-          <p>Version tagging, packaging strategy, and artifact guidance for operator-ready delivery.</p>
-        </a>
-        <a class="portal-card" href="pages/faq-and-troubleshooting.html">
-          <h5>FAQ and Troubleshooting</h5>
-          <p>Answers to common runtime/deploy issues plus practical escalation checklist.</p>
-        </a>
-      </div>
-    </section>
-
-    <div id="features" class="row g-4 align-items-stretch">
-      <div class="col-lg-8">
-        <div class="row g-4">
-          <div class="col-12">
-            <h2>Features</h2>
-          </div>
-          <div class="col-12">
-            <div class="d-flex gap-3 border-bottom pb-3 border-secondary-subtle">
-              <div class="feature-icon">🚀</div>
-              <div>
-                <h5 class="mb-1">Git + Deploy Workflow</h5>
-                <p class="text-muted mb-0">Sync repos, compare branches, and now pop entire Deploy or Git tabs into separate windows so you can watch multiple environments while pushes run.</p>
-              </div>
-            </div>
-          </div>
-          <div class="col-12">
-            <div class="d-flex gap-3 border-bottom pb-3 border-secondary-subtle">
-              <div class="feature-icon">🗓️</div>
-              <div>
-                <h5 class="mb-1">Backup Scheduler Intelligence</h5>
-                <p class="text-muted mb-0">Global scheduler with auto-start, missed-run recovery, live countdowns, active-task modal (stop buttons, row progress, logs), toast alerts, and mysqldump-grade exports (zip/tar.gz, health logs, roaming config).</p>
-              </div>
-            </div>
-          </div>
-          <div class="col-12">
-            <div class="d-flex gap-3 border-bottom pb-3 border-secondary-subtle">
-              <div class="feature-icon">🗄️</div>
-              <div>
-                <h5 class="mb-1">Database Studio</h5>
-                <p class="text-muted mb-0">Connect to local phpMyAdmin or remote MySQL/MariaDB, browse schemas, and launch the full SQL workspace in its own floating window for dedicated monitoring.</p>
-              </div>
-            </div>
-          </div>
-          <div class="col-12">
-            <div class="d-flex gap-3 border-bottom pb-3 border-secondary-subtle">
-              <div class="feature-icon">💻</div>
-              <div>
-                <h5 class="mb-1">Integrated Terminal</h5>
-                <p class="text-muted mb-0">Use detachable local PowerShell or SSH terminals with command presets, combo-box insertion, and broadcast mode to inject text into every open terminal without auto-running it.</p>
-              </div>
-            </div>
-          </div>
-          <div class="col-12">
-            <div class="d-flex gap-3">
-              <div class="feature-icon">📦</div>
-              <div>
-                <h5 class="mb-1">Direct Upload & Rollback</h5>
-                <p class="text-muted mb-0">Push single files or mapped folders, see live transfer progress, roll back instantly, and pop the Direct Upload board to another screen while FTP Explorer runs alongside.</p>
-              </div>
-            </div>
-          </div>
-          <div class="col-12">
-            <div class="d-flex gap-3 border-top pt-3 border-secondary-subtle">
-              <div class="feature-icon">🗂️</div>
-              <div>
-                <h5 class="mb-1">FTP Explorer</h5>
-                <p class="text-muted mb-0">Plan uploads, manage hidden files, handle quick select / clear toggles, and download with resume + conflict dialogs that match modern IDEs.</p>
-              </div>
-            </div>
-          </div>
+    <section class="hero" aria-label="Hero">
+      <div class="hero-copy">
+        <p class="brand-mark">GitDeploy Pro</p>
+        <h1>One desktop hub for every deploy you ship.</h1>
+        <p class="hero-lead">
+          Version 2.0 — Git sync, FTP/SFTP workspaces, terminals, databases, backups, Telegram + Cursor agent, and OpenVPN Connect keep-alive. Built for operators who live on Windows.
+        </p>
+        <div class="cta-row">
+          <a class="btn btn-primary" id="hero-download" href="#download">Download 2.0</a>
+          <a class="btn btn-secondary" href="pages/platform-overview.html">Explore platform</a>
         </div>
       </div>
-      <div class="col-lg-4">
-        <div class="profile-card h-100">
-          <img src="images/logo.jpg" alt="Nitron Team logo">
-          <h4>Nitron Team</h4>
-          <span>Creators of GitDeploy Pro</span>
-          <p class="text-muted mt-3">“We needed one Windows tool that covers Git, servers, terminals, and databases. GitDeploy Pro is that control center.”</p>
-        </div>
-      </div>
-    </div>
-
-    <section id="docs" class="mt-5 pt-4">
-      <p class="section-label mb-2">Docs snapshot</p>
-      <div class="d-flex flex-column flex-lg-row align-items-start justify-content-between gap-4">
-        <div class="flex-grow-1">
-          <h2 class="mb-3">Desktop-native toolkit for Git deploys</h2>
-          <p class="text-muted mb-4" style="max-width:600px;">Each workspace tab inside the WPF app is built for a deployment workflow: from cloning repos and configuring remotes to opening a SQL editor or direct-uploading hotfix files. Documentation lives inside the product, but here’s a quick look at the main modules.</p>
-        </div>
-      </div>
-      <div class="row g-3">
-        <div class="col-md-6 col-xl-3">
-          <div class="doc-card">
-            <h5>Git + History</h5>
-            <p class="text-muted">Stage, commit, and push with inline diff viewing and a history timeline.</p>
-            <ul>
-              <li>Init or clone repos and wire remotes.</li>
-              <li>Push button guidance for clean vs dirty trees.</li>
-              <li>History details window for comparing releases.</li>
-            </ul>
-          </div>
-        </div>
-        <div class="col-md-6 col-xl-3">
-          <div class="doc-card">
-            <h5>Deploy & Direct Upload</h5>
-            <p class="text-muted">Bundle files, run scripted tasks, or mirror an entire mapped folder via SSH/SFTP.</p>
-            <ul>
-              <li>Pre/post deploy hooks with status logging.</li>
-              <li>Rollback button tied to History page checkpoints.</li>
-              <li>Direct Upload tab with Path Mapping support, crash recovery, and live per-file progress.</li>
-            </ul>
-          </div>
-        </div>
-        <div class="col-md-6 col-xl-3">
-          <div class="doc-card">
-            <h5>Database Studio</h5>
-            <p class="text-muted">MySQL/MariaDB browser with schema caching plus SQL IntelliSense.</p>
-            <ul>
-              <li>Quick schema refresh & table previews.</li>
-              <li>AvalonEdit SQL editor with autocomplete.</li>
-              <li>Saved connection profiles + localhost shortcut.</li>
-            </ul>
-          </div>
-        </div>
-        <div class="col-md-6 col-xl-3">
-          <div class="doc-card">
-            <h5>Terminal Control</h5>
-            <p class="text-muted">Detachable PowerShell/SSH terminal with rich ANSI color parsing.</p>
-            <ul>
-              <li>Local profile auto-connect + Ctrl+C passthrough.</li>
-              <li>Font tuning, clear screen, multi-connection list.</li>
-              <li>Pop-out window synced with main workspace.</li>
-            </ul>
-          </div>
+      <div class="hero-visual">
+        <div class="hero-frame">
+          <img src="images/dashboard.PNG" alt="GitDeploy Pro dashboard workspace" width="1600" height="900" />
         </div>
       </div>
     </section>
 
-    <section id="screens" class="mt-5 pt-4">
-      <p class="section-label mb-2">Screenshots</p>
-      <h2>Explore the app UI</h2>
-      <p class="text-muted" style="max-width:620px;">Fresh captures from the current WPF build running on Windows 11. Each screen mirrors the modules you’ll use daily.</p>
+    <section class="section" id="capabilities">
+      <p class="section-kicker">Capabilities</p>
+      <h2>Everything that used to live in five tools.</h2>
+      <p class="section-intro">Ship, inspect, recover, and talk to your stack without leaving the desk.</p>
+      <div class="cap-grid">
+        <article class="cap-item">
+          <h3>Git + Deploy</h3>
+          <p>Branch compare, selective push, remote workspaces, and pop-out tabs for parallel environments.</p>
+        </article>
+        <article class="cap-item">
+          <h3>FTP / SFTP rail</h3>
+          <p>Browse, edit, sync, and recover files with conflict-aware workflows against live servers.</p>
+        </article>
+        <article class="cap-item">
+          <h3>Terminal + SQL</h3>
+          <p>Session-ready shells and database tools for the incidents that never wait until morning.</p>
+        </article>
+        <article class="cap-item">
+          <h3>Backup automation</h3>
+          <p>Scheduler, validation stages, and history-driven reruns when integrity matters.</p>
+        </article>
+        <article class="cap-item">
+          <h3>Telegram + Cursor</h3>
+          <p>Project chats bridged to Cursor agent — warm ACP, outbound queue, model switch, resilience.</p>
+        </article>
+        <article class="cap-item">
+          <h3>VPN keep-alive</h3>
+          <p>OpenVPN Connect profiles with startup connect and auto-reconnect when the tunnel drops.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" id="workflow">
+      <p class="section-kicker">Workflow</p>
+      <h2>From commit to live path.</h2>
+      <p class="section-intro">A straight operator loop — no dashboard clutter, no ceremony.</p>
+      <div class="flow">
+        <div class="flow-step">
+          <span>01</span>
+          <strong>Connect</strong>
+          <p>Project path, server profile, optional VPN keep-alive.</p>
+        </div>
+        <div class="flow-step">
+          <span>02</span>
+          <strong>Compare</strong>
+          <p>See local vs remote, stage what actually changed.</p>
+        </div>
+        <div class="flow-step">
+          <span>03</span>
+          <strong>Ship</strong>
+          <p>Deploy selected files, watch progress, verify on the rail.</p>
+        </div>
+        <div class="flow-step">
+          <span>04</span>
+          <strong>Stay up</strong>
+          <p>Backups, agent chat, and reconnect when the network blinks.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="screens">
+      <p class="section-kicker">Screens</p>
+      <h2>Product, not mockup fiction.</h2>
+      <p class="section-intro">Real surfaces from the Windows build. Click to enlarge.</p>
       <div class="screen-grid">
-        <div class="screen-card">
-          <img src="images/dashboard.PNG" alt="Dashboard overview">
-          <p>Dashboard & quick actions: repo status, environment health, and primary shortcuts.</p>
+        <figure class="screen" data-full="images/dashboard.PNG" data-caption="Dashboard">
+          <img src="images/dashboard.PNG" alt="Dashboard" loading="lazy" />
+          <figcaption>Dashboard</figcaption>
+        </figure>
+        <figure class="screen" data-full="images/deploy.PNG" data-caption="Deploy workspace">
+          <img src="images/deploy.PNG" alt="Deploy" loading="lazy" />
+          <figcaption>Deploy workspace</figcaption>
+        </figure>
+        <figure class="screen" data-full="images/direct-upload.PNG" data-caption="Direct upload">
+          <img src="images/direct-upload.PNG" alt="Direct upload" loading="lazy" />
+          <figcaption>Direct upload</figcaption>
+        </figure>
+        <figure class="screen" data-full="images/terminal.PNG" data-caption="Terminal">
+          <img src="images/terminal.PNG" alt="Terminal" loading="lazy" />
+          <figcaption>Terminal</figcaption>
+        </figure>
+        <figure class="screen" data-full="images/database.PNG" data-caption="Database">
+          <img src="images/database.PNG" alt="Database" loading="lazy" />
+          <figcaption>Database</figcaption>
+        </figure>
+        <figure class="screen" data-full="images/github-section.PNG" data-caption="Git settings">
+          <img src="images/github-section.PNG" alt="Git" loading="lazy" />
+          <figcaption>Git settings</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="section" id="download">
+      <p class="section-kicker">Download</p>
+      <h2>Get GitDeploy Pro 2.0</h2>
+      <p class="section-intro">Self-contained Windows x64. Auto-update reads the same feed as this page.</p>
+      <div class="download-band">
+        <div class="download-panel">
+          <p id="download-blurb">Loading latest release…</p>
+          <a class="btn btn-primary" id="download-button" href="latest.json">Download GitDeployPro</a>
+          <p id="download-meta"></p>
         </div>
-        <div class="screen-card">
-          <img src="images/github-section.PNG" alt="Git settings">
-          <p>Git configuration wizard showing remotes, SSH key guidance, and auth helpers.</p>
-        </div>
-        <div class="screen-card">
-          <img src="images/commit-review.PNG" alt="Commit review">
-          <p>Commit window with staged file list and inline diff viewer before pushing.</p>
-        </div>
-        <div class="screen-card">
-          <img src="images/deploy.PNG" alt="Deploy queue">
-          <p>Deploy panel orchestrating bundles, hooks, and progress logging.</p>
-        </div>
-        <div class="screen-card">
-          <img src="images/direct-upload.PNG" alt="Direct upload">
-          <p>Direct Upload dashboard showing Path Mapping, session resume, and live transfer percentages.</p>
-        </div>
-        <div class="screen-card">
-          <img src="images/database.PNG" alt="Database management">
-          <p>Database page with schema browser, SQL editor, and autocomplete suggestions.</p>
-        </div>
-        <div class="screen-card">
-          <img src="images/database-combos.png" alt="Database combo selectors">
-          <p>Fresh Database page layout: sidebar collapsed plus database/table ComboBoxes for more space.</p>
-        </div>
-        <div class="screen-card">
-          <img src="images/terminal.PNG" alt="Terminal window">
-          <p>Detachable local terminal running PowerShell with ANSI colors and Ctrl+C support.</p>
-        </div>
-        <div class="screen-card">
-          <img src="images/monaco-editor-save.png" alt="VSCode style modal editor">
-          <p>Full-screen Monaco editor with language detection plus save button that glows when dirty.</p>
-        </div>
-        <div class="screen-card">
-          <img src="images/deploy-vs-buttons.png" alt="VS buttons in lists">
-          <p>New “VS” buttons beside Deploy/Compare/Commit lists for one-click editor launch.</p>
-        </div>
-        <div class="screen-card">
-          <img src="images/unsaved-dialog.png" alt="Modern unsaved dialog">
-          <p>Custom Nitron dialog for Save / Don’t Save / Cancel when closing with unsaved edits.</p>
-        </div>
-        <div class="screen-card">
-          <img src="images/ftp-explore.png" alt="FTP Explorer download manager">
-          <p>FTP Explorer with quick select toggles, neon Download/Pause buttons, and the enlarged conflict dialog.</p>
-        </div>
-        <div class="screen-card">
-          <img src="images/preset-commands.png" alt="Terminal command presets combo">
-          <p>Command Presets dropdown with one-click insertion, optional broadcast setting, and matching UI in pop-out terminals.</p>
-        </div>
-        <div class="screen-card">
-          <img src="images/windows-operations.png" alt="Detached workspace windows">
-          <p>Deploy and Terminal pages popped out into separate Metro windows so you can pin them to other monitors.</p>
+        <div class="changelog-panel" id="changelog">
+          <h2 class="section-kicker" style="margin:0 0 0.75rem;font-size:0.72rem;">What's new</h2>
+          <h3 id="latest-changelog-title">Latest</h3>
+          <small id="latest-changelog-date">Loading…</small>
+          <ul id="latest-changelog-list">
+            <li>Loading release notes…</li>
+          </ul>
         </div>
       </div>
     </section>
 
-    <section id="download" class="row g-3 mt-5">
-      <div class="col-md-6 col-lg-5">
-        <div class="download-card h-100">
-          <strong>Windows 10/11 (x64)</strong>
-          <p id="download-blurb" class="text-muted mb-3">Loading latest release…</p>
-          <a id="download-button" class="btn btn-glow w-100" href="latest.json">Download GitDeployPro</a>
-          <p id="download-meta" class="text-muted small mt-2 mb-0"></p>
-        </div>
+    <section class="section" id="docs">
+      <p class="section-kicker">Docs</p>
+      <h2>Operator pages</h2>
+      <p class="section-intro">Deep dives when you need more than a landing.</p>
+      <div class="portal-grid">
+        <a class="portal-link" href="pages/platform-overview.html">
+          <h3>Platform overview</h3>
+          <p>Architecture map and navigation for the full product.</p>
+        </a>
+        <a class="portal-link" href="pages/deploy-workflows.html">
+          <h3>Deploy workflows</h3>
+          <p>Compare-select-deploy and remote editor patterns.</p>
+        </a>
+        <a class="portal-link" href="pages/backup-automation.html">
+          <h3>Backup automation</h3>
+          <p>Scheduler lifecycle and integrity sampling.</p>
+        </a>
+        <a class="portal-link" href="pages/terminal-database-suite.html">
+          <h3>Terminal + database</h3>
+          <p>Incident-friendly shell and SQL workflows.</p>
+        </a>
+        <a class="portal-link" href="pages/release-and-distribution.html">
+          <h3>Release &amp; distribution</h3>
+          <p>Packaging and artifact guidance.</p>
+        </a>
+        <a class="portal-link" href="pages/faq-and-troubleshooting.html">
+          <h3>FAQ</h3>
+          <p>Common runtime issues and escalation checklist.</p>
+        </a>
       </div>
     </section>
 
-    <section id="changelog" class="mt-5 pt-4">
-      <p class="section-label mb-2">Changelog</p>
-      <h2>What’s new in each build</h2>
-      <p class="text-muted" style="max-width:620px;">Quick snapshot of the releases we’ve shipped so you know exactly what changed before installing.</p>
-      <div class="row g-3 mt-2">
-        <div class="col-lg-6" id="latest-changelog-slot">
-          <div class="changelog">
-            <h4 id="latest-changelog-title">Latest</h4>
-            <small id="latest-changelog-date">Loading…</small>
-            <ul id="latest-changelog-list">
-              <li>Loading release notes…</li>
-            </ul>
-          </div>
-        </div>
-        <div class="col-lg-6">
-          <div class="changelog">
-            <h4>v1.4.23</h4>
-            <small>Released Aug 2026</small>
-            <ul>
-              <li>Right-click an FTP/SFTP folder to manage path mappings (list + add, without replacing existing rows).</li>
-              <li>Connection Manager Browse now lists folders for SFTP as well as FTP.</li>
-              <li>Direct Upload: right-click a file or folder to see size, created, and modified dates.</li>
-              <li>FTP/SFTP: right-click a file or folder to see size, dates, and folder contents.</li>
-              <li>FTP/SFTP: change file/folder permissions (chmod) with a reason in the same dialog if the server refuses.</li>
-            </ul>
-          </div>
-        </div>
-        <div class="col-lg-6">
-          <div class="changelog">
-            <h4>v1.4.22</h4>
-            <small>Released Aug 2026</small>
-            <ul>
-              <li>Direct Upload and FTP: Windows-style multi-select (Ctrl/Shift/Ctrl+A) plus bulk Delete and Download.</li>
-              <li>File selection highlight now fills the full row so multi-select is easier to see.</li>
-              <li>Dialogs no longer open off-screen when the app is minimized (looked hung after upload).</li>
-              <li>Notification dialog fade-in plays once instead of flashing twice.</li>
-            </ul>
-          </div>
-        </div>
-        <div class="col-lg-6">
-          <div class="changelog">
-            <h4>v1.4.21</h4>
-            <small>Released Aug 2026</small>
-            <ul>
-              <li>Upload errors now show the real FTP/SFTP reason (path, code, permission tip) instead of a generic FluentFTP message.</li>
-              <li>Deploy left/right rails aligned with spacing; tooltips on header, rails, and window controls.</li>
-              <li>File editor can Float into a separate resizable window (Dock to return).</li>
-              <li>Terminal suggestions: built-in Git, Composer, and Laravel command packs.</li>
-            </ul>
-          </div>
-        </div>
-        <div class="col-lg-6">
-          <div class="changelog">
-            <h4>v1.4.20</h4>
-            <small>Released Aug 2026</small>
-            <ul>
-              <li>FTP session stays connected when switching pages (Settings, Dashboard).</li>
-              <li>Header: theme in the hamburger menu, outline nav icons, Deploy title bar removed.</li>
-              <li>Redesigned app dialogs (themed overlay).</li>
-              <li>Multiple FTP profiles per project, favorites, and default target before Commit and Sync.</li>
-              <li>FTP editor: compact themed tab close; Refresh from remote (toolbar and right-click) with unsaved-change confirm.</li>
-              <li>Upload success banner auto-hides after a few seconds.</li>
-              <li>Standalone Terminal page removed (use the Deploy dock terminal).</li>
-              <li>Dark theme: connection Name field caret is visible.</li>
-            </ul>
-          </div>
-        </div>
-        <div class="col-lg-6">
-          <div class="changelog">
-            <h4>v1.4.19</h4>
-            <small>Released Aug 2026</small>
-            <ul>
-              <li>SSH startup command(s) after terminal connect (Connection Manager).</li>
-              <li>Deploy terminal picker: SSH-only list, favorite stars sorted first.</li>
-              <li>FTP remote log collapsible (Show/Hide).</li>
-              <li>Connection Manager: project connection pinned first.</li>
-              <li>Fix: Direct Upload panel inset when bottom terminal dock is open.</li>
-              <li>Terminal/Session Manager: filter out FTP and database profiles from SSH targets.</li>
-            </ul>
-          </div>
-        </div>
-        <div class="col-lg-6">
-          <div class="changelog">
-            <h4>v1.4.18</h4>
-            <small>Released Aug 2026</small>
-            <ul>
-              <li>Terminal command suggestions: ghost autocomplete, Laravel defaults, Settings panel, import JSON.</li>
-              <li>Fix: discover/stage untracked files so Deploy compare and commit include new non-ignored files.</li>
-              <li>Fix: safer folder commit with clear messages when nothing is committable.</li>
-              <li>Fix: Direct Upload git badges refresh after deploy (no stale red M).</li>
-              <li>Fix: Commit message dialog buttons no longer clipped.</li>
-              <li>UX: switching project opens Deploy instead of Dashboard.</li>
-            </ul>
-          </div>
-        </div>
-        <div class="col-lg-6">
-          <div class="changelog">
-            <h4>v1.4.17</h4>
-            <small>Released Aug 2026</small>
-            <ul>
-              <li>Tab-based Project Setup wizard with Back/Next, stage progress, and Skip when .git exists without config.</li>
-              <li>Wizard English/Persian language combo (Persian texts without RTL).</li>
-              <li>App language: Persian tooltips only; menus stay English LTR (no RTL).</li>
-              <li>Dark theme is now the app default; Settings expander chevrons restyled.</li>
-              <li>Nav menu: Check for updates + app version; fix Settings language combo crash.</li>
-            </ul>
-          </div>
-        </div>
-        <div class="col-lg-6">
-          <div class="changelog">
-            <h4>v1.4.16</h4>
-            <small>Released Aug 2026</small>
-            <ul>
-              <li>Auto-clear stale git index.lock and retry Send/commit when another git process left a lock.</li>
-              <li>Serialize git commands per repo to prevent concurrent status/add lock races.</li>
-              <li>Deploy workspace no longer auto-connects an unrelated FTP profile when the project has none assigned.</li>
-              <li>Session Manager and Terminal SSH profile lists refresh live after connection edits.</li>
-            </ul>
-          </div>
-        </div>
-        <div class="col-lg-6">
-          <div class="changelog">
-            <h4>v1.4.15</h4>
-            <small>Released Aug 2026</small>
-            <ul>
-              <li>English/Persian UI language (Settings → Language; default English).</li>
-              <li>Deploy icon tooltips localized; Direct Upload header/toolbar wraps when narrow.</li>
-              <li>Non-blocking update status window (replaces bottom footer).</li>
-              <li>Suppress Error dialog for offline MySQL/network probe failures.</li>
-              <li>ModernMessageBox and remaining dialogs use ThemeManager status colors.</li>
-            </ul>
-          </div>
-        </div>
-        <div class="col-lg-6">
-          <div class="changelog">
-            <h4>v1.4.14</h4>
-            <small>Released Aug 2026</small>
-            <ul>
-              <li>Fix release EXE so it starts on clean PCs (bundle WPF/WebView2 natives; fixes 1.4.13 crash).</li>
-              <li>Auto-create Desktop shortcut when missing after portable/update install.</li>
-              <li>On install, copy Themes/Packs next to the install EXE when present.</li>
-              <li>Register install path when applying an update from a portable EXE.</li>
-              <li>Terminal: Float window icon; remove redundant Disconnect (closing the tab ends the session).</li>
-              <li>Deploy Console polish + compact FTP toolbar icons.</li>
-            </ul>
-          </div>
-        </div>
-        <div class="col-lg-6">
-          <div class="changelog">
-            <h4>v1.4.13</h4>
-            <small>Released Aug 2026</small>
-            <ul>
-              <li>Terminal Saved commands: compact Dock strip above the terminal (does not cover text).</li>
-              <li>Float mode opens a dark helper window so you can keep typing in the terminal.</li>
-              <li>Remember Dock/Float preference; themed presets drawer tokens for Default and Dark.</li>
-            </ul>
-          </div>
-        </div>
-        <div class="col-lg-6">
-          <div class="changelog">
-            <h4>v1.4.12</h4>
-            <small>Released Aug 2026</small>
-            <ul>
-              <li>Fix Deploy Logs panel showing only one line (override fixed-height TextBox style).</li>
-              <li>Keep ~8 empty rows under the terminal cursor for readability.</li>
-              <li>Terminal bottom pad matches theme background (no bright band).</li>
-            </ul>
-          </div>
-        </div>
-        <div class="col-lg-6">
-          <div class="changelog">
-            <h4>v1.4.11</h4>
-            <small>Released Aug 2026</small>
-            <ul>
-              <li>Fix Deploy left rail overlapping content with locked rail width and margins.</li>
-              <li>Fix Direct Upload empty tree caused by theme brushes on background scan.</li>
-              <li>Polish Logs/Terminal bottom tabs into Material chip style.</li>
-              <li>Widen Deploy shell spacing so docks no longer cover the icon rails.</li>
-            </ul>
-          </div>
-        </div>
-        <div class="col-lg-6">
-          <div class="changelog">
-            <h4>v1.4.10</h4>
-            <small>Released Aug 2026</small>
-            <ul>
-              <li>App-wide theme persistence (Default / Dark / custom packs) from Settings and Deploy.</li>
-              <li>Material densify across MainWindow and sidebar pages (Database, Terminal, Git, History, Dashboard).</li>
-              <li>Theme pack guide (THEME_PACK_GUIDE.md) ships with the app Themes folder.</li>
-              <li>Local terminal ConPTY typing fix and no bright band under the terminal.</li>
-              <li>Theme tokens for SQL editor completion and syntax highlighting.</li>
-            </ul>
-          </div>
-        </div>
-        <div class="col-lg-6">
-          <div class="changelog">
-            <h4>v1.4.9</h4>
-            <small>Released Jul 2026</small>
-            <ul>
-              <li>Create folder/file from FTP and Direct Upload context menus with language starter templates.</li>
-              <li>Direct Upload local editor (simple then Monaco) and double-click to edit.</li>
-              <li>FTP mapped root folder for create-at-root; create refreshes in place.</li>
-              <li>Settings Danger Zone removes a project from the app without deleting disk files.</li>
-              <li>What’s New modal after update; site Latest changelog reads from <code>latest.json</code>.</li>
-            </ul>
-          </div>
-        </div>
-        <div class="col-lg-6">
-          <div class="changelog">
-            <h4>v1.4.8</h4>
-            <small>Released Jul 2026</small>
-            <ul>
-              <li>Direct Upload shows the full project tree; mapped folder is highlighted with a green background.</li>
-              <li>Gitignored files stay visible (muted + ignored badge) instead of being hidden.</li>
-              <li>Tortoise-style git status colors: clean / changed / untracked / conflicted.</li>
-              <li>Uploads under the mapped folder still target the mapped remote path.</li>
-            </ul>
-          </div>
-        </div>
-        <div class="col-lg-6">
-          <div class="changelog">
-            <h4>v1.4.7</h4>
-            <small>Released Jul 2026</small>
-            <ul>
-              <li>First-install dialog to choose install folder (e.g. another drive when C: is full).</li>
-              <li>Install path saved in registry; updates overwrite the same stable EXE.</li>
-              <li>Run portable once without installing; reopening portable still offers install.</li>
-              <li>About shows install vs portable running path.</li>
-            </ul>
-          </div>
-        </div>
-        <div class="col-lg-6">
-          <div class="changelog">
-            <h4>v1.4.6</h4>
-            <small>Released Jul 2026</small>
-            <ul>
-              <li>Stable install under LocalAppData with Desktop shortcut (<code>GitDeploy Pro.lnk</code>).</li>
-              <li>Background update download in the main window footer; restart when ready.</li>
-              <li>Windows startup auto-refreshes to the install path after update/migration.</li>
-              <li>About page shows install path and open-folder action.</li>
-            </ul>
-          </div>
-        </div>
-        <div class="col-lg-6">
-          <div class="changelog">
-            <h4>v1.4.5</h4>
-            <small>Released Jul 2026</small>
-            <ul>
-              <li>Check for updates is available from the About sidebar page.</li>
-              <li>Direct Upload shows a <code>./</code> root row when path mapping is active so one checkbox selects everything.</li>
-              <li>FTP remote browser shows a mapping banner when path mapping is active.</li>
-              <li>Self-hosted update feed/changelog ready for end-to-end update testing.</li>
-            </ul>
-          </div>
-        </div>
-        <div class="col-lg-6">
-          <div class="changelog">
-            <h4>v1.4.4</h4>
-            <small>Released Jul 2026</small>
-            <ul>
-              <li>Terminal Ctrl+C/V clipboard shortcuts.</li>
-              <li>Direct Upload paste from Windows clipboard into the selected folder.</li>
-              <li>Test Connection button moved under Authentication with primary styling.</li>
-              <li>Self-hosted update feed at <code>app.nitron.pro/gitdeploy</code>.</li>
-            </ul>
-          </div>
-        </div>
-        <div class="col-lg-6">
-          <div class="changelog">
-            <h4>v1.1.7</h4>
-            <small>Released Dec 2025</small>
-            <ul>
-              <li>New 'Commit && Deploy' button in Deploy page that automatically commits with 'update' message and immediately deploys in one action.</li>
-              <li>Success notifications no longer block the UI with modal dialogs—only errors show dialogs now, with button color indicating success (green).</li>
-              <li>Backup scheduler error handling improved: connection errors display inline without blocking active tasks.</li>
-              <li>Deploy workflow streamlined: commit message defaults to 'update' for faster iterations.</li>
-            </ul>
-          </div>
-        </div>
-        <div class="col-lg-6">
-          <div class="changelog">
-            <h4>v1.1.6</h4>
-            <small>Released Dec 2025</small>
-            <ul>
-              <li>Terminal now supports Ctrl+V for pasting commands from clipboard in both SSH and local terminals.</li>
-              <li>Fixed carriage return (\r) handling so command history navigation (arrow keys) properly replaces the current line instead of appending.</li>
-              <li>Terminal cursor (caret) is now always visible and blinking, even when switching between terminal panels.</li>
-              <li>Improved terminal PTY settings (ICANON, ECHO, IXON/IXOFF) for better compatibility with remote shells.</li>
-              <li>Escape sequences (cursor movement, line clearing) are now properly filtered to prevent visual artifacts.</li>
-            </ul>
-          </div>
-        </div>
-        <div class="col-lg-6">
-          <div class="changelog">
-            <h4>v1.1.5</h4>
-            <small>Released Dec 2025</small>
-            <ul>
-              <li>Terminal page now hosts multiple terminals inside the main grid (no more overlapping app windows), with auto layout (1x1, 1x2, 2x2, 2x3, 3x3) and per-panel resize thumb.</li>
-              <li>Each terminal panel has a "Detach" button to pop it out as a separate window while keeping the rest in the grid.</li>
-              <li>Active connection indicator (🟢) appears in Session Manager tree, and multiple terminals per connection are supported.</li>
-              <li>Local Terminal button added to the toolbar to open a PowerShell/CMD session in the current project folder inside the grid.</li>
-              <li>Terminal caret is now visible (green, blinking) and stays focused after output for smoother typing.</li>
-            </ul>
-          </div>
-        </div>
-        <div class="col-lg-6">
-          <div class="changelog">
-            <h4>v1.1.4</h4>
-            <small>Released Dec 2025</small>
-            <ul>
-              <li>Unified path handling logic across Deploy, Direct Upload, and FTP Explorer pages to ensure consistent remote path construction.</li>
-              <li>All pages now correctly preserve hostnames in remote paths (e.g., gitdeploy.nitron.pro/public) and handle trailing slashes properly for files vs directories.</li>
-              <li>Increased timeout settings to 5 minutes for large file operations across all FTP/SFTP operations.</li>
-              <li>Path combination logic now consistently applied: base remote path is always prepended to mapping paths, ensuring correct file locations on server.</li>
-            </ul>
-          </div>
-        </div>
-        <div class="col-lg-6">
-          <div class="changelog">
-            <h4>v1.1.3</h4>
-            <small>Released Dec 2025</small>
-            <ul>
-              <li>Fixed remote path construction to preserve host names (e.g., gitdeploy.nitron.pro/public) and correctly handle trailing slashes for files vs directories.</li>
-              <li>Added upload log console at the bottom of Direct Upload page showing real-time remote paths for each file being uploaded.</li>
-              <li>Direct Upload now supports .gitignore patterns (e.g., *.zip, *.log) for filtering files during scan.</li>
-              <li>Increased timeout settings for large file uploads (5 minutes) with improved error handling and retry logic.</li>
-              <li>Enhanced upload error messages to include full error details, remote path, error type, and stack trace for better debugging.</li>
-              <li>Fixed path combination logic to support all root path and mapping path combinations correctly (e.g., root="/", map="api" or root="host/path/", map="/" or "api").</li>
-            </ul>
-          </div>
-        </div>
-        <div class="col-lg-6">
-          <div class="changelog">
-            <h4>v1.1.2</h4>
-            <small>Released Dec 2025</small>
-            <ul>
-              <li>Direct Upload and Deploy now correctly use Connection Profile's RemotePath instead of legacy project config, ensuring Path Mappings work as expected.</li>
-              <li>Terminal page filters to SSH/SFTP connections only (FTP profiles excluded) and adds a search box to quickly find connections by name, host, or username.</li>
-              <li>Upload error dialogs now show the exact remote path where the file failed and clear error messages for easier troubleshooting.</li>
-              <li>Added Explorer button next to Project Selector in the top toolbar to quickly open the current project folder in Windows Explorer.</li>
-              <li>Fixed RemotePath resolution across all upload/deploy flows to always prioritize Connection Profile settings over project-level defaults.</li>
-            </ul>
-          </div>
-        </div>
-        <div class="col-lg-6">
-          <div class="changelog">
-            <h4>v1.1.1</h4>
-            <small>Released Dec 2025</small>
-            <ul>
-              <li>Database Studio now includes a Create Database card with server-driven charset + collation pickers so new schemas align with production standards.</li>
-              <li>Import workflow requires choosing an existing database from the live server list and surfaces warnings instead of silently spinning up new schemas from export file names.</li>
-              <li>Drop &amp; Recreate mode preserves the prior charset/collation before rebuilding and logs each step so you know exactly what happens before data streams in.</li>
-              <li>FTP Explorer's connect button now flips to Disconnect with a high-contrast style once you're online, making it obvious when a session is active and removing the washed-out disabled state.</li>
-              <li>Connection Manager can import Navicat `.ncx/.xml` exports so migrating saved database profiles is a two-click process.</li>
-              <li>Database Manager gets a "SHOW FULL PROCESSLIST" monitor with refresh so you can watch long-running queries without leaving GitDeploy Pro.</li>
-            </ul>
-          </div>
-        </div>
-        <div class="col-lg-6">
-          <div class="changelog">
-            <h4>v1.1.0</h4>
-            <small>Released Dec 2025</small>
-            <ul>
-              <li>Scheduler auto-starts, shows countdowns, streams logs, and exposes an Active Tasks modal with stop controls plus recent history pulled from roaming config.</li>
-              <li>mysqldump-level backup engine adds SET statements, locking, batched inserts, proper escaping, and zip/tar.gz outputs with health counters.</li>
-              <li>Database Manager imports archives (.sql, zip, tar.gz), offers continue-on-error mode, configurable timeouts, truncate/empty helpers, and table search without extra queries.</li>
-              <li>Windows notifications fire on failed schedules, row progress mirrors Run Now, and NextRun timings persist globally across projects.</li>
-              <li>site/versions now ships a full publish zip for GitDeployPro 1.1.0.</li>
-            </ul>
-          </div>
-        </div>
-        <div class="col-lg-6">
-          <div class="changelog">
-            <h4>v1.0.9</h4>
-            <small>Released Dec 2025</small>
-            <ul>
-              <li>Every core page (Deploy, Direct Upload, Database, Terminal, Git & FTP Explorer) now has a pop-out button for multi-monitor workflows.</li>
-              <li>Terminal Command Presets gained a combo picker, quick Insert/Delete actions, and an optional “send to all open terminals” broadcast.</li>
-              <li>FTP Explorer conforms to the new quick-select UI, tinted action buttons, resume-safe downloads, and an updated gallery capture.</li>
-              <li>Error handling/refinements: pause/resume no longer throws global dialogs, and pop-out terminals stay in sync with presets.</li>
-            </ul>
-          </div>
-        </div>
-        <div class="col-lg-6">
-          <div class="changelog">
-            <h4>v1.0.8</h4>
-            <small>Released Dec 2025</small>
-            <ul>
-              <li>FTP Explorer polish: neon Download/Pause buttons, “Select all / Clear selection” toggles, and a new gallery capture.</li>
-              <li>Pause / Resume rewritten so partial downloads truly resume mid-file and update progress accurately.</li>
-              <li>File conflict dialog enlarged with apply-to-all buttons plus a close (X) so canceling feels modern.</li>
-              <li>Benign cancellations (pause/stop) no longer trigger the generic “Unexpected error” popup.</li>
-            </ul>
-          </div>
-        </div>
-        <div class="col-lg-6">
-          <div class="changelog">
-            <h4>v1.0.7</h4>
-            <small>Released Dec 2025</small>
-            <ul>
-              <li>VSCode-like Monaco modal editor gets enable-edit toggle, formatters, and dirty-state Save button.</li>
-              <li>VS launcher buttons beside Deploy/Compare/Commit diff lists plus double-click shortcuts.</li>
-              <li>Direct Upload now shows the active connection banner and respects Path Mappings (e.g. site/ → /public_html).</li>
-              <li>Real-time Direct Upload telemetry: file-level progress text, resume badges, and crash-safe sessions.</li>
-              <li>Custom Nitron “Unsaved Changes” dialog with themed Save / Don’t Save / Cancel actions.</li>
-            </ul>
-          </div>
-        </div>
-        <div class="col-lg-6">
-          <div class="changelog">
-            <h4>v1.0.6</h4>
-            <small>Released Dec 2025</small>
-            <ul>
-              <li>Redesigned Database Studio with top action bar, IntelliSense SQL editor, and saved connection modals.</li>
-              <li>Improved sidebar UX: auto-collapse on Database page, reliable toggle buttons, hover cues.</li>
-              <li>Local terminal upgrades: auto-connect, Ctrl+C passthrough, font controls, and compressed single-file publish.</li>
-            </ul>
-          </div>
-        </div>
-        <div class="col-lg-6">
-          <div class="changelog">
-            <h4>v1.0.5</h4>
-            <small>Released Nov 2025</small>
-            <ul>
-              <li>Introduced detachable Terminal Window plus local PowerShell profile with clear-screen button.</li>
-              <li>Fixed Git push/sync flows and enhanced history inspection dialogs.</li>
-              <li>Smaller installer footprint and general stability patches ahead of Database launch.</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    </section>
+    <footer class="footer">
+      <span>GitDeploy Pro 2.0 · Windows desktop</span>
+      <span><a href="https://github.com/rmscms/gitdeploy" target="_blank" rel="noreferrer">github.com/rmscms/gitdeploy</a></span>
+    </footer>
   </div>
-  <div class="lightbox" id="galleryLightbox" aria-hidden="true">
-    <button class="lightbox-close" id="lightboxClose" aria-label="Close screenshot">&times;</button>
+
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Screenshot">
+    <button class="lightbox-close" id="lightboxClose" type="button" aria-label="Close">&times;</button>
     <div class="lightbox-content">
-      <img id="lightboxImage" src="" alt="">
+      <img id="lightboxImage" src="" alt="" />
       <p class="lightbox-caption" id="lightboxCaption"></p>
     </div>
   </div>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script>
-    (() => {
-      const lightbox = document.getElementById('galleryLightbox');
-      const lightboxImage = document.getElementById('lightboxImage');
-      const lightboxCaption = document.getElementById('lightboxCaption');
-      const closeBtn = document.getElementById('lightboxClose');
 
-      const closeLightbox = () => {
-        lightbox.classList.remove('show');
-        lightbox.setAttribute('aria-hidden', 'true');
-        lightboxImage.src = '';
-        lightboxImage.alt = '';
-      };
-
-      document.querySelectorAll('.screen-card').forEach(card => {
-        const img = card.querySelector('img');
-        const caption = card.querySelector('p');
-        const description = caption ? caption.textContent : img.alt;
-        card.addEventListener('click', () => {
-          lightboxImage.src = img.src;
-          lightboxImage.alt = img.alt;
-          lightboxCaption.textContent = description;
-          lightbox.classList.add('show');
-          lightbox.setAttribute('aria-hidden', 'false');
-        });
-      });
-
-      closeBtn.addEventListener('click', closeLightbox);
-      lightbox.addEventListener('click', event => {
-        if (event.target === lightbox) {
-          closeLightbox();
-        }
-      });
-      document.addEventListener('keydown', event => {
-        if (event.key === 'Escape') {
-          closeLightbox();
-        }
-      });
-    })();
-  </script>
-  <script src="assets/site.js"></script>
+  <script src="assets/site.js" defer></script>
+  <script src="assets/landing.js" defer></script>
 </body>
 </html>

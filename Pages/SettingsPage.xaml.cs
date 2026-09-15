@@ -2,9 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Navigation;
 using FluentFTP;
 using GitDeployPro.Controls;
 using GitDeployPro.Models;
@@ -13,6 +15,7 @@ using GitDeployPro.Services.Localization;
 using GitDeployPro.Services.Theme;
 using GitDeployPro.Services.Update;
 using GitDeployPro.Windows;
+using GitDeployPro.Services.Vpn;
 using System.Diagnostics;
 using System.Windows.Forms; // For FolderBrowserDialog
 
@@ -36,6 +39,9 @@ namespace GitDeployPro.Pages
         private string _draftDefaultFtpId = string.Empty;
         private bool _draftFtpConfirmed = true;
         private List<ConnectionProfile> _remoteFtpProfiles = new();
+        private bool _telegramTokenDirty;
+        private bool _vpnStatusHooked;
+        private bool _suppressVpnProviderChange;
 
         public SettingsPage()
         {
@@ -43,8 +49,18 @@ namespace GitDeployPro.Pages
             _configService = new ConfigurationService();
             _gitService = new GitService();
             LocalizationService.Instance.LanguageChanged += (_, _) => RefreshLanguageUiTexts();
+            Unloaded += SettingsPage_Unloaded;
             ShowSettingsSection("general");
             LoadSettings();
+        }
+
+        private void SettingsPage_Unloaded(object sender, RoutedEventArgs e)
+        {
+            if (_vpnStatusHooked)
+            {
+                VpnKeepAliveService.Instance.StatusChanged -= VpnKeepAlive_StatusChanged;
+                _vpnStatusHooked = false;
+            }
         }
 
         private void SettingsNav_Click(object sender, RoutedEventArgs e)
@@ -79,6 +95,16 @@ namespace GitDeployPro.Pages
                 SettingsPanelTerminal.Visibility = section == "terminal" ? Visibility.Visible : Visibility.Collapsed;
             }
 
+            if (SettingsPanelTelegram != null)
+            {
+                SettingsPanelTelegram.Visibility = section == "telegram" ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            if (SettingsPanelVpn != null)
+            {
+                SettingsPanelVpn.Visibility = section == "vpn" ? Visibility.Visible : Visibility.Collapsed;
+            }
+
             if (SettingsPanelThemes != null)
             {
                 SettingsPanelThemes.Visibility = section == "themes" ? Visibility.Visible : Visibility.Collapsed;
@@ -88,6 +114,8 @@ namespace GitDeployPro.Pages
             SetNavActive(NavServerButton, section == "server");
             SetNavActive(NavGitButton, section == "git");
             SetNavActive(NavTerminalButton, section == "terminal");
+            SetNavActive(NavTelegramButton, section == "telegram");
+            SetNavActive(NavVpnButton, section == "vpn");
             SetNavActive(NavThemesButton, section == "themes");
 
             if (SettingsSectionSubtitle != null)
@@ -97,6 +125,8 @@ namespace GitDeployPro.Pages
                     "server" => "FTP/SFTP connection profile and setup recovery.",
                     "git" => "Remote, branches, deploy automation, and ignore patterns.",
                     "terminal" => "Terminal autocomplete commands and scopes.",
+                    "telegram" => Loc.T("settings.telegramHint"),
+                    "vpn" => Loc.T("vpn.subtitle"),
                     "themes" => "Import Deploy theme packs and manage custom skins.",
                     _ => "Project path, startup, updates, and danger zone."
                 };
@@ -157,6 +187,8 @@ namespace GitDeployPro.Pages
                 LoadLanguageCombo(globalConfig.UiLanguage);
                 LoadWorkspacePreferences();
                 RefreshLanguageUiTexts();
+                LoadTelegramSettings(globalConfig);
+                LoadVpnSettings(globalConfig);
                 TerminalSuggestionsPanel?.Reload(globalConfig.LastProjectPath);
                 if (SshKeyPathTextBox != null)
                 {
@@ -1272,6 +1304,7 @@ namespace GitDeployPro.Pages
                     cfg.MinimizeToTray = minimizeToTray;
                     cfg.DefaultSshKeyPath = SshKeyPathTextBox?.Text?.Trim() ?? string.Empty;
                     cfg.DeployDefaultWorkers = deployWorkers;
+                    PersistTelegramFields(cfg);
                 });
 
                 if (DeployDefaultWorkersTextBox != null)
@@ -1281,6 +1314,7 @@ namespace GitDeployPro.Pages
 
                 _autoStartService.SetAutoStart(launchOnStartup);
                 RefreshStartupAudit();
+                GitDeployPro.Services.Telegram.TelegramPoller.Instance.Restart();
                 
                 GitService.SetWorkingDirectory(projectPath);
 
@@ -1898,6 +1932,598 @@ namespace GitDeployPro.Pages
             {
                 ModernMessageBox.Show("Project configuration re-setup successfully! 🔄", "Setup Completed", MessageBoxButton.OK, MessageBoxImage.Information);
                 await ReloadSettingsForPath(path);
+            }
+        }
+
+        private void LoadTelegramSettings(ConfigurationService.GlobalConfig globalConfig)
+        {
+            _telegramTokenDirty = false;
+            if (TelegramEnabledCheckBox != null)
+            {
+                TelegramEnabledCheckBox.IsChecked = globalConfig.TelegramEnabled;
+            }
+
+            if (TelegramAllowedIdsTextBox != null)
+            {
+                TelegramAllowedIdsTextBox.Text = globalConfig.TelegramAllowedUserIds ?? string.Empty;
+            }
+
+            if (TelegramTokenBox != null)
+            {
+                TelegramTokenBox.Password = string.Empty;
+            }
+
+            if (TelegramTokenHint != null)
+            {
+                var hasToken = !string.IsNullOrWhiteSpace(globalConfig.TelegramBotToken);
+                TelegramTokenHint.Text = hasToken
+                    ? Loc.T("telegram.tokenSavedHint")
+                    : Loc.T("telegram.tokenHint");
+            }
+
+            if (TelegramStatusText != null)
+            {
+                TelegramStatusText.Text = GitDeployPro.Services.Telegram.TelegramPoller.Instance.StatusText;
+            }
+
+            if (CursorAgentEnabledCheckBox != null)
+            {
+                CursorAgentEnabledCheckBox.IsChecked = globalConfig.CursorAgentEnabled;
+            }
+
+            if (CursorAgentPathTextBox != null)
+            {
+                CursorAgentPathTextBox.Text = globalConfig.CursorAgentPath ?? string.Empty;
+            }
+
+            if (CursorAgentModelTextBox != null)
+            {
+                CursorAgentModelTextBox.Text = globalConfig.CursorAgentModel ?? string.Empty;
+            }
+
+            if (CursorStatusText != null)
+            {
+                var detected = GitDeployPro.Services.Telegram.CursorAgentBridge.Instance
+                    .ResolveAgentExecutable(globalConfig.CursorAgentPath);
+                CursorStatusText.Text = string.IsNullOrWhiteSpace(detected)
+                    ? Loc.T("cursor.agentMissing")
+                    : Loc.T("cursor.agentFound", detected);
+            }
+        }
+
+        private void PersistTelegramFields(ConfigurationService.GlobalConfig cfg)
+        {
+            cfg.TelegramEnabled = TelegramEnabledCheckBox?.IsChecked == true;
+            cfg.TelegramAllowedUserIds = TelegramAllowedIdsTextBox?.Text?.Trim() ?? string.Empty;
+            if (_telegramTokenDirty && !string.IsNullOrWhiteSpace(TelegramTokenBox?.Password))
+            {
+                cfg.TelegramBotToken = EncryptionService.Encrypt(TelegramTokenBox.Password.Trim());
+            }
+        }
+
+        private void TelegramTokenBox_PasswordChanged(object sender, RoutedEventArgs e)
+        {
+            _telegramTokenDirty = !string.IsNullOrWhiteSpace(TelegramTokenBox?.Password);
+        }
+
+        private void PersistCursorFields(ConfigurationService.GlobalConfig cfg)
+        {
+            cfg.CursorAgentEnabled = CursorAgentEnabledCheckBox?.IsChecked == true;
+            cfg.CursorAgentPath = CursorAgentPathTextBox?.Text?.Trim() ?? string.Empty;
+            cfg.CursorAgentModel = CursorAgentModelTextBox?.Text?.Trim() ?? string.Empty;
+        }
+
+        private void CursorSaveButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                _configService.UpdateGlobalConfig(PersistCursorFields);
+                if (CursorStatusText != null)
+                {
+                    var path = CursorAgentPathTextBox?.Text?.Trim();
+                    var detected = GitDeployPro.Services.Telegram.CursorAgentBridge.Instance
+                        .ResolveAgentExecutable(path);
+                    CursorStatusText.Foreground = (System.Windows.Media.Brush)FindResource(
+                        string.IsNullOrWhiteSpace(detected) ? "Status.Error" : "Status.Success");
+                    CursorStatusText.Text = string.IsNullOrWhiteSpace(detected)
+                        ? Loc.T("cursor.settingsSavedMissing")
+                        : Loc.T("cursor.settingsSaved", detected);
+                }
+
+                var projectPath = _configService.LoadGlobalConfig().LastProjectPath;
+                GitDeployPro.Services.Telegram.CursorAgentBridge.Instance.InvalidateAfterSettingsSave(projectPath);
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show(ex.Message, Loc.T("common.error"), MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void CursorDetectButton_Click(object sender, RoutedEventArgs e)
+        {
+            RefreshProcessPathFromSystem();
+            var typed = CursorAgentPathTextBox?.Text?.Trim();
+            var detected = GitDeployPro.Services.Telegram.CursorAgentBridge.Instance
+                .ResolveAgentExecutable(typed);
+            if (CursorStatusText != null)
+            {
+                CursorStatusText.Foreground = (System.Windows.Media.Brush)FindResource(
+                    string.IsNullOrWhiteSpace(detected) ? "Status.Error" : "Status.Success");
+                CursorStatusText.Text = string.IsNullOrWhiteSpace(detected)
+                    ? Loc.T("cursor.agentMissing")
+                    : Loc.T("cursor.agentFound", detected);
+            }
+
+            if (!string.IsNullOrWhiteSpace(detected)
+                && CursorAgentPathTextBox != null
+                && string.IsNullOrWhiteSpace(CursorAgentPathTextBox.Text))
+            {
+                CursorAgentPathTextBox.Text = detected;
+            }
+        }
+
+        private void CursorDocsLink_RequestNavigate(object sender, RequestNavigateEventArgs e)
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = e.Uri.AbsoluteUri,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show(ex.Message, Loc.T("common.error"), MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+
+            e.Handled = true;
+        }
+
+        private static void RefreshProcessPathFromSystem()
+        {
+            try
+            {
+                var machine = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Machine) ?? string.Empty;
+                var user = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User) ?? string.Empty;
+                Environment.SetEnvironmentVariable(
+                    "PATH",
+                    machine + Path.PathSeparator + user,
+                    EnvironmentVariableTarget.Process);
+            }
+            catch
+            {
+            }
+        }
+
+        private void CursorHelpButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var window = new CursorCliHelpWindow
+                {
+                    Owner = Window.GetWindow(this)
+                };
+                window.ShowDialog();
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show(ex.Message, Loc.T("common.error"), MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void CursorInstallButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                OpenCursorCliInstallTerminal();
+                if (CursorStatusText != null)
+                {
+                    CursorStatusText.Foreground = (System.Windows.Media.Brush)FindResource("Text.Muted");
+                    CursorStatusText.Text = Loc.T("cursor.installTerminalOpened");
+                }
+            }
+            catch (Exception ex)
+            {
+                if (CursorStatusText != null)
+                {
+                    CursorStatusText.Foreground = (System.Windows.Media.Brush)FindResource("Status.Error");
+                    CursorStatusText.Text = Loc.T("cursor.installFailed", ex.Message);
+                }
+            }
+        }
+
+        private static void OpenCursorCliInstallTerminal()
+        {
+            // Official Windows install — visible terminal so the operator can watch progress.
+            // https://cursor.com/docs/cli/overview
+            const string installScript = "irm 'https://cursor.com/install?win32=true' | iex";
+            var inner = string.Join("; ", new[]
+            {
+                "Write-Host '=== GitDeploy: Installing Cursor CLI ===' -ForegroundColor Cyan",
+                "Write-Host 'Command: " + installScript + "' -ForegroundColor DarkGray",
+                "Write-Host ''",
+                installScript,
+                "Write-Host ''",
+                "Write-Host '=== Install finished ===' -ForegroundColor Green",
+                "Write-Host 'Close this window, then in GitDeploy click Detect agent.' -ForegroundColor Yellow",
+                "Write-Host ''",
+                "pause"
+            });
+
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Arguments = "-NoExit -NoProfile -ExecutionPolicy Bypass -Command \"" + inner.Replace("\"", "\\\"") + "\"",
+                UseShellExecute = true,
+                WorkingDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
+            });
+        }
+
+        private void TelegramSaveButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                _configService.UpdateGlobalConfig(PersistTelegramFields);
+                _telegramTokenDirty = false;
+                if (TelegramTokenBox != null)
+                {
+                    TelegramTokenBox.Password = string.Empty;
+                }
+
+                if (TelegramTokenHint != null)
+                {
+                    TelegramTokenHint.Text = Loc.T("telegram.tokenSavedHint");
+                }
+
+                GitDeployPro.Services.Telegram.TelegramPoller.Instance.Restart();
+                if (TelegramStatusText != null)
+                {
+                    TelegramStatusText.Text = Loc.T("telegram.settingsSaved");
+                }
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show(ex.Message, Loc.T("common.error"), MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private async void TelegramTestButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var typed = TelegramTokenBox?.Password;
+                var result = await GitDeployPro.Services.Telegram.TelegramPoller.Instance
+                    .TestConnectionAsync(typed, System.Threading.CancellationToken.None);
+                if (TelegramStatusText != null)
+                {
+                    TelegramStatusText.Foreground = result.Ok
+                        ? (System.Windows.Media.Brush)FindResource("Status.Success")
+                        : (System.Windows.Media.Brush)FindResource("Status.Error");
+                    TelegramStatusText.Text = result.Message;
+                }
+            }
+            catch (Exception ex)
+            {
+                if (TelegramStatusText != null)
+                {
+                    TelegramStatusText.Foreground = (System.Windows.Media.Brush)FindResource("Status.Error");
+                    TelegramStatusText.Text = ex.Message;
+                }
+            }
+        }
+
+        private void LoadVpnSettings(ConfigurationService.GlobalConfig globalConfig)
+        {
+            if (!_vpnStatusHooked)
+            {
+                VpnKeepAliveService.Instance.StatusChanged += VpnKeepAlive_StatusChanged;
+                _vpnStatusHooked = true;
+            }
+
+            if (VpnEnabledCheckBox != null)
+            {
+                VpnEnabledCheckBox.IsChecked = globalConfig.VpnEnabled;
+            }
+
+            SelectVpnProviderCombo(VpnProviderFactory.NormalizeProviderId(globalConfig.VpnProvider));
+            ApplyVpnProviderUiHints();
+
+            if (VpnGuiPathTextBox != null)
+            {
+                VpnGuiPathTextBox.Text = VpnProviderFactory.ResolveConfiguredPath(globalConfig);
+            }
+
+            if (VpnConnectOnStartupCheckBox != null)
+            {
+                VpnConnectOnStartupCheckBox.IsChecked = globalConfig.VpnConnectOnStartup;
+            }
+
+            if (VpnAutoReconnectCheckBox != null)
+            {
+                VpnAutoReconnectCheckBox.IsChecked = globalConfig.VpnAutoReconnect;
+            }
+
+            if (VpnHealthIntervalTextBox != null)
+            {
+                VpnHealthIntervalTextBox.Text = (globalConfig.VpnHealthIntervalSeconds > 0
+                    ? globalConfig.VpnHealthIntervalSeconds
+                    : 30).ToString();
+            }
+
+            if (VpnMaxAttemptsTextBox != null)
+            {
+                VpnMaxAttemptsTextBox.Text = Math.Max(0, globalConfig.VpnMaxReconnectAttempts).ToString();
+            }
+
+            if (VpnProbeHostTextBox != null)
+            {
+                VpnProbeHostTextBox.Text = globalConfig.VpnHealthProbeHost ?? string.Empty;
+            }
+
+            RefreshVpnProfiles(globalConfig.VpnProfileName);
+            ApplyVpnStatusUi(VpnKeepAliveService.Instance.State, VpnKeepAliveService.Instance.StatusMessage);
+        }
+
+        private void PersistVpnFields(ConfigurationService.GlobalConfig cfg)
+        {
+            cfg.VpnEnabled = VpnEnabledCheckBox?.IsChecked == true;
+            cfg.VpnProvider = VpnProviderFactory.NormalizeProviderId(GetSelectedVpnProviderId());
+            var exePath = VpnGuiPathTextBox?.Text?.Trim() ?? string.Empty;
+            if (cfg.VpnProvider == VpnProviderFactory.OpenVpnGui)
+            {
+                cfg.VpnOpenVpnGuiPath = exePath;
+            }
+            else
+            {
+                cfg.VpnOpenVpnConnectPath = exePath;
+            }
+
+            cfg.VpnProfileName = (VpnProfileCombo?.SelectedItem as VpnProfileInfo)?.Name
+                                 ?? VpnProfileCombo?.SelectedValue as string
+                                 ?? cfg.VpnProfileName
+                                 ?? string.Empty;
+            cfg.VpnConnectOnStartup = VpnConnectOnStartupCheckBox?.IsChecked == true;
+            cfg.VpnAutoReconnect = VpnAutoReconnectCheckBox?.IsChecked == true;
+            if (!int.TryParse(VpnHealthIntervalTextBox?.Text?.Trim(), out var interval) || interval <= 0)
+            {
+                interval = 30;
+            }
+
+            cfg.VpnHealthIntervalSeconds = Math.Clamp(interval, 10, 600);
+            if (!int.TryParse(VpnMaxAttemptsTextBox?.Text?.Trim(), out var maxAttempts) || maxAttempts < 0)
+            {
+                maxAttempts = 0;
+            }
+
+            cfg.VpnMaxReconnectAttempts = maxAttempts;
+            cfg.VpnHealthProbeHost = VpnProbeHostTextBox?.Text?.Trim() ?? string.Empty;
+        }
+
+        private string GetSelectedVpnProviderId()
+        {
+            if (VpnProviderCombo?.SelectedItem is ComboBoxItem item && item.Tag is string tag)
+            {
+                return tag;
+            }
+
+            return VpnProviderFactory.OpenVpnConnect;
+        }
+
+        private void SelectVpnProviderCombo(string providerId)
+        {
+            if (VpnProviderCombo == null)
+            {
+                return;
+            }
+
+            _suppressVpnProviderChange = true;
+            try
+            {
+                for (var i = 0; i < VpnProviderCombo.Items.Count; i++)
+                {
+                    if (VpnProviderCombo.Items[i] is ComboBoxItem item
+                        && item.Tag is string tag
+                        && string.Equals(tag, providerId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        VpnProviderCombo.SelectedIndex = i;
+                        return;
+                    }
+                }
+
+                VpnProviderCombo.SelectedIndex = 0;
+            }
+            finally
+            {
+                _suppressVpnProviderChange = false;
+            }
+        }
+
+        private void ApplyVpnProviderUiHints()
+        {
+            var providerId = GetSelectedVpnProviderId();
+            if (VpnGuiPathTextBox != null)
+            {
+                MahApps.Metro.Controls.TextBoxHelper.SetWatermark(
+                    VpnGuiPathTextBox,
+                    providerId == VpnProviderFactory.OpenVpnGui
+                        ? @"C:\Program Files\OpenVPN\bin\openvpn-gui.exe"
+                        : @"C:\Program Files\OpenVPN Connect\OpenVPNConnect.exe");
+            }
+        }
+
+        private void VpnProviderCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_suppressVpnProviderChange)
+            {
+                return;
+            }
+
+            ApplyVpnProviderUiHints();
+            var cfg = _configService.LoadGlobalConfig();
+            var providerId = GetSelectedVpnProviderId();
+            if (VpnGuiPathTextBox != null)
+            {
+                VpnGuiPathTextBox.Text = providerId == VpnProviderFactory.OpenVpnGui
+                    ? (cfg.VpnOpenVpnGuiPath ?? string.Empty)
+                    : (string.IsNullOrWhiteSpace(cfg.VpnOpenVpnConnectPath)
+                        ? (cfg.VpnOpenVpnGuiPath ?? string.Empty)
+                        : cfg.VpnOpenVpnConnectPath);
+            }
+
+            RefreshVpnProfiles(cfg.VpnProfileName);
+        }
+
+        private IVpnProvider GetSelectedVpnProvider() =>
+            VpnProviderFactory.Create(GetSelectedVpnProviderId());
+
+        private void RefreshVpnProfiles(string? selectedName)
+        {
+            if (VpnProfileCombo == null)
+            {
+                return;
+            }
+
+            var exePath = VpnGuiPathTextBox?.Text?.Trim();
+            var profiles = GetSelectedVpnProvider().ListProfiles(exePath);
+            VpnProfileCombo.ItemsSource = profiles;
+            if (!string.IsNullOrWhiteSpace(selectedName))
+            {
+                var match = profiles.FirstOrDefault(p =>
+                    string.Equals(p.Name, selectedName, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(p.Name, Path.GetFileNameWithoutExtension(selectedName), StringComparison.OrdinalIgnoreCase));
+                if (match != null)
+                {
+                    VpnProfileCombo.SelectedItem = match;
+                    return;
+                }
+            }
+
+            if (profiles.Count > 0 && VpnProfileCombo.SelectedItem == null)
+            {
+                VpnProfileCombo.SelectedIndex = 0;
+            }
+        }
+
+        private void VpnKeepAlive_StatusChanged(object? sender, VpnStatusChangedEventArgs e)
+        {
+            Dispatcher.InvokeAsync(() => ApplyVpnStatusUi(e.State, e.Message));
+        }
+
+        private void ApplyVpnStatusUi(VpnConnectionState state, string message)
+        {
+            if (VpnStatusText == null)
+            {
+                return;
+            }
+
+            var brushKey = state switch
+            {
+                VpnConnectionState.Connected => "Status.Success",
+                VpnConnectionState.Connecting or VpnConnectionState.Reconnecting => "Status.Warning",
+                VpnConnectionState.Error or VpnConnectionState.Down => "Status.Error",
+                _ => "Text.Muted"
+            };
+
+            try
+            {
+                VpnStatusText.Foreground = (System.Windows.Media.Brush)FindResource(brushKey);
+            }
+            catch
+            {
+            }
+
+            VpnStatusText.Text = string.IsNullOrWhiteSpace(message)
+                ? Loc.T("vpn.statusIdle")
+                : Loc.T("vpn.statusLine", state.ToString(), message);
+        }
+
+        private void VpnDetectButton_Click(object sender, RoutedEventArgs e)
+        {
+            var found = GetSelectedVpnProvider().ResolveExecutablePath(VpnGuiPathTextBox?.Text);
+            if (string.IsNullOrWhiteSpace(found))
+            {
+                ApplyVpnStatusUi(VpnConnectionState.Error, Loc.T("vpn.detectFail"));
+                return;
+            }
+
+            if (VpnGuiPathTextBox != null)
+            {
+                VpnGuiPathTextBox.Text = found;
+            }
+
+            RefreshVpnProfiles(VpnProfileCombo?.SelectedValue as string);
+            ApplyVpnStatusUi(VpnConnectionState.Idle, Loc.T("vpn.detectOk", found));
+        }
+
+        private void VpnRefreshProfilesButton_Click(object sender, RoutedEventArgs e)
+        {
+            var selected = VpnProfileCombo?.SelectedValue as string
+                           ?? (VpnProfileCombo?.SelectedItem as VpnProfileInfo)?.Name;
+            RefreshVpnProfiles(selected);
+            if (VpnProfileCombo?.Items.Count == 0)
+            {
+                ApplyVpnStatusUi(VpnConnectionState.Idle, Loc.T("vpn.noProfiles"));
+            }
+        }
+
+        private void VpnSaveButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                _configService.UpdateGlobalConfig(PersistVpnFields);
+                VpnKeepAliveService.Instance.ApplyConfigAndRestart();
+                ApplyVpnStatusUi(VpnKeepAliveService.Instance.State, Loc.T("vpn.saved"));
+            }
+            catch (Exception ex)
+            {
+                ApplyVpnStatusUi(VpnConnectionState.Error, ex.Message);
+            }
+        }
+
+        private async void VpnConnectButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                _configService.UpdateGlobalConfig(PersistVpnFields);
+                var profile = _configService.LoadGlobalConfig().VpnProfileName;
+                if (string.IsNullOrWhiteSpace(profile))
+                {
+                    ApplyVpnStatusUi(VpnConnectionState.Error, Loc.T("vpn.needProfile"));
+                    return;
+                }
+
+                await VpnKeepAliveService.Instance.ConnectNowAsync().ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                ApplyVpnStatusUi(VpnConnectionState.Error, ex.Message);
+            }
+        }
+
+        private async void VpnDisconnectButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                _configService.UpdateGlobalConfig(PersistVpnFields);
+                await VpnKeepAliveService.Instance.DisconnectNowAsync().ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                ApplyVpnStatusUi(VpnConnectionState.Error, ex.Message);
+            }
+        }
+
+        private async void VpnReconnectButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                _configService.UpdateGlobalConfig(PersistVpnFields);
+                await VpnKeepAliveService.Instance.ReconnectNowAsync().ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                ApplyVpnStatusUi(VpnConnectionState.Error, ex.Message);
             }
         }
 

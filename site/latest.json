@@ -1,12 +1,16 @@
 {
-  "version": "1.5.75",
-  "fileName": "GitDeployPro-1.5.75.exe",
-  "downloadUrl": "versions/GitDeployPro-1.5.75.exe",
-  "sha256": "8139C96E63E98AAF9DA22CA09E391C8167D5C1AFD8A8DDE35AD534B7B806542C",
-  "releaseNotes": "- Fix: Sync pull button (⟳) restored on FTP toolbar; Edit Sync (📋) stays on deploy rail",
+  "version": "2.0.0",
+  "fileName": "GitDeployPro-2.0.0.exe",
+  "downloadUrl": "versions/GitDeployPro-2.0.0.exe",
+  "sha256": "E9FCC931DE117E3FBC6EC0718440941C46094BFAEFEFFE449C6DA7FC56870036",
+  "releaseNotes": "Major: GitDeploy Pro 2.0 platform refresh\nFeature: OpenVPN Connect keep-alive (startup + auto-reconnect)\nFeature: Telegram/Cursor agent bridge hardening (warm ACP, queue, model list, resilience)\nFeature: Deploy/FTP workspace + theme packs maturity\nSite: New marketing landing for 2.0",
   "changelog": [
-    "Fix: Sync pull button (⟳) restored on FTP toolbar; Edit Sync (📋) stays on deploy rail"
+    "Major: GitDeploy Pro 2.0 platform refresh",
+    "Feature: OpenVPN Connect keep-alive (startup + auto-reconnect)",
+    "Feature: Telegram/Cursor agent bridge hardening (warm ACP, queue, model list, resilience)",
+    "Feature: Deploy/FTP workspace + theme packs maturity",
+    "Site: New marketing landing for 2.0"
   ],
   "mandatory": false,
-  "publishedUtc": "2026-09-02T03:43:00Z"
+  "publishedUtc": "2026-09-15T15:05:00Z"
 }

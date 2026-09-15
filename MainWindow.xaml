@@ -7,7 +7,7 @@
         Title="GitDeploy Pro"
         Height="650"
         Width="1100"
-        Icon="icon.ico"
+        Icon="gitDeployPro.ico"
         WindowStartupLocation="CenterScreen"
         Background="Transparent"
         BorderThickness="0"
@@ -386,6 +386,15 @@
                                         <StackPanel Orientation="Horizontal">
                                             <TextBlock Text="📜" FontSize="13" Width="22" Margin="0,0,8,0" Foreground="{StaticResource Text.Muted}" />
                                             <TextBlock Text="{loc:T nav.history}" FontSize="12.5" Foreground="{StaticResource Text.Primary}" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+                                    <Button x:Name="NavItemTelegram"
+                                            Style="{StaticResource NavPopupItemStyle}"
+                                            Tag="telegram"
+                                            Click="Telegram_Click">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="💬" FontSize="13" Width="22" Margin="0,0,8,0" Foreground="{StaticResource Text.Muted}" />
+                                            <TextBlock Text="{loc:T nav.telegram}" FontSize="12.5" Foreground="{StaticResource Text.Primary}" VerticalAlignment="Center" />
                                         </StackPanel>
                                     </Button>
 

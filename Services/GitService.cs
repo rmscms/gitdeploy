@@ -459,8 +459,7 @@ namespace GitDeployPro.Services
                 return;
             }
 
-            string pathSpecArgs = BuildPathSpecArguments(paths);
-            await RunGitCommandAsync($"add -A -- {pathSpecArgs}");
+            await RunGitWithPathSpecsAsync("add -A --", paths);
         }
 
         /// <summary>
@@ -522,7 +521,8 @@ namespace GitDeployPro.Services
                 changes.Add(new FileChange { Name = path, Type = changeType });
             }
 
-            if (!includeDiff || changes.Count == 0)
+            // Huge working trees (theme folder rename, etc.) — skip per-file diffs so commit/sync can proceed.
+            if (!includeDiff || changes.Count == 0 || changes.Count > 80)
             {
                 return changes;
             }
@@ -581,7 +581,6 @@ namespace GitDeployPro.Services
                 throw new Exception(GetNoCommittableChangesMessage());
             }
 
-            string pathSpecArgs = BuildPathSpecArguments(paths);
             await StagePathsAsync(paths);
 
             if (!await HasStagedOrWorkingChangesUnderPathsAsync(paths))
@@ -592,7 +591,7 @@ namespace GitDeployPro.Services
             message = message.Replace("\"", "\\\"");
             try
             {
-                await RunGitCommandAsync($"commit -m \"{message}\" --only -- {pathSpecArgs}");
+                await RunGitWithPathSpecsAsync($"commit -m \"{message}\" --only --", paths);
             }
             catch (GitCommandException ex) when (IsNothingToCommitError(ex) || IsChangesNotStagedForCommitError(ex))
             {
@@ -1057,8 +1056,8 @@ namespace GitDeployPro.Services
             {
                 StartInfo = new ProcessStartInfo
                 {
-                    FileName = "git",
-                    Arguments = arguments,
+                FileName = ResolveGitExecutable(),
+                Arguments = arguments,
                     WorkingDirectory = resolvedWorkingDirectory,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
@@ -1127,7 +1126,15 @@ namespace GitDeployPro.Services
             }
             catch (Exception ex)
             {
-                throw new GitCommandException("git", arguments, resolvedWorkingDirectory, -1, string.Empty, ex.Message, "Failed to execute git command.", ex);
+                throw new GitCommandException(
+                    "git",
+                    arguments,
+                    resolvedWorkingDirectory,
+                    -1,
+                    string.Empty,
+                    ex.Message,
+                    BuildExecuteFailedMessage(arguments, ex),
+                    ex);
             }
         }
 
@@ -1139,12 +1146,76 @@ namespace GitDeployPro.Services
             }
 
             if (arguments.StartsWith("add", StringComparison.OrdinalIgnoreCase) ||
-                arguments.StartsWith("diff", StringComparison.OrdinalIgnoreCase))
+                arguments.StartsWith("status", StringComparison.OrdinalIgnoreCase) ||
+                arguments.StartsWith("diff", StringComparison.OrdinalIgnoreCase) ||
+                arguments.StartsWith("commit", StringComparison.OrdinalIgnoreCase))
             {
                 return TimeSpan.FromMinutes(30);
             }
 
             return TimeSpan.FromMinutes(10);
+        }
+
+        private static string BuildExecuteFailedMessage(string arguments, Exception ex)
+        {
+            var hint = ex.Message ?? string.Empty;
+            if (hint.IndexOf("too long", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return "Git command line was too long (too many files in one add). Retry after update — paths are now batched.";
+            }
+
+            if (hint.IndexOf("cannot find the file", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return "Git executable was not found. Install Git for Windows or add git.exe to PATH.";
+            }
+
+            return $"Failed to execute git command: {hint}";
+        }
+
+        private static string ResolveGitExecutable()
+        {
+            var fromPath = FindGitOnPath();
+            if (!string.IsNullOrWhiteSpace(fromPath))
+            {
+                return fromPath;
+            }
+
+            foreach (var candidate in new[]
+            {
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Git", "cmd", "git.exe"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Git", "cmd", "git.exe"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "Git", "cmd", "git.exe"),
+            })
+            {
+                if (File.Exists(candidate))
+                {
+                    return candidate;
+                }
+            }
+
+            return "git";
+        }
+
+        private static string? FindGitOnPath()
+        {
+            try
+            {
+                var pathEnv = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
+                foreach (var dir in pathEnv.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    var candidate = Path.Combine(dir.Trim(), "git.exe");
+                    if (File.Exists(candidate))
+                    {
+                        return candidate;
+                    }
+                }
+            }
+            catch
+            {
+                // fall through
+            }
+
+            return null;
         }
 
         private static void TryTerminateProcess(Process process)
@@ -1181,15 +1252,60 @@ namespace GitDeployPro.Services
 
         private async Task<bool> HasStagedOrWorkingChangesUnderPathsAsync(IList<string> paths)
         {
-            string pathSpecArgs = BuildPathSpecArguments(paths);
-            var cached = await RunGitCommandAsync($"diff --cached --name-only -- {pathSpecArgs}");
-            if (!string.IsNullOrWhiteSpace(cached.Trim()))
+            foreach (var batch in ChunkPathSpecs(paths))
             {
-                return true;
+                var cached = await RunGitCommandAsync($"diff --cached --name-only -- {BuildPathSpecArguments(batch)}");
+                if (!string.IsNullOrWhiteSpace(cached.Trim()))
+                {
+                    return true;
+                }
+
+                var working = await RunGitCommandAsync($"diff --name-only -- {BuildPathSpecArguments(batch)}");
+                if (!string.IsNullOrWhiteSpace(working.Trim()))
+                {
+                    return true;
+                }
             }
 
-            var working = await RunGitCommandAsync($"diff --name-only -- {pathSpecArgs}");
-            return !string.IsNullOrWhiteSpace(working.Trim());
+            return false;
+        }
+
+        private async Task RunGitWithPathSpecsAsync(string prefix, IList<string> paths)
+        {
+            foreach (var batch in ChunkPathSpecs(paths))
+            {
+                await RunGitCommandAsync($"{prefix} {BuildPathSpecArguments(batch)}");
+            }
+        }
+
+        /// <summary>
+        /// Windows CreateProcess command line max is ~32k. Keep pathspec batches well under that.
+        /// </summary>
+        private static IEnumerable<List<string>> ChunkPathSpecs(IList<string> paths)
+        {
+            const int maxArgsChars = 18000;
+            var batch = new List<string>();
+            int currentLen = 0;
+
+            foreach (var path in paths)
+            {
+                var quoted = QuoteGitArgument(path);
+                var extra = quoted.Length + 1;
+                if (batch.Count > 0 && currentLen + extra > maxArgsChars)
+                {
+                    yield return batch;
+                    batch = new List<string>();
+                    currentLen = 0;
+                }
+
+                batch.Add(path);
+                currentLen += extra;
+            }
+
+            if (batch.Count > 0)
+            {
+                yield return batch;
+            }
         }
 
         private static bool TryParsePorcelainLine(string line, out string status, out string path)
@@ -1556,10 +1672,21 @@ namespace GitDeployPro.Services
             var details = !string.IsNullOrWhiteSpace(StandardError) ? StandardError : StandardOutput;
             if (string.IsNullOrWhiteSpace(details))
             {
-                details = "No output was returned by git.";
+                details = InnerException?.Message ?? "No output was returned by git.";
             }
 
             return details.Trim();
+        }
+
+        public string GetUserFacingMessage()
+        {
+            if (!string.IsNullOrWhiteSpace(Message) &&
+                !Message.Equals("Failed to execute git command.", StringComparison.Ordinal))
+            {
+                return Message.Trim();
+            }
+
+            return GetDetailedMessage();
         }
 
         private static string BuildMessage(string command, string arguments, int exitCode, string standardOutput, string standardError)

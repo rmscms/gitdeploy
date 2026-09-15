@@ -16,6 +16,7 @@ using GitDeployPro.Models;
 using GitDeployPro.Pages;
 using GitDeployPro.Services;
 using GitDeployPro.Services.Localization;
+using GitDeployPro.Services.Telegram;
 using GitDeployPro.Services.Theme;
 using GitDeployPro.Services.Update;
 using GitDeployPro.Windows;
@@ -129,6 +130,7 @@ namespace GitDeployPro
             if (!string.IsNullOrWhiteSpace(lastProject) && Directory.Exists(lastProject))
             {
                 CheckAndShowSetupWizard(lastProject);
+                GitDeployPro.Services.Telegram.CursorAgentBridge.Instance.PrewarmForProject(lastProject);
             }
 
             await AppUpdateCoordinator.RunAutomaticCheckAsync(this);
@@ -657,19 +659,33 @@ namespace GitDeployPro
 
         private void SwitchProject(string path)
         {
+            SetCurrentProject(path, showSetupWizard: true);
+            if (!string.Equals(_currentRoute, "telegram", StringComparison.OrdinalIgnoreCase))
+            {
+                NavigateToDeploy();
+            }
+        }
+
+        public void SetCurrentProject(string path, bool showSetupWizard = true)
+        {
             using var scope = PerformanceSampler.Instance.BeginScope("navigation", "switch-project", path);
             DiscardDeploySession();
             _configService.AddRecentProject(path);
-            LoadRecentProjects(); // Refresh name and list
+            LoadRecentProjects();
 
             GitService.SetWorkingDirectory(path);
             HistoryService.SetWorkingDirectory(path);
 
             TerminalControl.BroadcastSuggestionCatalog();
 
-            CheckAndShowSetupWizard(path);
+            if (showSetupWizard)
+            {
+                CheckAndShowSetupWizard(path);
+            }
 
-            NavigateToDeploy();
+            TelegramChatStore.Instance.SetActiveProjectPath(path);
+            ProjectWorkspace.Notify(path);
+            GitDeployPro.Services.Telegram.CursorAgentBridge.Instance.PrewarmForProject(path);
         }
 
         public void NavigateToDeploy()
@@ -678,6 +694,28 @@ namespace GitDeployPro
             LoadRecentProjects();
             _deployPage ??= new DeployPage();
             NavigateToPage(_deployPage, "deploy");
+        }
+
+        /// <summary>
+        /// Headless Deploy → Commit → Push for Telegram (skip review UI).
+        /// </summary>
+        public async Task<TelegramDeployResult> RunTelegramDeployAsync(string projectPath)
+        {
+            if (string.IsNullOrWhiteSpace(projectPath))
+            {
+                return TelegramDeployResult.Fail(Loc.T("telegram.deployNoProject"));
+            }
+
+            SetCurrentProject(projectPath, showSetupWizard: false);
+            NavigateToDeploy();
+            if (_deployPage == null)
+            {
+                return TelegramDeployResult.Fail(Loc.T("telegram.deployAppNotReady"));
+            }
+
+            // Let Loaded/init settle before upload.
+            await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Loaded);
+            return await _deployPage.RunHeadlessDeployCommitPushAsync();
         }
 
         private void DiscardDeploySession()
@@ -775,6 +813,7 @@ namespace GitDeployPro
         private void BackupScheduler_Click(object sender, RoutedEventArgs e) => NavigateToPage(new BackupSchedulerPage(), "backup-scheduler");
         private void Git_Click(object sender, RoutedEventArgs e) => NavigateToPage(new GitPage(), "git");
         private void History_Click(object sender, RoutedEventArgs e) => NavigateToPage(new HistoryPage(), "history");
+        private void Telegram_Click(object sender, RoutedEventArgs e) => NavigateToPage(new TelegramChatPage(), "telegram");
         private void Settings_Click(object sender, RoutedEventArgs e) => NavigateToPage(new SettingsPage(), "settings");
         private void About_Click(object sender, RoutedEventArgs e) => NavigateToPage(new AboutPage(), "about");
 
@@ -1091,7 +1130,40 @@ namespace GitDeployPro
 
         private static System.Drawing.Icon ResolveTrayIcon()
         {
-            // Single-file publish leaves Assembly.Location empty; prefer ProcessPath.
+            foreach (var fileName in new[] { "gitDeployPro.ico", "icon.ico" })
+            {
+                try
+                {
+                    var baseIcon = Path.Combine(AppContext.BaseDirectory, fileName);
+                    if (File.Exists(baseIcon))
+                    {
+                        return new System.Drawing.Icon(baseIcon);
+                    }
+                }
+                catch
+                {
+                    // Try next source.
+                }
+
+                try
+                {
+                    var packIcon = System.Windows.Application.GetResourceStream(
+                        new Uri($"pack://application:,,,/{fileName}"));
+                    if (packIcon?.Stream != null)
+                    {
+                        using (packIcon.Stream)
+                        {
+                            return new System.Drawing.Icon(packIcon.Stream);
+                        }
+                    }
+                }
+                catch
+                {
+                    // Try next source.
+                }
+            }
+
+            // Fallback: embedded EXE icon (may be stale until clean rebuild).
             foreach (var executablePath in new[]
                      {
                          Environment.ProcessPath,
@@ -1115,35 +1187,6 @@ namespace GitDeployPro
                 {
                     // Try next candidate.
                 }
-            }
-
-            try
-            {
-                var baseIcon = Path.Combine(AppContext.BaseDirectory, "icon.ico");
-                if (File.Exists(baseIcon))
-                {
-                    return new System.Drawing.Icon(baseIcon);
-                }
-            }
-            catch
-            {
-                // Try pack resource next.
-            }
-
-            try
-            {
-                var packIcon = System.Windows.Application.GetResourceStream(new Uri("pack://application:,,,/icon.ico"));
-                if (packIcon?.Stream != null)
-                {
-                    using (packIcon.Stream)
-                    {
-                        return new System.Drawing.Icon(packIcon.Stream);
-                    }
-                }
-            }
-            catch
-            {
-                // Fall through to default icon.
             }
 
             return System.Drawing.SystemIcons.Application;

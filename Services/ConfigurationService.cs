@@ -15,6 +15,8 @@ namespace GitDeployPro.Services
         private const string SessionFoldersFile = "session_folders.json"; // Session Manager folder structure
         private const string ProjectConfigFile = ".gitdeploy.config";
 
+        public string GetAppDataFolder() => GetAppDataPath();
+
         private string GetAppDataPath()
         {
             string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
@@ -104,6 +106,57 @@ namespace GitDeployPro.Services
             /// Custom theme pack filenames under %AppData%\GitDeployPro\Themes\.
             /// </summary>
             public List<string> CustomThemeFiles { get; set; } = new();
+
+            /// <summary>When true, the Telegram long-poller runs while the app is open.</summary>
+            public bool TelegramEnabled { get; set; }
+
+            /// <summary>Bot token from BotFather, stored via DPAPI.</summary>
+            public string TelegramBotToken { get; set; } = "";
+
+            /// <summary>Comma-separated Telegram user ids allowed to talk to the bot.</summary>
+            public string TelegramAllowedUserIds { get; set; } = "";
+
+            /// <summary>Project path that inbound Telegram messages attach to.</summary>
+            public string TelegramActiveProjectPath { get; set; } = "";
+
+            /// <summary>When true, real project-chat messages are sent to Cursor CLI agent.</summary>
+            public bool CursorAgentEnabled { get; set; }
+
+            /// <summary>Optional full path to agent / cursor-agent executable.</summary>
+            public string CursorAgentPath { get; set; } = "";
+
+            /// <summary>Optional model id passed to Cursor CLI (--model).</summary>
+            public string CursorAgentModel { get; set; } = "";
+
+            /// <summary>When true, VPN keep-alive / connect helpers are active.</summary>
+            public bool VpnEnabled { get; set; }
+
+            /// <summary>VPN provider id: OpenVpnConnect (default) or OpenVpn (community GUI).</summary>
+            public string VpnProvider { get; set; } = "OpenVpnConnect";
+
+            /// <summary>Optional full path to openvpn-gui.exe (community).</summary>
+            public string VpnOpenVpnGuiPath { get; set; } = "";
+
+            /// <summary>Optional full path to OpenVPNConnect.exe.</summary>
+            public string VpnOpenVpnConnectPath { get; set; } = "";
+
+            /// <summary>Selected OpenVPN profile name (without or with .ovpn).</summary>
+            public string VpnProfileName { get; set; } = "";
+
+            /// <summary>Connect the selected profile when GitDeployPro starts.</summary>
+            public bool VpnConnectOnStartup { get; set; }
+
+            /// <summary>When the tunnel drops, try reconnect automatically.</summary>
+            public bool VpnAutoReconnect { get; set; } = true;
+
+            /// <summary>Seconds between health checks.</summary>
+            public int VpnHealthIntervalSeconds { get; set; } = 30;
+
+            /// <summary>0 = unlimited reconnect attempts (with backoff).</summary>
+            public int VpnMaxReconnectAttempts { get; set; }
+
+            /// <summary>Optional host/IP to ping as VPN health probe.</summary>
+            public string VpnHealthProbeHost { get; set; } = "";
         }
 
         public class RecentProjectEntry

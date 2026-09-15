@@ -73,4 +73,19 @@
     <Color x:Key="Color.Tree.SearchMatchForeground">#10131A</Color>
     <SolidColorBrush x:Key="Tree.SearchMatchBackground" Color="{StaticResource Color.Tree.SearchMatchBackground}" />
     <SolidColorBrush x:Key="Tree.SearchMatchForeground" Color="{StaticResource Color.Tree.SearchMatchForeground}" />
+
+    <Color x:Key="Color.Chat.BubbleIn">#29313D</Color>
+    <Color x:Key="Color.Chat.BubbleOut">#5C8DFF</Color>
+    <Color x:Key="Color.Chat.BubbleInText">#F4F7FF</Color>
+    <Color x:Key="Color.Chat.BubbleOutText">#F4F7FF</Color>
+    <Color x:Key="Color.Chat.Composer">#202733</Color>
+    <Color x:Key="Color.Chat.Unread">#5C8DFF</Color>
+    <Color x:Key="Color.Chat.ThreadHover">#1FFFFFFF</Color>
+    <SolidColorBrush x:Key="Chat.BubbleIn" Color="{StaticResource Color.Chat.BubbleIn}" />
+    <SolidColorBrush x:Key="Chat.BubbleOut" Color="{StaticResource Color.Chat.BubbleOut}" />
+    <SolidColorBrush x:Key="Chat.BubbleInText" Color="{StaticResource Color.Chat.BubbleInText}" />
+    <SolidColorBrush x:Key="Chat.BubbleOutText" Color="{StaticResource Color.Chat.BubbleOutText}" />
+    <SolidColorBrush x:Key="Chat.Composer" Color="{StaticResource Color.Chat.Composer}" />
+    <SolidColorBrush x:Key="Chat.Unread" Color="{StaticResource Color.Chat.Unread}" />
+    <SolidColorBrush x:Key="Chat.ThreadHover" Color="{StaticResource Color.Chat.ThreadHover}" />
 </ResourceDictionary>

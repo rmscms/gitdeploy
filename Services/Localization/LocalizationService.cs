@@ -97,6 +97,31 @@ namespace GitDeployPro.Services.Localization
             }
         }
 
+        /// <summary>Resolve a key for an explicit language pack (e.g. help modal EN/FA toggle).</summary>
+        public string GetForLanguage(string languageCode, string key, params object[] args)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                return string.Empty;
+            }
+
+            var packLanguage = Normalize(languageCode);
+            var text = Lookup(packLanguage, key) ?? Lookup(English, key) ?? key;
+            if (args is { Length: > 0 })
+            {
+                try
+                {
+                    return string.Format(CultureInfo.InvariantCulture, text, args);
+                }
+                catch
+                {
+                    return text;
+                }
+            }
+
+            return text;
+        }
+
         public string Get(string key, params object[] args)
         {
             if (string.IsNullOrWhiteSpace(key))

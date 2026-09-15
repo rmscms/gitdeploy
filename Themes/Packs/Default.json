@@ -35,7 +35,14 @@
     "Shadow.Color": "#66000000",
     "Log.Success": "#65FFB2",
     "Tree.SearchMatchBackground": "#FFBF47",
-    "Tree.SearchMatchForeground": "#10131A"
+    "Tree.SearchMatchForeground": "#10131A",
+    "Chat.BubbleIn": "#29313D",
+    "Chat.BubbleOut": "#5C8DFF",
+    "Chat.BubbleInText": "#F4F7FF",
+    "Chat.BubbleOutText": "#F4F7FF",
+    "Chat.Composer": "#202733",
+    "Chat.Unread": "#5C8DFF",
+    "Chat.ThreadHover": "#1FFFFFFF"
   },
   "deploy": {
     "shell": {

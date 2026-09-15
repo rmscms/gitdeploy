@@ -39,6 +39,7 @@ namespace GitDeployPro.Pages
         private const double CenterContentMinHeight = 180;
 
         private bool isDeploying = false;
+        private bool _headlessTelegram;
         private readonly TransferMonitorController _transferMonitor = new();
         private GitService _gitService;
         private HistoryService _historyService;
@@ -2980,6 +2981,55 @@ namespace GitDeployPro.Pages
             }
         }
 
+        /// <summary>
+        /// Telegram / headless path: same as Skip review — Deploy → Commit → Push without CommitWindow.
+        /// </summary>
+        public async Task<GitDeployPro.Services.Telegram.TelegramDeployResult> RunHeadlessDeployCommitPushAsync()
+        {
+            if (isDeploying)
+            {
+                return GitDeployPro.Services.Telegram.TelegramDeployResult.Fail(
+                    Loc.T("telegram.deployBusy"));
+            }
+
+            _headlessTelegram = true;
+            try
+            {
+                EnsureRemoteWorkspaceInitialized();
+                await DiscoverAndStageNewGitFilesAsync(logWhenStaged: true);
+                var changes = await _gitService.GetUncommittedChangesAsync(includeDiff: false);
+                if (changes.Count == 0)
+                {
+                    return GitDeployPro.Services.Telegram.TelegramDeployResult.Fail(
+                        Loc.T("telegram.deployNoChanges"));
+                }
+
+                if (IsFtpDeploymentMode() && !HasFtpTargetConfigured())
+                {
+                    return GitDeployPro.Services.Telegram.TelegramDeployResult.Fail(
+                        Loc.T("telegram.deployNoFtp"),
+                        changes.Count);
+                }
+
+                var defaultMessage = $"deploy update {AppTimeService.LocalNow:yyyy-MM-dd HH:mm}";
+                AddLog($"📱 Telegram deploy requested — {changes.Count} pending file(s).");
+                return await RunDeployCommitPushPipelineAsync(changes, defaultMessage);
+            }
+            catch (Exception ex)
+            {
+                string detail = ex is GitCommandException gitEx
+                    ? gitEx.GetUserFacingMessage()
+                    : (ex.InnerException?.Message ?? ex.Message);
+                AddLog($"❌ Telegram deploy failed: {detail}");
+                return GitDeployPro.Services.Telegram.TelegramDeployResult.Fail(
+                    Loc.T("telegram.deployFailed", detail));
+            }
+            finally
+            {
+                _headlessTelegram = false;
+            }
+        }
+
         private async Task HandleCommit()
         {
             try
@@ -3046,11 +3096,15 @@ namespace GitDeployPro.Pages
             }
             catch (Exception ex)
             {
-                ModernMessageBox.Show($"Send failed: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                string detail = ex is GitCommandException gitEx
+                    ? gitEx.GetUserFacingMessage()
+                    : (ex.InnerException?.Message ?? ex.Message);
+                AddLog($"❌ Send failed: {detail}");
+                ModernMessageBox.Show($"Send failed: {detail}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
-        private async Task RunDeployCommitPushPipelineAsync(List<FileChange> changes, string commitMessage)
+        private async Task<GitDeployPro.Services.Telegram.TelegramDeployResult> RunDeployCommitPushPipelineAsync(List<FileChange> changes, string commitMessage)
         {
             var filesToDeploy = changes
                 .Select(c => new FileChange { Name = c.Name, Type = c.Type, DiffPatch = c.DiffPatch })
@@ -3071,7 +3125,10 @@ namespace GitDeployPro.Pages
                 AddLog("⛔ Deploy failed. Commit+Push skipped to protect server state.");
                 StatusText.Text = "Deploy failed. Commit was not created.";
                 StatusText.Foreground = GetThemeBrush("Status.Error", System.Windows.Media.Brushes.OrangeRed);
-                return;
+                var fatal = string.IsNullOrWhiteSpace(deployResult.FatalErrorMessage)
+                    ? Loc.T("telegram.deployUploadFailed")
+                    : deployResult.FatalErrorMessage;
+                return GitDeployPro.Services.Telegram.TelegramDeployResult.Fail(fatal, filesToDeploy.Count);
             }
 
             if (deployResult.IsPartialSuccess)
@@ -3082,7 +3139,9 @@ namespace GitDeployPro.Pages
                     AddLog("⏸ Commit+Push skipped by user after partial deploy warning.");
                     StatusText.Text = "Partial deploy completed. Commit skipped by user.";
                     StatusText.Foreground = GetThemeBrush("Status.Warning", System.Windows.Media.Brushes.Orange);
-                    return;
+                    return GitDeployPro.Services.Telegram.TelegramDeployResult.Fail(
+                        Loc.T("telegram.deployPartialSkipped"),
+                        filesToDeploy.Count);
                 }
             }
 
@@ -3099,6 +3158,15 @@ namespace GitDeployPro.Pages
             await AddDeploymentHistoryRecordAsync(filesToDeploy);
             LoadGitData();
             _ = DirectUploadDock.RefreshGitOverlayPublicAsync();
+
+            var summary = pushSucceeded
+                ? Loc.T("telegram.deployOk", filesToDeploy.Count, deployResult.UploadedCount)
+                : Loc.T("telegram.deployOkPushWarn", filesToDeploy.Count, deployResult.UploadedCount);
+            return GitDeployPro.Services.Telegram.TelegramDeployResult.Succeed(
+                filesToDeploy.Count,
+                deployResult.UploadedCount,
+                pushSucceeded,
+                summary);
         }
 
         private async Task HandleCompare()
@@ -3170,7 +3238,10 @@ namespace GitDeployPro.Pages
             catch (Exception ex)
             {
                 AddLog($"❌ Push failed: {ex.Message}");
-                ModernMessageBox.Show($"Push failed: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                if (!_headlessTelegram)
+                {
+                    ModernMessageBox.Show($"Push failed: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
                 return false;
             }
             finally
@@ -3368,8 +3439,11 @@ namespace GitDeployPro.Pages
                 {
                     // Clipboard might fail in some contexts; ignore.
                 }
-                // ALWAYS show error dialog
-                ModernMessageBox.Show($"Deployment Failed:\n\n{detailed}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                // ALWAYS show error dialog (except Telegram headless — result is reported in chat)
+                if (!_headlessTelegram)
+                {
+                    ModernMessageBox.Show($"Deployment Failed:\n\n{detailed}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
                 deployResult.HasFatalError = true;
                 deployResult.FatalErrorMessage = ex.Message;
                 return deployResult;
@@ -3736,24 +3810,43 @@ namespace GitDeployPro.Pages
                 return true;
             }
 
+            if (_headlessTelegram)
+            {
+                var selectedId = ProjectFtpAssignments.GetDefaultId(_projectConfig);
+                if (string.IsNullOrWhiteSpace(selectedId))
+                {
+                    selectedId = assigned[0].Id;
+                }
+
+                ProjectFtpAssignments.SetDefault(_projectConfig, selectedId, confirmed: true);
+                var selected = assigned.FirstOrDefault(p =>
+                    string.Equals(p.Id, selectedId, StringComparison.OrdinalIgnoreCase));
+                ProjectFtpAssignments.CopyLegacyFields(_projectConfig, selected);
+                _configService.SaveProjectConfig(_projectConfig);
+                _ftpAssignmentFingerprint = BuildFtpAssignmentFingerprint(_projectConfig);
+                DeployRemoteWorkspace?.NotifyProjectConfigChanged(_projectConfig);
+                AddLog($"🎯 Telegram auto-selected sync target: {selected?.Name ?? selectedId}.");
+                return true;
+            }
+
             if (!ProjectFtpTargetWindow.TryPick(
                     Window.GetWindow(this),
                     assigned,
                     ProjectFtpAssignments.GetDefaultId(_projectConfig),
-                    out var selectedId,
+                    out var pickedId,
                     "This project has more than one FTP. Choose where Commit and Sync should upload."))
             {
                 return false;
             }
 
-            ProjectFtpAssignments.SetDefault(_projectConfig, selectedId, confirmed: true);
-            var selected = assigned.FirstOrDefault(p =>
-                string.Equals(p.Id, selectedId, StringComparison.OrdinalIgnoreCase));
-            ProjectFtpAssignments.CopyLegacyFields(_projectConfig, selected);
+            ProjectFtpAssignments.SetDefault(_projectConfig, pickedId, confirmed: true);
+            var picked = assigned.FirstOrDefault(p =>
+                string.Equals(p.Id, pickedId, StringComparison.OrdinalIgnoreCase));
+            ProjectFtpAssignments.CopyLegacyFields(_projectConfig, picked);
             _configService.SaveProjectConfig(_projectConfig);
             _ftpAssignmentFingerprint = BuildFtpAssignmentFingerprint(_projectConfig);
             DeployRemoteWorkspace?.NotifyProjectConfigChanged(_projectConfig);
-            AddLog($"🎯 Sync target set to {selected?.Name ?? selectedId}.");
+            AddLog($"🎯 Sync target set to {picked?.Name ?? pickedId}.");
             return true;
         }
 
@@ -3925,6 +4018,16 @@ namespace GitDeployPro.Pages
 
         private bool ConfirmContinueGitAfterPartialDeploy(DeployExecutionResult result)
         {
+            if (_headlessTelegram)
+            {
+                // Telegram cannot show Yes/No — continue commit if anything uploaded.
+                var continueOk = result.UploadedCount > 0;
+                AddLog(continueOk
+                    ? "📱 Telegram: continuing Commit+Push after partial deploy."
+                    : "📱 Telegram: skipping Commit+Push after partial deploy with zero uploads.");
+                return continueOk;
+            }
+
             var message = BuildPartialDeployMessage(result) +
                           "\n\nSome files failed to upload. Continue with Git commit/sync/push anyway?";
             return ModernMessageBox.Show(
