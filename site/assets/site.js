@@ -26,13 +26,12 @@
     if (/^https?:\/\//i.test(raw)) {
       return raw;
     }
-    // Prefer ZIP in versions/ for website visitors when only EXE is listed.
+    // Prefer EXE in versions/ (ZIP releases are no longer published).
     if (raw.toLowerCase().endsWith(".exe")) {
-      const zipName = raw.replace(/\.exe$/i, ".zip");
       if (raw.startsWith("versions/")) {
-        return raw.replace(/\.exe$/i, ".zip");
+        return raw;
       }
-      return `versions/${zipName}`;
+      return `versions/${raw}`;
     }
     if (raw.startsWith("versions/")) {
       return raw;

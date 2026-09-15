@@ -1279,16 +1279,28 @@ namespace GitDeployPro
 
         protected override void OnClosed(EventArgs e)
         {
-            base.OnClosed(e);
-            _taskMonitor.PropertyChanged -= TaskMonitorOnPropertyChanged;
-            BackupScheduleStore.SchedulesChanged -= BackupScheduleStoreOnSchedulesChanged;
-            _nextRunTimer.Stop();
-            if (_trayIcon != null)
+            try
             {
-                _trayIcon.Visible = false;
-                _trayIcon.Dispose();
-                _trayIcon = null;
+                if (_taskMonitor != null)
+                {
+                    _taskMonitor.PropertyChanged -= TaskMonitorOnPropertyChanged;
+                }
+
+                BackupScheduleStore.SchedulesChanged -= BackupScheduleStoreOnSchedulesChanged;
+                _nextRunTimer?.Stop();
+                if (_trayIcon != null)
+                {
+                    _trayIcon.Visible = false;
+                    _trayIcon.Dispose();
+                    _trayIcon = null;
+                }
             }
+            catch
+            {
+                // Window may have failed mid-construction; never throw from OnClosed.
+            }
+
+            base.OnClosed(e);
         }
     }
 }
