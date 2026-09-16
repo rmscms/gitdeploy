@@ -58,12 +58,15 @@ namespace GitDeployPro.Windows
             TitleText.Text = T("cursor.help.title");
             SubtitleText.Text = T("cursor.help.subtitle");
             LangLabelText.Text = T("cursor.help.langLabel");
+            LoginButton.Content = T("cursor.help.login");
             TestButton.Content = T("cursor.help.test");
             DocsButton.Content = T("cursor.help.docs");
             CloseButton.Content = T("common.close");
 
             if (string.IsNullOrWhiteSpace(TestResultText.Text)
-                || TestResultText.Text == T("cursor.help.testHint"))
+                || TestResultText.Text == T("cursor.help.testHint")
+                || TestResultText.Text.Contains("Login", StringComparison.OrdinalIgnoreCase)
+                || TestResultText.Text.Contains("لاگین", StringComparison.Ordinal))
             {
                 TestResultText.Text = T("cursor.help.testHint");
                 TestResultText.Foreground = (System.Windows.Media.Brush)FindResource("Text.Muted");
@@ -115,19 +118,24 @@ namespace GitDeployPro.Windows
                 return;
             }
 
+            var lineCount = Math.Max(1, cmd.Split('\n').Length);
+            var isLoginCmd = string.Equals(cmdKey, "cursor.help.s2.cmd", StringComparison.Ordinal);
             var box = new System.Windows.Controls.TextBox
             {
                 Text = cmd,
                 IsReadOnly = true,
                 BorderThickness = new Thickness(1),
-                BorderBrush = (System.Windows.Media.Brush)FindResource("Border.Subtle"),
+                BorderBrush = (System.Windows.Media.Brush)FindResource(
+                    isLoginCmd ? "Accent.Primary" : "Border.Subtle"),
                 Background = (System.Windows.Media.Brush)FindResource("Surface.Raised"),
                 Foreground = (System.Windows.Media.Brush)FindResource("Text.Primary"),
                 FontFamily = new System.Windows.Media.FontFamily("Consolas"),
-                FontSize = 11,
-                Padding = new Thickness(10, 8, 10, 8),
+                FontSize = isLoginCmd ? 13.5 : 11,
+                Padding = isLoginCmd ? new Thickness(14, 14, 14, 14) : new Thickness(10, 8, 10, 8),
                 Margin = new Thickness(0, 8, 0, 0),
                 TextWrapping = TextWrapping.Wrap,
+                AcceptsReturn = true,
+                MinHeight = isLoginCmd ? Math.Max(96, 28 + lineCount * 28) : (lineCount > 1 ? 72 : 36),
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto
             };
             SectionsPanel.Children.Add(box);
@@ -144,9 +152,25 @@ namespace GitDeployPro.Windows
             ApplyHelpLanguage();
         }
 
+        private void LoginButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                CursorAgentBridge.Instance.OpenLoginTerminal();
+                TestResultText.Foreground = (System.Windows.Media.Brush)FindResource("Status.Info");
+                TestResultText.Text = T("cursor.help.loginOpened");
+            }
+            catch (Exception ex)
+            {
+                TestResultText.Foreground = (System.Windows.Media.Brush)FindResource("Status.Error");
+                TestResultText.Text = ex.Message;
+            }
+        }
+
         private async void TestButton_Click(object sender, RoutedEventArgs e)
         {
             TestButton.IsEnabled = false;
+            LoginButton.IsEnabled = false;
             TestResultText.Foreground = (System.Windows.Media.Brush)FindResource("Text.Muted");
             TestResultText.Text = T("cursor.help.testing");
 
@@ -157,13 +181,34 @@ namespace GitDeployPro.Windows
                     .TestConnectionAsync(cts.Token)
                     .ConfigureAwait(true);
 
+                if (result.NeedsLogin)
+                {
+                    TestResultText.Foreground = (System.Windows.Media.Brush)FindResource("Status.Warning");
+                    TestResultText.Text = result.Message;
+                    try
+                    {
+                        CursorAgentBridge.Instance.OpenLoginTerminal(result.AgentPath);
+                        TestResultText.Text = result.Message + Environment.NewLine + T("cursor.help.loginOpened");
+                    }
+                    catch
+                    {
+                        // Message already explains login is required.
+                    }
+
+                    return;
+                }
+
                 if (result.Ok)
                 {
                     TestResultText.Foreground = (System.Windows.Media.Brush)FindResource("Status.Success");
+                    var accountLine = string.IsNullOrWhiteSpace(result.Account)
+                        ? string.Empty
+                        : Environment.NewLine + T("cursor.help.testLoggedInAs", result.Account);
                     var snippet = string.IsNullOrWhiteSpace(result.OutputSnippet)
                         ? string.Empty
                         : Environment.NewLine + result.OutputSnippet;
                     TestResultText.Text = T("cursor.help.testOkDetail", result.AgentPath, result.Workspace)
+                                            + accountLine
                                             + snippet;
                 }
                 else
@@ -185,6 +230,7 @@ namespace GitDeployPro.Windows
             finally
             {
                 TestButton.IsEnabled = true;
+                LoginButton.IsEnabled = true;
             }
         }
 

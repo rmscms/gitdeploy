@@ -336,9 +336,16 @@ namespace GitDeployPro.Controls
 
         private async Task DisconnectIfConnectedAsync()
         {
-            if (_remoteService != null && _remoteService.IsConnected)
+            try
             {
-                await DisconnectAsync();
+                if (_remoteService != null && _remoteService.IsConnected)
+                {
+                    await DisconnectAsync();
+                }
+            }
+            catch
+            {
+                // Unload/teardown must never surface as an app Error dialog.
             }
         }
 

@@ -1981,6 +1981,11 @@ namespace GitDeployPro.Pages
                 CursorAgentModelTextBox.Text = globalConfig.CursorAgentModel ?? string.Empty;
             }
 
+            if (CursorTelegramQuietProgressCheckBox != null)
+            {
+                CursorTelegramQuietProgressCheckBox.IsChecked = globalConfig.CursorTelegramQuietProgress;
+            }
+
             if (CursorStatusText != null)
             {
                 var detected = GitDeployPro.Services.Telegram.CursorAgentBridge.Instance
@@ -2011,6 +2016,7 @@ namespace GitDeployPro.Pages
             cfg.CursorAgentEnabled = CursorAgentEnabledCheckBox?.IsChecked == true;
             cfg.CursorAgentPath = CursorAgentPathTextBox?.Text?.Trim() ?? string.Empty;
             cfg.CursorAgentModel = CursorAgentModelTextBox?.Text?.Trim() ?? string.Empty;
+            cfg.CursorTelegramQuietProgress = CursorTelegramQuietProgressCheckBox?.IsChecked == true;
         }
 
         private void CursorSaveButton_Click(object sender, RoutedEventArgs e)

@@ -177,6 +177,36 @@ namespace GitDeployPro.Services.Telegram
             return false;
         }
 
+        /// <summary>
+        /// Cancels the in-flight turn and drops any queued turns for this project.
+        /// </summary>
+        public bool StopTurn(string projectPath)
+        {
+            var key = TelegramPaths.ToProjectKey(projectPath);
+            var clearedQueued = false;
+            if (_queues.TryGetValue(key, out var queue))
+            {
+                while (queue.TryDequeue(out _))
+                {
+                    clearedQueued = true;
+                }
+            }
+
+            var cancelled = CancelCurrentTurn(projectPath);
+            if (!cancelled && clearedQueued)
+            {
+                PostStatus(projectPath, Loc.T("cursor.cancelled"));
+            }
+
+            return cancelled || clearedQueued;
+        }
+
+        public static JObject? BuildStopInlineMarkup()
+            => TelegramMarkup.Inline(new[]
+            {
+                (Loc.T("telegram.btnStopAgent"), "agent:stop")
+            });
+
         public void RestartProjectAgent(string projectPath, string? reason = null)
         {
             if (string.IsNullOrWhiteSpace(projectPath) || TelegramPaths.IsUnassigned(projectPath))
@@ -426,7 +456,26 @@ namespace GitDeployPro.Services.Telegram
                 };
             }
 
-            var workspace = config.LastProjectPath;
+            var auth = await CheckLoginStatusAsync(agentPath, cancellationToken).ConfigureAwait(false);
+            if (!auth.LoggedIn)
+            {
+                return new CursorAgentTestResult
+                {
+                    Ok = false,
+                    NeedsLogin = true,
+                    AgentPath = agentPath,
+                    Message = Loc.T("cursor.help.testNeedLogin")
+                };
+            }
+
+            var workspace = _store.GetActiveProjectPath();
+            if (string.IsNullOrWhiteSpace(workspace)
+                || TelegramPaths.IsUnassigned(workspace)
+                || !Directory.Exists(workspace))
+            {
+                workspace = config.LastProjectPath;
+            }
+
             if (string.IsNullOrWhiteSpace(workspace) || !Directory.Exists(workspace))
             {
                 workspace = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
@@ -452,6 +501,7 @@ namespace GitDeployPro.Services.Telegram
                         Ok = false,
                         AgentPath = agentPath,
                         Workspace = workspace,
+                        Account = auth.Account,
                         Message = Loc.T("cursor.emptyReply")
                     };
                 }
@@ -461,6 +511,7 @@ namespace GitDeployPro.Services.Telegram
                     Ok = true,
                     AgentPath = agentPath,
                     Workspace = workspace,
+                    Account = auth.Account,
                     OutputSnippet = TrimReply(run.Output),
                     Message = Loc.T("cursor.help.testOk", agentPath)
                 };
@@ -472,9 +523,169 @@ namespace GitDeployPro.Services.Telegram
                     Ok = false,
                     AgentPath = agentPath,
                     Workspace = workspace,
+                    Account = auth.Account,
                     Message = Loc.T("cursor.help.testFail", ex.Message)
                 };
             }
+        }
+
+        /// <summary>
+        /// Runs <c>agent status</c> / <c>whoami</c> to see if the CLI is authenticated.
+        /// </summary>
+        public async Task<CursorAgentAuthStatus> CheckLoginStatusAsync(
+            string? agentPath = null,
+            CancellationToken cancellationToken = default)
+        {
+            agentPath ??= ResolveAgentExecutable(_config.LoadGlobalConfig().CursorAgentPath);
+            if (string.IsNullOrWhiteSpace(agentPath))
+            {
+                return new CursorAgentAuthStatus
+                {
+                    LoggedIn = false,
+                    Message = Loc.T("cursor.agentMissing")
+                };
+            }
+
+            try
+            {
+                var output = await RunAgentCommandTextAsync(
+                        agentPath,
+                        new[] { "status" },
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                var text = (output ?? string.Empty).Trim();
+                if (LooksLoggedIn(text))
+                {
+                    return new CursorAgentAuthStatus
+                    {
+                        LoggedIn = true,
+                        Account = ExtractAccount(text),
+                        AgentPath = agentPath,
+                        Message = text
+                    };
+                }
+
+                return new CursorAgentAuthStatus
+                {
+                    LoggedIn = false,
+                    AgentPath = agentPath,
+                    Message = string.IsNullOrWhiteSpace(text)
+                        ? Loc.T("cursor.help.testNeedLogin")
+                        : text
+                };
+            }
+            catch (Exception ex)
+            {
+                return new CursorAgentAuthStatus
+                {
+                    LoggedIn = false,
+                    AgentPath = agentPath,
+                    Message = ex.Message
+                };
+            }
+        }
+
+        /// <summary>
+        /// Opens a visible PowerShell that runs <c>agent login</c> (browser sign-in).
+        /// </summary>
+        public void OpenLoginTerminal(string? agentPath = null)
+        {
+            agentPath ??= ResolveAgentExecutable(_config.LoadGlobalConfig().CursorAgentPath);
+            if (string.IsNullOrWhiteSpace(agentPath) || !File.Exists(agentPath))
+            {
+                throw new InvalidOperationException(Loc.T("cursor.help.loginMissing"));
+            }
+
+            var agentLiteral = agentPath.Replace("'", "''");
+            var inner = string.Join("; ", new[]
+            {
+                "Write-Host '=== GitDeploy: Cursor CLI login ===' -ForegroundColor Cyan",
+                "Write-Host 'A browser window should open. Sign in with your Cursor account.' -ForegroundColor Yellow",
+                "Write-Host ''",
+                $"& '{agentLiteral}' login",
+                "Write-Host ''",
+                "Write-Host '=== Login finished (or cancelled) ===' -ForegroundColor Green",
+                "Write-Host 'Close this window, then click Test CLI in GitDeploy.' -ForegroundColor Yellow",
+                "Write-Host ''",
+                "pause"
+            });
+
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Arguments = "-NoExit -NoProfile -ExecutionPolicy Bypass -Command \"" + inner.Replace("\"", "\\\"") + "\"",
+                UseShellExecute = true,
+                WorkingDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
+            });
+        }
+
+        private static bool LooksLoggedIn(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return false;
+            }
+
+            if (text.Contains("not logged", StringComparison.OrdinalIgnoreCase)
+                || text.Contains("unauthenticated", StringComparison.OrdinalIgnoreCase)
+                || text.Contains("please login", StringComparison.OrdinalIgnoreCase)
+                || text.Contains("please log in", StringComparison.OrdinalIgnoreCase)
+                || text.Contains("run 'agent login'", StringComparison.OrdinalIgnoreCase)
+                || text.Contains("run \"agent login\"", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            return text.Contains("logged in", StringComparison.OrdinalIgnoreCase)
+                   || text.Contains("@", StringComparison.Ordinal);
+        }
+
+        private static string ExtractAccount(string text)
+        {
+            // Typical: "✓ Logged in as user@example.com"
+            var asIdx = text.IndexOf(" as ", StringComparison.OrdinalIgnoreCase);
+            if (asIdx >= 0)
+            {
+                var rest = text[(asIdx + 4)..].Trim();
+                var end = rest.IndexOfAny(['\r', '\n', ' ']);
+                return end > 0 ? rest[..end].Trim() : rest;
+            }
+
+            return string.Empty;
+        }
+
+        private async Task<string> RunAgentCommandTextAsync(
+            string agentPath,
+            string[] args,
+            CancellationToken cancellationToken)
+        {
+            var start = new ProcessStartInfo
+            {
+                FileName = agentPath,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                WorkingDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
+            };
+            foreach (var arg in args)
+            {
+                start.ArgumentList.Add(arg);
+            }
+
+            using var process = new Process { StartInfo = start };
+            if (!process.Start())
+            {
+                throw new InvalidOperationException("Could not start Cursor agent.");
+            }
+
+            var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+            var stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
+            await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+            var stdout = await stdoutTask.ConfigureAwait(false);
+            var stderr = await stderrTask.ConfigureAwait(false);
+            var combined = ((stdout ?? string.Empty) + Environment.NewLine + (stderr ?? string.Empty)).Trim();
+            return combined;
         }
 
         private async Task RunTurnAsync(
@@ -483,6 +694,8 @@ namespace GitDeployPro.Services.Telegram
             string? photoPath,
             CancellationToken cancellationToken)
         {
+            EnsureProjectSynced(projectPath);
+
             var config = _config.LoadGlobalConfig();
             var agentPath = ResolveAgentExecutable(config.CursorAgentPath);
             if (string.IsNullOrWhiteSpace(agentPath))
@@ -492,6 +705,7 @@ namespace GitDeployPro.Services.Telegram
             }
 
             PostStatus(projectPath, Loc.T("cursor.started"));
+            NotifyTelegramWorking(projectPath, Loc.T("cursor.started"));
             if (!string.IsNullOrWhiteSpace(photoPath) && File.Exists(photoPath))
             {
                 PostStatus(projectPath, Loc.T("cursor.progress.photo"));
@@ -630,12 +844,19 @@ namespace GitDeployPro.Services.Telegram
             var projectName = TelegramPaths.DisplayName(projectPath);
             var requestText = (text ?? string.Empty).Trim();
             var hasPhoto = !string.IsNullOrWhiteSpace(photoPath) && File.Exists(photoPath);
+            var workspaceBlock = CursorWorkspaceRoots.BuildPromptContext(projectPath, resumeSession);
 
             var sb = new StringBuilder();
 
-            // Warm resume: keep prompt tiny — Cursor session already has prior context.
+            // Warm resume: keep request short, but always restate workspace + rules.
             if (resumeSession)
             {
+                if (!string.IsNullOrWhiteSpace(workspaceBlock))
+                {
+                    sb.AppendLine(workspaceBlock);
+                    sb.AppendLine();
+                }
+
                 sb.AppendLine("Continue the same coding session. Do the new user request now. No greeting.");
                 if (!string.IsNullOrWhiteSpace(requestText))
                 {
@@ -643,7 +864,7 @@ namespace GitDeployPro.Services.Telegram
                 }
                 else
                 {
-                    sb.AppendLine("(Photo with no caption — inspect the image and continue the bugfix.)");
+                    sb.AppendLine("(Photo with no caption — inspect the image and continue the bug fix.)");
                 }
 
                 if (hasPhoto)
@@ -652,6 +873,12 @@ namespace GitDeployPro.Services.Telegram
                 }
 
                 return sb.ToString();
+            }
+
+            if (!string.IsNullOrWhiteSpace(workspaceBlock))
+            {
+                sb.AppendLine(workspaceBlock);
+                sb.AppendLine();
             }
 
             sb.AppendLine("CURRENT USER REQUEST — DO THIS NOW:");
@@ -676,9 +903,56 @@ namespace GitDeployPro.Services.Telegram
             sb.AppendLine("- Do NOT introduce yourself. Do NOT ask what to do. Do NOT say you are ready.");
             sb.AppendLine("- Investigate/fix quickly, then reply briefly with the result.");
             sb.AppendLine("- Reply in the same language the user used (Persian or English).");
+            sb.AppendLine("- This reply is delivered on Telegram. Prefer clear spacing, emoji where helpful, and Telegram HTML for emphasis:");
+            sb.AppendLine("  use <b>bold</b>, <i>italic</i>, <code>inline</code>, <pre>blocks</pre>. Avoid Markdown **stars**.");
             sb.AppendLine($"- Project: {projectName} @ {projectPath}");
+            sb.AppendLine("- Always obey PROJECT RULES and stay inside the listed workspace roots.");
 
             return sb.ToString();
+        }
+
+        /// <summary>
+        /// Keep Telegram active path + LastProjectPath aligned with the thread running this turn.
+        /// </summary>
+        private void EnsureProjectSynced(string projectPath)
+        {
+            if (string.IsNullOrWhiteSpace(projectPath) || TelegramPaths.IsUnassigned(projectPath))
+            {
+                return;
+            }
+
+            string full;
+            try
+            {
+                full = Path.GetFullPath(projectPath.Trim());
+            }
+            catch
+            {
+                return;
+            }
+
+            if (!Directory.Exists(full))
+            {
+                return;
+            }
+
+            var active = _store.GetActiveProjectPath();
+            if (!string.Equals(active, full, StringComparison.OrdinalIgnoreCase))
+            {
+                _store.SetActiveProjectPath(full);
+            }
+
+            var last = _config.LoadGlobalConfig().LastProjectPath;
+            if (!string.Equals(last, full, StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    _config.AddRecentProject(full);
+                }
+                catch
+                {
+                }
+            }
         }
 
         private async Task<AgentRunResult> RunAgentProcessAsync(
@@ -717,6 +991,14 @@ namespace GitDeployPro.Services.Telegram
             startInfo.ArgumentList.Add("--trust");
             startInfo.ArgumentList.Add("--workspace");
             startInfo.ArgumentList.Add(workspace);
+
+            var extras = CursorWorkspaceRoots.GetRoots(workspace).Extras;
+            foreach (var extra in extras)
+            {
+                startInfo.ArgumentList.Add("--add-dir");
+                startInfo.ArgumentList.Add(extra);
+            }
+
             // Docs: https://cursor.com/docs/cli/reference/output-format
             startInfo.ArgumentList.Add("--output-format");
             startInfo.ArgumentList.Add("stream-json");
@@ -980,10 +1262,19 @@ namespace GitDeployPro.Services.Telegram
                 {
                     while (!heartbeatCts.IsCancellationRequested)
                     {
+                        var quiet = false;
                         try
                         {
-                            // Quiet gaps while the model reads images / plans — don't spam every 45s.
-                            await Task.Delay(TimeSpan.FromSeconds(90), heartbeatCts.Token).ConfigureAwait(false);
+                            quiet = new ConfigurationService().LoadGlobalConfig().CursorTelegramQuietProgress;
+                        }
+                        catch
+                        {
+                        }
+
+                        var delaySec = quiet ? 30 : 90;
+                        try
+                        {
+                            await Task.Delay(TimeSpan.FromSeconds(delaySec), heartbeatCts.Token).ConfigureAwait(false);
                         }
                         catch
                         {
@@ -995,21 +1286,34 @@ namespace GitDeployPro.Services.Telegram
                             return;
                         }
 
-                        var silentFor = (DateTime.UtcNow - lastEventUtc).TotalSeconds;
-                        if (silentFor < 75)
+                        if (!quiet)
                         {
+                            var silentFor = (DateTime.UtcNow - lastEventUtc).TotalSeconds;
+                            if (silentFor < 75)
+                            {
+                                continue;
+                            }
+
+                            // At most one heartbeat every 2 minutes (detailed mode).
+                            if ((DateTime.UtcNow - lastHeartbeatEmitUtc).TotalSeconds < 120)
+                            {
+                                continue;
+                            }
+
+                            lastHeartbeatEmitUtc = DateTime.UtcNow;
+                            var minutes = Math.Max(1, (int)Math.Round((DateTime.UtcNow - startedUtc).TotalMinutes));
+                            EmitProgress(Loc.T("cursor.progress.stillWorkingMins", minutes));
                             continue;
                         }
 
-                        // At most one heartbeat every 2 minutes.
-                        if ((DateTime.UtcNow - lastHeartbeatEmitUtc).TotalSeconds < 120)
+                        // Quiet mode: ping every ~30s even while tools are busy.
+                        if ((DateTime.UtcNow - lastHeartbeatEmitUtc).TotalSeconds < 28)
                         {
                             continue;
                         }
 
                         lastHeartbeatEmitUtc = DateTime.UtcNow;
-                        var minutes = Math.Max(1, (int)Math.Round((DateTime.UtcNow - startedUtc).TotalMinutes));
-                        EmitProgress(Loc.T("cursor.progress.stillWorkingMins", minutes));
+                        EmitProgress(Loc.T("cursor.progress.stillWorking"));
                     }
                 }, heartbeatCts.Token);
 
@@ -1313,12 +1617,14 @@ namespace GitDeployPro.Services.Telegram
                 for (var i = 0; i < chunks.Count; i++)
                 {
                     var isLast = i == chunks.Count - 1;
+                    var html = TelegramTextFormat.ToTelegramHtml(chunks[i]);
                     TelegramOutboundQueue.Instance.EnqueueText(
                         token,
                         chatId,
                         projectPath,
-                        chunks[i],
-                        isLast ? markup : null);
+                        html,
+                        isLast ? markup : null,
+                        parseMode: "HTML");
                 }
 
                 TelegramOutboundQueue.Instance.EnqueueKeyboardReset(
@@ -1355,7 +1661,17 @@ namespace GitDeployPro.Services.Telegram
                                   || clean.Contains("در حال کار", StringComparison.Ordinal)
                                   || clean.Contains("working", StringComparison.OrdinalIgnoreCase));
 
+            var quietTelegram = false;
+            try
+            {
+                quietTelegram = _config.LoadGlobalConfig().CursorTelegramQuietProgress;
+            }
+            catch
+            {
+            }
+
             // Heartbeats: Telegram only (don't flood the in-app thread).
+            // Quiet mode: keep tool/thinking in the local app chat, but not on Telegram.
             if (!isHeartbeat)
             {
                 PostStatus(projectPath, clean);
@@ -1363,26 +1679,38 @@ namespace GitDeployPro.Services.Telegram
 
             var isThinking = clean.StartsWith("🧠", StringComparison.Ordinal);
 
-            // Telegram: tools + thinking + init/photo; heartbeats throttled separately.
-            var toTelegram = clean.StartsWith("📖", StringComparison.Ordinal)
-                             || clean.StartsWith("✍️", StringComparison.Ordinal)
-                             || clean.StartsWith("✏️", StringComparison.Ordinal)
-                             || clean.StartsWith("⌨️", StringComparison.Ordinal)
-                             || clean.StartsWith("🔎", StringComparison.Ordinal)
-                             || clean.StartsWith("📂", StringComparison.Ordinal)
-                             || clean.StartsWith("🔧", StringComparison.Ordinal)
-                             || clean.StartsWith("♻️", StringComparison.Ordinal)
-                             || clean.StartsWith("📷", StringComparison.Ordinal)
-                             || isThinking
-                             || isHeartbeat
-                             || (clean.StartsWith("⏳", StringComparison.Ordinal) && !isHeartbeat);
-            if (!toTelegram)
+            if (quietTelegram)
             {
-                return;
+                if (!isHeartbeat)
+                {
+                    return;
+                }
+            }
+            else
+            {
+                // Telegram: tools + thinking + init/photo; heartbeats throttled separately.
+                var toTelegram = clean.StartsWith("📖", StringComparison.Ordinal)
+                                 || clean.StartsWith("✍️", StringComparison.Ordinal)
+                                 || clean.StartsWith("✏️", StringComparison.Ordinal)
+                                 || clean.StartsWith("⌨️", StringComparison.Ordinal)
+                                 || clean.StartsWith("🔎", StringComparison.Ordinal)
+                                 || clean.StartsWith("📂", StringComparison.Ordinal)
+                                 || clean.StartsWith("🔧", StringComparison.Ordinal)
+                                 || clean.StartsWith("♻️", StringComparison.Ordinal)
+                                 || clean.StartsWith("📷", StringComparison.Ordinal)
+                                 || isThinking
+                                 || isHeartbeat
+                                 || (clean.StartsWith("⏳", StringComparison.Ordinal) && !isHeartbeat);
+                if (!toTelegram)
+                {
+                    return;
+                }
             }
 
             // Thinking and tools use separate gates so tool spam does not starve thoughts.
-            var minGapSeconds = isHeartbeat ? 90 : isThinking ? 6 : 5;
+            var minGapSeconds = quietTelegram && isHeartbeat
+                ? 28
+                : isHeartbeat ? 90 : isThinking ? 6 : 5;
             bool sendTelegram;
             lock (_telegramProgressGate)
             {
@@ -1416,7 +1744,41 @@ namespace GitDeployPro.Services.Telegram
                     return;
                 }
 
-                TelegramOutboundQueue.Instance.EnqueueText(token, chatId, projectPath, clean);
+                TelegramOutboundQueue.Instance.EnqueueText(
+                    token,
+                    chatId,
+                    projectPath,
+                    clean,
+                    BuildStopInlineMarkup());
+            }
+            catch
+            {
+            }
+        }
+
+        private void NotifyTelegramWorking(string projectPath, string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return;
+            }
+
+            try
+            {
+                var config = _config.LoadGlobalConfig();
+                var token = EncryptionService.Decrypt(config.TelegramBotToken);
+                var chatId = _store.GetLastChatId();
+                if (string.IsNullOrWhiteSpace(token) || chatId == 0)
+                {
+                    return;
+                }
+
+                TelegramOutboundQueue.Instance.EnqueueText(
+                    token,
+                    chatId,
+                    projectPath,
+                    text,
+                    BuildStopInlineMarkup());
             }
             catch
             {
@@ -1539,10 +1901,20 @@ namespace GitDeployPro.Services.Telegram
     public sealed class CursorAgentTestResult
     {
         public bool Ok { get; init; }
+        public bool NeedsLogin { get; init; }
         public string Message { get; init; } = "";
         public string AgentPath { get; init; } = "";
         public string Workspace { get; init; } = "";
+        public string Account { get; init; } = "";
         public string OutputSnippet { get; init; } = "";
+    }
+
+    public sealed class CursorAgentAuthStatus
+    {
+        public bool LoggedIn { get; init; }
+        public string Account { get; init; } = "";
+        public string AgentPath { get; init; } = "";
+        public string Message { get; init; } = "";
     }
 
     public sealed class AgentRunResult

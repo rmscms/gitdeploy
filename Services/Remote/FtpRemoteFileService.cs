@@ -79,12 +79,20 @@ namespace GitDeployPro.Services.Remote
 
         public async Task DisconnectAsync()
         {
-            if (_client == null) return;
+            // Snapshot then clear so concurrent Abort()/DisconnectAsync cannot NRE in finally.
+            var client = _client;
+            _client = null;
+            ProfileId = string.Empty;
+            if (client == null)
+            {
+                return;
+            }
+
             try
             {
-                if (_client.IsConnected)
+                if (client.IsConnected)
                 {
-                    await _client.Disconnect();
+                    await client.Disconnect();
                 }
             }
             catch
@@ -93,9 +101,14 @@ namespace GitDeployPro.Services.Remote
             }
             finally
             {
-                _client.Dispose();
-                _client = null;
-                ProfileId = string.Empty;
+                try
+                {
+                    client.Dispose();
+                }
+                catch
+                {
+                    // Ignore abort races with an in-flight Connect().
+                }
             }
         }
 

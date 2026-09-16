@@ -30,6 +30,7 @@ namespace GitDeployPro.Pages
         private bool _suppressThreadSelect;
         private string _openProjectPath = "";
         private string? _pendingPhotoPath;
+        private string _lastAnnouncedWorkspacePath = "";
 
         public TelegramChatPage()
         {
@@ -139,13 +140,46 @@ namespace GitDeployPro.Pages
             ScrollMessagesToEnd();
             UpdateThreadPreview(projectPath);
 
+            var workspace = CursorWorkspaceRoots.GetRoots(projectPath);
+            if (workspace.HasMultiRoot)
+            {
+                ChatStatusText.Text = CursorWorkspaceRoots.FormatBadge(workspace)
+                    + " · "
+                    + (TelegramPoller.Instance.StatusText ?? string.Empty);
+            }
+
             if (switchProject && !TelegramPaths.IsUnassigned(projectPath) && Directory.Exists(projectPath))
             {
                 if (Window.GetWindow(this) is MainWindow main)
                 {
                     main.SetCurrentProject(projectPath, showSetupWizard: false);
                 }
+                else
+                {
+                    TelegramProjectSync.ApplyToGitDeploy(projectPath);
+                }
             }
+        }
+
+        private void AnnounceWorkspaceIfNeeded(string projectPath)
+        {
+            string full;
+            try
+            {
+                full = Path.GetFullPath(projectPath.Trim());
+            }
+            catch
+            {
+                return;
+            }
+
+            if (string.Equals(_lastAnnouncedWorkspacePath, full, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            _lastAnnouncedWorkspacePath = full;
+            CursorWorkspaceRoots.AnnounceToChatAndTelegram(full);
         }
 
         private void ThreadsList_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -175,6 +209,7 @@ namespace GitDeployPro.Pages
 
                 // Telegram (or header) switched the workspace — open that project's chat too.
                 RefreshThreads(path);
+                AnnounceWorkspaceIfNeeded(path);
             });
         }
 
@@ -231,12 +266,55 @@ namespace GitDeployPro.Pages
 
             ThreadsList.SelectedItem = vm;
             var menu = new ContextMenu();
+
+            var manageItem = new MenuItem { Header = Loc.T("telegram.workspace.manageMenu") };
+            manageItem.Click += (_, _) => OpenManageWorkspace(vm.ProjectPath);
+            menu.Items.Add(manageItem);
+
             var clearItem = new MenuItem { Header = Loc.T("telegram.threadClearMenu") };
             clearItem.Click += (_, _) => ClearLocalChatForPath(vm.ProjectPath);
             menu.Items.Add(clearItem);
+
             row.ContextMenu = menu;
             menu.IsOpen = true;
             e.Handled = true;
+        }
+
+        private void OpenManageWorkspace(string projectPath)
+        {
+            if (string.IsNullOrWhiteSpace(projectPath) || TelegramPaths.IsUnassigned(projectPath))
+            {
+                return;
+            }
+
+            if (!Directory.Exists(projectPath))
+            {
+                ModernMessageBox.Show(
+                    Loc.T("telegram.workspace.missingProject"),
+                    Loc.T("telegram.workspace.manageTitle"),
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
+
+            var owner = Window.GetWindow(this);
+            var dialog = new ManageWorkspaceWindow(projectPath)
+            {
+                Owner = owner
+            };
+            if (dialog.ShowDialog() == true)
+            {
+                try
+                {
+                    _lastAnnouncedWorkspacePath = Path.GetFullPath(projectPath);
+                }
+                catch
+                {
+                    _lastAnnouncedWorkspacePath = projectPath;
+                }
+
+                RefreshThreads(projectPath);
+            }
         }
 
         private void ClearLocalChatForPath(string? projectPath)
@@ -385,6 +463,16 @@ namespace GitDeployPro.Pages
             }
         }
 
+        private void ComposerBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (ComposerBox == null)
+            {
+                return;
+            }
+
+            ComposerBox.FlowDirection = TelegramTextFormat.DetectFlow(ComposerBox.Text);
+        }
+
         private void SendButton_Click(object sender, RoutedEventArgs e)
         {
             _ = SendAsync();
@@ -458,6 +546,8 @@ namespace GitDeployPro.Pages
         public string TimeLabel { get; private set; } = "";
         public int UnreadCount { get; private set; }
         public Visibility UnreadVisibility { get; private set; } = Visibility.Collapsed;
+        public string WorkspaceBadge { get; private set; } = "";
+        public Visibility WorkspaceBadgeVisibility { get; private set; } = Visibility.Collapsed;
         public string Initial { get; private set; } = "?";
         public System.Windows.Media.Brush AvatarBrush { get; private set; } = System.Windows.Media.Brushes.Gray;
 
@@ -472,6 +562,11 @@ namespace GitDeployPro.Pages
             UnreadVisibility = summary.UnreadCount > 0 ? Visibility.Visible : Visibility.Collapsed;
             Initial = ProjectAvatarHelper.GetInitial(summary.DisplayName);
             AvatarBrush = ProjectAvatarHelper.GetColor(summary.DisplayName);
+
+            var workspace = CursorWorkspaceRoots.GetRoots(summary.ProjectPath);
+            WorkspaceBadge = CursorWorkspaceRoots.FormatBadge(workspace);
+            WorkspaceBadgeVisibility = workspace.HasMultiRoot ? Visibility.Visible : Visibility.Collapsed;
+
             OnPropertyChanged(string.Empty);
         }
 
@@ -504,6 +599,8 @@ namespace GitDeployPro.Pages
             PhotoVisibility = File.Exists(PhotoPath) ? Visibility.Visible : Visibility.Collapsed;
             TextVisibility = string.IsNullOrWhiteSpace(Text) ? Visibility.Collapsed : Visibility.Visible;
             PhotoImage = LoadImage(PhotoPath);
+            TextFlow = TelegramTextFormat.DetectFlow(Text);
+            TextAlign = TelegramTextFormat.DetectAlignment(Text);
         }
 
         public string Text { get; }
@@ -514,6 +611,8 @@ namespace GitDeployPro.Pages
         public Visibility PhotoVisibility { get; }
         public Visibility TextVisibility { get; }
         public ImageSource? PhotoImage { get; }
+        public System.Windows.FlowDirection TextFlow { get; }
+        public System.Windows.TextAlignment TextAlign { get; }
 
         private static ImageSource? LoadImage(string path)
         {

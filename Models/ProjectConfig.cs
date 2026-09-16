@@ -45,6 +45,11 @@ namespace GitDeployPro.Models
         public DeployMode DeployMode { get; set; } = DeployMode.FtpDeploy;
         public string[] ExcludePatterns { get; set; } = new string[0];
 
+        /// <summary>
+        /// Extra folders Cursor CLI may access via --add-dir (primary root remains LocalProjectPath).
+        /// </summary>
+        public List<string> CursorExtraRoots { get; set; } = new List<string>();
+
         [JsonIgnore]
         public string FtpPasswordDecrypted => Services.EncryptionService.Decrypt(FtpPassword);
     }

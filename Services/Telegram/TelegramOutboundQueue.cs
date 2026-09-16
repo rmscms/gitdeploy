@@ -166,13 +166,26 @@ namespace GitDeployPro.Services.Telegram
                             }
                             else
                             {
+                                string? parseMode = job.ParseMode;
+                                var text = job.Text;
+                                if (attempt > 0 && !string.IsNullOrWhiteSpace(job.ParseMode))
+                                {
+                                    // Bad HTML → plain text fallback (strip tags).
+                                    parseMode = null;
+                                    text = System.Text.RegularExpressions.Regex.Replace(
+                                        job.Text ?? string.Empty,
+                                        "<[^>]+>",
+                                        string.Empty);
+                                    text = System.Net.WebUtility.HtmlDecode(text);
+                                }
+
                                 var messageId = await _client.SendMessageAsync(
                                         job.Token,
                                         job.ChatId,
-                                        job.Text,
+                                        text,
                                         sendCts.Token,
                                         job.ReplyMarkup,
-                                        job.ParseMode)
+                                        parseMode)
                                     .ConfigureAwait(false);
 
                                 if (messageId > 0 && !string.IsNullOrWhiteSpace(job.ProjectPath))

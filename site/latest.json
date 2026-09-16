@@ -1,16 +1,19 @@
 {
-  "version": "2.0.0",
-  "fileName": "GitDeployPro-2.0.0.exe",
-  "downloadUrl": "versions/GitDeployPro-2.0.0.exe",
-  "sha256": "E9FCC931DE117E3FBC6EC0718440941C46094BFAEFEFFE449C6DA7FC56870036",
-  "releaseNotes": "Major: GitDeploy Pro 2.0 platform refresh\nFeature: OpenVPN Connect keep-alive (startup + auto-reconnect)\nFeature: Telegram/Cursor agent bridge hardening (warm ACP, queue, model list, resilience)\nFeature: Deploy/FTP workspace + theme packs maturity\nSite: New marketing landing for 2.0",
+  "version": "2.0.63",
+  "fileName": "GitDeployPro-2.0.63.exe",
+  "downloadUrl": "versions/GitDeployPro-2.0.63.exe",
+  "sha256": "D5B52067C4A6E0DDF215A11481709E9EE34C78D9C021A6000C146A2EEB28FF25",
+  "releaseNotes": "Feature: Multi-root Cursor workspace (Manage workspace, extra roots, --add-dir)\nFeature: Inject .cursor/rules into Telegram agent prompts\nFeature: Telegram workspace announce, WS badge, and Status Paths button\nFeature: Stop button while Cursor agent is running\nFeature: Persian RTL chat bubbles + Telegram HTML formatting for agent replies\nFeature: Quiet Telegram progress mode (Still working every 30s)\nFix: Telegram deploy no longer crashes when Deploy page is already open\nFix: Telegram/UI project path sync for agent turns and CLI test",
   "changelog": [
-    "Major: GitDeploy Pro 2.0 platform refresh",
-    "Feature: OpenVPN Connect keep-alive (startup + auto-reconnect)",
-    "Feature: Telegram/Cursor agent bridge hardening (warm ACP, queue, model list, resilience)",
-    "Feature: Deploy/FTP workspace + theme packs maturity",
-    "Site: New marketing landing for 2.0"
+    "Feature: Multi-root Cursor workspace (Manage workspace, extra roots, --add-dir)",
+    "Feature: Inject .cursor/rules into Telegram agent prompts",
+    "Feature: Telegram workspace announce, WS badge, and Status Paths button",
+    "Feature: Stop button while Cursor agent is running",
+    "Feature: Persian RTL chat bubbles + Telegram HTML formatting for agent replies",
+    "Feature: Quiet Telegram progress mode (Still working every 30s)",
+    "Fix: Telegram deploy no longer crashes when Deploy page is already open",
+    "Fix: Telegram/UI project path sync for agent turns and CLI test"
   ],
   "mandatory": false,
-  "publishedUtc": "2026-09-15T15:05:00Z"
+  "publishedUtc": "2026-09-16T05:20:00Z"
 }

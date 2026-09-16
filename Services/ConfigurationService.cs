@@ -128,6 +128,12 @@ namespace GitDeployPro.Services
             /// <summary>Optional model id passed to Cursor CLI (--model).</summary>
             public string CursorAgentModel { get; set; } = "";
 
+            /// <summary>
+            /// When true, Telegram only gets "Still working" every ~30s (no tool/thinking detail lines).
+            /// When false, detailed progress is sent like today.
+            /// </summary>
+            public bool CursorTelegramQuietProgress { get; set; }
+
             /// <summary>When true, VPN keep-alive / connect helpers are active.</summary>
             public bool VpnEnabled { get; set; }
 
