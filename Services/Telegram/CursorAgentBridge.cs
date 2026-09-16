@@ -1611,9 +1611,7 @@ namespace GitDeployPro.Services.Telegram
             {
                 const int maxLen = 3500;
                 var chunks = ChunkText(reply, maxLen).ToList();
-                var pending = await TelegramDeployCoordinator.GetPendingChangeCountAsync(projectPath)
-                    .ConfigureAwait(false);
-                var markup = TelegramDeployCoordinator.BuildReplyKeyboard();
+                var markup = TelegramDeployCoordinator.BuildReplyKeyboard(projectPath);
                 for (var i = 0; i < chunks.Count; i++)
                 {
                     var isLast = i == chunks.Count - 1;
@@ -1626,14 +1624,6 @@ namespace GitDeployPro.Services.Telegram
                         isLast ? markup : null,
                         parseMode: "HTML");
                 }
-
-                TelegramOutboundQueue.Instance.EnqueueKeyboardReset(
-                    token,
-                    chatId,
-                    projectPath,
-                    pending > 0
-                        ? Loc.T("telegram.deployReadyHint", pending)
-                        : Loc.T("telegram.keyboardReset"));
             }
             catch
             {

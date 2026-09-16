@@ -17,7 +17,9 @@ namespace GitDeployPro.Services.Telegram
 
         public static async Task<int> GetPendingChangeCountAsync(string projectPath)
         {
-            if (string.IsNullOrWhiteSpace(projectPath) || TelegramPaths.IsUnassigned(projectPath))
+            if (string.IsNullOrWhiteSpace(projectPath)
+                || TelegramPaths.IsUnassigned(projectPath)
+                || !TelegramProjectProfile.SupportsDeploy(projectPath))
             {
                 return 0;
             }
@@ -38,25 +40,45 @@ namespace GitDeployPro.Services.Telegram
 
         public static Task<JObject> BuildReplyKeyboardAsync(string projectPath)
         {
-            // Always expose Deploy so Telegram clients do not keep a stale 3-button keyboard.
-            return Task.FromResult(BuildReplyKeyboard());
+            return Task.FromResult(BuildReplyKeyboard(projectPath));
         }
 
-        public static JObject BuildReplyKeyboard(bool showDeploy = true)
+        public static JObject BuildReplyKeyboard(string? projectPath = null)
         {
-            // Compact rows: agent controls on a third short row.
+            var showDeploy = TelegramProjectProfile.SupportsDeploy(projectPath);
+            if (showDeploy)
+            {
+                return TelegramMarkup.ReplyKeyboard(
+                    new[]
+                    {
+                        Loc.T("telegram.kbProjects"),
+                        Loc.T("telegram.kbStatus"),
+                        Loc.T("telegram.kbDeploy")
+                    },
+                    new[]
+                    {
+                        Loc.T("telegram.kbClear"),
+                        Loc.T("telegram.kbWipeTelegram"),
+                        Loc.T("telegram.kbHelp")
+                    },
+                    new[]
+                    {
+                        Loc.T("telegram.kbRestartAgent"),
+                        Loc.T("telegram.kbModel")
+                    });
+            }
+
             return TelegramMarkup.ReplyKeyboard(
                 new[]
                 {
                     Loc.T("telegram.kbProjects"),
                     Loc.T("telegram.kbStatus"),
-                    Loc.T("telegram.kbDeploy")
+                    Loc.T("telegram.kbHelp")
                 },
                 new[]
                 {
                     Loc.T("telegram.kbClear"),
-                    Loc.T("telegram.kbWipeTelegram"),
-                    Loc.T("telegram.kbHelp")
+                    Loc.T("telegram.kbWipeTelegram")
                 },
                 new[]
                 {
@@ -102,7 +124,7 @@ namespace GitDeployPro.Services.Telegram
                     chatId,
                     text,
                     cancellationToken,
-                    BuildReplyKeyboard()).ConfigureAwait(false);
+                    BuildReplyKeyboard(projectPath)).ConfigureAwait(false);
                 TelegramChatStore.Instance.TrackBotMessageId(projectPath, readyId);
             }
             catch
@@ -127,6 +149,12 @@ namespace GitDeployPro.Services.Telegram
             if (string.IsNullOrWhiteSpace(projectPath) || TelegramPaths.IsUnassigned(projectPath))
             {
                 return TelegramDeployResult.Fail(Loc.T("telegram.deployNoProject"));
+            }
+
+            if (!TelegramProjectProfile.SupportsDeploy(projectPath))
+            {
+                return TelegramDeployResult.Fail(
+                    Loc.T("telegram.deployNotAvailable", TelegramProjectProfile.GetKindLabel(projectPath)));
             }
 
             if (Interlocked.CompareExchange(ref _deployBusy, 1, 0) != 0)

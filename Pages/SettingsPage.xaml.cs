@@ -232,6 +232,28 @@ namespace GitDeployPro.Pages
                 LanguageNoteText.Text = Loc.T("settings.languageNote");
             }
 
+            if (ProjectKindSectionTitle != null)
+            {
+                ProjectKindSectionTitle.Text = Loc.T("settings.projectKind");
+            }
+
+            if (ProjectKindSectionHint != null)
+            {
+                ProjectKindSectionHint.Text = Loc.T("settings.projectKindHint");
+            }
+
+            if (ProjectKindLabel != null)
+            {
+                ProjectKindLabel.Text = Loc.T("settings.projectKind");
+            }
+
+            if (ProjectKindNoteText != null)
+            {
+                ProjectKindNoteText.Text = Loc.T("settings.projectKindNote");
+            }
+
+            ReloadProjectKindComboItems();
+
             if (EditorPrefTitle != null)
             {
                 EditorPrefTitle.Text = Loc.T("settings.editor");
@@ -322,6 +344,74 @@ namespace GitDeployPro.Pages
 
             LocalizationService.Instance.SetLanguage(code, persist: true, raiseUi: true);
             RefreshLanguageUiTexts();
+        }
+
+        private void ReloadProjectKindComboItems()
+        {
+            if (ProjectKindComboBox == null)
+            {
+                return;
+            }
+
+            var selected = ReadProjectKindFromCombo();
+            ProjectKindComboBox.Items.Clear();
+            foreach (ProjectKind kind in Enum.GetValues(typeof(ProjectKind)))
+            {
+                ProjectKindComboBox.Items.Add(new ComboBoxItem
+                {
+                    Tag = kind,
+                    Content = ProjectKindLabelText(kind)
+                });
+            }
+
+            SelectProjectKind(selected);
+        }
+
+        private static string ProjectKindLabelText(ProjectKind kind)
+        {
+            return kind switch
+            {
+                ProjectKind.WindowsDesktop => Loc.T("settings.projectKind.windowsDesktop"),
+                ProjectKind.NoDeploy => Loc.T("settings.projectKind.noDeploy"),
+                _ => Loc.T("settings.projectKind.webFtp")
+            };
+        }
+
+        private void SelectProjectKind(ProjectKind kind)
+        {
+            if (ProjectKindComboBox == null)
+            {
+                return;
+            }
+
+            if (ProjectKindComboBox.Items.Count == 0)
+            {
+                ReloadProjectKindComboItems();
+            }
+
+            foreach (ComboBoxItem item in ProjectKindComboBox.Items)
+            {
+                if (item.Tag is ProjectKind tagged && tagged == kind)
+                {
+                    ProjectKindComboBox.SelectedItem = item;
+                    return;
+                }
+            }
+
+            if (ProjectKindComboBox.Items.Count > 0)
+            {
+                ProjectKindComboBox.SelectedIndex = 0;
+            }
+        }
+
+        private ProjectKind ReadProjectKindFromCombo()
+        {
+            if (ProjectKindComboBox?.SelectedItem is ComboBoxItem item && item.Tag is ProjectKind kind)
+            {
+                return kind;
+            }
+
+            return ProjectKind.WebFtpDeploy;
         }
 
         private void LoadWorkspacePreferences()
@@ -742,6 +832,7 @@ namespace GitDeployPro.Pages
             AutoInitGitCheckBox.IsChecked = projectConfig.AutoInitGit;
             AutoCommitCheckBox.IsChecked = projectConfig.AutoCommit;
             AutoPushCheckBox.IsChecked = projectConfig.AutoPush;
+            SelectProjectKind(projectConfig.ProjectKind);
             
             var gitIgnoreLines = LoadOrCreateGitIgnoreLines(path);
             ExcludePatternsTextBox.Text = string.Join(Environment.NewLine, gitIgnoreLines);
@@ -1248,26 +1339,25 @@ namespace GitDeployPro.Pages
                 string requestedTarget = DefaultTargetBranchComboBox.SelectedItem as string ?? "";
                 string targetBranch = ResolveDistinctTargetBranch(sourceBranch, requestedTarget, availableBranches);
 
-                var projectConfig = new ProjectConfig
-                {
-                    LocalProjectPath = projectPath,
-                    ConnectionProfileId = selectedProfile?.Id ?? "",
-                    ConnectionProfileIds = _draftAssignedFtpIds.ToList(),
-                    FtpSyncTargetConfirmed = _draftAssignedFtpIds.Count <= 1 || _draftFtpConfirmed,
-                    FtpHost = selectedProfile?.Host ?? "",
-                    FtpPort = selectedProfile?.Port ?? 21,
-                    FtpUsername = selectedProfile?.Username ?? "",
-                    FtpPassword = selectedProfile?.Password ?? "",
-                    UseSSH = selectedProfile?.UseSSH ?? false,
-                    RemotePath = selectedProfile?.RemotePath ?? "/",
-                    DefaultSourceBranch = sourceBranch,
-                    DefaultTargetBranch = targetBranch,
-                    GitRemoteUrl = RemoteUrlTextBox.Text?.Trim() ?? string.Empty,
-                    AutoInitGit = AutoInitGitCheckBox.IsChecked ?? true,
-                    AutoCommit = AutoCommitCheckBox.IsChecked ?? true,
-                    AutoPush = AutoPushCheckBox.IsChecked ?? false,
-                    DeployMode = selectedProfile != null ? DeployMode.FtpDeploy : DeployMode.GitHubOnly
-                };
+                var projectConfig = _configService.LoadProjectConfig(projectPath);
+                projectConfig.LocalProjectPath = projectPath;
+                projectConfig.ConnectionProfileId = selectedProfile?.Id ?? "";
+                projectConfig.ConnectionProfileIds = _draftAssignedFtpIds.ToList();
+                projectConfig.FtpSyncTargetConfirmed = _draftAssignedFtpIds.Count <= 1 || _draftFtpConfirmed;
+                projectConfig.FtpHost = selectedProfile?.Host ?? "";
+                projectConfig.FtpPort = selectedProfile?.Port ?? 21;
+                projectConfig.FtpUsername = selectedProfile?.Username ?? "";
+                projectConfig.FtpPassword = selectedProfile?.Password ?? "";
+                projectConfig.UseSSH = selectedProfile?.UseSSH ?? false;
+                projectConfig.RemotePath = selectedProfile?.RemotePath ?? "/";
+                projectConfig.DefaultSourceBranch = sourceBranch;
+                projectConfig.DefaultTargetBranch = targetBranch;
+                projectConfig.GitRemoteUrl = RemoteUrlTextBox.Text?.Trim() ?? string.Empty;
+                projectConfig.AutoInitGit = AutoInitGitCheckBox.IsChecked ?? true;
+                projectConfig.AutoCommit = AutoCommitCheckBox.IsChecked ?? true;
+                projectConfig.AutoPush = AutoPushCheckBox.IsChecked ?? false;
+                projectConfig.DeployMode = selectedProfile != null ? DeployMode.FtpDeploy : DeployMode.GitHubOnly;
+                projectConfig.ProjectKind = ReadProjectKindFromCombo();
                 projectConfig.ExcludePatterns = ignoreEntries.ToArray();
 
                 _configService.SaveProjectConfig(projectConfig);
