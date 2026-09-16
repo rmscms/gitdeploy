@@ -272,33 +272,23 @@ namespace GitDeployPro.Services.Telegram
             var pendingLine = pending > 0
                 ? "\n" + TelegramMarkup.Html(Loc.T("telegram.deployReadyHint", pending))
                 : string.Empty;
+            var kindLine = "\n" + TelegramMarkup.Html(Loc.T(
+                "telegram.projectKindActive",
+                TelegramProjectProfile.GetKindLabel(active)));
             var html =
                 $"<b>{TelegramMarkup.Html(Loc.T("telegram.homeTitle"))}</b>\n" +
                 $"{TelegramMarkup.Html(Loc.T("telegram.homeActive"))} <code>{TelegramMarkup.Html(name)}</code>" +
+                kindLine +
                 pendingLine + "\n\n" +
                 TelegramMarkup.Html(Loc.T("telegram.homeBody"));
-
-            // Clear stuck keyboard first, then attach the full pad (with Deploy).
-            try
-            {
-                var resetId = await _client.SendMessageAsync(
-                    token,
-                    update.ChatId,
-                    Loc.T("telegram.keyboardResetting"),
-                    cancellationToken,
-                    TelegramMarkup.RemoveReplyKeyboard()).ConfigureAwait(false);
-                _store.TrackBotMessageId(active, resetId);
-            }
-            catch
-            {
-            }
 
             await SendBotAsync(
                 token,
                 update.ChatId,
                 html,
-                TelegramDeployCoordinator.BuildReplyKeyboard(),
-                cancellationToken).ConfigureAwait(false);
+                TelegramDeployCoordinator.BuildReplyKeyboard(active),
+                cancellationToken,
+                active).ConfigureAwait(false);
         }
 
         private async Task ReplyStatusAsync(
@@ -317,6 +307,7 @@ namespace GitDeployPro.Services.Telegram
             var html =
                 $"<b>{TelegramMarkup.Html(Loc.T("telegram.statusTitle"))}</b>\n" +
                 $"{TelegramMarkup.Html(Loc.T("telegram.homeActive"))} <code>{TelegramMarkup.Html(TelegramPaths.DisplayName(active))}</code>\n" +
+                $"{TelegramMarkup.Html(Loc.T("telegram.projectKindActive", TelegramProjectProfile.GetKindLabel(active)))}\n" +
                 $"{TelegramMarkup.Html(Loc.T("telegram.statusAgent"))}: " +
                 (status.Enabled
                     ? (status.DaemonAlive ? Loc.T("telegram.statusAlive") : Loc.T("telegram.statusDead"))
@@ -370,15 +361,6 @@ namespace GitDeployPro.Services.Telegram
                 TelegramMarkup.Inline(inlineRows.ToArray()),
                 cancellationToken,
                 active).ConfigureAwait(false);
-
-            // Also refresh reply keyboard so new agent buttons appear.
-            await SendBotAsync(
-                token,
-                update.ChatId,
-                TelegramMarkup.Html(Loc.T("telegram.keyboardReady")),
-                TelegramDeployCoordinator.BuildReplyKeyboard(),
-                cancellationToken,
-                active).ConfigureAwait(false);
         }
 
         private async Task ReplyWorkspaceRootsAsync(
@@ -394,7 +376,7 @@ namespace GitDeployPro.Services.Telegram
                     token,
                     update.ChatId,
                     TelegramMarkup.Html(Loc.T("telegram.workspace.noExtras")),
-                    TelegramDeployCoordinator.BuildReplyKeyboard(),
+                    TelegramDeployCoordinator.BuildReplyKeyboard(active),
                     cancellationToken,
                     active).ConfigureAwait(false);
                 return;
@@ -414,7 +396,7 @@ namespace GitDeployPro.Services.Telegram
                 token,
                 update.ChatId,
                 string.Join("\n", lines),
-                TelegramDeployCoordinator.BuildReplyKeyboard(),
+                TelegramDeployCoordinator.BuildReplyKeyboard(active),
                 cancellationToken,
                 active).ConfigureAwait(false);
         }
@@ -432,7 +414,7 @@ namespace GitDeployPro.Services.Telegram
                     token,
                     update.ChatId,
                     TelegramMarkup.Html(Loc.T("telegram.agentNotBusy")),
-                    TelegramDeployCoordinator.BuildReplyKeyboard(),
+                    TelegramDeployCoordinator.BuildReplyKeyboard(active),
                     cancellationToken,
                     active).ConfigureAwait(false);
                 return;
@@ -446,7 +428,7 @@ namespace GitDeployPro.Services.Telegram
                     stopped
                         ? Loc.T("telegram.agentStopped")
                         : Loc.T("telegram.agentNotBusy")),
-                TelegramDeployCoordinator.BuildReplyKeyboard(),
+                TelegramDeployCoordinator.BuildReplyKeyboard(active),
                 cancellationToken,
                 active).ConfigureAwait(false);
         }
@@ -492,7 +474,7 @@ namespace GitDeployPro.Services.Telegram
                             token,
                             update.ChatId,
                             TelegramMarkup.Html(Loc.T("cursor.modelSet", "auto")),
-                            TelegramDeployCoordinator.BuildReplyKeyboard(),
+                            TelegramDeployCoordinator.BuildReplyKeyboard(active),
                             cancellationToken,
                             active).ConfigureAwait(false);
                         return;
@@ -510,7 +492,7 @@ namespace GitDeployPro.Services.Telegram
                             token,
                             update.ChatId,
                             TelegramMarkup.Html(Loc.T("cursor.modelSet", exact.Id)),
-                            TelegramDeployCoordinator.BuildReplyKeyboard(),
+                            TelegramDeployCoordinator.BuildReplyKeyboard(active),
                             cancellationToken,
                             active).ConfigureAwait(false);
                         return;
@@ -523,7 +505,7 @@ namespace GitDeployPro.Services.Telegram
                             token,
                             update.ChatId,
                             TelegramMarkup.Html(Loc.T("cursor.modelSet", matches[0].Id)),
-                            TelegramDeployCoordinator.BuildReplyKeyboard(),
+                            TelegramDeployCoordinator.BuildReplyKeyboard(active),
                             cancellationToken,
                             active).ConfigureAwait(false);
                         return;
@@ -547,7 +529,7 @@ namespace GitDeployPro.Services.Telegram
                         token,
                         update.ChatId,
                         TelegramMarkup.Html(Loc.T("cursor.modelSetUnknown", arg)),
-                        TelegramDeployCoordinator.BuildReplyKeyboard(),
+                        TelegramDeployCoordinator.BuildReplyKeyboard(active),
                         cancellationToken,
                         active).ConfigureAwait(false);
                     return;
@@ -639,7 +621,7 @@ namespace GitDeployPro.Services.Telegram
                     token,
                     update.ChatId,
                     TelegramMarkup.Html(Loc.T("cursor.restarted")),
-                    TelegramDeployCoordinator.BuildReplyKeyboard(),
+                    TelegramDeployCoordinator.BuildReplyKeyboard(active),
                     cancellationToken,
                     active).ConfigureAwait(false);
                 return;
@@ -703,7 +685,7 @@ namespace GitDeployPro.Services.Telegram
                     token,
                     update.ChatId,
                     TelegramMarkup.Html(msg),
-                    TelegramDeployCoordinator.BuildReplyKeyboard(),
+                    TelegramDeployCoordinator.BuildReplyKeyboard(active),
                     cancellationToken,
                     active).ConfigureAwait(false);
             }
@@ -819,7 +801,20 @@ namespace GitDeployPro.Services.Telegram
                     update.ChatId,
                     TelegramMarkup.Html(Loc.T("telegram.deployNoProject")),
                     await TelegramDeployCoordinator.BuildReplyKeyboardAsync(active).ConfigureAwait(false),
-                    cancellationToken).ConfigureAwait(false);
+                    cancellationToken,
+                    active).ConfigureAwait(false);
+                return;
+            }
+
+            if (!TelegramProjectProfile.SupportsDeploy(active))
+            {
+                await SendBotAsync(
+                    token,
+                    update.ChatId,
+                    TelegramMarkup.Html(Loc.T("telegram.deployNotAvailable", TelegramProjectProfile.GetKindLabel(active))),
+                    TelegramDeployCoordinator.BuildReplyKeyboard(active),
+                    cancellationToken,
+                    active).ConfigureAwait(false);
                 return;
             }
 
@@ -829,8 +824,9 @@ namespace GitDeployPro.Services.Telegram
                 token,
                 update.ChatId,
                 TelegramMarkup.Html(Loc.T("telegram.deployStarting")),
-                TelegramDeployCoordinator.BuildReplyKeyboard(),
-                cancellationToken).ConfigureAwait(false);
+                TelegramDeployCoordinator.BuildReplyKeyboard(active),
+                cancellationToken,
+                active).ConfigureAwait(false);
 
             var result = await TelegramDeployCoordinator.RunAsync(active).ConfigureAwait(false);
             var icon = result.Ok ? "✅" : "❌";
@@ -852,8 +848,9 @@ namespace GitDeployPro.Services.Telegram
                 token,
                 update.ChatId,
                 html,
-                TelegramDeployCoordinator.BuildReplyKeyboard(),
-                cancellationToken).ConfigureAwait(false);
+                TelegramDeployCoordinator.BuildReplyKeyboard(active),
+                cancellationToken,
+                active).ConfigureAwait(false);
         }
 
         private async Task ReplyClearLocalAsync(
@@ -868,7 +865,7 @@ namespace GitDeployPro.Services.Telegram
                 token,
                 update.ChatId,
                 TelegramMarkup.Html(TelegramChatCleaner.LocalSummary(cleared)),
-                TelegramDeployCoordinator.BuildReplyKeyboard(),
+                TelegramDeployCoordinator.BuildReplyKeyboard(active),
                 cancellationToken,
                 active).ConfigureAwait(false);
         }
@@ -891,7 +888,7 @@ namespace GitDeployPro.Services.Telegram
                 token,
                 update.ChatId,
                 TelegramMarkup.Html(Loc.T("telegram.wipeTelegramStarting")),
-                TelegramDeployCoordinator.BuildReplyKeyboard(),
+                TelegramDeployCoordinator.BuildReplyKeyboard(active),
                 cancellationToken,
                 active).ConfigureAwait(false);
 
@@ -906,7 +903,7 @@ namespace GitDeployPro.Services.Telegram
                 token,
                 update.ChatId,
                 TelegramMarkup.Html(TelegramChatCleaner.WipeSummary(deleted, localCleared)),
-                TelegramDeployCoordinator.BuildReplyKeyboard(),
+                TelegramDeployCoordinator.BuildReplyKeyboard(active),
                 cancellationToken,
                 active).ConfigureAwait(false);
         }
@@ -988,10 +985,14 @@ namespace GitDeployPro.Services.Telegram
             var pendingLine = pending > 0
                 ? "\n" + TelegramMarkup.Html(Loc.T("telegram.deployReadyHint", pending))
                 : string.Empty;
+            var kindLine = "\n" + TelegramMarkup.Html(Loc.T(
+                "telegram.projectKindActive",
+                TelegramProjectProfile.GetKindLabel(path)));
             var workspaceLine = "\n" + TelegramMarkup.Html(CursorWorkspaceRoots.FormatAnnouncement(
                 CursorWorkspaceRoots.GetRoots(path)));
             var html =
                 $"✅ <b>{TelegramMarkup.Html(switched)}</b>" +
+                kindLine +
                 pendingLine +
                 workspaceLine + "\n\n" +
                 TelegramMarkup.Html(Loc.T("telegram.homeBody"));
@@ -999,8 +1000,9 @@ namespace GitDeployPro.Services.Telegram
                 token,
                 update.ChatId,
                 html,
-                TelegramDeployCoordinator.BuildReplyKeyboard(),
-                cancellationToken).ConfigureAwait(false);
+                TelegramDeployCoordinator.BuildReplyKeyboard(path),
+                cancellationToken,
+                path).ConfigureAwait(false);
 
             // Local chat mirror only — Telegram already received roots in the switch reply.
             CursorWorkspaceRoots.AnnounceToChatAndTelegram(path, sendTelegram: false);
@@ -1024,7 +1026,7 @@ namespace GitDeployPro.Services.Telegram
                     chatId,
                     html,
                     cancellationToken,
-                    markup ?? TelegramDeployCoordinator.BuildReplyKeyboard(),
+                    markup ?? TelegramDeployCoordinator.BuildReplyKeyboard(trackPath),
                     "HTML").ConfigureAwait(false);
                 _store.TrackBotMessageId(trackPath, messageId);
             }
@@ -1037,7 +1039,7 @@ namespace GitDeployPro.Services.Telegram
                         chatId,
                         html,
                         cancellationToken,
-                        TelegramDeployCoordinator.BuildReplyKeyboard()).ConfigureAwait(false);
+                        TelegramDeployCoordinator.BuildReplyKeyboard(trackPath)).ConfigureAwait(false);
                     _store.TrackBotMessageId(trackPath, messageId);
                 }
                 catch

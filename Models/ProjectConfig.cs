@@ -14,6 +14,17 @@ namespace GitDeployPro.Models
         Hybrid
     }
 
+    /// <summary>
+    /// How Telegram and deploy shortcuts treat this project (web FTP vs desktop vs agent-only).
+    /// </summary>
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum ProjectKind
+    {
+        WebFtpDeploy,
+        WindowsDesktop,
+        NoDeploy
+    }
+
     public class ProjectConfig
     {
         // New Approach: Reference a Connection Profile
@@ -44,6 +55,11 @@ namespace GitDeployPro.Models
         public bool AutoPush { get; set; }
         public DeployMode DeployMode { get; set; } = DeployMode.FtpDeploy;
         public string[] ExcludePatterns { get; set; } = new string[0];
+
+        /// <summary>
+        /// Web FTP deploy vs Windows desktop vs no deploy — drives Telegram keyboard and deploy hints.
+        /// </summary>
+        public ProjectKind ProjectKind { get; set; } = ProjectKind.WebFtpDeploy;
 
         /// <summary>
         /// Extra folders Cursor CLI may access via --add-dir (primary root remains LocalProjectPath).

@@ -360,6 +360,40 @@
                         <Expander Style="{StaticResource Settings.Expander}" IsExpanded="True">
                             <Expander.Header>
                                 <StackPanel Orientation="Horizontal">
+                                    <ui:SymbolIcon Symbol="Apps24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Accent.Primary}" VerticalAlignment="Center" />
+                                    <StackPanel>
+                                        <TextBlock x:Name="ProjectKindSectionTitle"
+                                                   Text="Project type"
+                                                   FontWeight="SemiBold"
+                                                   FontSize="13" />
+                                        <TextBlock x:Name="ProjectKindSectionHint"
+                                                   Text="How Telegram and deploy shortcuts treat this project"
+                                                   FontSize="10"
+                                                   Foreground="{StaticResource Text.Muted}" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Expander.Header>
+                            <StackPanel>
+                                <TextBlock x:Name="ProjectKindLabel"
+                                           Text="Project type"
+                                           Margin="0,0,0,6"
+                                           Style="{StaticResource App.MutedTextStyle}"
+                                           FontSize="11" />
+                                <ComboBox x:Name="ProjectKindComboBox"
+                                          Height="34"
+                                          Style="{StaticResource App.InputComboBox}" />
+                                <TextBlock x:Name="ProjectKindNoteText"
+                                           Margin="0,8,0,0"
+                                           FontSize="11"
+                                           Foreground="{StaticResource Text.Muted}"
+                                           TextWrapping="Wrap"
+                                           Text="Web/FTP projects show Deploy on Telegram. Desktop or agent-only projects hide it." />
+                            </StackPanel>
+                        </Expander>
+
+                        <Expander Style="{StaticResource Settings.Expander}" IsExpanded="True">
+                            <Expander.Header>
+                                <StackPanel Orientation="Horizontal">
                                     <ui:SymbolIcon Symbol="Globe24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Accent.Primary}" VerticalAlignment="Center" />
                                     <StackPanel>
                                         <TextBlock x:Name="LanguageSectionTitle"

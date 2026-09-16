@@ -1,19 +1,14 @@
 {
-  "version": "2.0.63",
-  "fileName": "GitDeployPro-2.0.63.exe",
-  "downloadUrl": "versions/GitDeployPro-2.0.63.exe",
-  "sha256": "D5B52067C4A6E0DDF215A11481709E9EE34C78D9C021A6000C146A2EEB28FF25",
-  "releaseNotes": "Feature: Multi-root Cursor workspace (Manage workspace, extra roots, --add-dir)\nFeature: Inject .cursor/rules into Telegram agent prompts\nFeature: Telegram workspace announce, WS badge, and Status Paths button\nFeature: Stop button while Cursor agent is running\nFeature: Persian RTL chat bubbles + Telegram HTML formatting for agent replies\nFeature: Quiet Telegram progress mode (Still working every 30s)\nFix: Telegram deploy no longer crashes when Deploy page is already open\nFix: Telegram/UI project path sync for agent turns and CLI test",
+  "version": "2.0.75",
+  "fileName": "GitDeployPro-2.0.75.exe",
+  "downloadUrl": "versions/GitDeployPro-2.0.75.exe",
+  "sha256": "8D921EC54C5BD2E7E7D68BAF8C66CD20A6EA7EEA49FCE6AC9D07237999D9CF33",
+  "releaseNotes": "Feature: Project type in Settings → General (Web/FTP, Windows desktop, No deploy) — Telegram Deploy button and hints follow it\nFix: No more extra \"Updating buttons\" messages after each Cursor agent reply\nFix: Browsing Telegram chats in-app no longer switches the whole workspace mid-work",
   "changelog": [
-    "Feature: Multi-root Cursor workspace (Manage workspace, extra roots, --add-dir)",
-    "Feature: Inject .cursor/rules into Telegram agent prompts",
-    "Feature: Telegram workspace announce, WS badge, and Status Paths button",
-    "Feature: Stop button while Cursor agent is running",
-    "Feature: Persian RTL chat bubbles + Telegram HTML formatting for agent replies",
-    "Feature: Quiet Telegram progress mode (Still working every 30s)",
-    "Fix: Telegram deploy no longer crashes when Deploy page is already open",
-    "Fix: Telegram/UI project path sync for agent turns and CLI test"
+    "Feature: Project type in Settings → General (Web/FTP, Windows desktop, No deploy) — Telegram Deploy button and hints follow it",
+    "Fix: No more extra \"Updating buttons\" messages after each Cursor agent reply",
+    "Fix: Browsing Telegram chats in-app no longer switches the whole workspace mid-work"
   ],
   "mandatory": false,
-  "publishedUtc": "2026-09-16T05:20:00Z"
+  "publishedUtc": "2026-09-16T09:06:00Z"
 }

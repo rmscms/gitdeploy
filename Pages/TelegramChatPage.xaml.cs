@@ -113,7 +113,7 @@ namespace GitDeployPro.Pages
 
             if (match != null)
             {
-                OpenThread(match.ProjectPath, switchProject: false);
+                OpenThread(match.ProjectPath);
             }
             else
             {
@@ -123,7 +123,11 @@ namespace GitDeployPro.Pages
             }
         }
 
-        private void OpenThread(string projectPath, bool switchProject)
+        /// <summary>
+        /// Opens a chat thread for viewing/sending only.
+        /// Does not switch the GitDeploy workspace — use header/Telegram Projects for that.
+        /// </summary>
+        private void OpenThread(string projectPath)
         {
             _openProjectPath = projectPath;
             ChatTitleText.Text = TelegramPaths.DisplayName(projectPath);
@@ -146,18 +150,6 @@ namespace GitDeployPro.Pages
                 ChatStatusText.Text = CursorWorkspaceRoots.FormatBadge(workspace)
                     + " · "
                     + (TelegramPoller.Instance.StatusText ?? string.Empty);
-            }
-
-            if (switchProject && !TelegramPaths.IsUnassigned(projectPath) && Directory.Exists(projectPath))
-            {
-                if (Window.GetWindow(this) is MainWindow main)
-                {
-                    main.SetCurrentProject(projectPath, showSetupWizard: false);
-                }
-                else
-                {
-                    TelegramProjectSync.ApplyToGitDeploy(projectPath);
-                }
             }
         }
 
@@ -189,7 +181,9 @@ namespace GitDeployPro.Pages
                 return;
             }
 
-            OpenThread(item.ProjectPath, switchProject: true);
+            // Browse-only: peeking another chat must not switch the whole GitDeploy workspace
+            // (FTP session, agent, Telegram active project) mid-work.
+            OpenThread(item.ProjectPath);
         }
 
         private void ThreadSearchBox_TextChanged(object sender, TextChangedEventArgs e)
@@ -390,7 +384,7 @@ namespace GitDeployPro.Pages
                         chatId,
                         TelegramChatCleaner.WipeSummary(deleted, localCleared),
                         CancellationToken.None,
-                        TelegramDeployCoordinator.BuildReplyKeyboard()).ConfigureAwait(true);
+                        TelegramDeployCoordinator.BuildReplyKeyboard(_openProjectPath)).ConfigureAwait(true);
                     _store.TrackBotMessageId(_openProjectPath, doneId);
                 }
                 catch
