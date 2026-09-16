@@ -135,12 +135,19 @@ namespace GitDeployPro.Services.Remote
 
         public Task DisconnectAsync()
         {
-            if (_client == null) return Task.CompletedTask;
+            var client = _client;
+            _client = null;
+            ProfileId = string.Empty;
+            if (client == null)
+            {
+                return Task.CompletedTask;
+            }
+
             try
             {
-                if (_client.IsConnected)
+                if (client.IsConnected)
                 {
-                    _client.Disconnect();
+                    client.Disconnect();
                 }
             }
             catch
@@ -149,9 +156,14 @@ namespace GitDeployPro.Services.Remote
             }
             finally
             {
-                _client.Dispose();
-                _client = null;
-                ProfileId = string.Empty;
+                try
+                {
+                    client.Dispose();
+                }
+                catch
+                {
+                    // Ignore abort races with an in-flight Connect().
+                }
             }
 
             return Task.CompletedTask;

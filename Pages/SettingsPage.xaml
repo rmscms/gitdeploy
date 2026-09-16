@@ -1270,6 +1270,17 @@
                                          Style="{StaticResource App.InputTextBox}"
                                          mah:TextBoxHelper.Watermark="e.g. composer-2.5" />
 
+                                <CheckBox x:Name="CursorTelegramQuietProgressCheckBox"
+                                          Content="Telegram quiet progress (Still working every 30s — hide edit/thinking details)"
+                                          Foreground="{StaticResource Text.Secondary}"
+                                          FontSize="12"
+                                          Margin="0,14,0,4" />
+                                <TextBlock Text="Unchecked = send tool/thinking lines to Telegram like today. Checked = only a short Still working ping every 30 seconds."
+                                           Margin="24,0,0,10"
+                                           FontSize="11"
+                                           Foreground="{StaticResource Text.Muted}"
+                                           TextWrapping="Wrap" />
+
                                 <StackPanel Orientation="Horizontal" Margin="0,14,0,10">
                                     <Button x:Name="CursorInstallButton"
                                             Content="Install CLI"

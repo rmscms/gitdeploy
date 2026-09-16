@@ -107,11 +107,24 @@
                                                FontWeight="SemiBold"
                                                Foreground="{StaticResource Text.Primary}"
                                                TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Text="{Binding LastPreview}"
-                                               FontSize="11"
-                                               Foreground="{StaticResource Text.Muted}"
-                                               TextTrimming="CharacterEllipsis"
-                                               Margin="0,2,0,0" />
+                                    <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                        <Border Background="{StaticResource Status.InfoSurface}"
+                                                CornerRadius="6"
+                                                Padding="5,1"
+                                                Margin="0,0,6,0"
+                                                VerticalAlignment="Center"
+                                                Visibility="{Binding WorkspaceBadgeVisibility}">
+                                            <TextBlock Text="{Binding WorkspaceBadge}"
+                                                       FontSize="9"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{StaticResource Status.Info}" />
+                                        </Border>
+                                        <TextBlock Text="{Binding LastPreview}"
+                                                   FontSize="11"
+                                                   Foreground="{StaticResource Text.Muted}"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   VerticalAlignment="Center" />
+                                    </StackPanel>
                                 </StackPanel>
                                 <StackPanel Grid.Column="2" VerticalAlignment="Top" HorizontalAlignment="Right">
                                     <TextBlock Text="{Binding TimeLabel}"
@@ -221,6 +234,7 @@
                                         CornerRadius="14"
                                         Padding="12,9"
                                         HorizontalAlignment="Left"
+                                        FlowDirection="{Binding TextFlow}"
                                         Background="{StaticResource Chat.BubbleIn}">
                                     <StackPanel>
                                         <Image Source="{Binding PhotoImage}"
@@ -236,7 +250,9 @@
                                                    TextWrapping="Wrap"
                                                    FontSize="13"
                                                    Foreground="{StaticResource Chat.BubbleInText}"
-                                                   Visibility="{Binding TextVisibility}" />
+                                                   Visibility="{Binding TextVisibility}"
+                                                   FlowDirection="{Binding TextFlow}"
+                                                   TextAlignment="{Binding TextAlign}" />
                                         <TextBlock x:Name="TimeText"
                                                    Text="{Binding TimeLabel}"
                                                    FontSize="10"
@@ -260,8 +276,6 @@
                                     <Setter TargetName="Bubble" Property="MaxWidth" Value="520" />
                                     <Setter TargetName="Bubble" Property="MinWidth" Value="220" />
                                     <Setter TargetName="BodyText" Property="Foreground" Value="{StaticResource Text.Muted}" />
-                                    <Setter TargetName="BodyText" Property="TextAlignment" Value="Left" />
-                                    <Setter TargetName="BodyText" Property="FlowDirection" Value="LeftToRight" />
                                     <Setter TargetName="TimeText" Property="Foreground" Value="{StaticResource Text.Muted}" />
                                 </DataTrigger>
                             </DataTemplate.Triggers>
@@ -318,7 +332,8 @@
                                  VerticalScrollBarVisibility="Auto"
                                  Style="{StaticResource App.InputTextBox}"
                                  mah:TextBoxHelper.Watermark="{loc:T telegram.composerHint}"
-                                 PreviewKeyDown="ComposerBox_PreviewKeyDown" />
+                                 PreviewKeyDown="ComposerBox_PreviewKeyDown"
+                                 TextChanged="ComposerBox_TextChanged" />
                         <Button Grid.Column="2"
                                 Height="36"
                                 MinWidth="88"

@@ -706,8 +706,44 @@ namespace GitDeployPro
                 return TelegramDeployResult.Fail(Loc.T("telegram.deployNoProject"));
             }
 
-            SetCurrentProject(projectPath, showSetupWizard: false);
-            NavigateToDeploy();
+            string fullPath;
+            try
+            {
+                fullPath = Path.GetFullPath(projectPath.Trim());
+            }
+            catch
+            {
+                fullPath = projectPath.Trim();
+            }
+
+            var lastPath = _configService.LoadGlobalConfig().LastProjectPath ?? string.Empty;
+            var sameProject = false;
+            try
+            {
+                sameProject = !string.IsNullOrWhiteSpace(lastPath)
+                    && string.Equals(Path.GetFullPath(lastPath), fullPath, StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                sameProject = string.Equals(lastPath, fullPath, StringComparison.OrdinalIgnoreCase);
+            }
+
+            // If the user is already on this project's Deploy page, reuse it.
+            // SetCurrentProject → DiscardDeploySession tears down FTP and used to crash on Unloaded.
+            if (sameProject && _deployPage != null)
+            {
+                TelegramChatStore.Instance.SetActiveProjectPath(fullPath);
+                if (!ReferenceEquals(ContentFrame.Content, _deployPage))
+                {
+                    NavigateToDeploy();
+                }
+            }
+            else
+            {
+                SetCurrentProject(fullPath, showSetupWizard: false);
+                NavigateToDeploy();
+            }
+
             if (_deployPage == null)
             {
                 return TelegramDeployResult.Fail(Loc.T("telegram.deployAppNotReady"));

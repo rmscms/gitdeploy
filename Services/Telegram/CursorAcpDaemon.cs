@@ -141,30 +141,52 @@ namespace GitDeployPro.Services.Telegram
                 {
                     while (!heartbeatCts.IsCancellationRequested)
                     {
+                        var quiet = false;
                         try
                         {
-                            await Task.Delay(TimeSpan.FromSeconds(90), heartbeatCts.Token).ConfigureAwait(false);
+                            quiet = new ConfigurationService().LoadGlobalConfig().CursorTelegramQuietProgress;
+                        }
+                        catch
+                        {
+                        }
+
+                        var delaySec = quiet ? 30 : 90;
+                        try
+                        {
+                            await Task.Delay(TimeSpan.FromSeconds(delaySec), heartbeatCts.Token).ConfigureAwait(false);
                         }
                         catch
                         {
                             return;
                         }
 
-                        if ((DateTime.UtcNow - lastEventUtc).TotalSeconds < 75)
+                        if (!quiet)
                         {
+                            if ((DateTime.UtcNow - lastEventUtc).TotalSeconds < 75)
+                            {
+                                continue;
+                            }
+
+                            if ((DateTime.UtcNow - lastHeartbeatEmitUtc).TotalSeconds < 120)
+                            {
+                                continue;
+                            }
+
+                            lastHeartbeatEmitUtc = DateTime.UtcNow;
+                            var minutes = Math.Max(1, (int)Math.Round((DateTime.UtcNow - startedUtc).TotalMinutes));
+                            onProgress?.Invoke(GitDeployPro.Services.Localization.Loc.T(
+                                "cursor.progress.stillWorkingMins",
+                                minutes));
                             continue;
                         }
 
-                        if ((DateTime.UtcNow - lastHeartbeatEmitUtc).TotalSeconds < 120)
+                        if ((DateTime.UtcNow - lastHeartbeatEmitUtc).TotalSeconds < 28)
                         {
                             continue;
                         }
 
                         lastHeartbeatEmitUtc = DateTime.UtcNow;
-                        var minutes = Math.Max(1, (int)Math.Round((DateTime.UtcNow - startedUtc).TotalMinutes));
-                        onProgress?.Invoke(GitDeployPro.Services.Localization.Loc.T(
-                            "cursor.progress.stillWorkingMins",
-                            minutes));
+                        onProgress?.Invoke(GitDeployPro.Services.Localization.Loc.T("cursor.progress.stillWorking"));
                     }
                 }, heartbeatCts.Token);
 

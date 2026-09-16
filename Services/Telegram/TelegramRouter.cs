@@ -22,6 +22,8 @@ namespace GitDeployPro.Services.Telegram
         public const string CallbackModelRefresh = "agent:model:refresh";
         public const string CallbackModelPrefix = "agent:model:";
         public const string CallbackModelFamilyPrefix = "agent:mfam:";
+        public const string CallbackWorkspaceRoots = "agent:workspace:roots";
+        public const string CallbackStopTurn = "agent:stop";
 
         private readonly TelegramChatStore _store;
         private readonly TelegramBotClient _client;
@@ -97,6 +99,12 @@ namespace GitDeployPro.Services.Telegram
             if (IsRestartAgentCommand(text))
             {
                 await ReplyRestartAgentAskAsync(token, update, cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            if (IsStopAgentCommand(text))
+            {
+                await ReplyStopAgentAsync(token, update, cancellationToken).ConfigureAwait(false);
                 return;
             }
 
@@ -204,6 +212,8 @@ namespace GitDeployPro.Services.Telegram
                     || string.Equals(data, CallbackRestartNo, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(data, CallbackModelMenu, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(data, CallbackModelRefresh, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(data, CallbackWorkspaceRoots, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(data, CallbackStopTurn, StringComparison.OrdinalIgnoreCase)
                     || data.StartsWith(CallbackModelFamilyPrefix, StringComparison.OrdinalIgnoreCase)
                     || data.StartsWith(CallbackModelPrefix, StringComparison.OrdinalIgnoreCase))
                 {
@@ -300,6 +310,7 @@ namespace GitDeployPro.Services.Telegram
             var active = ResolveInboundProjectPath(config);
             var status = CursorAgentBridge.Instance.GetAgentStatus(active);
             var pending = await TelegramDeployCoordinator.GetPendingChangeCountAsync(active).ConfigureAwait(false);
+            var workspace = CursorWorkspaceRoots.GetRoots(active);
             var lastLine = status.LastActivityUtc.HasValue
                 ? status.LastActivityUtc.Value.ToLocalTime().ToString("HH:mm:ss")
                 : "—";
@@ -316,21 +327,47 @@ namespace GitDeployPro.Services.Telegram
                 $"{TelegramMarkup.Html(Loc.T("telegram.statusSession"))}: <code>{TelegramMarkup.Html(status.SessionHint)}</code>\n" +
                 $"{TelegramMarkup.Html(Loc.T("telegram.statusLast"))}: {TelegramMarkup.Html(lastLine)}";
 
+            if (workspace.HasMultiRoot)
+            {
+                html += "\n" +
+                    $"{TelegramMarkup.Html(Loc.T("telegram.statusWorkspace"))}: " +
+                    TelegramMarkup.Html(Loc.T("telegram.statusWorkspaceFolders", workspace.Extras.Count));
+            }
+
             if (pending > 0)
             {
                 html += "\n" + TelegramMarkup.Html(Loc.T("telegram.deployReadyHint", pending));
+            }
+
+            var inlineRows = new List<(string Text, string Data)[]>
+            {
+                new[]
+                {
+                    (Loc.T("telegram.btnRestartAgent"), CallbackRestartAsk),
+                    (Loc.T("telegram.btnModel"), CallbackModelMenu)
+                }
+            };
+            if (status.TurnBusy)
+            {
+                inlineRows.Add(new[]
+                {
+                    (Loc.T("telegram.btnStopAgent"), CallbackStopTurn)
+                });
+            }
+
+            if (workspace.HasMultiRoot)
+            {
+                inlineRows.Add(new[]
+                {
+                    (Loc.T("telegram.btnWorkspaceRoots"), CallbackWorkspaceRoots)
+                });
             }
 
             await SendBotAsync(
                 token,
                 update.ChatId,
                 html,
-                TelegramMarkup.Inline(
-                    new[]
-                    {
-                        (Loc.T("telegram.btnRestartAgent"), CallbackRestartAsk),
-                        (Loc.T("telegram.btnModel"), CallbackModelMenu)
-                    }),
+                TelegramMarkup.Inline(inlineRows.ToArray()),
                 cancellationToken,
                 active).ConfigureAwait(false);
 
@@ -339,6 +376,76 @@ namespace GitDeployPro.Services.Telegram
                 token,
                 update.ChatId,
                 TelegramMarkup.Html(Loc.T("telegram.keyboardReady")),
+                TelegramDeployCoordinator.BuildReplyKeyboard(),
+                cancellationToken,
+                active).ConfigureAwait(false);
+        }
+
+        private async Task ReplyWorkspaceRootsAsync(
+            string token,
+            TelegramIncomingUpdate update,
+            CancellationToken cancellationToken)
+        {
+            var active = ResolveInboundProjectPath(_config.LoadGlobalConfig());
+            var workspace = CursorWorkspaceRoots.GetRoots(active);
+            if (!workspace.HasMultiRoot)
+            {
+                await SendBotAsync(
+                    token,
+                    update.ChatId,
+                    TelegramMarkup.Html(Loc.T("telegram.workspace.noExtras")),
+                    TelegramDeployCoordinator.BuildReplyKeyboard(),
+                    cancellationToken,
+                    active).ConfigureAwait(false);
+                return;
+            }
+
+            var lines = new List<string>
+            {
+                $"<b>{TelegramMarkup.Html(Loc.T("telegram.workspace.pathsTitle"))}</b>",
+                $"{TelegramMarkup.Html(Loc.T("telegram.workspace.primaryLabel"))}: <code>{TelegramMarkup.Html(workspace.Primary)}</code>"
+            };
+            for (var i = 0; i < workspace.Extras.Count; i++)
+            {
+                lines.Add($"{i + 1}. <code>{TelegramMarkup.Html(workspace.Extras[i])}</code>");
+            }
+
+            await SendBotAsync(
+                token,
+                update.ChatId,
+                string.Join("\n", lines),
+                TelegramDeployCoordinator.BuildReplyKeyboard(),
+                cancellationToken,
+                active).ConfigureAwait(false);
+        }
+
+        private async Task ReplyStopAgentAsync(
+            string token,
+            TelegramIncomingUpdate update,
+            CancellationToken cancellationToken)
+        {
+            var active = ResolveInboundProjectPath(_config.LoadGlobalConfig());
+            var status = CursorAgentBridge.Instance.GetAgentStatus(active);
+            if (!status.TurnBusy && status.QueueDepth <= 0)
+            {
+                await SendBotAsync(
+                    token,
+                    update.ChatId,
+                    TelegramMarkup.Html(Loc.T("telegram.agentNotBusy")),
+                    TelegramDeployCoordinator.BuildReplyKeyboard(),
+                    cancellationToken,
+                    active).ConfigureAwait(false);
+                return;
+            }
+
+            var stopped = CursorAgentBridge.Instance.StopTurn(active);
+            await SendBotAsync(
+                token,
+                update.ChatId,
+                TelegramMarkup.Html(
+                    stopped
+                        ? Loc.T("telegram.agentStopped")
+                        : Loc.T("telegram.agentNotBusy")),
                 TelegramDeployCoordinator.BuildReplyKeyboard(),
                 cancellationToken,
                 active).ConfigureAwait(false);
@@ -487,6 +594,25 @@ namespace GitDeployPro.Services.Telegram
                 await ReplyRestartAgentAskAsync(token, update, cancellationToken).ConfigureAwait(false);
                 await _client.AnswerCallbackQueryAsync(token, update.CallbackQueryId, null, cancellationToken)
                     .ConfigureAwait(false);
+                return;
+            }
+
+            if (string.Equals(data, CallbackWorkspaceRoots, StringComparison.OrdinalIgnoreCase))
+            {
+                await ReplyWorkspaceRootsAsync(token, update, cancellationToken).ConfigureAwait(false);
+                await _client.AnswerCallbackQueryAsync(token, update.CallbackQueryId, null, cancellationToken)
+                    .ConfigureAwait(false);
+                return;
+            }
+
+            if (string.Equals(data, CallbackStopTurn, StringComparison.OrdinalIgnoreCase))
+            {
+                await ReplyStopAgentAsync(token, update, cancellationToken).ConfigureAwait(false);
+                await _client.AnswerCallbackQueryAsync(
+                    token,
+                    update.CallbackQueryId,
+                    Loc.T("telegram.agentStopping"),
+                    cancellationToken).ConfigureAwait(false);
                 return;
             }
 
@@ -862,9 +988,12 @@ namespace GitDeployPro.Services.Telegram
             var pendingLine = pending > 0
                 ? "\n" + TelegramMarkup.Html(Loc.T("telegram.deployReadyHint", pending))
                 : string.Empty;
+            var workspaceLine = "\n" + TelegramMarkup.Html(CursorWorkspaceRoots.FormatAnnouncement(
+                CursorWorkspaceRoots.GetRoots(path)));
             var html =
                 $"✅ <b>{TelegramMarkup.Html(switched)}</b>" +
-                pendingLine + "\n\n" +
+                pendingLine +
+                workspaceLine + "\n\n" +
                 TelegramMarkup.Html(Loc.T("telegram.homeBody"));
             await SendBotAsync(
                 token,
@@ -872,6 +1001,9 @@ namespace GitDeployPro.Services.Telegram
                 html,
                 TelegramDeployCoordinator.BuildReplyKeyboard(),
                 cancellationToken).ConfigureAwait(false);
+
+            // Local chat mirror only — Telegram already received roots in the switch reply.
+            CursorWorkspaceRoots.AnnounceToChatAndTelegram(path, sendTelegram: false);
         }
 
         private async Task SendBotAsync(
@@ -1100,6 +1232,16 @@ namespace GitDeployPro.Services.Telegram
                 "restart",
                 "ریستارت",
                 "ریستارت ایجنت");
+
+        private static bool IsStopAgentCommand(string text)
+            => MatchesCommand(
+                text,
+                "/stop",
+                "telegram.btnStopAgent",
+                "stop",
+                "توقف",
+                "استاپ",
+                "بایست");
 
         private static bool IsModelCommand(string text)
             => MatchesCommand(
