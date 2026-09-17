@@ -139,20 +139,27 @@ namespace GitDeployPro.Services.Telegram
                    || name.StartsWith(".env.", StringComparison.OrdinalIgnoreCase);
         }
 
-        private static Task<T> InvokeOnUiAsync<T>(Func<Task<T>> work)
+        private static async Task<T> InvokeOnUiAsync<T>(Func<Task<T>> work)
         {
             var app = WpfApplication.Current;
-            if (app?.Dispatcher == null)
+            Task<T> task;
+            if (app?.Dispatcher == null || app.Dispatcher.CheckAccess())
             {
-                return work();
+                task = work();
+            }
+            else
+            {
+                task = app.Dispatcher.InvokeAsync(work).Task.Unwrap();
             }
 
-            if (app.Dispatcher.CheckAccess())
+            // Preview must not block Telegram forever if git/UI stalls.
+            var finished = await Task.WhenAny(task, Task.Delay(TimeSpan.FromSeconds(90))).ConfigureAwait(false);
+            if (finished != task)
             {
-                return work();
+                throw new TimeoutException("Preview timed out after 90s.");
             }
 
-            return app.Dispatcher.InvokeAsync(work).Task.Unwrap();
+            return await task.ConfigureAwait(false);
         }
     }
 }

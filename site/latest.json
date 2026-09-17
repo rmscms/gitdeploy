@@ -1,24 +1,17 @@
 {
-  "version": "2.1.42",
-  "fileName": "GitDeployPro-2.1.42.exe",
-  "downloadUrl": "versions/GitDeployPro-2.1.42.exe",
-  "sha256": "F9DF9FB5E414A8ED64A5F3184514EF434817B7008EEFD860939CF902D82C982C",
-  "releaseNotes": "Feature: Codex CLI agent engine beside Cursor (Settings + Telegram /engine)\nFeature: Codex providers — OpenRouter, Ollama (local free), LM Studio, OpenAI\nFeature: Codex Install / Update CLI / Test connection + setup guide\nFeature: Auto-update Codex CLI about every 24 hours\nFeature: Telegram Deploy Preview before deploy\nFeature: Quiet progress option now applies to Cursor and Codex\nFix: Codex Persian/UTF-8 prompts via stdin\nFix: Codex config.toml no longer duplicates provider keys\nFix: Codex resume no longer fails on invalid --sandbox args\nFix: Codex can edit project files (sandbox trust bypass)\nFix: Clearer provider 429 rate-limit errors\nFix: Git rename paths handled in change list / deploy preview\nFix: Workspace rules also pick up AGENTS.md and CLAUDE.md",
+  "version": "2.1.66",
+  "fileName": "GitDeployPro-2.1.66.exe",
+  "downloadUrl": "versions/GitDeployPro-2.1.66.exe",
+  "sha256": "8508CAAA3671C55B40455AA707A8420671D3749E5FC0D22F88CAB512F7CE5B04",
+  "releaseNotes": "Feature: Telegram bridge watchdog auto-reconnects when the poll loop stalls (no full app restart)\nFeature: Telegram commands (Preview/Deploy/Model/…) no longer block long-poll — handlers run in parallel + outbound send queue\nFix: Real HTTP timeouts on Telegram API calls (no infinite hang after VPN/network blips)\nFix: Deploy Preview times out instead of freezing the bot\nFix: Cursor model list/search capped so a stuck CLI cannot freeze Telegram\nFix: Clearer status when the bridge restarts or a command fails",
   "changelog": [
-    "Feature: Codex CLI agent engine beside Cursor (Settings + Telegram /engine)",
-    "Feature: Codex providers — OpenRouter, Ollama (local free), LM Studio, OpenAI",
-    "Feature: Codex Install / Update CLI / Test connection + setup guide",
-    "Feature: Auto-update Codex CLI about every 24 hours",
-    "Feature: Telegram Deploy Preview before deploy",
-    "Feature: Quiet progress option now applies to Cursor and Codex",
-    "Fix: Codex Persian/UTF-8 prompts via stdin",
-    "Fix: Codex config.toml no longer duplicates provider keys",
-    "Fix: Codex resume no longer fails on invalid --sandbox args",
-    "Fix: Codex can edit project files (sandbox trust bypass)",
-    "Fix: Clearer provider 429 rate-limit errors",
-    "Fix: Git rename paths handled in change list / deploy preview",
-    "Fix: Workspace rules also pick up AGENTS.md and CLAUDE.md"
+    "Feature: Telegram bridge watchdog auto-reconnects when the poll loop stalls (no full app restart)",
+    "Feature: Telegram commands (Preview/Deploy/Model/…) no longer block long-poll — handlers run in parallel + outbound send queue",
+    "Fix: Real HTTP timeouts on Telegram API calls (no infinite hang after VPN/network blips)",
+    "Fix: Deploy Preview times out instead of freezing the bot",
+    "Fix: Cursor model list/search capped so a stuck CLI cannot freeze Telegram",
+    "Fix: Clearer status when the bridge restarts or a command fails"
   ],
   "mandatory": false,
-  "publishedUtc": "2026-09-17T07:54:00Z"
+  "publishedUtc": "2026-09-17T08:32:00Z"
 }

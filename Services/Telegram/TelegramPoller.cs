@@ -11,16 +11,27 @@ namespace GitDeployPro.Services.Telegram
     {
         public static TelegramPoller Instance { get; } = new();
 
+        /// <summary>If getUpdates / poll cycle does not progress for this long, restart the loop.</summary>
+        private static readonly TimeSpan StallLimit = TimeSpan.FromSeconds(90);
+
+        private static readonly TimeSpan MinRestartGap = TimeSpan.FromSeconds(40);
+
         private readonly object _gate = new();
         private readonly TelegramChatStore _store = TelegramChatStore.Instance;
         private readonly TelegramBotClient _client = new();
         private readonly TelegramRouter _router;
         private readonly ConfigurationService _config = new();
         private readonly NotificationService _notifications = new();
-        private CancellationTokenSource? _cts;
+
+        private CancellationTokenSource? _lifetimeCts;
+        private CancellationTokenSource? _loopCts;
         private Task? _loop;
+        private Task? _watchdog;
         private bool _disposed;
         private string _status = "";
+        private long _lastProgressUtcTicks = DateTime.UtcNow.Ticks;
+        private long _lastRestartUtcTicks = DateTime.MinValue.Ticks;
+        private int _restarting;
 
         public event EventHandler<TelegramMessageEventArgs>? MessageReceived;
         public event EventHandler<string>? StatusChanged;
@@ -54,21 +65,24 @@ namespace GitDeployPro.Services.Telegram
 
             lock (_gate)
             {
-                if (_loop != null && !_loop.IsCompleted)
+                _lifetimeCts ??= new CancellationTokenSource();
+                EnsureLoopUnlocked();
+                if (_watchdog == null || _watchdog.IsCompleted)
                 {
-                    return;
+                    var life = _lifetimeCts.Token;
+                    _watchdog = Task.Run(() => WatchdogLoopAsync(life), life);
                 }
-
-                _cts = new CancellationTokenSource();
-                var token = _cts.Token;
-                _loop = Task.Run(() => RunLoopAsync(token), token);
             }
         }
 
         public void Restart()
         {
-            StopLoop();
-            Start();
+            if (_disposed)
+            {
+                return;
+            }
+
+            RestartLoop(Loc.T("telegram.statusRestarting"));
         }
 
         public void Dispose()
@@ -79,7 +93,25 @@ namespace GitDeployPro.Services.Telegram
             }
 
             _disposed = true;
+            try
+            {
+                _lifetimeCts?.Cancel();
+            }
+            catch
+            {
+            }
+
             StopLoop();
+            try
+            {
+                _watchdog?.Wait(TimeSpan.FromSeconds(2));
+            }
+            catch
+            {
+            }
+
+            _lifetimeCts?.Dispose();
+            _lifetimeCts = null;
             _client.Dispose();
         }
 
@@ -181,15 +213,71 @@ namespace GitDeployPro.Services.Telegram
             ThreadCleared?.Invoke(this, projectPath ?? string.Empty);
         }
 
+        private void EnsureLoopUnlocked()
+        {
+            if (_loop != null && !_loop.IsCompleted)
+            {
+                return;
+            }
+
+            _loopCts = new CancellationTokenSource();
+            var token = _loopCts.Token;
+            MarkProgress();
+            _loop = Task.Run(() => RunLoopAsync(token), token);
+        }
+
+        private void RestartLoop(string status)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            if (Interlocked.CompareExchange(ref _restarting, 1, 0) != 0)
+            {
+                return;
+            }
+
+            try
+            {
+                var nowTicks = DateTime.UtcNow.Ticks;
+                var lastRestart = Interlocked.Read(ref _lastRestartUtcTicks);
+                if (lastRestart > 0
+                    && new DateTime(lastRestart, DateTimeKind.Utc) + MinRestartGap > DateTime.UtcNow)
+                {
+                    return;
+                }
+
+                Interlocked.Exchange(ref _lastRestartUtcTicks, nowTicks);
+                SetStatus(status);
+                StopLoop();
+                lock (_gate)
+                {
+                    if (!_disposed)
+                    {
+                        EnsureLoopUnlocked();
+                    }
+                }
+
+                MarkProgress();
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _restarting, 0);
+            }
+        }
+
         private async Task RunLoopAsync(CancellationToken cancellationToken)
         {
             SetStatus(Loc.T("telegram.statusStarting"));
+            MarkProgress();
             while (!cancellationToken.IsCancellationRequested)
             {
                 var config = _config.LoadGlobalConfig();
                 if (!config.TelegramEnabled)
                 {
                     SetStatus(Loc.T("telegram.statusDisabled"));
+                    MarkProgress();
                     await DelaySafe(TimeSpan.FromSeconds(3), cancellationToken).ConfigureAwait(false);
                     continue;
                 }
@@ -198,6 +286,7 @@ namespace GitDeployPro.Services.Telegram
                 if (string.IsNullOrWhiteSpace(token))
                 {
                     SetStatus(Loc.T("telegram.statusNoToken"));
+                    MarkProgress();
                     await DelaySafe(TimeSpan.FromSeconds(5), cancellationToken).ConfigureAwait(false);
                     continue;
                 }
@@ -205,8 +294,12 @@ namespace GitDeployPro.Services.Telegram
                 try
                 {
                     SetStatus(Loc.T("telegram.statusConnected"));
+                    MarkProgress();
                     var offset = _store.GetLastUpdateId() + 1;
-                    var updates = await _client.GetUpdatesAsync(token, offset, 25, cancellationToken).ConfigureAwait(false);
+                    var updates = await _client.GetUpdatesAsync(token, offset, 25, cancellationToken)
+                        .ConfigureAwait(false);
+                    MarkProgress();
+
                     foreach (var update in updates)
                     {
                         if (update.UpdateId > 0)
@@ -214,21 +307,88 @@ namespace GitDeployPro.Services.Telegram
                             _store.SetLastUpdateId(update.UpdateId);
                         }
 
-                        await _router.HandleIncomingAsync(token, update, cancellationToken).ConfigureAwait(false);
+                        // Never block long-poll on Preview/Deploy/Model/wipe/agent work.
+                        DispatchIncoming(token, update, cancellationToken);
                     }
                 }
-                catch (OperationCanceledException)
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
                     break;
                 }
                 catch (Exception ex)
                 {
-                    SetStatus(Loc.T("telegram.statusError", ex.Message));
-                    await DelaySafe(TimeSpan.FromSeconds(8), cancellationToken).ConfigureAwait(false);
+                    MarkProgress();
+                    SetStatus(Loc.T("telegram.statusError", Truncate(ex.Message, 120)));
+                    await DelaySafe(TimeSpan.FromSeconds(5), cancellationToken).ConfigureAwait(false);
                 }
             }
 
             SetStatus(Loc.T("telegram.statusStopped"));
+        }
+
+        private void DispatchIncoming(string token, TelegramIncomingUpdate update, CancellationToken cancellationToken)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _router.HandleIncomingAsync(token, update, cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                }
+                catch (Exception ex)
+                {
+                    try
+                    {
+                        var project = _store.GetActiveProjectPath();
+                        var msg = new TelegramChatMessage
+                        {
+                            Direction = TelegramMessageDirection.System,
+                            Status = TelegramMessageStatus.Failed,
+                            Text = Loc.T("telegram.handlerFailed", Truncate(ex.Message, 160)),
+                            Utc = DateTime.UtcNow,
+                            SenderName = "Telegram"
+                        };
+                        if (!string.IsNullOrWhiteSpace(project) && !TelegramPaths.IsUnassigned(project))
+                        {
+                            _store.Append(project, msg);
+                            RaiseMessage(project, msg);
+                        }
+                    }
+                    catch
+                    {
+                    }
+                }
+            }, cancellationToken);
+        }
+
+        private async Task WatchdogLoopAsync(CancellationToken cancellationToken)
+        {
+            while (!cancellationToken.IsCancellationRequested && !_disposed)
+            {
+                await DelaySafe(TimeSpan.FromSeconds(12), cancellationToken).ConfigureAwait(false);
+                if (cancellationToken.IsCancellationRequested || _disposed)
+                {
+                    break;
+                }
+
+                var config = _config.LoadGlobalConfig();
+                if (!config.TelegramEnabled)
+                {
+                    MarkProgress();
+                    continue;
+                }
+
+                var last = new DateTime(Interlocked.Read(ref _lastProgressUtcTicks), DateTimeKind.Utc);
+                if (DateTime.UtcNow - last < StallLimit)
+                {
+                    continue;
+                }
+
+                // Stuck getUpdates / dead loop — recover without full app restart.
+                RestartLoop(Loc.T("telegram.statusWatchdogRestart"));
+            }
         }
 
         private void StopLoop()
@@ -237,9 +397,9 @@ namespace GitDeployPro.Services.Telegram
             Task? loop;
             lock (_gate)
             {
-                cts = _cts;
+                cts = _loopCts;
                 loop = _loop;
-                _cts = null;
+                _loopCts = null;
                 _loop = null;
             }
 
@@ -253,13 +413,18 @@ namespace GitDeployPro.Services.Telegram
 
             try
             {
-                loop?.Wait(TimeSpan.FromSeconds(2));
+                loop?.Wait(TimeSpan.FromSeconds(3));
             }
             catch
             {
             }
 
             cts?.Dispose();
+        }
+
+        private void MarkProgress()
+        {
+            Interlocked.Exchange(ref _lastProgressUtcTicks, DateTime.UtcNow.Ticks);
         }
 
         private void SetStatus(string status)
@@ -302,6 +467,12 @@ namespace GitDeployPro.Services.Telegram
             {
                 return sourcePath;
             }
+        }
+
+        private static string Truncate(string? text, int max)
+        {
+            text ??= string.Empty;
+            return text.Length <= max ? text : text[..max] + "…";
         }
 
         private static async Task DelaySafe(TimeSpan delay, CancellationToken cancellationToken)
