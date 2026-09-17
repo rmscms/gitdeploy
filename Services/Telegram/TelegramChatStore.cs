@@ -259,6 +259,23 @@ namespace GitDeployPro.Services.Telegram
             SaveThread(thread);
         }
 
+        public string GetCodexSessionId(string projectPath)
+        {
+            return LoadThread(projectPath).CodexSessionId ?? string.Empty;
+        }
+
+        public void SetCodexSessionId(string projectPath, string? sessionId)
+        {
+            var thread = LoadThread(projectPath);
+            thread.CodexSessionId = (sessionId ?? string.Empty).Trim();
+            SaveThread(thread);
+        }
+
+        public void ClearCodexSession(string projectPath)
+        {
+            SetCodexSessionId(projectPath, string.Empty);
+        }
+
         public IReadOnlyList<TelegramThreadSummary> ListThreads(IEnumerable<string>? recentProjectPaths)
         {
             var byPath = new Dictionary<string, TelegramThreadSummary>(StringComparer.OrdinalIgnoreCase);

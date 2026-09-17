@@ -1,14 +1,24 @@
 {
-  "version": "2.0.75",
-  "fileName": "GitDeployPro-2.0.75.exe",
-  "downloadUrl": "versions/GitDeployPro-2.0.75.exe",
-  "sha256": "8D921EC54C5BD2E7E7D68BAF8C66CD20A6EA7EEA49FCE6AC9D07237999D9CF33",
-  "releaseNotes": "Feature: Project type in Settings → General (Web/FTP, Windows desktop, No deploy) — Telegram Deploy button and hints follow it\nFix: No more extra \"Updating buttons\" messages after each Cursor agent reply\nFix: Browsing Telegram chats in-app no longer switches the whole workspace mid-work",
+  "version": "2.1.42",
+  "fileName": "GitDeployPro-2.1.42.exe",
+  "downloadUrl": "versions/GitDeployPro-2.1.42.exe",
+  "sha256": "F9DF9FB5E414A8ED64A5F3184514EF434817B7008EEFD860939CF902D82C982C",
+  "releaseNotes": "Feature: Codex CLI agent engine beside Cursor (Settings + Telegram /engine)\nFeature: Codex providers — OpenRouter, Ollama (local free), LM Studio, OpenAI\nFeature: Codex Install / Update CLI / Test connection + setup guide\nFeature: Auto-update Codex CLI about every 24 hours\nFeature: Telegram Deploy Preview before deploy\nFeature: Quiet progress option now applies to Cursor and Codex\nFix: Codex Persian/UTF-8 prompts via stdin\nFix: Codex config.toml no longer duplicates provider keys\nFix: Codex resume no longer fails on invalid --sandbox args\nFix: Codex can edit project files (sandbox trust bypass)\nFix: Clearer provider 429 rate-limit errors\nFix: Git rename paths handled in change list / deploy preview\nFix: Workspace rules also pick up AGENTS.md and CLAUDE.md",
   "changelog": [
-    "Feature: Project type in Settings → General (Web/FTP, Windows desktop, No deploy) — Telegram Deploy button and hints follow it",
-    "Fix: No more extra \"Updating buttons\" messages after each Cursor agent reply",
-    "Fix: Browsing Telegram chats in-app no longer switches the whole workspace mid-work"
+    "Feature: Codex CLI agent engine beside Cursor (Settings + Telegram /engine)",
+    "Feature: Codex providers — OpenRouter, Ollama (local free), LM Studio, OpenAI",
+    "Feature: Codex Install / Update CLI / Test connection + setup guide",
+    "Feature: Auto-update Codex CLI about every 24 hours",
+    "Feature: Telegram Deploy Preview before deploy",
+    "Feature: Quiet progress option now applies to Cursor and Codex",
+    "Fix: Codex Persian/UTF-8 prompts via stdin",
+    "Fix: Codex config.toml no longer duplicates provider keys",
+    "Fix: Codex resume no longer fails on invalid --sandbox args",
+    "Fix: Codex can edit project files (sandbox trust bypass)",
+    "Fix: Clearer provider 429 rate-limit errors",
+    "Fix: Git rename paths handled in change list / deploy preview",
+    "Fix: Workspace rules also pick up AGENTS.md and CLAUDE.md"
   ],
   "mandatory": false,
-  "publishedUtc": "2026-09-16T09:06:00Z"
+  "publishedUtc": "2026-09-17T07:54:00Z"
 }

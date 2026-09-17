@@ -130,10 +130,11 @@ namespace GitDeployPro
             if (!string.IsNullOrWhiteSpace(lastProject) && Directory.Exists(lastProject))
             {
                 CheckAndShowSetupWizard(lastProject);
-                GitDeployPro.Services.Telegram.CursorAgentBridge.Instance.PrewarmForProject(lastProject);
+                GitDeployPro.Services.Telegram.AgentFacade.PrewarmForProject(lastProject);
             }
 
             await AppUpdateCoordinator.RunAutomaticCheckAsync(this);
+            _ = GitDeployPro.Services.Telegram.CodexCliUpdateService.RunAutomaticCheckAsync();
         }
 
         private void TryShowWhatsNewAfterUpdate()
@@ -330,6 +331,7 @@ namespace GitDeployPro
         private async void UpdateCheckTimer_Tick(object? sender, EventArgs e)
         {
             await AppUpdateCoordinator.RunAutomaticCheckAsync(this);
+            _ = GitDeployPro.Services.Telegram.CodexCliUpdateService.RunAutomaticCheckAsync();
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
@@ -685,7 +687,7 @@ namespace GitDeployPro
 
             TelegramChatStore.Instance.SetActiveProjectPath(path);
             ProjectWorkspace.Notify(path);
-            GitDeployPro.Services.Telegram.CursorAgentBridge.Instance.PrewarmForProject(path);
+            GitDeployPro.Services.Telegram.AgentFacade.PrewarmForProject(path);
         }
 
         public void NavigateToDeploy()

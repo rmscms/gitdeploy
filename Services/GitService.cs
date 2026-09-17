@@ -502,7 +502,7 @@ namespace GitDeployPro.Services
             var lines = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
             foreach (var line in lines)
             {
-                if (!TryParsePorcelainLine(line, out var status, out var path))
+                if (!TryParsePorcelainLine(line, out var status, out var path, out var oldPath))
                 {
                     continue;
                 }
@@ -516,9 +516,9 @@ namespace GitDeployPro.Services
                 if (status.Contains("?")) changeType = ChangeType.Added;
                 else if (status.Contains("A")) changeType = ChangeType.Added;
                 else if (status.Contains("D")) changeType = ChangeType.Deleted;
-                else if (status.Contains("M")) changeType = ChangeType.Modified;
+                else if (status.Contains("M") || status.Contains("R")) changeType = ChangeType.Modified;
 
-                changes.Add(new FileChange { Name = path, Type = changeType });
+                changes.Add(new FileChange { Name = path, OldPath = oldPath, Type = changeType });
             }
 
             // Huge working trees (theme folder rename, etc.) — skip per-file diffs so commit/sync can proceed.
@@ -886,7 +886,18 @@ namespace GitDeployPro.Services
                 if (parts.Length >= 2)
                 {
                     var status = parts[0][0];
-                    var path = NormalizeGitPath(parts[1]);
+                    string path;
+                    string? oldPath = null;
+                    if ((status == 'R' || status == 'C') && parts.Length >= 3)
+                    {
+                        oldPath = NormalizeGitPath(parts[1]);
+                        path = NormalizeGitPath(parts[2]);
+                    }
+                    else
+                    {
+                        path = NormalizeGitPath(parts[1]);
+                    }
+
                     if (IsInternalMetadataPath(path))
                     {
                         continue;
@@ -895,8 +906,9 @@ namespace GitDeployPro.Services
                     var changeType = ChangeType.Modified;
                     if (status == 'A') changeType = ChangeType.Added;
                     else if (status == 'D') changeType = ChangeType.Deleted;
+                    else if (status == 'R') changeType = ChangeType.Modified;
 
-                    var change = new FileChange { Name = path, Type = changeType };
+                    var change = new FileChange { Name = path, OldPath = oldPath, Type = changeType };
                     if (diffMap.TryGetValue(change.Name, out var patch))
                     {
                         change.DiffPatch = patch;
@@ -1310,8 +1322,14 @@ namespace GitDeployPro.Services
 
         private static bool TryParsePorcelainLine(string line, out string status, out string path)
         {
+            return TryParsePorcelainLine(line, out status, out path, out _);
+        }
+
+        private static bool TryParsePorcelainLine(string line, out string status, out string path, out string? oldPath)
+        {
             status = string.Empty;
             path = string.Empty;
+            oldPath = null;
             if (string.IsNullOrWhiteSpace(line) || line.Length < 4)
             {
                 return false;
@@ -1321,7 +1339,12 @@ namespace GitDeployPro.Services
             var pathPart = line.Substring(3).Trim();
             if (pathPart.Contains(" -> "))
             {
-                pathPart = pathPart.Split(new[] { " -> " }, StringSplitOptions.None).Last();
+                var sides = pathPart.Split(new[] { " -> " }, StringSplitOptions.None);
+                if (sides.Length >= 2)
+                {
+                    oldPath = NormalizeGitPath(sides[0].Trim().Trim('"').TrimEnd('/'));
+                    pathPart = sides[^1];
+                }
             }
 
             path = NormalizeGitPath(pathPart.Trim('"').TrimEnd('/'));
@@ -1590,6 +1613,9 @@ namespace GitDeployPro.Services
     public class FileChange
     {
         public string Name { get; set; } = "";
+        /// <summary>Previous path when Type is a rename (git R status).</summary>
+        public string? OldPath { get; set; }
+        public bool IsRename => !string.IsNullOrWhiteSpace(OldPath);
         public ChangeType Type { get; set; }
         public string DiffPatch { get; set; } = string.Empty;
     }

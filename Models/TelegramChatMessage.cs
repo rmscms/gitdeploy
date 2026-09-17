@@ -47,6 +47,8 @@ namespace GitDeployPro.Models
         public string CursorAcpSessionId { get; set; } = "";
         /// <summary>One-shot CLI --resume session id.</summary>
         public string CursorCliSessionId { get; set; } = "";
+        /// <summary>Codex exec resume session id.</summary>
+        public string CodexSessionId { get; set; } = "";
         /// <summary>Bot-sent Telegram message ids (for wipe), newest last.</summary>
         public List<long> TrackedBotMessageIds { get; set; } = new();
         public List<TelegramChatMessage> Messages { get; set; } = new();

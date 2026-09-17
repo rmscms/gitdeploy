@@ -108,7 +108,7 @@ namespace GitDeployPro.Windows
         {
             var primary = PrimaryPathBox.Text?.Trim() ?? _projectPath;
             CursorWorkspaceRoots.SaveExtras(primary, _extras.ToList());
-            CursorAgentBridge.Instance.RestartProjectAgent(
+            AgentFacade.RestartProjectAgent(
                 primary,
                 Loc.T("telegram.workspace.rootsUpdated"));
             CursorWorkspaceRoots.AnnounceToChatAndTelegram(primary, sendTelegram: true, force: true);

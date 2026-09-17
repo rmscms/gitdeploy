@@ -23,7 +23,7 @@ namespace GitDeployPro.Services.Telegram
             {
                 TelegramChatStore.Instance.SetActiveProjectPath(path);
                 ProjectWorkspace.Notify(path);
-                CursorAgentBridge.Instance.PrewarmForProject(path);
+                AgentFacade.PrewarmForProject(path);
                 return;
             }
 
@@ -37,7 +37,7 @@ namespace GitDeployPro.Services.Telegram
 
                 TelegramChatStore.Instance.SetActiveProjectPath(path);
                 ProjectWorkspace.Notify(path);
-                CursorAgentBridge.Instance.PrewarmForProject(path);
+                AgentFacade.PrewarmForProject(path);
             }
 
             if (app.Dispatcher.CheckAccess())

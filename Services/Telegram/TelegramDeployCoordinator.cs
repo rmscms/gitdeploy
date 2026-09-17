@@ -57,9 +57,9 @@ namespace GitDeployPro.Services.Telegram
                     },
                     new[]
                     {
+                        Loc.T("telegram.kbPreview"),
                         Loc.T("telegram.kbClear"),
-                        Loc.T("telegram.kbWipeTelegram"),
-                        Loc.T("telegram.kbHelp")
+                        Loc.T("telegram.kbEngine")
                     },
                     new[]
                     {
@@ -73,15 +73,11 @@ namespace GitDeployPro.Services.Telegram
                 {
                     Loc.T("telegram.kbProjects"),
                     Loc.T("telegram.kbStatus"),
-                    Loc.T("telegram.kbHelp")
+                    Loc.T("telegram.kbClear")
                 },
                 new[]
                 {
-                    Loc.T("telegram.kbClear"),
-                    Loc.T("telegram.kbWipeTelegram")
-                },
-                new[]
-                {
+                    Loc.T("telegram.kbEngine"),
                     Loc.T("telegram.kbRestartAgent"),
                     Loc.T("telegram.kbModel")
                 });

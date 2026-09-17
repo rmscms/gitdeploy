@@ -158,7 +158,7 @@ namespace GitDeployPro.Services.Telegram
             };
             _store.Append(projectPath, message);
             RaiseMessage(projectPath, message);
-            CursorAgentBridge.Instance.EnqueueUserTurn(projectPath, text ?? string.Empty, storedPhoto);
+            AgentFacade.EnqueueUserTurn(projectPath, text ?? string.Empty, storedPhoto);
         }
 
         public void RaiseMessage(string projectPath, TelegramChatMessage message)
