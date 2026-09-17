@@ -203,6 +203,19 @@ namespace GitDeployPro.Services.Telegram
                     break;
                 }
 
+                foreach (var rootRuleName in new[] { "AGENTS.md", ".cursorrules", "CLAUDE.md" })
+                {
+                    if (remaining <= 0)
+                    {
+                        break;
+                    }
+
+                    AppendRuleFile(sb, Path.Combine(root, rootRuleName), ref remaining);
+                }
+
+                var nestedAgents = Path.Combine(root, ".cursor", "AGENTS.md");
+                AppendRuleFile(sb, nestedAgents, ref remaining);
+
                 var rulesDir = Path.Combine(root, ".cursor", "rules");
                 if (!Directory.Exists(rulesDir))
                 {
@@ -231,40 +244,51 @@ namespace GitDeployPro.Services.Telegram
                         return sb.ToString().TrimEnd();
                     }
 
-                    string body;
-                    try
-                    {
-                        body = File.ReadAllText(file);
-                    }
-                    catch
-                    {
-                        continue;
-                    }
-
-                    if (string.IsNullOrWhiteSpace(body))
-                    {
-                        continue;
-                    }
-
-                    var header = $"--- {file} ---";
-                    sb.AppendLine(header);
-                    remaining -= header.Length + 1;
-
-                    if (body.Length > remaining)
-                    {
-                        sb.AppendLine(body.Substring(0, Math.Max(0, remaining)));
-                        sb.AppendLine("…(truncated)");
-                        remaining = 0;
-                        break;
-                    }
-
-                    sb.AppendLine(body.TrimEnd());
-                    remaining -= body.Length + 1;
-                    sb.AppendLine();
+                    AppendRuleFile(sb, file, ref remaining);
                 }
             }
 
             return sb.ToString().TrimEnd();
+        }
+
+        private static void AppendRuleFile(StringBuilder sb, string file, ref int remaining)
+        {
+            if (remaining <= 0 || string.IsNullOrWhiteSpace(file) || !File.Exists(file))
+            {
+                return;
+            }
+
+            string body;
+            try
+            {
+                body = File.ReadAllText(file);
+            }
+            catch
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(body))
+            {
+                return;
+            }
+
+            var header = $"--- {file} ---";
+            sb.AppendLine(header);
+            remaining -= header.Length + 1;
+
+            var trimmed = body.TrimEnd();
+            if (trimmed.Length > remaining)
+            {
+                sb.AppendLine(trimmed.Substring(0, Math.Max(0, remaining)));
+                sb.AppendLine("…(truncated)");
+                remaining = 0;
+                return;
+            }
+
+            sb.AppendLine(trimmed);
+            remaining -= trimmed.Length + 1;
+            sb.AppendLine();
         }
 
         public static void AnnounceToChatAndTelegram(

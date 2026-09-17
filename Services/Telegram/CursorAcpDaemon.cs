@@ -144,7 +144,7 @@ namespace GitDeployPro.Services.Telegram
                         var quiet = false;
                         try
                         {
-                            quiet = new ConfigurationService().LoadGlobalConfig().CursorTelegramQuietProgress;
+                            quiet = new ConfigurationService().LoadGlobalConfig().TelegramQuietProgress;
                         }
                         catch
                         {

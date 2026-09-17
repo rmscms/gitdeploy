@@ -14,6 +14,7 @@ using GitDeployPro.Services;
 using GitDeployPro.Services.Localization;
 using GitDeployPro.Services.Theme;
 using GitDeployPro.Services.Update;
+using GitDeployPro.Services.Telegram;
 using GitDeployPro.Windows;
 using GitDeployPro.Services.Vpn;
 using System.Diagnostics;
@@ -40,6 +41,7 @@ namespace GitDeployPro.Pages
         private bool _draftFtpConfirmed = true;
         private List<ConnectionProfile> _remoteFtpProfiles = new();
         private bool _telegramTokenDirty;
+        private bool _openRouterKeyDirty;
         private bool _vpnStatusHooked;
         private bool _suppressVpnProviderChange;
 
@@ -100,6 +102,11 @@ namespace GitDeployPro.Pages
                 SettingsPanelTelegram.Visibility = section == "telegram" ? Visibility.Visible : Visibility.Collapsed;
             }
 
+            if (SettingsPanelAiAgent != null)
+            {
+                SettingsPanelAiAgent.Visibility = section == "ai-agent" ? Visibility.Visible : Visibility.Collapsed;
+            }
+
             if (SettingsPanelVpn != null)
             {
                 SettingsPanelVpn.Visibility = section == "vpn" ? Visibility.Visible : Visibility.Collapsed;
@@ -115,6 +122,7 @@ namespace GitDeployPro.Pages
             SetNavActive(NavGitButton, section == "git");
             SetNavActive(NavTerminalButton, section == "terminal");
             SetNavActive(NavTelegramButton, section == "telegram");
+            SetNavActive(NavAiAgentButton, section == "ai-agent");
             SetNavActive(NavVpnButton, section == "vpn");
             SetNavActive(NavThemesButton, section == "themes");
 
@@ -126,6 +134,7 @@ namespace GitDeployPro.Pages
                     "git" => "Remote, branches, deploy automation, and ignore patterns.",
                     "terminal" => "Terminal autocomplete commands and scopes.",
                     "telegram" => Loc.T("settings.telegramHint"),
+                    "ai-agent" => Loc.T("settings.aiAgentHint"),
                     "vpn" => Loc.T("vpn.subtitle"),
                     "themes" => "Import Deploy theme packs and manage custom skins.",
                     _ => "Project path, startup, updates, and danger zone."
@@ -1395,6 +1404,8 @@ namespace GitDeployPro.Pages
                     cfg.DefaultSshKeyPath = SshKeyPathTextBox?.Text?.Trim() ?? string.Empty;
                     cfg.DeployDefaultWorkers = deployWorkers;
                     PersistTelegramFields(cfg);
+                    PersistCursorFields(cfg);
+                    PersistCodexFields(cfg);
                 });
 
                 if (DeployDefaultWorkersTextBox != null)
@@ -2071,9 +2082,9 @@ namespace GitDeployPro.Pages
                 CursorAgentModelTextBox.Text = globalConfig.CursorAgentModel ?? string.Empty;
             }
 
-            if (CursorTelegramQuietProgressCheckBox != null)
+            if (TelegramQuietProgressCheckBox != null)
             {
-                CursorTelegramQuietProgressCheckBox.IsChecked = globalConfig.CursorTelegramQuietProgress;
+                TelegramQuietProgressCheckBox.IsChecked = globalConfig.TelegramQuietProgress;
             }
 
             if (CursorStatusText != null)
@@ -2082,6 +2093,74 @@ namespace GitDeployPro.Pages
                     .ResolveAgentExecutable(globalConfig.CursorAgentPath);
                 CursorStatusText.Text = string.IsNullOrWhiteSpace(detected)
                     ? Loc.T("cursor.agentMissing")
+                    : Loc.T("cursor.agentFound", detected);
+            }
+
+            if (AgentEngineComboBox != null)
+            {
+                var engine = (globalConfig.AgentEngine ?? "cursor").Trim().ToLowerInvariant();
+                foreach (ComboBoxItem item in AgentEngineComboBox.Items)
+                {
+                    if (string.Equals(item.Tag?.ToString(), engine, StringComparison.OrdinalIgnoreCase))
+                    {
+                        AgentEngineComboBox.SelectedItem = item;
+                        break;
+                    }
+                }
+            }
+
+            if (CodexAgentEnabledCheckBox != null)
+            {
+                CodexAgentEnabledCheckBox.IsChecked = globalConfig.CodexAgentEnabled;
+            }
+
+            if (CodexProviderComboBox != null)
+            {
+                var provider = CodexProviderCatalog.Normalize(globalConfig.CodexProvider);
+                foreach (ComboBoxItem item in CodexProviderComboBox.Items)
+                {
+                    if (string.Equals(item.Tag?.ToString(), provider, StringComparison.OrdinalIgnoreCase))
+                    {
+                        CodexProviderComboBox.SelectedItem = item;
+                        break;
+                    }
+                }
+
+                ApplyCodexProviderUiHints(provider);
+            }
+
+            if (CodexCliPathTextBox != null)
+            {
+                CodexCliPathTextBox.Text = globalConfig.CodexCliPath ?? string.Empty;
+            }
+
+            if (CodexAgentModelTextBox != null)
+            {
+                var provider = CodexProviderCatalog.Normalize(globalConfig.CodexProvider);
+                CodexAgentModelTextBox.Text = string.IsNullOrWhiteSpace(globalConfig.CodexAgentModel)
+                    ? CodexModelCatalog.DefaultModelFor(provider)
+                    : globalConfig.CodexAgentModel;
+            }
+
+            _openRouterKeyDirty = false;
+            if (OpenRouterApiKeyBox != null)
+            {
+                OpenRouterApiKeyBox.Password = string.Empty;
+            }
+
+            if (OpenRouterKeyHint != null)
+            {
+                OpenRouterKeyHint.Text = string.IsNullOrWhiteSpace(globalConfig.OpenRouterApiKey)
+                    ? Loc.T("settings.openRouterKeyHint")
+                    : Loc.T("telegram.tokenSavedHint");
+            }
+
+            if (CodexStatusText != null)
+            {
+                var detected = GitDeployPro.Services.Telegram.CodexAgentBridge.Instance
+                    .ResolveCodexExecutable(globalConfig.CodexCliPath);
+                CodexStatusText.Text = string.IsNullOrWhiteSpace(detected)
+                    ? Loc.T("codex.agentMissing")
                     : Loc.T("cursor.agentFound", detected);
             }
         }
@@ -2101,12 +2180,112 @@ namespace GitDeployPro.Pages
             _telegramTokenDirty = !string.IsNullOrWhiteSpace(TelegramTokenBox?.Password);
         }
 
+        private void OpenRouterApiKeyBox_PasswordChanged(object sender, RoutedEventArgs e)
+        {
+            _openRouterKeyDirty = !string.IsNullOrWhiteSpace(OpenRouterApiKeyBox?.Password);
+        }
+
+        private void CodexProviderComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (CodexProviderComboBox?.SelectedItem is not ComboBoxItem item
+                || item.Tag is not string tag)
+            {
+                return;
+            }
+
+            var provider = CodexProviderCatalog.Normalize(tag);
+            ApplyCodexProviderUiHints(provider);
+            if (CodexAgentModelTextBox == null)
+            {
+                return;
+            }
+
+            var current = CodexAgentModelTextBox.Text?.Trim();
+            var hit = CodexModelCatalog.Find(current);
+            if (string.IsNullOrWhiteSpace(current)
+                || hit == null
+                || !string.Equals(hit.ProviderId, provider, StringComparison.OrdinalIgnoreCase))
+            {
+                CodexAgentModelTextBox.Text = CodexModelCatalog.DefaultModelFor(provider);
+            }
+        }
+
+        private void ApplyCodexProviderUiHints(string providerId)
+        {
+            var provider = CodexProviderCatalog.Get(providerId);
+            if (CodexProviderHintText != null)
+            {
+                CodexProviderHintText.Text = provider.Hint;
+            }
+
+            if (CodexApiKeyLabel != null)
+            {
+                CodexApiKeyLabel.Text = provider.RequiresApiKey
+                    ? $"API key ({provider.EnvKey})"
+                    : "API key (optional for local)";
+            }
+
+            if (CodexAgentModelTextBox != null)
+            {
+                CodexAgentModelTextBox.SetValue(
+                    MahApps.Metro.Controls.TextBoxHelper.WatermarkProperty,
+                    provider.DefaultModel);
+            }
+
+            if (OpenRouterApiKeyBox != null)
+            {
+                OpenRouterApiKeyBox.IsEnabled = true;
+                OpenRouterApiKeyBox.Opacity = provider.RequiresApiKey ? 1 : 0.65;
+            }
+
+            if (OpenRouterKeyHint != null && !_openRouterKeyDirty)
+            {
+                OpenRouterKeyHint.Text = provider.RequiresApiKey
+                    ? Loc.T("settings.codexKeyHint")
+                    : Loc.T("settings.codexKeyHintLocal");
+            }
+        }
+
         private void PersistCursorFields(ConfigurationService.GlobalConfig cfg)
         {
             cfg.CursorAgentEnabled = CursorAgentEnabledCheckBox?.IsChecked == true;
             cfg.CursorAgentPath = CursorAgentPathTextBox?.Text?.Trim() ?? string.Empty;
             cfg.CursorAgentModel = CursorAgentModelTextBox?.Text?.Trim() ?? string.Empty;
-            cfg.CursorTelegramQuietProgress = CursorTelegramQuietProgressCheckBox?.IsChecked == true;
+            PersistSharedAgentFields(cfg);
+        }
+
+        private void PersistSharedAgentFields(ConfigurationService.GlobalConfig cfg)
+        {
+            var quiet = TelegramQuietProgressCheckBox?.IsChecked == true;
+            cfg.TelegramQuietProgress = quiet;
+            cfg.CursorTelegramQuietProgress = quiet; // legacy mirror
+            if (AgentEngineComboBox?.SelectedItem is ComboBoxItem engineItem
+                && engineItem.Tag is string engineTag
+                && !string.IsNullOrWhiteSpace(engineTag))
+            {
+                cfg.AgentEngine = engineTag.Trim().ToLowerInvariant();
+            }
+        }
+
+        private void PersistCodexFields(ConfigurationService.GlobalConfig cfg)
+        {
+            cfg.CodexAgentEnabled = CodexAgentEnabledCheckBox?.IsChecked == true;
+            cfg.CodexCliPath = CodexCliPathTextBox?.Text?.Trim() ?? string.Empty;
+            if (CodexProviderComboBox?.SelectedItem is ComboBoxItem providerItem
+                && providerItem.Tag is string providerTag)
+            {
+                cfg.CodexProvider = CodexProviderCatalog.Normalize(providerTag);
+            }
+
+            cfg.CodexAgentModel = string.IsNullOrWhiteSpace(CodexAgentModelTextBox?.Text)
+                ? CodexModelCatalog.DefaultModelFor(cfg.CodexProvider)
+                : CodexAgentModelTextBox.Text.Trim();
+            PersistSharedAgentFields(cfg);
+
+            if (_openRouterKeyDirty && !string.IsNullOrWhiteSpace(OpenRouterApiKeyBox?.Password))
+            {
+                cfg.OpenRouterApiKey = EncryptionService.Encrypt(OpenRouterApiKeyBox.Password.Trim());
+            }
         }
 
         private void CursorSaveButton_Click(object sender, RoutedEventArgs e)
@@ -2127,7 +2306,7 @@ namespace GitDeployPro.Pages
                 }
 
                 var projectPath = _configService.LoadGlobalConfig().LastProjectPath;
-                GitDeployPro.Services.Telegram.CursorAgentBridge.Instance.InvalidateAfterSettingsSave(projectPath);
+                GitDeployPro.Services.Telegram.AgentFacade.InvalidateAfterSettingsSave(projectPath);
             }
             catch (Exception ex)
             {
@@ -2155,6 +2334,142 @@ namespace GitDeployPro.Pages
                 && string.IsNullOrWhiteSpace(CursorAgentPathTextBox.Text))
             {
                 CursorAgentPathTextBox.Text = detected;
+            }
+        }
+
+        private void CodexDetectButton_Click(object sender, RoutedEventArgs e)
+        {
+            GitDeployPro.Services.Telegram.CodexInstallHelper.RefreshProcessPathFromSystem();
+            var typed = CodexCliPathTextBox?.Text?.Trim();
+            var detected = GitDeployPro.Services.Telegram.CodexAgentBridge.Instance
+                .ResolveCodexExecutable(typed);
+            if (CodexStatusText != null)
+            {
+                CodexStatusText.Foreground = (System.Windows.Media.Brush)FindResource(
+                    string.IsNullOrWhiteSpace(detected) ? "Status.Error" : "Status.Success");
+                CodexStatusText.Text = string.IsNullOrWhiteSpace(detected)
+                    ? Loc.T("codex.agentMissing")
+                    : Loc.T("cursor.agentFound", detected);
+            }
+
+            if (!string.IsNullOrWhiteSpace(detected)
+                && CodexCliPathTextBox != null
+                && string.IsNullOrWhiteSpace(CodexCliPathTextBox.Text))
+            {
+                CodexCliPathTextBox.Text = detected;
+            }
+        }
+
+        private void CodexSaveButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                _configService.UpdateGlobalConfig(PersistCodexFields);
+                var cfg = _configService.LoadGlobalConfig();
+                var provider = CodexProviderCatalog.Get(cfg.CodexProvider);
+                var hasKey = !string.IsNullOrWhiteSpace(cfg.OpenRouterApiKey);
+                if (!provider.RequiresApiKey || hasKey)
+                {
+                    CodexConfigWriter.EnsureProviderConfig(cfg.CodexProvider, cfg.CodexAgentModel);
+                }
+
+                if (CodexStatusText != null)
+                {
+                    var detected = CodexAgentBridge.Instance.ResolveCodexExecutable(cfg.CodexCliPath);
+                    CodexStatusText.Foreground = (System.Windows.Media.Brush)FindResource(
+                        string.IsNullOrWhiteSpace(detected) ? "Status.Error" : "Status.Success");
+                    var baseMsg = (!provider.RequiresApiKey || hasKey)
+                        ? Loc.T("settings.codexSaved")
+                        : Loc.T("settings.codexSavedNoKey");
+                    CodexStatusText.Text = string.IsNullOrWhiteSpace(detected)
+                        ? baseMsg + " " + Loc.T("codex.agentMissing")
+                        : baseMsg + " " + Loc.T("cursor.agentFound", detected);
+                }
+
+                if (OpenRouterKeyHint != null && hasKey)
+                {
+                    OpenRouterKeyHint.Text = Loc.T("telegram.tokenSavedHint");
+                    _openRouterKeyDirty = false;
+                    if (OpenRouterApiKeyBox != null)
+                    {
+                        OpenRouterApiKeyBox.Password = string.Empty;
+                    }
+                }
+
+                AgentFacade.InvalidateAfterSettingsSave(cfg.LastProjectPath);
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show(ex.Message, Loc.T("common.error"), MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private async void CodexTestConnectionButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (CodexTestConnectionButton != null)
+            {
+                CodexTestConnectionButton.IsEnabled = false;
+            }
+
+            try
+            {
+                // Persist provider + freshly typed key before probing.
+                _configService.UpdateGlobalConfig(PersistCodexFields);
+                var cfgBeforeTest = _configService.LoadGlobalConfig();
+                var providerBeforeTest = CodexProviderCatalog.Get(cfgBeforeTest.CodexProvider);
+                if (!providerBeforeTest.RequiresApiKey
+                    || !string.IsNullOrWhiteSpace(cfgBeforeTest.OpenRouterApiKey))
+                {
+                    CodexConfigWriter.EnsureProviderConfig(
+                        cfgBeforeTest.CodexProvider,
+                        cfgBeforeTest.CodexAgentModel);
+                }
+
+                if (_openRouterKeyDirty)
+                {
+                    _openRouterKeyDirty = false;
+                    if (OpenRouterKeyHint != null)
+                    {
+                        OpenRouterKeyHint.Text = Loc.T("telegram.tokenSavedHint");
+                    }
+
+                    if (OpenRouterApiKeyBox != null)
+                    {
+                        OpenRouterApiKeyBox.Password = string.Empty;
+                    }
+                }
+
+                if (CodexStatusText != null)
+                {
+                    CodexStatusText.Foreground = (System.Windows.Media.Brush)FindResource("Text.Muted");
+                    CodexStatusText.Text = Loc.T("codex.help.testRunning");
+                }
+
+                var result = await GitDeployPro.Services.Telegram.CodexAgentBridge.Instance
+                    .TestConnectionAsync(null, System.Threading.CancellationToken.None)
+                    .ConfigureAwait(true);
+
+                if (CodexStatusText != null)
+                {
+                    CodexStatusText.Foreground = (System.Windows.Media.Brush)FindResource(
+                        result.Ok ? "Status.Success" : "Status.Error");
+                    CodexStatusText.Text = result.Message;
+                }
+            }
+            catch (Exception ex)
+            {
+                if (CodexStatusText != null)
+                {
+                    CodexStatusText.Foreground = (System.Windows.Media.Brush)FindResource("Status.Error");
+                    CodexStatusText.Text = Loc.T("codex.help.testFail", ex.Message);
+                }
+            }
+            finally
+            {
+                if (CodexTestConnectionButton != null)
+                {
+                    CodexTestConnectionButton.IsEnabled = true;
+                }
             }
         }
 
@@ -2197,6 +2512,86 @@ namespace GitDeployPro.Pages
             try
             {
                 var window = new CursorCliHelpWindow
+                {
+                    Owner = Window.GetWindow(this)
+                };
+                window.ShowDialog();
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show(ex.Message, Loc.T("common.error"), MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void CodexInstallButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                GitDeployPro.Services.Telegram.CodexInstallHelper.OpenInstallTerminal();
+                if (CodexStatusText != null)
+                {
+                    CodexStatusText.Foreground = (System.Windows.Media.Brush)FindResource("Text.Muted");
+                    CodexStatusText.Text = Loc.T("codex.installTerminalOpened");
+                }
+            }
+            catch (Exception ex)
+            {
+                if (CodexStatusText != null)
+                {
+                    CodexStatusText.Foreground = (System.Windows.Media.Brush)FindResource("Status.Error");
+                    CodexStatusText.Text = Loc.T("codex.installFailed", ex.Message);
+                }
+            }
+        }
+
+        private async void CodexUpdateButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (CodexUpdateButton != null)
+            {
+                CodexUpdateButton.IsEnabled = false;
+            }
+
+            try
+            {
+                if (CodexStatusText != null)
+                {
+                    CodexStatusText.Foreground = (System.Windows.Media.Brush)FindResource("Text.Muted");
+                    CodexStatusText.Text = Loc.T("codex.updateRunning");
+                }
+
+                var result = await GitDeployPro.Services.Telegram.CodexCliUpdateService
+                    .RunManualUpdateAsync()
+                    .ConfigureAwait(true);
+
+                if (CodexStatusText != null)
+                {
+                    CodexStatusText.Foreground = (System.Windows.Media.Brush)FindResource(
+                        result.Ok ? "Status.Success" : "Status.Error");
+                    CodexStatusText.Text = result.Message;
+                }
+            }
+            catch (Exception ex)
+            {
+                if (CodexStatusText != null)
+                {
+                    CodexStatusText.Foreground = (System.Windows.Media.Brush)FindResource("Status.Error");
+                    CodexStatusText.Text = Loc.T("codex.updateFailed", ex.Message);
+                }
+            }
+            finally
+            {
+                if (CodexUpdateButton != null)
+                {
+                    CodexUpdateButton.IsEnabled = true;
+                }
+            }
+        }
+
+        private void CodexHelpButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var window = new CodexCliHelpWindow
                 {
                     Owner = Window.GetWindow(this)
                 };

@@ -66,7 +66,7 @@ namespace GitDeployPro
             PerformanceSampler.Instance.Mark("app", "lifecycle", "exit-begin");
             try
             {
-                CursorAgentBridge.Instance.Shutdown();
+                AgentFacade.Shutdown();
             }
             catch
             {

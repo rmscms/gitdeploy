@@ -1265,7 +1265,7 @@ namespace GitDeployPro.Services.Telegram
                         var quiet = false;
                         try
                         {
-                            quiet = new ConfigurationService().LoadGlobalConfig().CursorTelegramQuietProgress;
+                            quiet = new ConfigurationService().LoadGlobalConfig().TelegramQuietProgress;
                         }
                         catch
                         {
@@ -1654,7 +1654,7 @@ namespace GitDeployPro.Services.Telegram
             var quietTelegram = false;
             try
             {
-                quietTelegram = _config.LoadGlobalConfig().CursorTelegramQuietProgress;
+                quietTelegram = _config.LoadGlobalConfig().TelegramQuietProgress;
             }
             catch
             {

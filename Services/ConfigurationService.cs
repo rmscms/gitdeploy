@@ -129,10 +129,34 @@ namespace GitDeployPro.Services
             public string CursorAgentModel { get; set; } = "";
 
             /// <summary>
-            /// When true, Telegram only gets "Still working" every ~30s (no tool/thinking detail lines).
-            /// When false, detailed progress is sent like today.
+            /// When true, Telegram only gets "Still working" every ~30s for any agent engine
+            /// (Cursor / Codex). Tool and thinking detail stay in the in-app chat.
             /// </summary>
+            public bool TelegramQuietProgress { get; set; }
+
+            /// <summary>Legacy JSON key — migrated into <see cref="TelegramQuietProgress"/>.</summary>
             public bool CursorTelegramQuietProgress { get; set; }
+
+            /// <summary>Active AI agent engine for Telegram turns: cursor | codex.</summary>
+            public string AgentEngine { get; set; } = "cursor";
+
+            /// <summary>When true, Codex CLI bridge can run project chats (when AgentEngine=codex).</summary>
+            public bool CodexAgentEnabled { get; set; }
+
+            /// <summary>Optional full path to codex executable.</summary>
+            public string CodexCliPath { get; set; } = "";
+
+            /// <summary>Codex backend: openrouter | ollama | lmstudio | openai.</summary>
+            public string CodexProvider { get; set; } = "openrouter";
+
+            /// <summary>Model id/slug for the active Codex provider.</summary>
+            public string CodexAgentModel { get; set; } = "poolside/laguna-s-2.1:free";
+
+            /// <summary>API key for cloud Codex providers (OpenRouter / OpenAI), DPAPI. Local providers ignore it.</summary>
+            public string OpenRouterApiKey { get; set; } = "";
+
+            /// <summary>UTC of last automatic Codex CLI update check (24h cadence).</summary>
+            public DateTime? LastCodexCliUpdateCheckUtc { get; set; }
 
             /// <summary>When true, VPN keep-alive / connect helpers are active.</summary>
             public bool VpnEnabled { get; set; }
@@ -361,7 +385,36 @@ namespace GitDeployPro.Services
             config.BackupSchedules ??= new List<BackupSchedule>();
             config.BackupHistory ??= new List<BackupHistoryEntry>();
             MigrateAppThemeId(config, token);
+            MigrateTelegramQuietProgress(config, token);
+            if (string.IsNullOrWhiteSpace(config.CodexProvider))
+            {
+                config.CodexProvider = "openrouter";
+            }
+
+            if (string.IsNullOrWhiteSpace(config.CodexAgentModel)
+                || string.Equals(config.CodexAgentModel.Trim(), "openrouter/free", StringComparison.OrdinalIgnoreCase))
+            {
+                // openrouter/free burns rate limit very fast on agent turns; prefer a coding free model.
+                config.CodexAgentModel = "poolside/laguna-s-2.1:free";
+            }
+
             return config;
+        }
+
+        /// <summary>
+        /// Prefer TelegramQuietProgress; copy from legacy CursorTelegramQuietProgress when needed.
+        /// Keeps both fields aligned on save for older readers.
+        /// </summary>
+        private static void MigrateTelegramQuietProgress(GlobalConfig config, JToken token)
+        {
+            var hasNew = token is JObject jo && jo.Property("TelegramQuietProgress", StringComparison.OrdinalIgnoreCase) != null;
+            if (!hasNew && config.CursorTelegramQuietProgress)
+            {
+                config.TelegramQuietProgress = true;
+            }
+
+            // Keep legacy field in sync so older code / partial configs still work.
+            config.CursorTelegramQuietProgress = config.TelegramQuietProgress;
         }
 
         /// <summary>
