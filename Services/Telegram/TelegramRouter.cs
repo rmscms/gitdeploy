@@ -514,8 +514,7 @@ namespace GitDeployPro.Services.Telegram
                         return;
                     }
 
-                    var matches = await CursorModelCatalog.Instance
-                        .SearchAsync(arg, cancellationToken)
+                    var matches = await SearchCursorModelsBoundedAsync(arg, cancellationToken)
                         .ConfigureAwait(false);
                     var exact = matches.FirstOrDefault(m =>
                         string.Equals(m.Id, arg, StringComparison.OrdinalIgnoreCase));
@@ -604,8 +603,7 @@ namespace GitDeployPro.Services.Telegram
                 return;
             }
 
-            var models = await CursorModelCatalog.Instance
-                .GetModelsAsync(forceRefresh, cancellationToken)
+            var models = await GetCursorModelsBoundedAsync(forceRefresh, cancellationToken)
                 .ConfigureAwait(false);
             var err = CursorModelCatalog.Instance.LastError;
             var body = models.Count == 0
@@ -619,6 +617,42 @@ namespace GitDeployPro.Services.Telegram
                 await BuildModelRootInlineAsync(models, cancellationToken).ConfigureAwait(false),
                 cancellationToken,
                 active).ConfigureAwait(false);
+        }
+
+        private static async Task<IReadOnlyList<CursorModelInfo>> GetCursorModelsBoundedAsync(
+            bool forceRefresh,
+            CancellationToken cancellationToken)
+        {
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            linked.CancelAfter(TimeSpan.FromSeconds(35));
+            try
+            {
+                return await CursorModelCatalog.Instance
+                    .GetModelsAsync(forceRefresh, linked.Token)
+                    .ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                return Array.Empty<CursorModelInfo>();
+            }
+        }
+
+        private static async Task<IReadOnlyList<CursorModelInfo>> SearchCursorModelsBoundedAsync(
+            string query,
+            CancellationToken cancellationToken)
+        {
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            linked.CancelAfter(TimeSpan.FromSeconds(35));
+            try
+            {
+                return await CursorModelCatalog.Instance
+                    .SearchAsync(query, linked.Token)
+                    .ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                return Array.Empty<CursorModelInfo>();
+            }
         }
 
         private static string TruncateButton(string text, int max)
@@ -790,8 +824,7 @@ namespace GitDeployPro.Services.Telegram
             if (data.StartsWith(CallbackModelFamilyPrefix, StringComparison.OrdinalIgnoreCase))
             {
                 var family = data[CallbackModelFamilyPrefix.Length..].Trim().ToLowerInvariant();
-                var all = await CursorModelCatalog.Instance
-                    .GetModelsAsync(forceRefresh: false, cancellationToken)
+                var all = await GetCursorModelsBoundedAsync(forceRefresh: false, cancellationToken)
                     .ConfigureAwait(false);
                 var subset = all
                     .Where(m => string.Equals(m.Family, family, StringComparison.OrdinalIgnoreCase))
@@ -1164,33 +1197,17 @@ namespace GitDeployPro.Services.Telegram
             var trackPath = string.IsNullOrWhiteSpace(projectPath)
                 ? _store.GetActiveProjectPath()
                 : projectPath;
-            try
-            {
-                var messageId = await _client.SendMessageAsync(
-                    token,
-                    chatId,
-                    html,
-                    cancellationToken,
-                    markup ?? TelegramDeployCoordinator.BuildReplyKeyboard(trackPath),
-                    "HTML").ConfigureAwait(false);
-                _store.TrackBotMessageId(trackPath, messageId);
-            }
-            catch
-            {
-                try
-                {
-                    var messageId = await _client.SendMessageAsync(
-                        token,
-                        chatId,
-                        html,
-                        cancellationToken,
-                        TelegramDeployCoordinator.BuildReplyKeyboard(trackPath)).ConfigureAwait(false);
-                    _store.TrackBotMessageId(trackPath, messageId);
-                }
-                catch
-                {
-                }
-            }
+
+            // Queue outbound so slow/failed sends never stall the poll loop or sibling handlers.
+            TelegramOutboundQueue.Instance.EnqueueText(
+                token,
+                chatId,
+                trackPath ?? string.Empty,
+                html ?? string.Empty,
+                markup ?? TelegramDeployCoordinator.BuildReplyKeyboard(trackPath),
+                "HTML");
+
+            await Task.CompletedTask.ConfigureAwait(false);
         }
 
         private JObject HomeInline()

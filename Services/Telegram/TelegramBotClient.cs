@@ -13,14 +13,19 @@ namespace GitDeployPro.Services.Telegram
 {
     public sealed class TelegramBotClient : IDisposable
     {
+        /// <summary>Default for send/delete/getMe — never hang forever on half-open sockets.</summary>
+        public static readonly TimeSpan DefaultRequestTimeout = TimeSpan.FromSeconds(45);
+
         private readonly HttpClient _http = new()
         {
+            // Per-call CancelAfter is the real limit; keep HttpClient open for long-poll.
             Timeout = Timeout.InfiniteTimeSpan
         };
 
         public async Task<TelegramApiResult> GetMeAsync(string token, CancellationToken cancellationToken)
         {
-            return await CallAsync(token, "getMe", null, cancellationToken).ConfigureAwait(false);
+            return await CallAsync(token, "getMe", null, cancellationToken, TimeSpan.FromSeconds(20))
+                .ConfigureAwait(false);
         }
 
         public async Task<IReadOnlyList<TelegramIncomingUpdate>> GetUpdatesAsync(
@@ -29,8 +34,11 @@ namespace GitDeployPro.Services.Telegram
             int timeoutSeconds,
             CancellationToken cancellationToken)
         {
-            var query = $"getUpdates?offset={offset}&timeout={timeoutSeconds}&allowed_updates=%5B%22message%22%2C%22callback_query%22%5D";
-            var api = await CallAsync(token, query, null, cancellationToken).ConfigureAwait(false);
+            var longPoll = Math.Clamp(timeoutSeconds, 1, 50);
+            // Telegram holds the socket up to longPoll seconds; add buffer for TLS/VPN jitter.
+            var requestTimeout = TimeSpan.FromSeconds(longPoll + 20);
+            var query = $"getUpdates?offset={offset}&timeout={longPoll}&allowed_updates=%5B%22message%22%2C%22callback_query%22%5D";
+            var api = await CallAsync(token, query, null, cancellationToken, requestTimeout).ConfigureAwait(false);
             if (!api.Ok || api.Result is not JArray array)
             {
                 if (!api.Ok && !string.IsNullOrWhiteSpace(api.Description))
@@ -77,7 +85,8 @@ namespace GitDeployPro.Services.Telegram
                 payload["reply_markup"] = replyMarkup;
             }
 
-            var api = await CallAsync(token, "sendMessage", payload, cancellationToken).ConfigureAwait(false);
+            var api = await CallAsync(token, "sendMessage", payload, cancellationToken, DefaultRequestTimeout)
+                .ConfigureAwait(false);
             if (!api.Ok)
             {
                 throw new InvalidOperationException(api.Description);
@@ -103,7 +112,8 @@ namespace GitDeployPro.Services.Telegram
                 ["message_id"] = messageId
             };
 
-            var api = await CallAsync(token, "deleteMessage", payload, cancellationToken).ConfigureAwait(false);
+            var api = await CallAsync(token, "deleteMessage", payload, cancellationToken, DefaultRequestTimeout)
+                .ConfigureAwait(false);
             return api.Ok;
         }
 
@@ -127,7 +137,8 @@ namespace GitDeployPro.Services.Telegram
                 payload["text"] = text;
             }
 
-            await CallAsync(token, "answerCallbackQuery", payload, cancellationToken).ConfigureAwait(false);
+            await CallAsync(token, "answerCallbackQuery", payload, cancellationToken, TimeSpan.FromSeconds(15))
+                .ConfigureAwait(false);
         }
 
         public async Task SendPhotoAsync(
@@ -158,8 +169,10 @@ namespace GitDeployPro.Services.Telegram
             {
                 Content = form
             };
-            using var response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
-            var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            linked.CancelAfter(TimeSpan.FromSeconds(90));
+            using var response = await _http.SendAsync(request, linked.Token).ConfigureAwait(false);
+            var json = await response.Content.ReadAsStringAsync(linked.Token).ConfigureAwait(false);
             var api = ParseApi(json);
             if (!api.Ok)
             {
@@ -173,7 +186,7 @@ namespace GitDeployPro.Services.Telegram
             string destinationPath,
             CancellationToken cancellationToken)
         {
-            var api = await CallAsync(token, "getFile", new JObject { ["file_id"] = fileId }, cancellationToken)
+            var api = await CallAsync(token, "getFile", new JObject { ["file_id"] = fileId }, cancellationToken, DefaultRequestTimeout)
                 .ConfigureAwait(false);
             if (!api.Ok || api.Result is not JObject fileObj)
             {
@@ -205,7 +218,8 @@ namespace GitDeployPro.Services.Telegram
             string token,
             string methodAndQuery,
             JObject? jsonBody,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            TimeSpan requestTimeout)
         {
             using var request = new HttpRequestMessage(
                 jsonBody == null ? HttpMethod.Get : HttpMethod.Post,
@@ -215,9 +229,22 @@ namespace GitDeployPro.Services.Telegram
                 request.Content = new StringContent(jsonBody.ToString(), System.Text.Encoding.UTF8, "application/json");
             }
 
-            using var response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
-            var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-            return ParseApi(json);
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            if (requestTimeout > TimeSpan.Zero)
+            {
+                linked.CancelAfter(requestTimeout);
+            }
+
+            try
+            {
+                using var response = await _http.SendAsync(request, linked.Token).ConfigureAwait(false);
+                var json = await response.Content.ReadAsStringAsync(linked.Token).ConfigureAwait(false);
+                return ParseApi(json);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                throw new TimeoutException($"Telegram request timed out after {requestTimeout.TotalSeconds:0}s ({methodAndQuery.Split('?')[0]}).");
+            }
         }
 
         private static TelegramApiResult ParseApi(string json)

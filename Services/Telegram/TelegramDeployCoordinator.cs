@@ -26,11 +26,13 @@ namespace GitDeployPro.Services.Telegram
 
             try
             {
-                return await InvokeOnUiAsync(async () =>
-                {
-                    GitService.SetWorkingDirectory(projectPath);
-                    return await new GitService().GetUncommittedCountAsync().ConfigureAwait(true);
-                }).ConfigureAwait(false);
+                return await InvokeOnUiAsync(
+                    async () =>
+                    {
+                        GitService.SetWorkingDirectory(projectPath);
+                        return await new GitService().GetUncommittedCountAsync().ConfigureAwait(true);
+                    },
+                    TimeSpan.FromSeconds(25)).ConfigureAwait(false);
             }
             catch
             {
@@ -160,16 +162,18 @@ namespace GitDeployPro.Services.Telegram
 
             try
             {
-                return await InvokeOnUiAsync(async () =>
-                {
-                    var app = WpfApplication.Current;
-                    if (app?.MainWindow is not MainWindow main)
+                return await InvokeOnUiAsync(
+                    async () =>
                     {
-                        return TelegramDeployResult.Fail(Loc.T("telegram.deployAppNotReady"));
-                    }
+                        var app = WpfApplication.Current;
+                        if (app?.MainWindow is not MainWindow main)
+                        {
+                            return TelegramDeployResult.Fail(Loc.T("telegram.deployAppNotReady"));
+                        }
 
-                    return await main.RunTelegramDeployAsync(projectPath).ConfigureAwait(true);
-                }).ConfigureAwait(false);
+                        return await main.RunTelegramDeployAsync(projectPath).ConfigureAwait(true);
+                    },
+                    TimeSpan.FromMinutes(30)).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -181,20 +185,26 @@ namespace GitDeployPro.Services.Telegram
             }
         }
 
-        private static Task<T> InvokeOnUiAsync<T>(Func<Task<T>> work)
+        private static async Task<T> InvokeOnUiAsync<T>(Func<Task<T>> work, TimeSpan timeout)
         {
             var app = WpfApplication.Current;
-            if (app?.Dispatcher == null)
+            Task<T> task;
+            if (app?.Dispatcher == null || app.Dispatcher.CheckAccess())
             {
-                return work();
+                task = work();
+            }
+            else
+            {
+                task = app.Dispatcher.InvokeAsync(work).Task.Unwrap();
             }
 
-            if (app.Dispatcher.CheckAccess())
+            var finished = await Task.WhenAny(task, Task.Delay(timeout)).ConfigureAwait(false);
+            if (finished != task)
             {
-                return work();
+                throw new TimeoutException($"UI work timed out after {timeout.TotalSeconds:0}s.");
             }
 
-            return app.Dispatcher.InvokeAsync(work).Task.Unwrap();
+            return await task.ConfigureAwait(false);
         }
     }
 }
