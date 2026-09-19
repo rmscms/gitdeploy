@@ -276,6 +276,62 @@ namespace GitDeployPro.Services.Telegram
             SetCodexSessionId(projectPath, string.Empty);
         }
 
+        public string GetCursorAgentMode(string projectPath)
+        {
+            var mode = (LoadThread(projectPath).CursorAgentMode ?? string.Empty).Trim().ToLowerInvariant();
+            return mode == "plan" ? "plan" : "agent";
+        }
+
+        public bool IsCursorPlanMode(string projectPath)
+            => GetCursorAgentMode(projectPath) == "plan";
+
+        public void SetCursorAgentMode(string projectPath, string? mode)
+        {
+            var thread = LoadThread(projectPath);
+            var next = string.Equals((mode ?? string.Empty).Trim(), "plan", StringComparison.OrdinalIgnoreCase)
+                ? "plan"
+                : "agent";
+            thread.CursorAgentMode = next;
+            SaveThread(thread);
+        }
+
+        public void RecordCursorUsage(string projectPath, AgentTokenUsage usage)
+        {
+            if (string.IsNullOrWhiteSpace(projectPath) || usage == null || !usage.Available)
+            {
+                return;
+            }
+
+            var thread = LoadThread(projectPath);
+            thread.LastUsageInputTokens = usage.InputTokens;
+            thread.LastUsageOutputTokens = usage.OutputTokens;
+            thread.LastUsageCacheReadTokens = usage.CacheReadTokens;
+            thread.LastUsageCacheWriteTokens = usage.CacheWriteTokens;
+            thread.LastUsageSource = usage.Source ?? string.Empty;
+            thread.LastUsageUtc = DateTime.UtcNow;
+            thread.SessionUsageInputTokens += usage.InputTokens;
+            thread.SessionUsageOutputTokens += usage.OutputTokens;
+            thread.SessionUsageCacheReadTokens += usage.CacheReadTokens;
+            thread.SessionUsageCacheWriteTokens += usage.CacheWriteTokens;
+            SaveThread(thread);
+        }
+
+        public void ResetSessionUsage(string projectPath)
+        {
+            var thread = LoadThread(projectPath);
+            thread.SessionUsageInputTokens = 0;
+            thread.SessionUsageOutputTokens = 0;
+            thread.SessionUsageCacheReadTokens = 0;
+            thread.SessionUsageCacheWriteTokens = 0;
+            thread.LastUsageInputTokens = 0;
+            thread.LastUsageOutputTokens = 0;
+            thread.LastUsageCacheReadTokens = 0;
+            thread.LastUsageCacheWriteTokens = 0;
+            thread.LastUsageSource = string.Empty;
+            thread.LastUsageUtc = null;
+            SaveThread(thread);
+        }
+
         public IReadOnlyList<TelegramThreadSummary> ListThreads(IEnumerable<string>? recentProjectPaths)
         {
             var byPath = new Dictionary<string, TelegramThreadSummary>(StringComparer.OrdinalIgnoreCase);
@@ -358,9 +414,20 @@ namespace GitDeployPro.Services.Telegram
                 return text.Length <= 80 ? text : text[..77] + "...";
             }
 
-            if (!string.IsNullOrWhiteSpace(message.PhotoPath) || !string.IsNullOrWhiteSpace(message.TelegramFileId))
+            if (!string.IsNullOrWhiteSpace(message.PhotoPath)
+                || (!string.IsNullOrWhiteSpace(message.TelegramFileId)
+                    && string.IsNullOrWhiteSpace(message.AttachmentPath)))
             {
                 return Loc.T("telegram.photo");
+            }
+
+            if (!string.IsNullOrWhiteSpace(message.AttachmentPath)
+                || !string.IsNullOrWhiteSpace(message.AttachmentName))
+            {
+                var name = string.IsNullOrWhiteSpace(message.AttachmentName)
+                    ? Path.GetFileName(message.AttachmentPath)
+                    : message.AttachmentName;
+                return Loc.T("telegram.document", name);
             }
 
             return Loc.T("telegram.noMessages");
@@ -439,6 +506,17 @@ namespace GitDeployPro.Services.Telegram
                 thread.CursorCliSessionId = keepCli;
                 thread.CursorAcpSessionId = keepAcp; // never drop warm Cursor resume across chat clear
                 thread.LastReadUtc = DateTime.UtcNow;
+                // Usage session totals reset with local clear (per plan).
+                thread.SessionUsageInputTokens = 0;
+                thread.SessionUsageOutputTokens = 0;
+                thread.SessionUsageCacheReadTokens = 0;
+                thread.SessionUsageCacheWriteTokens = 0;
+                thread.LastUsageInputTokens = 0;
+                thread.LastUsageOutputTokens = 0;
+                thread.LastUsageCacheReadTokens = 0;
+                thread.LastUsageCacheWriteTokens = 0;
+                thread.LastUsageSource = string.Empty;
+                thread.LastUsageUtc = null;
                 SaveThreadUnlocked(thread);
                 TryClearMediaFolder(projectPath);
                 return count;

@@ -35,14 +35,18 @@ namespace GitDeployPro.Services.Telegram
             string? nodeExe,
             string? indexJs,
             string? model,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            string? mode = null)
         {
             ThrowIfDisposed();
             var key = TelegramPaths.ToProjectKey(projectPath);
+            var normalizedMode = string.Equals((mode ?? string.Empty).Trim(), "plan", StringComparison.OrdinalIgnoreCase)
+                ? "plan"
+                : "agent";
             var lazy = _daemons.GetOrAdd(
                 key,
                 _ => new Lazy<CursorAcpDaemon>(
-                    () => new CursorAcpDaemon(projectPath, agentPath, nodeExe, indexJs, model),
+                    () => new CursorAcpDaemon(projectPath, agentPath, nodeExe, indexJs, model, normalizedMode),
                     LazyThreadSafetyMode.ExecutionAndPublication));
 
             CursorAcpDaemon daemon;
@@ -56,13 +60,21 @@ namespace GitDeployPro.Services.Telegram
                 throw;
             }
 
-            // Path/model changed while a stale daemon was cached — replace.
+            // Path/model/mode changed while a stale daemon was cached — replace.
             if (!string.Equals(daemon.AgentPath, agentPath, StringComparison.OrdinalIgnoreCase)
                 || !string.Equals(daemon.Model ?? string.Empty, model ?? string.Empty, StringComparison.Ordinal)
-                || !string.Equals(daemon.ProjectPath, projectPath, StringComparison.OrdinalIgnoreCase))
+                || !string.Equals(daemon.ProjectPath, projectPath, StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(daemon.Mode, normalizedMode, StringComparison.OrdinalIgnoreCase))
             {
                 DisposeProject(projectPath);
-                return await GetOrCreateAsync(projectPath, agentPath, nodeExe, indexJs, model, cancellationToken)
+                return await GetOrCreateAsync(
+                        projectPath,
+                        agentPath,
+                        nodeExe,
+                        indexJs,
+                        model,
+                        cancellationToken,
+                        normalizedMode)
                     .ConfigureAwait(false);
             }
 

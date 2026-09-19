@@ -27,14 +27,23 @@ namespace GitDeployPro.Services.Telegram
         private string? _sessionId;
         private DateTime _lastActivityUtc = DateTime.UtcNow;
         private int _completedPrompts;
+        private string? _lastPlanFilePath;
+        private AgentTokenUsage? _lastUsage;
 
-        public CursorAcpDaemon(string projectPath, string agentPath, string? nodeExe, string? indexJs, string? model)
+        public CursorAcpDaemon(
+            string projectPath,
+            string agentPath,
+            string? nodeExe,
+            string? indexJs,
+            string? model,
+            string? mode = null)
         {
             ProjectPath = projectPath;
             AgentPath = agentPath;
             NodeExe = nodeExe;
             IndexJs = indexJs;
             Model = model;
+            Mode = NormalizeMode(mode);
         }
 
         public string ProjectPath { get; }
@@ -42,6 +51,8 @@ namespace GitDeployPro.Services.Telegram
         public string? NodeExe { get; }
         public string? IndexJs { get; }
         public string? Model { get; }
+        /// <summary>ACP session mode: agent | plan.</summary>
+        public string Mode { get; }
         public string? SessionId => _sessionId;
         public bool HasConversation => Volatile.Read(ref _completedPrompts) > 0;
         public DateTime LastActivityUtc => _lastActivityUtc;
@@ -272,12 +283,24 @@ namespace GitDeployPro.Services.Telegram
                            ?? string.Empty;
                 }
 
+                var usage = AgentTokenUsage.FromJToken(result?["usage"], "acp");
+                if (!usage.Available && _lastUsage != null)
+                {
+                    usage = _lastUsage;
+                }
+
+                var planPath = _lastPlanFilePath;
+                _lastPlanFilePath = null;
+                _lastUsage = null;
+
                 return new AgentRunResult
                 {
                     Output = text,
                     SessionId = sessionId,
                     ExitCode = string.Equals(stop, "cancelled", StringComparison.OrdinalIgnoreCase) ? 1 : 0,
-                    Source = "acp"
+                    Source = "acp",
+                    Usage = usage,
+                    PlanFilePath = planPath
                 };
             }
             finally
@@ -411,7 +434,8 @@ namespace GitDeployPro.Services.Telegram
             var sessionParams = new JObject
             {
                 ["cwd"] = ProjectPath,
-                ["mcpServers"] = new JArray()
+                ["mcpServers"] = new JArray(),
+                ["mode"] = Mode
             };
             if (!string.IsNullOrWhiteSpace(Model))
             {
@@ -622,24 +646,129 @@ namespace GitDeployPro.Services.Telegram
 
             if (string.Equals(method, "cursor/ask_question", StringComparison.OrdinalIgnoreCase))
             {
-                ReplyNotification(msg["id"], new JObject
-                {
-                    ["outcome"] = new JObject
-                    {
-                        ["outcome"] = "skipped",
-                        ["reason"] = "unattended Telegram bridge"
-                    }
-                });
+                _ = HandleAskQuestionAsync(msg);
                 return;
             }
 
             if (string.Equals(method, "cursor/create_plan", StringComparison.OrdinalIgnoreCase))
             {
-                ReplyNotification(msg["id"], new JObject
+                HandleCreatePlan(msg);
+                return;
+            }
+        }
+
+        private void HandleCreatePlan(JObject msg)
+        {
+            var p = msg["params"] as JObject ?? new JObject();
+            var planMd = p["plan"]?.ToString()
+                         ?? p["content"]?.ToString()
+                         ?? p["markdown"]?.ToString()
+                         ?? string.Empty;
+            var name = (p["name"]?.ToString()
+                        ?? p["title"]?.ToString()
+                        ?? "plan").Trim();
+            var overview = (p["overview"]?.ToString() ?? string.Empty).Trim();
+
+            string? savedPath = null;
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(planMd))
                 {
-                    ["outcome"] = new JObject { ["outcome"] = "accepted" }
+                    savedPath = CursorPlanFileWriter.Write(ProjectPath, name, overview, planMd);
+                    _lastPlanFilePath = savedPath;
+                    onProgressSafe("📋 " + GitDeployPro.Services.Localization.Loc.T(
+                        "cursor.planSaved",
+                        Path.GetFileName(savedPath)));
+                }
+            }
+            catch (Exception ex)
+            {
+                onProgressSafe("⚠️ " + GitDeployPro.Services.Localization.Loc.T("cursor.planSaveFailed", ex.Message));
+            }
+
+            var outcome = new JObject { ["outcome"] = "accepted" };
+            if (!string.IsNullOrWhiteSpace(savedPath))
+            {
+                try
+                {
+                    outcome["planUri"] = new Uri(savedPath).AbsoluteUri;
+                }
+                catch
+                {
+                    outcome["planUri"] = savedPath;
+                }
+            }
+
+            ReplyNotification(msg["id"], new JObject { ["outcome"] = outcome });
+        }
+
+        private async Task HandleAskQuestionAsync(JObject msg)
+        {
+            var id = msg["id"];
+            var p = msg["params"] as JObject ?? new JObject();
+            try
+            {
+                var answered = await CursorAskQuestionBroker.Instance
+                    .AskAsync(ProjectPath, p, TimeSpan.FromMinutes(8))
+                    .ConfigureAwait(false);
+                if (answered != null)
+                {
+                    ReplyNotification(id, answered);
+                }
+                else
+                {
+                    ReplyNotification(id, new JObject
+                    {
+                        ["outcome"] = new JObject
+                        {
+                            ["outcome"] = "skipped",
+                            ["reason"] = "timeout waiting for Telegram answer"
+                        }
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                ReplyNotification(id, new JObject
+                {
+                    ["outcome"] = new JObject
+                    {
+                        ["outcome"] = "skipped",
+                        ["reason"] = ex.Message
+                    }
                 });
             }
+        }
+
+        private void onProgressSafe(string text)
+        {
+            try
+            {
+                foreach (var h in _updateHandlers)
+                {
+                    try
+                    {
+                        h(new JObject
+                        {
+                            ["sessionUpdate"] = "agent_message_chunk",
+                            ["content"] = new JObject { ["type"] = "text", ["text"] = text }
+                        });
+                    }
+                    catch
+                    {
+                    }
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        private static string NormalizeMode(string? mode)
+        {
+            return string.Equals((mode ?? string.Empty).Trim(), "plan", StringComparison.OrdinalIgnoreCase)
+                ? "plan"
+                : "agent";
         }
 
         private void ReplyNotification(JToken? id, JObject result)
@@ -696,7 +825,7 @@ namespace GitDeployPro.Services.Telegram
             });
         }
 
-        private static void HandleSessionUpdate(
+        private void HandleSessionUpdate(
             JObject update,
             StringBuilder assistant,
             StringBuilder thoughtBuf,
@@ -704,6 +833,17 @@ namespace GitDeployPro.Services.Telegram
             Action<string>? onProgress)
         {
             var kind = update["sessionUpdate"]?.ToString() ?? string.Empty;
+            if (string.Equals(kind, "usage_update", StringComparison.OrdinalIgnoreCase))
+            {
+                var usage = AgentTokenUsage.FromJToken(update["usage"] ?? update, "acp");
+                if (usage.Available)
+                {
+                    _lastUsage = usage;
+                }
+
+                return;
+            }
+
             if (string.Equals(kind, "agent_message_chunk", StringComparison.OrdinalIgnoreCase))
             {
                 var text = update["content"]?["text"]?.ToString()

@@ -148,7 +148,8 @@ namespace GitDeployPro.Services.Telegram
                             nodeExe,
                             indexJs,
                             config.CursorAgentModel,
-                            CancellationToken.None)
+                            CancellationToken.None,
+                            _store.GetCursorAgentMode(projectPath))
                         .ConfigureAwait(false);
                     PostStatus(projectPath, Loc.T("cursor.progress.warmReady"));
                 }
@@ -216,12 +217,35 @@ namespace GitDeployPro.Services.Telegram
 
             CancelCurrentTurn(projectPath);
             _store.ClearAllCursorSessions(projectPath);
+            _store.SetCursorAgentMode(projectPath, "agent");
             CursorAcpPool.Instance.DisposeProject(projectPath);
             PostStatus(
                 projectPath,
                 string.IsNullOrWhiteSpace(reason)
                     ? Loc.T("cursor.restarted")
                     : Loc.T("cursor.restartedReason", reason));
+            PrewarmForProject(projectPath);
+        }
+
+        /// <summary>Sticky Cursor mode for this project (agent|plan). Restarts warm ACP session.</summary>
+        public void SetAgentModeAndRestart(string projectPath, string mode, string? reason = null)
+        {
+            if (string.IsNullOrWhiteSpace(projectPath) || TelegramPaths.IsUnassigned(projectPath))
+            {
+                return;
+            }
+
+            var next = string.Equals((mode ?? string.Empty).Trim(), "plan", StringComparison.OrdinalIgnoreCase)
+                ? "plan"
+                : "agent";
+            CancelCurrentTurn(projectPath);
+            _store.ClearAllCursorSessions(projectPath);
+            _store.SetCursorAgentMode(projectPath, next);
+            CursorAcpPool.Instance.DisposeProject(projectPath);
+            PostStatus(
+                projectPath,
+                reason
+                ?? (next == "plan" ? Loc.T("cursor.modePlan") : Loc.T("cursor.modeAgent")));
             PrewarmForProject(projectPath);
         }
 
@@ -264,6 +288,36 @@ namespace GitDeployPro.Services.Telegram
                 ? "ACP " + TruncateId(acp)
                 : (!string.IsNullOrWhiteSpace(cli) ? "CLI " + TruncateId(cli) : "none");
 
+            var thread = _store.LoadThread(projectPath);
+            AgentTokenUsage? lastUsage = null;
+            if (!string.IsNullOrWhiteSpace(thread.LastUsageSource)
+                || thread.LastUsageInputTokens > 0
+                || thread.LastUsageOutputTokens > 0)
+            {
+                lastUsage = new AgentTokenUsage
+                {
+                    Available = true,
+                    InputTokens = thread.LastUsageInputTokens,
+                    OutputTokens = thread.LastUsageOutputTokens,
+                    CacheReadTokens = thread.LastUsageCacheReadTokens,
+                    CacheWriteTokens = thread.LastUsageCacheWriteTokens,
+                    Source = thread.LastUsageSource
+                };
+            }
+
+            var sessionUsage = new AgentTokenUsage
+            {
+                Available = thread.SessionUsageInputTokens > 0
+                            || thread.SessionUsageOutputTokens > 0
+                            || thread.SessionUsageCacheReadTokens > 0
+                            || thread.SessionUsageCacheWriteTokens > 0,
+                InputTokens = thread.SessionUsageInputTokens,
+                OutputTokens = thread.SessionUsageOutputTokens,
+                CacheReadTokens = thread.SessionUsageCacheReadTokens,
+                CacheWriteTokens = thread.SessionUsageCacheWriteTokens,
+                Source = "session"
+            };
+
             return new CursorAgentStatusInfo
             {
                 Enabled = config.CursorAgentEnabled,
@@ -272,7 +326,10 @@ namespace GitDeployPro.Services.Telegram
                 QueueDepth = queueDepth,
                 TurnBusy = busy,
                 LastActivityUtc = lastActivity,
-                SessionHint = sessionHint
+                SessionHint = sessionHint,
+                AgentMode = _store.GetCursorAgentMode(projectPath),
+                LastUsage = lastUsage,
+                SessionUsage = sessionUsage.Available ? sessionUsage : null
             };
         }
 
@@ -489,6 +546,7 @@ namespace GitDeployPro.Services.Telegram
                         "Reply with exactly: GitDeploy CLI OK",
                         config.CursorAgentModel,
                         resumeSessionId: null,
+                        mode: "agent",
                         onProgress: null,
                         onSessionId: null,
                         cancellationToken)
@@ -725,7 +783,8 @@ namespace GitDeployPro.Services.Telegram
                         nodeExe,
                         indexJs,
                         config.CursorAgentModel,
-                        cancellationToken)
+                        cancellationToken,
+                        _store.GetCursorAgentMode(projectPath))
                     .ConfigureAwait(false);
 
                 var hadConversation = daemon.HasConversation;
@@ -785,6 +844,7 @@ namespace GitDeployPro.Services.Telegram
                         prompt,
                         config.CursorAgentModel,
                         resumeSessionId: resume ? existingSession : null,
+                        mode: _store.GetCursorAgentMode(projectPath),
                         onProgress: line => PostProgress(projectPath, line),
                         onSessionId: sid =>
                         {
@@ -807,6 +867,7 @@ namespace GitDeployPro.Services.Telegram
                             prompt,
                             config.CursorAgentModel,
                             resumeSessionId: null,
+                            mode: _store.GetCursorAgentMode(projectPath),
                             onProgress: line => PostProgress(projectPath, line),
                             onSessionId: sid =>
                             {
@@ -836,7 +897,24 @@ namespace GitDeployPro.Services.Telegram
                 ? Loc.T("cursor.emptyReply")
                 : TrimReply(run.Output);
 
+            if (run.Usage is { Available: true } usage)
+            {
+                _store.RecordCursorUsage(projectPath, usage);
+                reply = reply.TrimEnd() + "\n\n" + FormatUsageFooter(usage);
+            }
+            else if (string.Equals(run.Source, "acp", StringComparison.OrdinalIgnoreCase))
+            {
+                // ACP often omits usage — make that explicit once after the reply.
+                reply = reply.TrimEnd() + "\n\n" + Loc.T("cursor.usageNaAcp");
+            }
+
             await PublishAgentReplyAsync(projectPath, reply, cancellationToken).ConfigureAwait(false);
+
+            if (!string.IsNullOrWhiteSpace(run.PlanFilePath) && File.Exists(run.PlanFilePath))
+            {
+                await PublishPlanDocumentAsync(projectPath, run.PlanFilePath, cancellationToken)
+                    .ConfigureAwait(false);
+            }
         }
 
         private string BuildPrompt(string projectPath, string text, string? photoPath, bool resumeSession)
@@ -961,6 +1039,7 @@ namespace GitDeployPro.Services.Telegram
             string prompt,
             string? model,
             string? resumeSessionId,
+            string? mode,
             Action<string>? onProgress,
             Action<string>? onSessionId,
             CancellationToken cancellationToken)
@@ -991,6 +1070,11 @@ namespace GitDeployPro.Services.Telegram
             startInfo.ArgumentList.Add("--trust");
             startInfo.ArgumentList.Add("--workspace");
             startInfo.ArgumentList.Add(workspace);
+
+            if (string.Equals((mode ?? string.Empty).Trim(), "plan", StringComparison.OrdinalIgnoreCase))
+            {
+                startInfo.ArgumentList.Add("--mode=plan");
+            }
 
             var extras = CursorWorkspaceRoots.GetRoots(workspace).Extras;
             foreach (var extra in extras)
@@ -1038,6 +1122,7 @@ namespace GitDeployPro.Services.Telegram
             var finalResult = new StringBuilder();
             var assistantSegments = new StringBuilder();
             var sessionId = resumeSessionId ?? string.Empty;
+            AgentTokenUsage? capturedUsage = null;
             var tcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
             var lastEventUtc = DateTime.UtcNow;
             var progressGate = new object();
@@ -1204,6 +1289,12 @@ namespace GitDeployPro.Services.Telegram
                             {
                                 finalResult.Clear();
                                 finalResult.Append(resultText.Trim());
+                            }
+
+                            var usage = AgentTokenUsage.FromJToken(jo["usage"], "cli");
+                            if (usage.Available)
+                            {
+                                capturedUsage = usage;
                             }
 
                             break;
@@ -1386,7 +1477,8 @@ namespace GitDeployPro.Services.Telegram
                     Output = textOut,
                     SessionId = sessionId,
                     ExitCode = exit,
-                    Source = "cli"
+                    Source = "cli",
+                    Usage = capturedUsage
                 };
             }
         }
@@ -1629,6 +1721,60 @@ namespace GitDeployPro.Services.Telegram
             {
                 // Local chat already has the reply.
             }
+
+            await Task.CompletedTask.ConfigureAwait(false);
+        }
+
+        private async Task PublishPlanDocumentAsync(
+            string projectPath,
+            string planFilePath,
+            CancellationToken cancellationToken)
+        {
+            var config = _config.LoadGlobalConfig();
+            var token = EncryptionService.Decrypt(config.TelegramBotToken);
+            var chatId = _store.GetLastChatId();
+            if (string.IsNullOrWhiteSpace(token) || chatId == 0 || !File.Exists(planFilePath))
+            {
+                return;
+            }
+
+            var caption = Loc.T("cursor.planDocumentCaption", Path.GetFileName(planFilePath));
+            TelegramOutboundQueue.Instance.EnqueueDocument(
+                token,
+                chatId,
+                projectPath,
+                planFilePath,
+                caption);
+
+            var note = new TelegramChatMessage
+            {
+                Direction = TelegramMessageDirection.System,
+                Status = TelegramMessageStatus.Sent,
+                Text = Loc.T("cursor.planSentTelegram", Path.GetFileName(planFilePath)),
+                Utc = DateTime.UtcNow,
+                SenderName = "Cursor",
+                AttachmentPath = planFilePath,
+                AttachmentName = Path.GetFileName(planFilePath)
+            };
+            _store.Append(projectPath, note);
+            TelegramPoller.Instance.RaiseMessage(projectPath, note);
+            await Task.CompletedTask.ConfigureAwait(false);
+        }
+
+        private static string FormatUsageFooter(AgentTokenUsage usage)
+        {
+            var cache = usage.CacheReadTokens + usage.CacheWriteTokens;
+            if (cache > 0)
+            {
+                return Loc.T(
+                    "cursor.usageFooterCache",
+                    usage.InputTokens,
+                    usage.OutputTokens,
+                    usage.CacheReadTokens,
+                    usage.CacheWriteTokens);
+            }
+
+            return Loc.T("cursor.usageFooter", usage.InputTokens, usage.OutputTokens);
         }
 
         private void PostProgress(string projectPath, string text)
@@ -1913,6 +2059,70 @@ namespace GitDeployPro.Services.Telegram
         public string SessionId { get; init; } = "";
         public int ExitCode { get; init; }
         public string Source { get; init; } = "";
+        public AgentTokenUsage? Usage { get; init; }
+        /// <summary>Plan markdown file written during this turn (ACP create_plan), if any.</summary>
+        public string? PlanFilePath { get; init; }
+    }
+
+    public sealed class AgentTokenUsage
+    {
+        public bool Available { get; init; }
+        public long InputTokens { get; init; }
+        public long OutputTokens { get; init; }
+        public long CacheReadTokens { get; init; }
+        public long CacheWriteTokens { get; init; }
+        public string Source { get; init; } = "";
+
+        public static AgentTokenUsage Unavailable(string source = "")
+            => new() { Available = false, Source = source ?? string.Empty };
+
+        public static AgentTokenUsage FromJToken(JToken? usage, string source)
+        {
+            if (usage == null || usage.Type == JTokenType.Null)
+            {
+                return Unavailable(source);
+            }
+
+            long Read(params string[] keys)
+            {
+                foreach (var key in keys)
+                {
+                    var v = usage[key];
+                    if (v != null && v.Type != JTokenType.Null && long.TryParse(v.ToString(), out var n))
+                    {
+                        return n;
+                    }
+                }
+
+                return 0;
+            }
+
+            var input = Read("inputTokens", "input_tokens", "promptTokens", "prompt_tokens");
+            var output = Read("outputTokens", "output_tokens", "completionTokens", "completion_tokens");
+            var cacheRead = Read("cacheReadTokens", "cache_read_tokens", "cacheRead", "cache_read");
+            var cacheWrite = Read("cacheWriteTokens", "cache_write_tokens", "cacheWrite", "cache_write");
+            if (input == 0 && output == 0 && cacheRead == 0 && cacheWrite == 0)
+            {
+                // Some payloads nest under "totalTokens" only — still mark unavailable if empty.
+                var total = Read("totalTokens", "total_tokens");
+                if (total == 0)
+                {
+                    return Unavailable(source);
+                }
+
+                input = total;
+            }
+
+            return new AgentTokenUsage
+            {
+                Available = true,
+                InputTokens = input,
+                OutputTokens = output,
+                CacheReadTokens = cacheRead,
+                CacheWriteTokens = cacheWrite,
+                Source = source ?? string.Empty
+            };
+        }
     }
 
     internal readonly record struct PendingTurn(string ProjectPath, string Text, string? PhotoPath);
@@ -1926,5 +2136,8 @@ namespace GitDeployPro.Services.Telegram
         public bool TurnBusy { get; init; }
         public DateTime? LastActivityUtc { get; init; }
         public string SessionHint { get; init; } = "";
+        public string AgentMode { get; init; } = "agent";
+        public AgentTokenUsage? LastUsage { get; init; }
+        public AgentTokenUsage? SessionUsage { get; init; }
     }
 }

@@ -28,6 +28,9 @@ namespace GitDeployPro.Models
         public TelegramMessageStatus Status { get; set; } = TelegramMessageStatus.Received;
         public string Text { get; set; } = "";
         public string PhotoPath { get; set; } = "";
+        /// <summary>Local path for an attached document (txt/md/…), separate from PhotoPath.</summary>
+        public string AttachmentPath { get; set; } = "";
+        public string AttachmentName { get; set; } = "";
         public string TelegramFileId { get; set; } = "";
         public long TelegramMessageId { get; set; }
         public long ChatId { get; set; }
@@ -49,6 +52,20 @@ namespace GitDeployPro.Models
         public string CursorCliSessionId { get; set; } = "";
         /// <summary>Codex exec resume session id.</summary>
         public string CodexSessionId { get; set; } = "";
+        /// <summary>Cursor ACP/CLI mode for this project: agent | plan.</summary>
+        public string CursorAgentMode { get; set; } = "agent";
+        /// <summary>Last turn token usage (Cursor), if reported.</summary>
+        public long LastUsageInputTokens { get; set; }
+        public long LastUsageOutputTokens { get; set; }
+        public long LastUsageCacheReadTokens { get; set; }
+        public long LastUsageCacheWriteTokens { get; set; }
+        public string LastUsageSource { get; set; } = "";
+        public DateTime? LastUsageUtc { get; set; }
+        /// <summary>Session totals since last Clear chat (or mode restart).</summary>
+        public long SessionUsageInputTokens { get; set; }
+        public long SessionUsageOutputTokens { get; set; }
+        public long SessionUsageCacheReadTokens { get; set; }
+        public long SessionUsageCacheWriteTokens { get; set; }
         /// <summary>Bot-sent Telegram message ids (for wipe), newest last.</summary>
         public List<long> TrackedBotMessageIds { get; set; } = new();
         public List<TelegramChatMessage> Messages { get; set; } = new();
@@ -81,6 +98,9 @@ namespace GitDeployPro.Models
         public string Text { get; init; } = "";
         public string Caption { get; init; } = "";
         public string PhotoFileId { get; init; } = "";
+        public string DocumentFileId { get; init; } = "";
+        public string DocumentFileName { get; init; } = "";
+        public string DocumentMimeType { get; init; } = "";
         public bool IsCallback { get; init; }
         public string CallbackQueryId { get; init; } = "";
         public string CallbackData { get; init; } = "";

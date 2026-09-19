@@ -1,17 +1,16 @@
 {
-  "version": "2.1.66",
-  "fileName": "GitDeployPro-2.1.66.exe",
-  "downloadUrl": "versions/GitDeployPro-2.1.66.exe",
-  "sha256": "8508CAAA3671C55B40455AA707A8420671D3749E5FC0D22F88CAB512F7CE5B04",
-  "releaseNotes": "Feature: Telegram bridge watchdog auto-reconnects when the poll loop stalls (no full app restart)\nFeature: Telegram commands (Preview/Deploy/Model/…) no longer block long-poll — handlers run in parallel + outbound send queue\nFix: Real HTTP timeouts on Telegram API calls (no infinite hang after VPN/network blips)\nFix: Deploy Preview times out instead of freezing the bot\nFix: Cursor model list/search capped so a stuck CLI cannot freeze Telegram\nFix: Clearer status when the bridge restarts or a command fails",
+  "version": "2.2.7",
+  "fileName": "GitDeployPro-2.2.7.exe",
+  "downloadUrl": "versions/GitDeployPro-2.2.7.exe",
+  "sha256": "6D1C5751CEC1E35D6344162E4484C9900037A229528DC844C3C238F45FD208B6",
+  "releaseNotes": "Feature: Telegram /plan and /agent sticky modes (ACP plan|agent sessions)\nFeature: Cursor create_plan saved as .md and sent to Telegram as a document\nFeature: Cursor ask_question answered via Telegram inline keyboard\nFeature: Status shows Cursor plan usage (Cursor Models % · Other Models %)\nFix: Status usage no longer stuck on n/a when ACP omits turn tokens",
   "changelog": [
-    "Feature: Telegram bridge watchdog auto-reconnects when the poll loop stalls (no full app restart)",
-    "Feature: Telegram commands (Preview/Deploy/Model/…) no longer block long-poll — handlers run in parallel + outbound send queue",
-    "Fix: Real HTTP timeouts on Telegram API calls (no infinite hang after VPN/network blips)",
-    "Fix: Deploy Preview times out instead of freezing the bot",
-    "Fix: Cursor model list/search capped so a stuck CLI cannot freeze Telegram",
-    "Fix: Clearer status when the bridge restarts or a command fails"
+    "Feature: Telegram /plan and /agent sticky modes (ACP plan|agent sessions)",
+    "Feature: Cursor create_plan saved as .md and sent to Telegram as a document",
+    "Feature: Cursor ask_question answered via Telegram inline keyboard",
+    "Feature: Status shows Cursor plan usage (Cursor Models % · Other Models %)",
+    "Fix: Status usage no longer stuck on n/a when ACP omits turn tokens"
   ],
   "mandatory": false,
-  "publishedUtc": "2026-09-17T08:32:00Z"
+  "publishedUtc": "2026-09-19T08:10:00Z"
 }
