@@ -60,7 +60,9 @@ namespace GitDeployPro.Services.Telegram
             "Choose a project",
             "یک پروژه انتخاب کن",
             "Send a photo or a short note",
+            "Send a photo, a txt/md file, or a short note",
             "عکس یا یک یادداشت کوتاه بفرست",
+            "عکس، فایل txt/md، یا یک یادداشت کوتاه بفرست",
             "Tap Projects and choose a chat",
             "پروژه‌ها را بزن و یکی را انتخاب کن",
             "Projects:",
@@ -75,7 +77,8 @@ namespace GitDeployPro.Services.Telegram
             }
 
             if (!string.IsNullOrWhiteSpace(message.PhotoPath)
-                || !string.IsNullOrWhiteSpace(message.TelegramFileId))
+                || !string.IsNullOrWhiteSpace(message.TelegramFileId)
+                || !string.IsNullOrWhiteSpace(message.AttachmentPath))
             {
                 return false;
             }

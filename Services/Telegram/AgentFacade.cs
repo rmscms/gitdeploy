@@ -131,7 +131,10 @@ namespace GitDeployPro.Services.Telegram
                 QueueDepth = status.QueueDepth,
                 TurnBusy = status.TurnBusy,
                 LastActivityUtc = status.LastActivityUtc,
-                SessionHint = DisplayName(engine) + " · " + status.SessionHint
+                SessionHint = DisplayName(engine) + " · " + status.SessionHint,
+                AgentMode = status.AgentMode,
+                LastUsage = status.LastUsage,
+                SessionUsage = status.SessionUsage
             };
         }
 

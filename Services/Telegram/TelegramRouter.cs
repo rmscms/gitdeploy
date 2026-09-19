@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using GitDeployPro.Models;
@@ -81,6 +83,18 @@ namespace GitDeployPro.Services.Telegram
                 return;
             }
 
+            if (IsPlanModeCommand(text))
+            {
+                await ReplySetCursorModeAsync(token, update, "plan", cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            if (IsAgentModeCommand(text))
+            {
+                await ReplySetCursorModeAsync(token, update, "agent", cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
             if (IsDeployCommand(text))
             {
                 await ReplyDeployAsync(token, update, cancellationToken).ConfigureAwait(false);
@@ -148,16 +162,22 @@ namespace GitDeployPro.Services.Telegram
             }
 
             var body = string.IsNullOrWhiteSpace(text) ? (update.Caption ?? string.Empty).Trim() : text;
-            if (string.IsNullOrWhiteSpace(body) && string.IsNullOrWhiteSpace(update.PhotoFileId))
+            var hasPhoto = !string.IsNullOrWhiteSpace(update.PhotoFileId);
+            var hasDocument = !string.IsNullOrWhiteSpace(update.DocumentFileId);
+            if (string.IsNullOrWhiteSpace(body) && !hasPhoto && !hasDocument)
             {
                 return;
             }
 
             var projectPath = ResolveInboundProjectPath(config);
             var photoPath = string.Empty;
-            if (!string.IsNullOrWhiteSpace(update.PhotoFileId))
+            var attachmentPath = string.Empty;
+            var attachmentName = string.Empty;
+            var agentText = body;
+
+            if (hasPhoto)
             {
-                var dest = System.IO.Path.Combine(
+                var dest = Path.Combine(
                     TelegramPaths.MediaFolder(projectPath),
                     $"{update.MessageId}.jpg");
                 try
@@ -171,13 +191,73 @@ namespace GitDeployPro.Services.Telegram
                 }
             }
 
+            if (hasDocument)
+            {
+                var fileName = string.IsNullOrWhiteSpace(update.DocumentFileName)
+                    ? $"document-{update.MessageId}.bin"
+                    : update.DocumentFileName.Trim();
+                if (!IsAllowedTextDocument(fileName, update.DocumentMimeType))
+                {
+                    await SendBotAsync(
+                        token,
+                        update.ChatId,
+                        TelegramMarkup.Html(Loc.T("telegram.documentUnsupported")),
+                        TelegramDeployCoordinator.BuildReplyKeyboard(projectPath),
+                        cancellationToken,
+                        projectPath).ConfigureAwait(false);
+                    return;
+                }
+
+                var safeName = SanitizeFileName(fileName);
+                var dest = Path.Combine(
+                    TelegramPaths.MediaFolder(projectPath),
+                    $"{update.MessageId}-{safeName}");
+                try
+                {
+                    attachmentPath = await _client.DownloadFileAsync(
+                            token,
+                            update.DocumentFileId,
+                            dest,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    attachmentName = Path.GetFileName(attachmentPath);
+                    agentText = BuildAgentTextWithDocument(body, attachmentPath, attachmentName);
+                    if (string.IsNullOrWhiteSpace(body))
+                    {
+                        body = Loc.T("telegram.document", attachmentName);
+                    }
+                }
+                catch
+                {
+                    attachmentPath = string.Empty;
+                    attachmentName = string.Empty;
+                    await SendBotAsync(
+                        token,
+                        update.ChatId,
+                        TelegramMarkup.Html(Loc.T("telegram.documentDownloadFailed")),
+                        TelegramDeployCoordinator.BuildReplyKeyboard(projectPath),
+                        cancellationToken,
+                        projectPath).ConfigureAwait(false);
+                    return;
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(agentText) && string.IsNullOrWhiteSpace(photoPath))
+            {
+                return;
+            }
+
             var message = new TelegramChatMessage
             {
                 Direction = TelegramMessageDirection.Incoming,
                 Status = TelegramMessageStatus.Received,
                 Text = body,
                 PhotoPath = photoPath,
-                TelegramFileId = update.PhotoFileId ?? string.Empty,
+                AttachmentPath = attachmentPath,
+                AttachmentName = attachmentName,
+                TelegramFileId = !string.IsNullOrWhiteSpace(update.PhotoFileId)
+                    ? update.PhotoFileId
+                    : (update.DocumentFileId ?? string.Empty),
                 TelegramMessageId = update.MessageId,
                 ChatId = update.ChatId,
                 UserId = update.UserId,
@@ -187,7 +267,82 @@ namespace GitDeployPro.Services.Telegram
 
             _store.Append(projectPath, message);
             TelegramPoller.Instance.RaiseMessage(projectPath, message);
-            AgentFacade.EnqueueUserTurn(projectPath, body, photoPath);
+            AgentFacade.EnqueueUserTurn(projectPath, agentText, photoPath);
+        }
+
+        private static bool IsAllowedTextDocument(string fileName, string? mimeType)
+        {
+            var ext = Path.GetExtension(fileName ?? string.Empty).ToLowerInvariant();
+            if (ext is ".txt" or ".md" or ".markdown" or ".mdc")
+            {
+                return true;
+            }
+
+            var mime = (mimeType ?? string.Empty).Trim().ToLowerInvariant();
+            if (mime is "text/plain" or "text/markdown" or "text/x-markdown" or "application/markdown")
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        private static string SanitizeFileName(string fileName)
+        {
+            var name = Path.GetFileName(fileName ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return "document.txt";
+            }
+
+            foreach (var c in Path.GetInvalidFileNameChars())
+            {
+                name = name.Replace(c, '_');
+            }
+
+            return name.Length <= 120 ? name : name[..120];
+        }
+
+        private static string BuildAgentTextWithDocument(string captionOrText, string filePath, string displayName)
+        {
+            const int maxChars = 120_000;
+            var sb = new StringBuilder();
+            var intro = (captionOrText ?? string.Empty).Trim();
+            if (!string.IsNullOrWhiteSpace(intro))
+            {
+                sb.AppendLine(intro);
+                sb.AppendLine();
+            }
+            else
+            {
+                sb.AppendLine($"User attached a text file ({displayName}). Read it and follow the request inside (or report briefly).");
+                sb.AppendLine();
+            }
+
+            sb.AppendLine($"--- Attached file: {displayName} ---");
+            try
+            {
+                var content = File.ReadAllText(filePath, Encoding.UTF8);
+                if (content.Length > maxChars)
+                {
+                    sb.AppendLine(content[..maxChars]);
+                    sb.AppendLine();
+                    sb.AppendLine($"--- truncated after {maxChars} characters ---");
+                }
+                else
+                {
+                    sb.AppendLine(content);
+                }
+            }
+            catch (Exception ex)
+            {
+                sb.AppendLine($"(Could not read attached file: {ex.Message})");
+                sb.AppendLine($"File path on disk: {filePath}");
+            }
+
+            sb.AppendLine("--- end attached file ---");
+            sb.AppendLine($"Local copy: {filePath}");
+            return sb.ToString().Trim();
         }
 
         private async Task HandleCallbackAsync(
@@ -198,6 +353,13 @@ namespace GitDeployPro.Services.Telegram
             var data = (update.CallbackData ?? string.Empty).Trim();
             try
             {
+                if (CursorAskQuestionBroker.Instance.TryAnswer(data, out var askAck))
+                {
+                    await _client.AnswerCallbackQueryAsync(token, update.CallbackQueryId, askAck, cancellationToken)
+                        .ConfigureAwait(false);
+                    return;
+                }
+
                 if (string.Equals(data, CallbackMenuProjects, StringComparison.OrdinalIgnoreCase))
                 {
                     await ReplyProjectsAsync(token, update, cancellationToken).ConfigureAwait(false);
@@ -319,6 +481,7 @@ namespace GitDeployPro.Services.Telegram
             var status = AgentFacade.GetAgentStatus(active);
             var pending = await TelegramDeployCoordinator.GetPendingChangeCountAsync(active).ConfigureAwait(false);
             var workspace = CursorWorkspaceRoots.GetRoots(active);
+            var accountUsage = await CursorAccountUsageService.GetAsync(cancellationToken).ConfigureAwait(false);
             var lastLine = status.LastActivityUtc.HasValue
                 ? status.LastActivityUtc.Value.ToLocalTime().ToString("HH:mm:ss")
                 : "—";
@@ -335,7 +498,11 @@ namespace GitDeployPro.Services.Telegram
                 $"{TelegramMarkup.Html(Loc.T("telegram.statusQueue"))}: {status.QueueDepth}" +
                 (status.TurnBusy ? " (" + TelegramMarkup.Html(Loc.T("telegram.statusBusy")) + ")" : string.Empty) + "\n" +
                 $"{TelegramMarkup.Html(Loc.T("telegram.statusSession"))}: <code>{TelegramMarkup.Html(status.SessionHint)}</code>\n" +
+                $"{TelegramMarkup.Html(Loc.T("telegram.statusMode"))}: <code>{TelegramMarkup.Html(status.AgentMode)}</code>\n" +
                 $"{TelegramMarkup.Html(Loc.T("telegram.statusLast"))}: {TelegramMarkup.Html(lastLine)}";
+
+            html += "\n" + FormatAccountUsageHtml(accountUsage);
+            html += "\n" + FormatUsageStatusHtml(status);
 
             if (workspace.HasMultiRoot)
             {
@@ -1376,6 +1543,114 @@ namespace GitDeployPro.Services.Telegram
                 "preview",
                 "پیش‌نمایش",
                 "پیش نمایش");
+
+        private static bool IsPlanModeCommand(string text)
+            => MatchesCommand(
+                text,
+                "/plan",
+                "telegram.kbPlan",
+                "telegram.kbPlanOn",
+                "telegram.btnPlan",
+                "plan",
+                "plan mode",
+                "پلن",
+                "حالت پلن");
+
+        private static bool IsAgentModeCommand(string text)
+            => MatchesCommand(
+                text,
+                "/agent",
+                "telegram.kbAgent",
+                "telegram.btnAgent",
+                "agent",
+                "agent mode",
+                "ایجنت",
+                "حالت ایجنت");
+
+        private async Task ReplySetCursorModeAsync(
+            string token,
+            TelegramIncomingUpdate update,
+            string mode,
+            CancellationToken cancellationToken)
+        {
+            var active = ResolveInboundProjectPath(_config.LoadGlobalConfig());
+            if (AgentFacade.GetActiveEngine() != AgentEngineKind.Cursor)
+            {
+                await SendBotAsync(
+                    token,
+                    update.ChatId,
+                    TelegramMarkup.Html(Loc.T("cursor.modeCursorOnly")),
+                    TelegramDeployCoordinator.BuildReplyKeyboard(active),
+                    cancellationToken,
+                    active).ConfigureAwait(false);
+                return;
+            }
+
+            var next = string.Equals(mode, "plan", StringComparison.OrdinalIgnoreCase) ? "plan" : "agent";
+            CursorAgentBridge.Instance.SetAgentModeAndRestart(active, next);
+            var msg = next == "plan" ? Loc.T("cursor.modePlan") : Loc.T("cursor.modeAgent");
+            await SendBotAsync(
+                token,
+                update.ChatId,
+                TelegramMarkup.Html(msg),
+                TelegramDeployCoordinator.BuildReplyKeyboard(active),
+                cancellationToken,
+                active).ConfigureAwait(false);
+        }
+
+        private static string FormatAccountUsageHtml(CursorAccountUsageSnapshot usage)
+        {
+            var sb = new System.Text.StringBuilder();
+            sb.Append(TelegramMarkup.Html(Loc.T("telegram.statusPlanUsage"))).Append('\n');
+            if (!usage.Ok)
+            {
+                sb.Append(TelegramMarkup.Html(Loc.T("telegram.statusPlanUsageFail", usage.Error)));
+                return sb.ToString();
+            }
+
+            sb.Append(TelegramMarkup.Html(Loc.T(
+                "telegram.statusPlanUsageLine",
+                usage.CursorModelsPercent,
+                usage.OtherModelsPercent)));
+            return sb.ToString();
+        }
+
+        private static string FormatUsageStatusHtml(CursorAgentStatusInfo status)
+        {
+            var sb = new System.Text.StringBuilder();
+            sb.Append(TelegramMarkup.Html(Loc.T("telegram.statusUsage"))).Append('\n');
+            if (status.LastUsage is { Available: true } last)
+            {
+                sb.Append(TelegramMarkup.Html(Loc.T(
+                    "telegram.statusUsageLast",
+                    last.InputTokens,
+                    last.OutputTokens,
+                    last.CacheReadTokens,
+                    last.CacheWriteTokens,
+                    last.Source)));
+            }
+            else
+            {
+                sb.Append(TelegramMarkup.Html(Loc.T("telegram.statusUsageLastNa")));
+            }
+
+            sb.Append('\n');
+            if (status.SessionUsage is { Available: true } session)
+            {
+                sb.Append(TelegramMarkup.Html(Loc.T(
+                    "telegram.statusUsageSession",
+                    session.InputTokens,
+                    session.OutputTokens,
+                    session.CacheReadTokens,
+                    session.CacheWriteTokens)));
+            }
+            else
+            {
+                sb.Append(TelegramMarkup.Html(Loc.T("telegram.statusUsageSessionNa")));
+            }
+
+            return sb.ToString();
+        }
 
         private static bool IsEngineCommand(string text)
             => MatchesCommand(

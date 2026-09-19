@@ -48,6 +48,11 @@ namespace GitDeployPro.Services.Telegram
         public static JObject BuildReplyKeyboard(string? projectPath = null)
         {
             var showDeploy = TelegramProjectProfile.SupportsDeploy(projectPath);
+            var planMode = !string.IsNullOrWhiteSpace(projectPath)
+                           && TelegramChatStore.Instance.IsCursorPlanMode(projectPath);
+            var modeButton = planMode
+                ? Loc.T("telegram.kbAgent")
+                : Loc.T("telegram.kbPlan");
             if (showDeploy)
             {
                 return TelegramMarkup.ReplyKeyboard(
@@ -66,7 +71,8 @@ namespace GitDeployPro.Services.Telegram
                     new[]
                     {
                         Loc.T("telegram.kbRestartAgent"),
-                        Loc.T("telegram.kbModel")
+                        Loc.T("telegram.kbModel"),
+                        modeButton
                     });
             }
 
@@ -82,6 +88,10 @@ namespace GitDeployPro.Services.Telegram
                     Loc.T("telegram.kbEngine"),
                     Loc.T("telegram.kbRestartAgent"),
                     Loc.T("telegram.kbModel")
+                },
+                new[]
+                {
+                    modeButton
                 });
         }
 

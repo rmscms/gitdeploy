@@ -52,7 +52,39 @@ namespace GitDeployPro.Services.Telegram
                 replyMarkup,
                 parseMode,
                 ResetKeyboard: false,
-                ResetHint: null));
+                ResetHint: null,
+                DocumentPath: null,
+                DocumentCaption: null));
+            _signal.Release();
+        }
+
+        public void EnqueueDocument(
+            string token,
+            long chatId,
+            string projectPath,
+            string documentPath,
+            string? caption)
+        {
+            if (Volatile.Read(ref _disposed) != 0
+                || string.IsNullOrWhiteSpace(token)
+                || chatId == 0
+                || string.IsNullOrWhiteSpace(documentPath)
+                || !System.IO.File.Exists(documentPath))
+            {
+                return;
+            }
+
+            _queue.Enqueue(new OutboundJob(
+                token.Trim(),
+                chatId,
+                projectPath ?? string.Empty,
+                Text: string.Empty,
+                ReplyMarkup: null,
+                ParseMode: null,
+                ResetKeyboard: false,
+                ResetHint: null,
+                DocumentPath: documentPath,
+                DocumentCaption: caption));
             _signal.Release();
         }
 
@@ -77,7 +109,9 @@ namespace GitDeployPro.Services.Telegram
                 ReplyMarkup: null,
                 ParseMode: null,
                 ResetKeyboard: true,
-                ResetHint: hintText));
+                ResetHint: hintText,
+                DocumentPath: null,
+                DocumentCaption: null));
             _signal.Release();
         }
 
@@ -153,7 +187,23 @@ namespace GitDeployPro.Services.Telegram
                             using var sendCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                             sendCts.CancelAfter(TimeSpan.FromSeconds(45));
 
-                            if (job.ResetKeyboard)
+                            if (!string.IsNullOrWhiteSpace(job.DocumentPath))
+                            {
+                                using var docCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                                docCts.CancelAfter(TimeSpan.FromSeconds(90));
+                                var messageId = await _client.SendDocumentAsync(
+                                        job.Token,
+                                        job.ChatId,
+                                        job.DocumentPath!,
+                                        job.DocumentCaption,
+                                        docCts.Token)
+                                    .ConfigureAwait(false);
+                                if (messageId > 0 && !string.IsNullOrWhiteSpace(job.ProjectPath))
+                                {
+                                    TelegramChatStore.Instance.TrackBotMessageId(job.ProjectPath, messageId);
+                                }
+                            }
+                            else if (job.ResetKeyboard)
                             {
                                 await TelegramDeployCoordinator.ForceResetKeyboardAsync(
                                         job.Token,
@@ -234,6 +284,8 @@ namespace GitDeployPro.Services.Telegram
             JToken? ReplyMarkup,
             string? ParseMode,
             bool ResetKeyboard,
-            string? ResetHint);
+            string? ResetHint,
+            string? DocumentPath,
+            string? DocumentCaption);
     }
 }

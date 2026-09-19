@@ -180,6 +180,47 @@ namespace GitDeployPro.Services.Telegram
             }
         }
 
+        public async Task<long> SendDocumentAsync(
+            string token,
+            long chatId,
+            string documentPath,
+            string? caption,
+            CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(documentPath) || !File.Exists(documentPath))
+            {
+                throw new FileNotFoundException("Document file was not found.", documentPath);
+            }
+
+            using var form = new MultipartFormDataContent();
+            form.Add(new StringContent(chatId.ToString()), "chat_id");
+            if (!string.IsNullOrWhiteSpace(caption))
+            {
+                form.Add(new StringContent(caption), "caption");
+            }
+
+            await using var stream = File.OpenRead(documentPath);
+            var fileContent = new StreamContent(stream);
+            fileContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+            form.Add(fileContent, "document", Path.GetFileName(documentPath));
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, Api(token, "sendDocument"))
+            {
+                Content = form
+            };
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            linked.CancelAfter(TimeSpan.FromSeconds(90));
+            using var response = await _http.SendAsync(request, linked.Token).ConfigureAwait(false);
+            var json = await response.Content.ReadAsStringAsync(linked.Token).ConfigureAwait(false);
+            var api = ParseApi(json);
+            if (!api.Ok)
+            {
+                throw new InvalidOperationException(api.Description);
+            }
+
+            return api.Result is JObject msg ? msg.Value<long?>("message_id") ?? 0 : 0;
+        }
+
         public async Task<string> DownloadFileAsync(
             string token,
             string fileId,
@@ -301,6 +342,11 @@ namespace GitDeployPro.Services.Telegram
                        ?? msgFrom?.Value<string>("first_name")
                        ?? string.Empty;
 
+            var document = body["document"] as JObject;
+            var documentFileId = document?.Value<string>("file_id") ?? string.Empty;
+            var documentFileName = document?.Value<string>("file_name") ?? string.Empty;
+            var documentMime = document?.Value<string>("mime_type") ?? string.Empty;
+
             return new TelegramIncomingUpdate
             {
                 UpdateId = update.Value<long?>("update_id") ?? 0,
@@ -310,7 +356,10 @@ namespace GitDeployPro.Services.Telegram
                 UserName = name,
                 Text = text,
                 Caption = caption,
-                PhotoFileId = photoId
+                PhotoFileId = photoId,
+                DocumentFileId = documentFileId,
+                DocumentFileName = documentFileName,
+                DocumentMimeType = documentMime
             };
         }
 
