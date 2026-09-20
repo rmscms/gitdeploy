@@ -155,18 +155,22 @@ namespace GitDeployPro.Services.Vpn
             try
             {
                 var provider = VpnProviderFactory.Create(startupCfg.VpnProvider);
-                if (startupCfg.VpnConnectOnStartup)
+                // Always probe first: VPN may already be up (manual connect / previous session).
+                // OpenVPN Connect's Connect kills running processes — never reconnect blindly.
+                var alreadyUp = await provider
+                    .IsLikelyConnectedAsync(startupCfg.VpnProfileName, startupCfg.VpnHealthProbeHost, cancellationToken)
+                    .ConfigureAwait(false);
+                if (alreadyUp)
+                {
+                    SetStatus(VpnConnectionState.Connected, "VPN already connected — skipped startup connect.");
+                }
+                else if (startupCfg.VpnConnectOnStartup)
                 {
                     await ConnectInternalAsync(startupCfg, cancellationToken).ConfigureAwait(false);
                 }
                 else
                 {
-                    var up = await provider
-                        .IsLikelyConnectedAsync(startupCfg.VpnProfileName, startupCfg.VpnHealthProbeHost, cancellationToken)
-                        .ConfigureAwait(false);
-                    SetStatus(
-                        up ? VpnConnectionState.Connected : VpnConnectionState.Idle,
-                        up ? "VPN already up." : "Monitoring (connect-on-startup off).");
+                    SetStatus(VpnConnectionState.Idle, "Monitoring (connect-on-startup off).");
                 }
 
                 while (!cancellationToken.IsCancellationRequested)
@@ -264,6 +268,16 @@ namespace GitDeployPro.Services.Vpn
             if (string.IsNullOrWhiteSpace(exe))
             {
                 SetStatus(VpnConnectionState.Error, $"{provider.DisplayName} executable was not found.");
+                return;
+            }
+
+            // Do not kill/restart an already-working tunnel (esp. OpenVPN Connect).
+            var alreadyUp = await provider
+                .IsLikelyConnectedAsync(cfg.VpnProfileName, cfg.VpnHealthProbeHost, cancellationToken)
+                .ConfigureAwait(false);
+            if (alreadyUp)
+            {
+                SetStatus(VpnConnectionState.Connected, "Already connected.");
                 return;
             }
 
