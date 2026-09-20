@@ -1,16 +1,14 @@
 {
-  "version": "2.2.7",
-  "fileName": "GitDeployPro-2.2.7.exe",
-  "downloadUrl": "versions/GitDeployPro-2.2.7.exe",
-  "sha256": "6D1C5751CEC1E35D6344162E4484C9900037A229528DC844C3C238F45FD208B6",
-  "releaseNotes": "Feature: Telegram /plan and /agent sticky modes (ACP plan|agent sessions)\nFeature: Cursor create_plan saved as .md and sent to Telegram as a document\nFeature: Cursor ask_question answered via Telegram inline keyboard\nFeature: Status shows Cursor plan usage (Cursor Models % · Other Models %)\nFix: Status usage no longer stuck on n/a when ACP omits turn tokens",
+  "version": "2.2.19",
+  "fileName": "GitDeployPro-2.2.19.exe",
+  "downloadUrl": "versions/GitDeployPro-2.2.19.exe",
+  "sha256": "AC5FFE7B5628A4AADD8738DF1713EAD99C2709E55EF0CBE5D978187BCA7CB7FE",
+  "releaseNotes": "Feature: Telegram agent replies split understanding vs result with a clear separator\nFix: Mid-turn agent narration goes to live progress instead of the final reply\nFix: VPN keep-alive does not kill/reconnect an already-working tunnel",
   "changelog": [
-    "Feature: Telegram /plan and /agent sticky modes (ACP plan|agent sessions)",
-    "Feature: Cursor create_plan saved as .md and sent to Telegram as a document",
-    "Feature: Cursor ask_question answered via Telegram inline keyboard",
-    "Feature: Status shows Cursor plan usage (Cursor Models % · Other Models %)",
-    "Fix: Status usage no longer stuck on n/a when ACP omits turn tokens"
+    "Feature: Telegram agent replies split understanding vs result with a clear separator",
+    "Fix: Mid-turn agent narration goes to live progress instead of the final reply",
+    "Fix: VPN keep-alive does not kill/reconnect an already-working tunnel"
   ],
   "mandatory": false,
-  "publishedUtc": "2026-09-19T08:10:00Z"
+  "publishedUtc": "2026-09-20T05:15:00Z"
 }

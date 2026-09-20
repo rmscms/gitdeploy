@@ -980,6 +980,11 @@ namespace GitDeployPro.Services.Telegram
             sb.AppendLine("- You are the coding agent for this GitDeploy project chat.");
             sb.AppendLine("- Do NOT introduce yourself. Do NOT ask what to do. Do NOT say you are ready.");
             sb.AppendLine("- Investigate/fix quickly, then reply briefly with the result.");
+            sb.AppendLine("- Telegram reply format (required when the answer has two parts):");
+            sb.AppendLine("  1) Short understanding / what you checked (optional).");
+            sb.AppendLine("  2) A separator line exactly: ────────");
+            sb.AppendLine("  3) Work result only (what changed / what to test).");
+            sb.AppendLine("  Do not mash mid-work narration into the result. Prefer result-only if short.");
             sb.AppendLine("- Reply in the same language the user used (Persian or English).");
             sb.AppendLine("- This reply is delivered on Telegram. Prefer clear spacing, emoji where helpful, and Telegram HTML for emphasis:");
             sb.AppendLine("  use <b>bold</b>, <i>italic</i>, <code>inline</code>, <pre>blocks</pre>. Avoid Markdown **stars**.");
@@ -1254,6 +1259,29 @@ namespace GitDeployPro.Services.Telegram
                         case "tool_call" when string.Equals(jo["subtype"]?.ToString(), "started", StringComparison.OrdinalIgnoreCase):
                         {
                             FlushThinking(force: true);
+                            // Mid-turn assistant narration must not mash into the final Telegram reply.
+                            string pendingAssist;
+                            lock (progressGate)
+                            {
+                                pendingAssist = assistantSegments.ToString().Trim();
+                                if (pendingAssist.Length >= 12)
+                                {
+                                    assistantSegments.Clear();
+                                }
+                                else
+                                {
+                                    pendingAssist = string.Empty;
+                                }
+                            }
+
+                            if (!string.IsNullOrWhiteSpace(pendingAssist))
+                            {
+                                var chunk = pendingAssist.Length > 280
+                                    ? pendingAssist[..277] + "…"
+                                    : pendingAssist;
+                                EmitProgress("💬 " + chunk, force: true);
+                            }
+
                             var label = DescribeToolCall(jo["tool_call"] as JObject);
                             if (!string.IsNullOrWhiteSpace(label))
                             {
@@ -1984,6 +2012,7 @@ namespace GitDeployPro.Services.Telegram
             }
 
             text = System.Text.RegularExpressions.Regex.Replace(text, "[ \\t]{2,}", " ").Trim();
+            text = TelegramAgentReplyFormatter.Format(text);
             if (text.Length > 12000)
             {
                 text = text[..11900] + "…";

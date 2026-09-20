@@ -896,6 +896,14 @@ namespace GitDeployPro.Services.Telegram
                     return;
                 }
 
+                var status = update["status"]?.ToString() ?? string.Empty;
+                var isTerminal = string.Equals(status, "completed", StringComparison.OrdinalIgnoreCase)
+                                 || string.Equals(status, "failed", StringComparison.OrdinalIgnoreCase);
+                if (isTerminal)
+                {
+                    return;
+                }
+
                 // Flush pending thoughts before a tool so Telegram sees them in order.
                 if (thoughtBuf.Length >= 12)
                 {
@@ -910,17 +918,24 @@ namespace GitDeployPro.Services.Telegram
                     onProgress("🧠 " + pendingThought);
                 }
 
+                // Mid-turn assistant narration ("در حال بررسی…") must not stick to the final reply.
+                // Promote it to live progress, then keep only post-tool text as the answer.
+                if (assistant.Length >= 12)
+                {
+                    var pendingMsg = assistant.ToString().Trim();
+                    assistant.Clear();
+                    if (pendingMsg.Length > 280)
+                    {
+                        pendingMsg = pendingMsg[..277] + "…";
+                    }
+
+                    onProgress("💬 " + pendingMsg);
+                }
+
                 var title = update["title"]?.ToString()
                             ?? update["kind"]?.ToString()
                             ?? update["toolName"]?.ToString()
                             ?? "tool";
-                var status = update["status"]?.ToString() ?? string.Empty;
-                if (string.Equals(status, "completed", StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(status, "failed", StringComparison.OrdinalIgnoreCase))
-                {
-                    return;
-                }
-
                 onProgress("🔧 " + title);
             }
         }

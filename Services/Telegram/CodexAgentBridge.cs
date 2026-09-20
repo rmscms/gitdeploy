@@ -412,7 +412,7 @@ namespace GitDeployPro.Services.Telegram
 
             var reply = string.IsNullOrWhiteSpace(run.Output)
                 ? Loc.T("codex.emptyReply")
-                : run.Output.Trim();
+                : TelegramAgentReplyFormatter.Format(run.Output.Trim());
             if (run.ExitCode != 0 && !reply.StartsWith("❌", StringComparison.Ordinal))
             {
                 if (LooksLikeRateLimit(reply))
@@ -502,6 +502,11 @@ namespace GitDeployPro.Services.Telegram
             sb.AppendLine("- You are the coding agent for this GitDeploy project chat (Codex CLI).");
             sb.AppendLine("- Do NOT introduce yourself. Do NOT ask what to do. Do NOT say you are ready.");
             sb.AppendLine("- Investigate/fix quickly inside the listed workspace roots, then reply briefly with the result.");
+            sb.AppendLine("- Telegram reply format (required when the answer has two parts):");
+            sb.AppendLine("  1) Short understanding / what you checked (optional).");
+            sb.AppendLine("  2) A separator line exactly: ────────");
+            sb.AppendLine("  3) Work result only (what changed / what to test).");
+            sb.AppendLine("  Do not mash mid-work narration into the result. Prefer result-only if short.");
             sb.AppendLine("- Prefer reading/editing files under the Primary root with normal tools; do not ask the user for paths that are already listed above.");
             sb.AppendLine("- You have full read/write access to the workspace for this turn (approvals/sandbox bypassed by GitDeploy). Edit files directly — do not claim sandbox blocked you.");
             sb.AppendLine("- Reply in the same language the user used (Persian or English).");
