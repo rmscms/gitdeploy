@@ -1421,6 +1421,237 @@
                                                    TextWrapping="Wrap" />
                                     </StackPanel>
                                 </Border>
+
+                                <Border Margin="0,16,0,0"
+                                        Padding="12"
+                                        Background="{StaticResource Surface.Card}"
+                                        BorderBrush="{StaticResource Border.Subtle}"
+                                        BorderThickness="1"
+                                        CornerRadius="8">
+                                    <StackPanel>
+                                        <TextBlock Text="Cursor chats by project"
+                                                   FontWeight="SemiBold"
+                                                   FontSize="12"
+                                                   Foreground="{StaticResource Text.Primary}" />
+                                        <TextBlock Margin="0,4,0,0"
+                                                   FontSize="10"
+                                                   Foreground="{StaticResource Text.Muted}"
+                                                   TextWrapping="Wrap"
+                                                   Text="Only deletes old chat rows (composerHeaders + chat KV). Never touches login / cursorAuth / secrets in ItemTable." />
+                                        <TextBlock x:Name="CursorChatsSummaryText"
+                                                   Margin="0,6,0,8"
+                                                   FontSize="11"
+                                                   Foreground="{StaticResource Text.Muted}"
+                                                   TextWrapping="Wrap"
+                                                   Text="—" />
+
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                            <TextBlock Text="Delete older than"
+                                                       VerticalAlignment="Center"
+                                                       FontSize="11"
+                                                       Foreground="{StaticResource Text.Secondary}"
+                                                       Margin="0,0,8,0" />
+                                            <ComboBox x:Name="CursorChatsDaysCombo"
+                                                      Width="110"
+                                                      Height="32"
+                                                      Style="{StaticResource App.InputComboBox}"
+                                                      SelectionChanged="CursorChatsDaysCombo_SelectionChanged">
+                                                <ComboBoxItem Content="7 days" Tag="7" IsSelected="True" />
+                                                <ComboBoxItem Content="14 days" Tag="14" />
+                                                <ComboBoxItem Content="30 days" Tag="30" />
+                                                <ComboBoxItem Content="90 days" Tag="90" />
+                                            </ComboBox>
+                                            <CheckBox x:Name="CursorChatsVacuumCheck"
+                                                      Content="Compact DB (VACUUM)"
+                                                      Margin="14,0,0,0"
+                                                      VerticalAlignment="Center"
+                                                      FontSize="11"
+                                                      Foreground="{StaticResource Text.Secondary}"
+                                                      IsChecked="False"
+                                                      ToolTip="Optional. Shrinks state.vscdb after delete. Slow on large DBs; needed to reclaim freelist GB." />
+                                            <CheckBox x:Name="CursorChatsPurgeOrphansCheck"
+                                                      Content="Purge orphan blobs"
+                                                      Margin="14,0,0,0"
+                                                      VerticalAlignment="Center"
+                                                      FontSize="11"
+                                                      Foreground="{StaticResource Text.Secondary}"
+                                                      IsChecked="True"
+                                                      ToolTip="Deletes agentKv:blob / composer.content hashes not referenced anymore. This is usually most of the 10–20GB bloat." />
+                                        </StackPanel>
+
+                                        <ListView x:Name="CursorChatsList"
+                                                  Height="200"
+                                                  BorderBrush="{StaticResource Border.Subtle}"
+                                                  BorderThickness="1"
+                                                  Background="{StaticResource Surface.Input}"
+                                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                            <ListView.View>
+                                                <GridView>
+                                                    <GridViewColumn Width="36">
+                                                        <GridViewColumn.Header>
+                                                            <CheckBox x:Name="CursorChatsSelectAll"
+                                                                      Click="CursorChatsSelectAll_Click"
+                                                                      ToolTip="Select / clear all" />
+                                                        </GridViewColumn.Header>
+                                                        <GridViewColumn.CellTemplate>
+                                                            <DataTemplate>
+                                                                <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                                          VerticalAlignment="Center" />
+                                                            </DataTemplate>
+                                                        </GridViewColumn.CellTemplate>
+                                                    </GridViewColumn>
+                                                    <GridViewColumn Header="Project" Width="180" DisplayMemberBinding="{Binding DisplayName}" />
+                                                    <GridViewColumn Header="Chats" Width="55" DisplayMemberBinding="{Binding ChatCount}" />
+                                                    <GridViewColumn Header="Old" Width="50" DisplayMemberBinding="{Binding OlderThanDaysCount}" />
+                                                    <GridViewColumn Header="Last activity" Width="125" DisplayMemberBinding="{Binding NewestLocal}" />
+                                                </GridView>
+                                            </ListView.View>
+                                        </ListView>
+
+                                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                            <Button x:Name="CursorChatsRefreshBtn"
+                                                    Content="Refresh chats"
+                                                    Height="32"
+                                                    MinWidth="110"
+                                                    Style="{StaticResource App.Button.Ghost}"
+                                                    Click="CursorChatsRefresh_Click" />
+                                            <Button x:Name="CursorChatsDeleteBtn"
+                                                    Content="Delete old chats"
+                                                    Height="32"
+                                                    MinWidth="140"
+                                                    Margin="8,0,0,0"
+                                                    Style="{StaticResource App.Button.Primary}"
+                                                    Click="CursorChatsDeleteOld_Click"
+                                                    ToolTip="Deletes selected projects' chats older than the chosen age. Cursor must be closed. Backup first. Login/auth is never deleted." />
+                                        </StackPanel>
+                                        <ProgressBar x:Name="CursorChatsProgress"
+                                                     Height="8"
+                                                     Margin="0,10,0,0"
+                                                     Minimum="0"
+                                                     Maximum="100"
+                                                     Value="0"
+                                                     Visibility="Collapsed" />
+                                        <TextBlock x:Name="CursorChatsProgressText"
+                                                   Margin="0,6,0,0"
+                                                   FontSize="11"
+                                                   Foreground="{StaticResource Text.Secondary}"
+                                                   TextWrapping="Wrap"
+                                                   Visibility="Collapsed" />
+                                        <TextBlock x:Name="CursorChatsResultText"
+                                                   Margin="0,8,0,0"
+                                                   FontSize="11"
+                                                   Foreground="{StaticResource Text.Muted}"
+                                                   TextWrapping="Wrap" />
+
+                                        <Border Margin="0,14,0,0"
+                                                Padding="10"
+                                                Background="{StaticResource Surface.Input}"
+                                                BorderBrush="{StaticResource Border.Subtle}"
+                                                BorderThickness="1"
+                                                CornerRadius="6">
+                                            <StackPanel>
+                                                <CheckBox x:Name="CursorAutoCleanEnabledCheck"
+                                                          Content="Auto-clean daily (while GitDeployPro is open)"
+                                                          FontSize="11"
+                                                          FontWeight="SemiBold"
+                                                          Foreground="{StaticResource Text.Primary}"
+                                                          Checked="CursorAutoClean_Changed"
+                                                          Unchecked="CursorAutoClean_Changed" />
+                                                <TextBlock Margin="0,4,0,8"
+                                                           FontSize="10"
+                                                           Foreground="{StaticResource Text.Muted}"
+                                                           TextWrapping="Wrap"
+                                                           Text="Runs once per day at the time below (next run shown under Run now). Enabling does NOT run immediately. Skips if Cursor is open unless Force-quit is on — Force-quit closes Cursor only at the scheduled time." />
+
+                                                <WrapPanel Orientation="Horizontal">
+                                                    <StackPanel Orientation="Horizontal" Margin="0,0,14,6">
+                                                        <TextBlock Text="Older than"
+                                                                   VerticalAlignment="Center"
+                                                                   FontSize="11"
+                                                                   Foreground="{StaticResource Text.Secondary}"
+                                                                   Margin="0,0,6,0" />
+                                                        <ComboBox x:Name="CursorAutoCleanDaysCombo"
+                                                                  Width="100"
+                                                                  Height="30"
+                                                                  Style="{StaticResource App.InputComboBox}"
+                                                                  SelectionChanged="CursorAutoClean_Changed">
+                                                            <ComboBoxItem Content="7 days" Tag="7" />
+                                                            <ComboBoxItem Content="14 days" Tag="14" />
+                                                            <ComboBoxItem Content="30 days" Tag="30" IsSelected="True" />
+                                                            <ComboBoxItem Content="90 days" Tag="90" />
+                                                        </ComboBox>
+                                                    </StackPanel>
+                                                    <StackPanel Orientation="Horizontal" Margin="0,0,14,6">
+                                                        <TextBlock Text="Time"
+                                                                   VerticalAlignment="Center"
+                                                                   FontSize="11"
+                                                                   Foreground="{StaticResource Text.Secondary}"
+                                                                   Margin="0,0,6,0" />
+                                                        <TextBox x:Name="CursorAutoCleanTimeBox"
+                                                                 Width="64"
+                                                                 Height="30"
+                                                                 Text="03:30"
+                                                                 VerticalContentAlignment="Center"
+                                                                 Style="{StaticResource App.InputTextBox}"
+                                                                 LostFocus="CursorAutoClean_Changed" />
+                                                    </StackPanel>
+                                                    <CheckBox x:Name="CursorAutoCleanOrphansCheck"
+                                                              Content="Orphans"
+                                                              Margin="0,0,12,6"
+                                                              VerticalAlignment="Center"
+                                                              FontSize="11"
+                                                              Foreground="{StaticResource Text.Secondary}"
+                                                              IsChecked="True"
+                                                              Checked="CursorAutoClean_Changed"
+                                                              Unchecked="CursorAutoClean_Changed" />
+                                                    <CheckBox x:Name="CursorAutoCleanVacuumCheck"
+                                                              Content="VACUUM"
+                                                              Margin="0,0,12,6"
+                                                              VerticalAlignment="Center"
+                                                              FontSize="11"
+                                                              Foreground="{StaticResource Text.Secondary}"
+                                                              IsChecked="True"
+                                                              Checked="CursorAutoClean_Changed"
+                                                              Unchecked="CursorAutoClean_Changed" />
+                                                    <CheckBox x:Name="CursorAutoCleanDiskCheck"
+                                                              Content="Cache + backups"
+                                                              Margin="0,0,12,6"
+                                                              VerticalAlignment="Center"
+                                                              FontSize="11"
+                                                              Foreground="{StaticResource Text.Secondary}"
+                                                              IsChecked="True"
+                                                              Checked="CursorAutoClean_Changed"
+                                                              Unchecked="CursorAutoClean_Changed" />
+                                                    <CheckBox x:Name="CursorAutoCleanForceQuitCheck"
+                                                              Content="Force-quit Cursor"
+                                                              Margin="0,0,12,6"
+                                                              VerticalAlignment="Center"
+                                                              FontSize="11"
+                                                              Foreground="{StaticResource Text.Secondary}"
+                                                              IsChecked="False"
+                                                              Checked="CursorAutoClean_Changed"
+                                                              Unchecked="CursorAutoClean_Changed" />
+                                                </WrapPanel>
+
+                                                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                                    <Button x:Name="CursorAutoCleanRunNowBtn"
+                                                            Content="Run now"
+                                                            Height="30"
+                                                            MinWidth="90"
+                                                            Style="{StaticResource App.Button.Ghost}"
+                                                            Click="CursorAutoCleanRunNow_Click" />
+                                                    <TextBlock x:Name="CursorAutoCleanStatusText"
+                                                               Margin="12,0,0,0"
+                                                               VerticalAlignment="Center"
+                                                               FontSize="10"
+                                                               Foreground="{StaticResource Text.Muted}"
+                                                               TextWrapping="Wrap"
+                                                               Text="—" />
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+                                </Border>
                             </StackPanel>
                         </Expander>
 
