@@ -178,6 +178,7 @@ namespace GitDeployPro.Services.Cursor
             freed += TryDeleteFile(Path.Combine(gs, "conversation-search.db"), ref deleted, errors);
             freed += TryDeleteFile(Path.Combine(gs, "conversation-search.db-wal"), ref deleted, errors);
             freed += TryDeleteFile(Path.Combine(gs, "conversation-search.db-shm"), ref deleted, errors);
+            freed += TryDeleteGdpChatBackups(gs, ref deleted, errors);
 
             freed += TryPruneOldAgentVersions(
                 Path.Combine(gs, "anysphere.cursor-agent-worker"),
@@ -474,6 +475,29 @@ namespace GitDeployPro.Services.Cursor
                 foreach (var entry in Directory.EnumerateFileSystemEntries(dir))
                 {
                     freed += TryDeletePath(entry, ref deleted, errors);
+                }
+            }
+            catch (Exception ex)
+            {
+                errors.Add(Truncate(ex.Message, 80));
+            }
+
+            return freed;
+        }
+
+        private static long TryDeleteGdpChatBackups(string globalStorage, ref int deleted, List<string> errors)
+        {
+            long freed = 0;
+            try
+            {
+                if (!Directory.Exists(globalStorage))
+                {
+                    return 0;
+                }
+
+                foreach (var path in Directory.EnumerateFiles(globalStorage, "state.vscdb.gdp-bak-*"))
+                {
+                    freed += TryDeleteFile(path, ref deleted, errors);
                 }
             }
             catch (Exception ex)

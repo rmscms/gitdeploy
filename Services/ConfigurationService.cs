@@ -128,6 +128,31 @@ namespace GitDeployPro.Services
             /// <summary>Optional model id passed to Cursor CLI (--model).</summary>
             public string CursorAgentModel { get; set; } = "";
 
+            /// <summary>Daily auto-clean of Cursor chats + disk cache while GitDeployPro is open.</summary>
+            public bool CursorAutoCleanEnabled { get; set; }
+
+            /// <summary>Delete chats older than this many days (1–3650).</summary>
+            public int CursorAutoCleanOlderThanDays { get; set; } = 30;
+
+            /// <summary>Local time of day to run, e.g. 03:30.</summary>
+            public string CursorAutoCleanTimeLocal { get; set; } = "03:30";
+
+            /// <summary>Purge orphan agentKv blobs / composer.content.</summary>
+            public bool CursorAutoCleanPurgeOrphans { get; set; } = true;
+
+            /// <summary>VACUUM state.vscdb after chat cleanup.</summary>
+            public bool CursorAutoCleanVacuum { get; set; } = true;
+
+            /// <summary>Also run Safe disk clear (caches + DB backups).</summary>
+            public bool CursorAutoCleanDiskCache { get; set; } = true;
+
+            /// <summary>If true, force-quit Cursor when auto-clean needs the DB. Default false = skip that day.</summary>
+            public bool CursorAutoCleanForceQuit { get; set; }
+
+            public DateTime? CursorAutoCleanLastRunUtc { get; set; }
+
+            public string CursorAutoCleanLastResult { get; set; } = "";
+
             /// <summary>
             /// When true, Telegram only gets "Still working" every ~30s for any agent engine
             /// (Cursor / Codex). Tool and thinking detail stay in the in-app chat.

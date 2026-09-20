@@ -49,6 +49,7 @@ namespace GitDeployPro
             RegisterGlobalEditorArrowKeys();
             Log("Application started.");
             _schedulerRunner.Start();
+            GitDeployPro.Services.Cursor.CursorAutoCleanupRunner.Instance.Start();
             TelegramPoller.Instance.Start();
             try
             {
@@ -81,6 +82,14 @@ namespace GitDeployPro
             }
 
             TelegramPoller.Instance.Dispose();
+            try
+            {
+                GitDeployPro.Services.Cursor.CursorAutoCleanupRunner.Instance.Dispose();
+            }
+            catch
+            {
+            }
+
             _schedulerRunner.Dispose();
             base.OnExit(e);
             PerformanceSampler.Instance.Mark("app", "lifecycle", "exit-end");

@@ -2097,6 +2097,8 @@ namespace GitDeployPro.Pages
             }
 
             RefreshCursorDiskSummary();
+            RefreshCursorChatsList();
+            LoadCursorAutoCleanUi(globalConfig);
 
             if (AgentEngineComboBox != null)
             {
@@ -2253,7 +2255,201 @@ namespace GitDeployPro.Pages
             cfg.CursorAgentEnabled = CursorAgentEnabledCheckBox?.IsChecked == true;
             cfg.CursorAgentPath = CursorAgentPathTextBox?.Text?.Trim() ?? string.Empty;
             cfg.CursorAgentModel = CursorAgentModelTextBox?.Text?.Trim() ?? string.Empty;
+            PersistCursorAutoCleanFields(cfg);
             PersistSharedAgentFields(cfg);
+        }
+
+        private void PersistCursorAutoCleanFields(ConfigurationService.GlobalConfig cfg)
+        {
+            if (CursorAutoCleanEnabledCheck == null)
+            {
+                return;
+            }
+
+            cfg.CursorAutoCleanEnabled = CursorAutoCleanEnabledCheck.IsChecked == true;
+            cfg.CursorAutoCleanOlderThanDays = GetCursorAutoCleanDays();
+            var time = CursorAutoCleanTimeBox?.Text?.Trim() ?? "03:30";
+            if (GitDeployPro.Services.Cursor.CursorAutoCleanupRunner.ParseTime(time) == null)
+            {
+                time = "03:30";
+            }
+
+            cfg.CursorAutoCleanTimeLocal = time;
+            cfg.CursorAutoCleanPurgeOrphans = CursorAutoCleanOrphansCheck?.IsChecked != false;
+            cfg.CursorAutoCleanVacuum = CursorAutoCleanVacuumCheck?.IsChecked != false;
+            cfg.CursorAutoCleanDiskCache = CursorAutoCleanDiskCheck?.IsChecked != false;
+            cfg.CursorAutoCleanForceQuit = CursorAutoCleanForceQuitCheck?.IsChecked == true;
+        }
+
+        private void LoadCursorAutoCleanUi(ConfigurationService.GlobalConfig cfg)
+        {
+            _cursorAutoCleanUiLoading = true;
+            try
+            {
+                if (CursorAutoCleanEnabledCheck != null)
+                {
+                    CursorAutoCleanEnabledCheck.IsChecked = cfg.CursorAutoCleanEnabled;
+                }
+
+                if (CursorAutoCleanDaysCombo != null)
+                {
+                    var days = cfg.CursorAutoCleanOlderThanDays <= 0 ? 30 : cfg.CursorAutoCleanOlderThanDays;
+                    ComboBoxItem? match = null;
+                    foreach (ComboBoxItem item in CursorAutoCleanDaysCombo.Items)
+                    {
+                        if (int.TryParse(item.Tag?.ToString(), out var d) && d == days)
+                        {
+                            match = item;
+                            break;
+                        }
+                    }
+
+                    CursorAutoCleanDaysCombo.SelectedItem = match ?? CursorAutoCleanDaysCombo.Items[2];
+                }
+
+                if (CursorAutoCleanTimeBox != null)
+                {
+                    CursorAutoCleanTimeBox.Text = string.IsNullOrWhiteSpace(cfg.CursorAutoCleanTimeLocal)
+                        ? "03:30"
+                        : cfg.CursorAutoCleanTimeLocal.Trim();
+                }
+
+                if (CursorAutoCleanOrphansCheck != null)
+                {
+                    CursorAutoCleanOrphansCheck.IsChecked = cfg.CursorAutoCleanPurgeOrphans;
+                }
+
+                if (CursorAutoCleanVacuumCheck != null)
+                {
+                    CursorAutoCleanVacuumCheck.IsChecked = cfg.CursorAutoCleanVacuum;
+                }
+
+                if (CursorAutoCleanDiskCheck != null)
+                {
+                    CursorAutoCleanDiskCheck.IsChecked = cfg.CursorAutoCleanDiskCache;
+                }
+
+                if (CursorAutoCleanForceQuitCheck != null)
+                {
+                    CursorAutoCleanForceQuitCheck.IsChecked = cfg.CursorAutoCleanForceQuit;
+                }
+
+                RefreshCursorAutoCleanStatus(cfg);
+            }
+            finally
+            {
+                _cursorAutoCleanUiLoading = false;
+            }
+        }
+
+        private void RefreshCursorAutoCleanStatus(ConfigurationService.GlobalConfig? cfg = null)
+        {
+            if (CursorAutoCleanStatusText == null)
+            {
+                return;
+            }
+
+            cfg ??= _configService.LoadGlobalConfig();
+            if (!cfg.CursorAutoCleanEnabled)
+            {
+                CursorAutoCleanStatusText.Text = Loc.T("cursor.autoOff");
+                return;
+            }
+
+            var next = GitDeployPro.Services.Cursor.CursorAutoCleanupRunner.GetNextRunLocal(cfg);
+            var last = cfg.CursorAutoCleanLastRunUtc is DateTime utc
+                ? utc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+                : "—";
+            var result = string.IsNullOrWhiteSpace(cfg.CursorAutoCleanLastResult)
+                ? ""
+                : " · " + cfg.CursorAutoCleanLastResult;
+            CursorAutoCleanStatusText.Text = Loc.T(
+                "cursor.autoStatus",
+                next.ToString("yyyy-MM-dd HH:mm"),
+                last) + result;
+        }
+
+        private bool _cursorAutoCleanUiLoading;
+
+        private void CursorAutoClean_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_cursorAutoCleanUiLoading)
+            {
+                return;
+            }
+
+            try
+            {
+                _configService.UpdateGlobalConfig(PersistCursorAutoCleanFields);
+                RefreshCursorAutoCleanStatus();
+                // Do NOT ForceCheck — that used to run cleanup immediately after 03:30 with no LastRun.
+                GitDeployPro.Services.Cursor.CursorAutoCleanupRunner.Instance.NudgeTimer();
+            }
+            catch (Exception ex)
+            {
+                if (CursorAutoCleanStatusText != null)
+                {
+                    CursorAutoCleanStatusText.Text = ex.Message;
+                }
+            }
+        }
+
+        private async void CursorAutoCleanRunNow_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                _configService.UpdateGlobalConfig(PersistCursorAutoCleanFields);
+                if (CursorAutoCleanStatusText != null)
+                {
+                    CursorAutoCleanStatusText.Text = Loc.T("cursor.autoRunning");
+                }
+
+                if (CursorAutoCleanRunNowBtn != null)
+                {
+                    CursorAutoCleanRunNowBtn.IsEnabled = false;
+                }
+
+                var force = CursorAutoCleanForceQuitCheck?.IsChecked == true;
+                var (ok, message) = await GitDeployPro.Services.Cursor.CursorAutoCleanupRunner.Instance
+                    .RunNowAsync(force)
+                    .ConfigureAwait(true);
+
+                if (CursorAutoCleanStatusText != null)
+                {
+                    CursorAutoCleanStatusText.Foreground = (System.Windows.Media.Brush)FindResource(
+                        ok ? "Status.Success" : "Status.Error");
+                    CursorAutoCleanStatusText.Text = message;
+                }
+
+                RefreshCursorChatsList();
+                RefreshCursorDiskSummary();
+            }
+            catch (Exception ex)
+            {
+                if (CursorAutoCleanStatusText != null)
+                {
+                    CursorAutoCleanStatusText.Foreground = (System.Windows.Media.Brush)FindResource("Status.Error");
+                    CursorAutoCleanStatusText.Text = ex.Message;
+                }
+            }
+            finally
+            {
+                if (CursorAutoCleanRunNowBtn != null)
+                {
+                    CursorAutoCleanRunNowBtn.IsEnabled = true;
+                }
+            }
+        }
+
+        private int GetCursorAutoCleanDays()
+        {
+            if (CursorAutoCleanDaysCombo?.SelectedItem is ComboBoxItem item
+                && int.TryParse(item.Tag?.ToString(), out var days))
+            {
+                return days;
+            }
+
+            return 30;
         }
 
         private void PersistSharedAgentFields(ConfigurationService.GlobalConfig cfg)
@@ -2360,6 +2556,321 @@ namespace GitDeployPro.Pages
 
             await RunCursorDiskClearAsync(GitDeployPro.Services.Cursor.CursorCleanupProfile.Aggressive)
                 .ConfigureAwait(true);
+        }
+
+        private void CursorChatsRefresh_Click(object sender, RoutedEventArgs e)
+            => RefreshCursorChatsList();
+
+        private void CursorChatsDaysCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (CursorChatsList == null)
+            {
+                return;
+            }
+
+            RefreshCursorChatsList();
+        }
+
+        private void CursorChatsSelectAll_Click(object sender, RoutedEventArgs e)
+        {
+            if (CursorChatsList?.ItemsSource is not System.Collections.IEnumerable items)
+            {
+                return;
+            }
+
+            var on = CursorChatsSelectAll?.IsChecked == true;
+            foreach (var item in items)
+            {
+                if (item is CursorChatProjectVm vm)
+                {
+                    vm.IsSelected = on;
+                }
+            }
+        }
+
+        private async void CursorChatsDeleteOld_Click(object sender, RoutedEventArgs e)
+        {
+            var days = GetCursorChatsDaysFilter();
+            var selected = (CursorChatsList?.ItemsSource as IEnumerable<CursorChatProjectVm>)
+                ?.Where(x => x.IsSelected)
+                .Select(x => x.WorkspaceId)
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .ToList() ?? new List<string>();
+
+            if (selected.Count == 0)
+            {
+                ModernMessageBox.Show(
+                    Loc.T("cursor.chatsNoneSelected"),
+                    Loc.T("cursor.chatsTitle"),
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+
+            var vacuum = CursorChatsVacuumCheck?.IsChecked == true;
+            var purgeOrphans = CursorChatsPurgeOrphansCheck?.IsChecked != false;
+            var confirm = ModernMessageBox.Show(
+                Loc.T("cursor.chatsDeleteConfirm", days, selected.Count),
+                Loc.T("cursor.chatsTitle"),
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+            if (!confirm)
+            {
+                return;
+            }
+
+            var scan = GitDeployPro.Services.Cursor.CursorChatCleanupService.Scan(days);
+            var force = false;
+            if (scan.CursorRunning)
+            {
+                var quit = ModernMessageBox.Show(
+                    Loc.T("cursor.diskNeedQuit"),
+                    Loc.T("cursor.chatsTitle"),
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
+                if (!quit)
+                {
+                    if (CursorChatsResultText != null)
+                    {
+                        CursorChatsResultText.Text = Loc.T("cursor.diskCancelled");
+                    }
+
+                    return;
+                }
+
+                force = true;
+            }
+
+            SetCursorChatsBusy(true);
+            if (CursorChatsResultText != null)
+            {
+                CursorChatsResultText.Foreground = (System.Windows.Media.Brush)FindResource("Text.Muted");
+                CursorChatsResultText.Text = Loc.T("cursor.chatsWorking");
+            }
+
+            var progress = new Progress<GitDeployPro.Services.Cursor.CursorChatDeleteProgress>(p =>
+            {
+                UpdateCursorChatsProgress(p);
+            });
+
+            try
+            {
+                var result = await GitDeployPro.Services.Cursor.CursorChatCleanupService
+                    .DeleteOlderAsync(days, selected, vacuum, force, purgeOrphans, progress)
+                    .ConfigureAwait(true);
+
+                if (CursorChatsResultText != null)
+                {
+                    CursorChatsResultText.Foreground = (System.Windows.Media.Brush)FindResource(
+                        result.Ok ? "Status.Success" : "Status.Error");
+                    CursorChatsResultText.Text = result.Message;
+                }
+            }
+            finally
+            {
+                SetCursorChatsBusy(false);
+            }
+
+            RefreshCursorChatsList();
+            RefreshCursorDiskSummary();
+        }
+
+        private void SetCursorChatsBusy(bool busy)
+        {
+            if (CursorChatsDeleteBtn != null)
+            {
+                CursorChatsDeleteBtn.IsEnabled = !busy;
+            }
+
+            if (CursorChatsRefreshBtn != null)
+            {
+                CursorChatsRefreshBtn.IsEnabled = !busy;
+            }
+
+            if (CursorChatsDaysCombo != null)
+            {
+                CursorChatsDaysCombo.IsEnabled = !busy;
+            }
+
+            if (CursorChatsVacuumCheck != null)
+            {
+                CursorChatsVacuumCheck.IsEnabled = !busy;
+            }
+
+            if (CursorChatsPurgeOrphansCheck != null)
+            {
+                CursorChatsPurgeOrphansCheck.IsEnabled = !busy;
+            }
+
+            if (CursorChatsList != null)
+            {
+                CursorChatsList.IsEnabled = !busy;
+            }
+
+            if (CursorChatsProgress != null)
+            {
+                CursorChatsProgress.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
+                if (busy)
+                {
+                    CursorChatsProgress.IsIndeterminate = true;
+                    CursorChatsProgress.Value = 0;
+                }
+                else
+                {
+                    CursorChatsProgress.IsIndeterminate = false;
+                    CursorChatsProgress.Value = 0;
+                }
+            }
+
+            if (CursorChatsProgressText != null)
+            {
+                CursorChatsProgressText.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
+                if (busy)
+                {
+                    CursorChatsProgressText.Text = Loc.T("cursor.chatsWorking");
+                }
+            }
+        }
+
+        private void UpdateCursorChatsProgress(GitDeployPro.Services.Cursor.CursorChatDeleteProgress p)
+        {
+            if (CursorChatsProgress == null || CursorChatsProgressText == null)
+            {
+                return;
+            }
+
+            var total = Math.Max(1, p.Total);
+            var current = Math.Max(0, p.Current);
+            if (p.Phase is "scan" or "vacuum" || total <= 1 && current == 0)
+            {
+                CursorChatsProgress.IsIndeterminate = p.Phase is "backup" or "quit" or "collect" or "auth"
+                    || (p.Phase == "scan" && current == 0);
+                if (!CursorChatsProgress.IsIndeterminate)
+                {
+                    CursorChatsProgress.Maximum = total;
+                    CursorChatsProgress.Value = Math.Min(current, total);
+                }
+            }
+            else
+            {
+                CursorChatsProgress.IsIndeterminate = false;
+                CursorChatsProgress.Maximum = total;
+                CursorChatsProgress.Value = Math.Min(current, total);
+            }
+
+            var elapsed = FormatCursorChatsElapsed(p.Elapsed);
+            string text;
+            if (current > 0 && p.Elapsed.TotalSeconds >= 2 && current < total)
+            {
+                var rate = current / p.Elapsed.TotalSeconds;
+                var remainSec = rate > 0.01 ? (total - current) / rate : 0;
+                var eta = FormatCursorChatsElapsed(TimeSpan.FromSeconds(Math.Max(0, remainSec)));
+                text = Loc.T(
+                    "cursor.chatsProgressEta",
+                    string.IsNullOrWhiteSpace(p.Detail) ? p.Phase : p.Detail,
+                    current,
+                    total,
+                    elapsed,
+                    eta,
+                    p.DeletedKvRows);
+            }
+            else
+            {
+                text = Loc.T(
+                    "cursor.chatsProgress",
+                    string.IsNullOrWhiteSpace(p.Detail) ? p.Phase : p.Detail,
+                    current,
+                    total,
+                    elapsed,
+                    p.DeletedKvRows);
+            }
+
+            CursorChatsProgressText.Text = text;
+            if (CursorChatsResultText != null)
+            {
+                CursorChatsResultText.Text = text;
+            }
+        }
+
+        private static string FormatCursorChatsElapsed(TimeSpan t)
+        {
+            if (t.TotalHours >= 1)
+            {
+                return $"{(int)t.TotalHours}h {t.Minutes:D2}m";
+            }
+
+            if (t.TotalMinutes >= 1)
+            {
+                return $"{(int)t.TotalMinutes}m {t.Seconds:D2}s";
+            }
+
+            return $"{t.TotalSeconds:0.0}s";
+        }
+
+        private void RefreshCursorChatsList()
+        {
+            if (CursorChatsList == null)
+            {
+                return;
+            }
+
+            var days = GetCursorChatsDaysFilter();
+            try
+            {
+                var scan = GitDeployPro.Services.Cursor.CursorChatCleanupService.Scan(days);
+                if (CursorChatsSummaryText != null)
+                {
+                    if (!scan.Ok)
+                    {
+                        CursorChatsSummaryText.Text = scan.Error;
+                    }
+                    else
+                    {
+                        var fmt = GitDeployPro.Services.Cursor.CursorDiskCleanupService.FormatBytes;
+                        CursorChatsSummaryText.Text = Loc.T(
+                            "cursor.chatsSummary",
+                            scan.TotalChats,
+                            scan.OlderThanDaysTotal,
+                            days,
+                            fmt(scan.DatabaseBytes),
+                            fmt(scan.LiveBytes),
+                            fmt(scan.FreelistBytes),
+                            scan.AgentBlobCount);
+                        CursorChatsSummaryText.Text += "\n" + Loc.T("cursor.chatsSizeHint");
+                        if (scan.CursorRunning)
+                        {
+                            CursorChatsSummaryText.Text += "\n" + Loc.T("cursor.chatsRunningHint");
+                        }
+                    }
+                }
+
+                var vms = scan.Projects.Select(p => new CursorChatProjectVm(p)).ToList();
+                CursorChatsList.ItemsSource = vms;
+                if (CursorChatsSelectAll != null)
+                {
+                    CursorChatsSelectAll.IsChecked = vms.Count > 0 && vms.All(v => v.IsSelected);
+                }
+            }
+            catch (Exception ex)
+            {
+                if (CursorChatsSummaryText != null)
+                {
+                    CursorChatsSummaryText.Text = ex.Message;
+                }
+
+                CursorChatsList.ItemsSource = null;
+            }
+        }
+
+        private int GetCursorChatsDaysFilter()
+        {
+            if (CursorChatsDaysCombo?.SelectedItem is ComboBoxItem item
+                && int.TryParse(item.Tag?.ToString(), out var days))
+            {
+                return days;
+            }
+
+            return 7;
         }
 
         private void RefreshCursorDiskSummary()
@@ -3131,6 +3642,46 @@ namespace GitDeployPro.Pages
             public string Name => Profile.Name;
             public string Host => Profile.Host;
             public Visibility DefaultBadgeVisibility => IsDefault ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        private sealed class CursorChatProjectVm : System.ComponentModel.INotifyPropertyChanged
+        {
+            private bool _isSelected;
+
+            public CursorChatProjectVm(GitDeployPro.Services.Cursor.CursorChatProjectRow row)
+            {
+                WorkspaceId = row.WorkspaceId ?? string.Empty;
+                DisplayName = string.IsNullOrWhiteSpace(row.DisplayName) ? "(unknown)" : row.DisplayName;
+                ChatCount = row.ChatCount;
+                OlderThanDaysCount = row.OlderThanDaysCount;
+                NewestLocal = row.NewestUtc.HasValue
+                    ? row.NewestUtc.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+                    : "—";
+                _isSelected = row.IsSelected;
+            }
+
+            public string WorkspaceId { get; }
+            public string DisplayName { get; }
+            public int ChatCount { get; }
+            public int OlderThanDaysCount { get; }
+            public string NewestLocal { get; }
+
+            public bool IsSelected
+            {
+                get => _isSelected;
+                set
+                {
+                    if (_isSelected == value)
+                    {
+                        return;
+                    }
+
+                    _isSelected = value;
+                    PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(IsSelected)));
+                }
+            }
+
+            public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
         }
     }
 }
