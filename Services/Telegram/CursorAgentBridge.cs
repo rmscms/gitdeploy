@@ -893,9 +893,17 @@ namespace GitDeployPro.Services.Telegram
                 }
             }
 
-            var reply = string.IsNullOrWhiteSpace(run.Output)
+            var rawOutput = string.IsNullOrWhiteSpace(run.Output)
                 ? Loc.T("cursor.emptyReply")
                 : TrimReply(run.Output);
+
+            var docs = TelegramDocumentDispatch.CollectPaths(projectPath, text, rawOutput).ToList();
+            if (!string.IsNullOrWhiteSpace(run.PlanFilePath) && File.Exists(run.PlanFilePath))
+            {
+                docs.Insert(0, run.PlanFilePath);
+            }
+
+            var reply = TelegramDocumentDispatch.StripMarkers(rawOutput);
 
             if (run.Usage is { Available: true } usage)
             {
@@ -908,12 +916,48 @@ namespace GitDeployPro.Services.Telegram
                 reply = reply.TrimEnd() + "\n\n" + Loc.T("cursor.usageNaAcp");
             }
 
-            await PublishAgentReplyAsync(projectPath, reply, cancellationToken).ConfigureAwait(false);
-
+            // Plan mode must always leave a dated .md under .cursor/plans/ for Get MD / Build.
+            string? planForButtons = null;
             if (!string.IsNullOrWhiteSpace(run.PlanFilePath) && File.Exists(run.PlanFilePath))
             {
-                await PublishPlanDocumentAsync(projectPath, run.PlanFilePath, cancellationToken)
+                planForButtons = run.PlanFilePath;
+            }
+            else if (_store.IsCursorPlanMode(projectPath))
+            {
+                planForButtons = CursorPlanFileWriter.WriteFromReply(projectPath, reply);
+                if (!string.IsNullOrWhiteSpace(planForButtons))
+                {
+                    docs.Insert(0, planForButtons);
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(planForButtons))
+            {
+                planForButtons = docs.FirstOrDefault(p =>
+                    CursorPlanCatalog.IsUnderPlansDir(projectPath, p));
+            }
+
+            var planPendingId = await PublishAgentReplyAsync(projectPath, reply, cancellationToken, planForButtons)
+                .ConfigureAwait(false);
+
+            // Auto-send only the plan file from this turn (not every scraped doc).
+            if (!string.IsNullOrWhiteSpace(planForButtons) && File.Exists(planForButtons))
+            {
+                var buildId = planPendingId
+                              ?? TelegramPlanMdBroker.Instance.Register(projectPath, planForButtons);
+                await PublishPlanDocumentAsync(projectPath, planForButtons, cancellationToken, buildId)
                     .ConfigureAwait(false);
+            }
+            else
+            {
+                foreach (var doc in docs.Distinct(StringComparer.OrdinalIgnoreCase))
+                {
+                    if (File.Exists(doc) && !CursorPlanCatalog.IsUnderPlansDir(projectPath, doc))
+                    {
+                        await PublishPlanDocumentAsync(projectPath, doc, cancellationToken, null)
+                            .ConfigureAwait(false);
+                    }
+                }
             }
         }
 
@@ -988,8 +1032,18 @@ namespace GitDeployPro.Services.Telegram
             sb.AppendLine("- Reply in the same language the user used (Persian or English).");
             sb.AppendLine("- This reply is delivered on Telegram. Prefer clear spacing, emoji where helpful, and Telegram HTML for emphasis:");
             sb.AppendLine("  use <b>bold</b>, <i>italic</i>, <code>inline</code>, <pre>blocks</pre>. Avoid Markdown **stars**.");
+            sb.AppendLine("- When the user asks to send/attach an .md/.txt file on Telegram: put ONE line exactly");
+            sb.AppendLine("  [[TG_DOC:C:\\\\full\\\\path\\\\file.md]] (real existing path). The bridge strips the marker and sendDocuments it.");
+            sb.AppendLine("  Do NOT only paste the path or file body — without [[TG_DOC:...]] no attachment is sent.");
             sb.AppendLine($"- Project: {projectName} @ {projectPath}");
             sb.AppendLine("- Always obey PROJECT RULES and stay inside the listed workspace roots.");
+
+            if (_store.IsCursorPlanMode(projectPath))
+            {
+                sb.AppendLine("- PLAN MODE (required): finish by calling create_plan so GitDeploy saves the plan under .cursor/plans/ as a dated .md.");
+                sb.AppendLine("- Do NOT write plan files under docs/ or elsewhere — only create_plan (GitDeploy stores them in .cursor/plans/, gitignored).");
+                sb.AppendLine("- The saved plan must be complete enough to Build later.");
+            }
 
             return sb.ToString();
         }
@@ -1701,10 +1755,11 @@ namespace GitDeployPro.Services.Telegram
             }
         }
 
-        private async Task PublishAgentReplyAsync(
+        private async Task<string?> PublishAgentReplyAsync(
             string projectPath,
             string reply,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            string? preferredPlanFilePath = null)
         {
             var message = new TelegramChatMessage
             {
@@ -1723,15 +1778,32 @@ namespace GitDeployPro.Services.Telegram
             var chatId = _store.GetLastChatId();
             if (string.IsNullOrWhiteSpace(token) || chatId == 0)
             {
-                return;
+                return null;
             }
 
+            string? planPendingId = null;
             // Local chat is already updated — Telegram delivery is fully async/queued.
             try
             {
                 const int maxLen = 3500;
                 var chunks = ChunkText(reply, maxLen).ToList();
-                var markup = TelegramDeployCoordinator.BuildReplyKeyboard(projectPath);
+                JToken? markup = TelegramDeployCoordinator.BuildReplyKeyboard(projectPath);
+
+                // Only show Get MD / Build when THIS turn produced a real plan file.
+                if (_store.IsCursorPlanMode(projectPath)
+                    && !string.IsNullOrWhiteSpace(preferredPlanFilePath)
+                    && File.Exists(preferredPlanFilePath)
+                    && CursorPlanCatalog.IsUnderPlansDir(projectPath, preferredPlanFilePath))
+                {
+                    planPendingId = TelegramPlanMdBroker.Instance.Register(
+                        projectPath,
+                        preferredPlanFilePath);
+                    if (!string.IsNullOrWhiteSpace(planPendingId))
+                    {
+                        markup = TelegramPlanMdBroker.BuildCardKeyboard(planPendingId);
+                    }
+                }
+
                 for (var i = 0; i < chunks.Count; i++)
                 {
                     var isLast = i == chunks.Count - 1;
@@ -1751,12 +1823,14 @@ namespace GitDeployPro.Services.Telegram
             }
 
             await Task.CompletedTask.ConfigureAwait(false);
+            return planPendingId;
         }
 
         private async Task PublishPlanDocumentAsync(
             string projectPath,
             string planFilePath,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            string? buildPendingId = null)
         {
             var config = _config.LoadGlobalConfig();
             var token = EncryptionService.Decrypt(config.TelegramBotToken);
@@ -1766,13 +1840,29 @@ namespace GitDeployPro.Services.Telegram
                 return;
             }
 
+            // Document may arrive without a prior plan-mode card — still offer Build for that file.
+            var pendingId = buildPendingId;
+            if (string.IsNullOrWhiteSpace(pendingId)
+                && CursorPlanCatalog.IsUnderPlansDir(projectPath, planFilePath))
+            {
+                pendingId = TelegramPlanMdBroker.Instance.Register(projectPath, planFilePath);
+            }
+
+            JToken? markup = null;
+            if (!string.IsNullOrWhiteSpace(pendingId)
+                && CursorPlanCatalog.IsUnderPlansDir(projectPath, planFilePath))
+            {
+                markup = TelegramPlanMdBroker.BuildDocumentKeyboard(pendingId);
+            }
+
             var caption = Loc.T("cursor.planDocumentCaption", Path.GetFileName(planFilePath));
             TelegramOutboundQueue.Instance.EnqueueDocument(
                 token,
                 chatId,
                 projectPath,
                 planFilePath,
-                caption);
+                caption,
+                markup);
 
             var note = new TelegramChatMessage
             {
@@ -1787,6 +1877,18 @@ namespace GitDeployPro.Services.Telegram
             _store.Append(projectPath, note);
             TelegramPoller.Instance.RaiseMessage(projectPath, note);
             await Task.CompletedTask.ConfigureAwait(false);
+        }
+
+        private static bool LooksLikePlanFile(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return false;
+            }
+
+            var normalized = path.Replace('/', '\\');
+            return normalized.Contains("\\.cursor\\plans\\", StringComparison.OrdinalIgnoreCase)
+                   && normalized.EndsWith(".md", StringComparison.OrdinalIgnoreCase);
         }
 
         private static string FormatUsageFooter(AgentTokenUsage usage)

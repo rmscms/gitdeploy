@@ -54,6 +54,10 @@ namespace GitDeployPro.Models
         public string CodexSessionId { get; set; } = "";
         /// <summary>Cursor ACP/CLI mode for this project: agent | plan.</summary>
         public string CursorAgentMode { get; set; } = "agent";
+        /// <summary>Absolute path of the latest plan .md for this project (survives app restart).</summary>
+        public string LastPlanPath { get; set; } = "";
+        /// <summary>Short id → absolute plan path for durable Telegram Get MD / Build buttons.</summary>
+        public Dictionary<string, string> PlanCallbackMap { get; set; } = new(StringComparer.OrdinalIgnoreCase);
         /// <summary>Last turn token usage (Cursor), if reported.</summary>
         public long LastUsageInputTokens { get; set; }
         public long LastUsageOutputTokens { get; set; }

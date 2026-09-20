@@ -29,6 +29,11 @@ namespace GitDeployPro.Services.Telegram
         public const string CallbackEngineMenu = "agent:engine:menu";
         public const string CallbackEngineCursor = "agent:engine:cursor";
         public const string CallbackEngineCodex = "agent:engine:codex";
+        public const string CallbackCursorCache = "cache:menu";
+        public const string CallbackCursorCacheSafe = "cache:safe";
+        public const string CallbackCursorCacheSafeForce = "cache:safe:force";
+        public const string CallbackCursorCacheAgg = "cache:agg";
+        public const string CallbackCursorCacheAggForce = "cache:agg:force";
 
         private readonly TelegramChatStore _store;
         private readonly TelegramBotClient _client;
@@ -83,6 +88,12 @@ namespace GitDeployPro.Services.Telegram
                 return;
             }
 
+            if (IsPlansCommand(text))
+            {
+                await ReplyPlansAsync(token, update, cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
             if (IsPlanModeCommand(text))
             {
                 await ReplySetCursorModeAsync(token, update, "plan", cancellationToken).ConfigureAwait(false);
@@ -116,6 +127,12 @@ namespace GitDeployPro.Services.Telegram
             if (IsClearLocalCommand(text))
             {
                 await ReplyClearLocalAsync(token, update, cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            if (IsCursorCacheCommand(text))
+            {
+                await ReplyCursorCacheAsync(token, update, cancellationToken).ConfigureAwait(false);
                 return;
             }
 
@@ -360,6 +377,71 @@ namespace GitDeployPro.Services.Telegram
                     return;
                 }
 
+                if (TelegramPlanMdBroker.Instance.IsPlanMdCallback(data))
+                {
+                    var (handled, ack) = await TelegramPlanMdBroker.Instance
+                        .TryHandleAsync(token, update.ChatId, data, update.Text, cancellationToken)
+                        .ConfigureAwait(false);
+                    if (handled)
+                    {
+                        await _client.AnswerCallbackQueryAsync(
+                                token,
+                                update.CallbackQueryId,
+                                ack,
+                                cancellationToken)
+                            .ConfigureAwait(false);
+                    }
+
+                    return;
+                }
+
+                if (TelegramPlanMdBroker.Instance.IsBuildCallback(data))
+                {
+                    var (handled, ack) = await TelegramPlanMdBroker.Instance
+                        .TryHandleBuildAsync(token, update.ChatId, data, update.Text, cancellationToken)
+                        .ConfigureAwait(false);
+                    if (handled)
+                    {
+                        await _client.AnswerCallbackQueryAsync(
+                                token,
+                                update.CallbackQueryId,
+                                ack,
+                                cancellationToken)
+                            .ConfigureAwait(false);
+                    }
+
+                    return;
+                }
+
+                if (TelegramPlanMdBroker.Instance.IsDeleteCallback(data))
+                {
+                    var (handled, ack) = await TelegramPlanMdBroker.Instance
+                        .TryHandleDeleteAsync(token, update.ChatId, data, cancellationToken)
+                        .ConfigureAwait(false);
+                    if (handled)
+                    {
+                        await _client.AnswerCallbackQueryAsync(
+                                token,
+                                update.CallbackQueryId,
+                                ack,
+                                cancellationToken)
+                            .ConfigureAwait(false);
+                    }
+
+                    return;
+                }
+
+                if (string.Equals(data, CallbackCursorCache, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(data, CallbackCursorCacheSafe, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(data, CallbackCursorCacheSafeForce, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(data, CallbackCursorCacheAgg, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(data, CallbackCursorCacheAggForce, StringComparison.OrdinalIgnoreCase))
+                {
+                    await HandleCursorCacheCallbackAsync(token, update, data, cancellationToken)
+                        .ConfigureAwait(false);
+                    return;
+                }
+
                 if (string.Equals(data, CallbackMenuProjects, StringComparison.OrdinalIgnoreCase))
                 {
                     await ReplyProjectsAsync(token, update, cancellationToken).ConfigureAwait(false);
@@ -471,6 +553,80 @@ namespace GitDeployPro.Services.Telegram
                 active).ConfigureAwait(false);
         }
 
+        private async Task ReplyPlansAsync(
+            string token,
+            TelegramIncomingUpdate update,
+            CancellationToken cancellationToken)
+        {
+            var config = _config.LoadGlobalConfig();
+            var active = ResolveInboundProjectPath(config);
+            if (!TelegramPaths.IsUnassigned(active) && Directory.Exists(active))
+            {
+                CursorPlanFileWriter.EnsurePlansDirectory(active);
+            }
+
+            var plans = CursorPlanCatalog.List(active);
+            var latest = CursorPlanCatalog.GetLatest(active);
+
+            if (plans.Count == 0)
+            {
+                await SendBotAsync(
+                    token,
+                    update.ChatId,
+                    TelegramMarkup.Html(Loc.T("telegram.plansEmpty")),
+                    TelegramDeployCoordinator.BuildReplyKeyboard(active),
+                    cancellationToken,
+                    active).ConfigureAwait(false);
+                return;
+            }
+
+            var sb = new System.Text.StringBuilder();
+            sb.Append("<b>").Append(TelegramMarkup.Html(Loc.T("telegram.plansTitle"))).Append("</b>\n");
+            sb.Append(TelegramMarkup.Html(Loc.T("telegram.homeActive"))).Append(" <code>")
+                .Append(TelegramMarkup.Html(TelegramPaths.DisplayName(active))).Append("</code>\n\n");
+
+            var rows = new System.Collections.Generic.List<(string Text, string Data)[]>();
+            rows.Add(new[]
+            {
+                (Loc.T("telegram.kbGetPlanMd"), TelegramPlanMdBroker.CallbackPrefix + TelegramPlanMdBroker.LastToken),
+                (Loc.T("telegram.kbBuildPlan"), TelegramPlanMdBroker.CallbackBuildPrefix + TelegramPlanMdBroker.LastToken)
+            });
+            rows.Add(new[]
+            {
+                (Loc.T("telegram.kbDeleteAllPlans"), TelegramPlanMdBroker.CallbackDeletePrefix + "all")
+            });
+
+            for (var i = 0; i < plans.Count && i < 10; i++)
+            {
+                var path = plans[i];
+                var name = Path.GetFileName(path);
+                var isLatest = !string.IsNullOrWhiteSpace(latest)
+                               && string.Equals(path, latest, StringComparison.OrdinalIgnoreCase);
+                var mark = isLatest ? "⭐ " : "• ";
+                var when = File.GetLastWriteTime(path).ToString("MM-dd HH:mm");
+                sb.Append(mark)
+                    .Append("<code>").Append(TelegramMarkup.Html(name)).Append("</code>")
+                    .Append(" — ").Append(TelegramMarkup.Html(when))
+                    .Append('\n');
+
+                var shortName = name.Length > 22 ? name[..19] + "…" : name;
+                rows.Add(new[]
+                {
+                    ("📄 " + shortName, TelegramPlanMdBroker.CallbackPrefix + "i:" + i),
+                    ("🚀", TelegramPlanMdBroker.CallbackBuildPrefix + "i:" + i),
+                    ("🗑", TelegramPlanMdBroker.CallbackDeletePrefix + "i:" + i)
+                });
+            }
+
+            await SendBotAsync(
+                token,
+                update.ChatId,
+                sb.ToString().TrimEnd(),
+                TelegramMarkup.Inline(rows.ToArray()),
+                cancellationToken,
+                active).ConfigureAwait(false);
+        }
+
         private async Task ReplyStatusAsync(
             string token,
             TelegramIncomingUpdate update,
@@ -503,6 +659,7 @@ namespace GitDeployPro.Services.Telegram
 
             html += "\n" + FormatAccountUsageHtml(accountUsage);
             html += "\n" + FormatUsageStatusHtml(status);
+            html += "\n" + FormatCursorDiskStatusHtml();
 
             if (workspace.HasMultiRoot)
             {
@@ -1198,6 +1355,154 @@ namespace GitDeployPro.Services.Telegram
                 active).ConfigureAwait(false);
         }
 
+        private async Task ReplyCursorCacheAsync(
+            string token,
+            TelegramIncomingUpdate update,
+            CancellationToken cancellationToken)
+        {
+            var config = _config.LoadGlobalConfig();
+            var active = ResolveInboundProjectPath(config);
+            var scan = GitDeployPro.Services.Cursor.CursorDiskCleanupService.Scan();
+            var html = BuildCursorCacheHtml(scan);
+            var markup = BuildCursorCacheKeyboard(scan.CursorRunning);
+            await SendBotAsync(token, update.ChatId, html, markup, cancellationToken, active)
+                .ConfigureAwait(false);
+        }
+
+        private async Task HandleCursorCacheCallbackAsync(
+            string token,
+            TelegramIncomingUpdate update,
+            string data,
+            CancellationToken cancellationToken)
+        {
+            var config = _config.LoadGlobalConfig();
+            var active = ResolveInboundProjectPath(config);
+
+            if (string.Equals(data, CallbackCursorCache, StringComparison.OrdinalIgnoreCase))
+            {
+                await ReplyCursorCacheAsync(token, update, cancellationToken).ConfigureAwait(false);
+                await _client.AnswerCallbackQueryAsync(token, update.CallbackQueryId, null, cancellationToken)
+                    .ConfigureAwait(false);
+                return;
+            }
+
+            var force = data.EndsWith(":force", StringComparison.OrdinalIgnoreCase);
+            var aggressive = data.Contains("agg", StringComparison.OrdinalIgnoreCase);
+            var profile = aggressive
+                ? GitDeployPro.Services.Cursor.CursorCleanupProfile.Aggressive
+                : GitDeployPro.Services.Cursor.CursorCleanupProfile.Safe;
+
+            await _client.AnswerCallbackQueryAsync(
+                    token,
+                    update.CallbackQueryId,
+                    Loc.T("telegram.cursorCacheWorking"),
+                    cancellationToken)
+                .ConfigureAwait(false);
+
+            var result = await GitDeployPro.Services.Cursor.CursorDiskCleanupService
+                .ClearAsync(profile, force, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (result.AbortedBecauseRunning && !force)
+            {
+                var warn = TelegramMarkup.Html(Loc.T("telegram.cursorCacheNeedQuit")) + "\n" +
+                           TelegramMarkup.Html(result.Message);
+                var forceCb = aggressive ? CallbackCursorCacheAggForce : CallbackCursorCacheSafeForce;
+                var markup = TelegramMarkup.Inline(
+                    new[]
+                    {
+                        (Loc.T("telegram.kbCursorCacheForceQuit"), forceCb)
+                    },
+                    new[]
+                    {
+                        (Loc.T("telegram.kbCursorCacheCancel"), CallbackCursorCache)
+                    });
+                await SendBotAsync(token, update.ChatId, warn, markup, cancellationToken, active)
+                    .ConfigureAwait(false);
+                return;
+            }
+
+            var done = $"<b>{TelegramMarkup.Html(Loc.T("telegram.cursorCacheDone"))}</b>\n" +
+                       TelegramMarkup.Html(result.Message);
+            var scan = GitDeployPro.Services.Cursor.CursorDiskCleanupService.Scan();
+            done += "\n\n" + BuildCursorCacheHtml(scan);
+            await SendBotAsync(
+                    token,
+                    update.ChatId,
+                    done,
+                    BuildCursorCacheKeyboard(scan.CursorRunning),
+                    cancellationToken,
+                    active)
+                .ConfigureAwait(false);
+        }
+
+        private static string BuildCursorCacheHtml(GitDeployPro.Services.Cursor.CursorDiskScanResult scan)
+        {
+            var fmt = GitDeployPro.Services.Cursor.CursorDiskCleanupService.FormatBytes;
+            var sb = new StringBuilder();
+            sb.Append("<b>").Append(TelegramMarkup.Html(Loc.T("telegram.cursorCacheTitle"))).Append("</b>\n");
+            sb.Append(TelegramMarkup.Html(Loc.T("telegram.cursorCacheTotal", fmt(scan.TotalCursorBytes)))).Append('\n');
+            sb.Append(TelegramMarkup.Html(Loc.T("telegram.cursorCacheState", fmt(scan.StateDbBytes)))).Append('\n');
+            sb.Append(TelegramMarkup.Html(Loc.T("telegram.cursorCacheBackup", fmt(scan.StateBackupBytes)))).Append('\n');
+            sb.Append(TelegramMarkup.Html(Loc.T("telegram.cursorCacheAgent", fmt(scan.AgentWorkerBytes)))).Append('\n');
+            sb.Append(TelegramMarkup.Html(Loc.T("telegram.cursorCacheCaches", fmt(scan.CacheBytes)))).Append('\n');
+            sb.Append(TelegramMarkup.Html(Loc.T(
+                "telegram.cursorCacheSafeEst",
+                fmt(scan.SafeReclaimableBytes)))).Append('\n');
+            sb.Append(TelegramMarkup.Html(Loc.T(
+                "telegram.cursorCacheAggEst",
+                fmt(scan.AggressiveReclaimableBytes)))).Append('\n');
+            if (scan.CursorRunning)
+            {
+                sb.Append("⚠️ ").Append(TelegramMarkup.Html(Loc.T(
+                    "telegram.cursorCacheRunning",
+                    string.Join(", ", scan.RunningProcessNames)))).Append('\n');
+            }
+
+            sb.Append('\n').Append(TelegramMarkup.Html(Loc.T("telegram.cursorCacheHint")));
+            return sb.ToString().TrimEnd();
+        }
+
+        private static JObject BuildCursorCacheKeyboard(bool cursorRunning)
+        {
+            if (cursorRunning)
+            {
+                return TelegramMarkup.Inline(
+                    new[]
+                    {
+                        (Loc.T("telegram.kbCursorCacheSafe"), CallbackCursorCacheSafe),
+                        (Loc.T("telegram.kbCursorCacheAgg"), CallbackCursorCacheAgg)
+                    },
+                    new[]
+                    {
+                        (Loc.T("telegram.kbCursorCacheForceQuit"), CallbackCursorCacheSafeForce)
+                    });
+            }
+
+            return TelegramMarkup.Inline(new[]
+            {
+                (Loc.T("telegram.kbCursorCacheSafe"), CallbackCursorCacheSafe),
+                (Loc.T("telegram.kbCursorCacheAgg"), CallbackCursorCacheAgg)
+            });
+        }
+
+        private static string FormatCursorDiskStatusHtml()
+        {
+            try
+            {
+                var scan = GitDeployPro.Services.Cursor.CursorDiskCleanupService.Scan();
+                var fmt = GitDeployPro.Services.Cursor.CursorDiskCleanupService.FormatBytes;
+                return TelegramMarkup.Html(Loc.T(
+                    "telegram.statusCursorDisk",
+                    fmt(scan.TotalCursorBytes),
+                    fmt(scan.SafeReclaimableBytes)));
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
+
         private async Task ReplyClearLocalAsync(
             string token,
             TelegramIncomingUpdate update,
@@ -1522,6 +1827,16 @@ namespace GitDeployPro.Services.Telegram
         private static bool IsStatusCommand(string text)
             => MatchesCommand(text, "/status", "telegram.kbStatus", "telegram.btnStatus", "status", "وضعیت");
 
+        private static bool IsPlansCommand(string text)
+            => MatchesCommand(
+                text,
+                "/plans",
+                "telegram.kbPlans",
+                "plans",
+                "پلن‌ها",
+                "پلنها",
+                "لیست پلن");
+
         private static bool IsDeployCommand(string text)
             => MatchesCommand(
                 text,
@@ -1671,6 +1986,18 @@ namespace GitDeployPro.Services.Telegram
                 "clear",
                 "پاک کردن چت",
                 "پاک کردن");
+
+        private static bool IsCursorCacheCommand(string text)
+            => MatchesCommand(
+                   text,
+                   "/cursorcache",
+                   "telegram.kbCursorCache",
+                   "cursorcache",
+                   "cursor cache",
+                   "کش کورسر",
+                   "کش کرسر",
+                   "پاکسازی کرسر")
+               || MatchesCommand(text, "/cursorclean", "cursorclean");
 
         private static bool IsWipeTelegramCommand(string text)
             => MatchesCommand(

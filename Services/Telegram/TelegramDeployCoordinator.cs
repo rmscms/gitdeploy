@@ -73,6 +73,11 @@ namespace GitDeployPro.Services.Telegram
                         Loc.T("telegram.kbRestartAgent"),
                         Loc.T("telegram.kbModel"),
                         modeButton
+                    },
+                    new[]
+                    {
+                        Loc.T("telegram.kbPlans"),
+                        Loc.T("telegram.kbCursorCache")
                     });
             }
 
@@ -91,7 +96,9 @@ namespace GitDeployPro.Services.Telegram
                 },
                 new[]
                 {
-                    modeButton
+                    modeButton,
+                    Loc.T("telegram.kbPlans"),
+                    Loc.T("telegram.kbCursorCache")
                 });
         }
 
