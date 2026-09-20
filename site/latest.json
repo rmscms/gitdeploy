@@ -1,14 +1,18 @@
 {
-  "version": "2.2.19",
-  "fileName": "GitDeployPro-2.2.19.exe",
-  "downloadUrl": "versions/GitDeployPro-2.2.19.exe",
-  "sha256": "AC5FFE7B5628A4AADD8738DF1713EAD99C2709E55EF0CBE5D978187BCA7CB7FE",
-  "releaseNotes": "Feature: Telegram agent replies split understanding vs result with a clear separator\nFix: Mid-turn agent narration goes to live progress instead of the final reply\nFix: VPN keep-alive does not kill/reconnect an already-working tunnel",
+  "version": "2.2.53",
+  "fileName": "GitDeployPro-2.2.53.exe",
+  "downloadUrl": "versions/GitDeployPro-2.2.53.exe",
+  "sha256": "7208AD9AA03E74855CA1EC8CC737AC57C8A82A1BBBEEEAA07C42D2BF1095A16A",
+  "releaseNotes": "Feature: Telegram Plan Build button implements the plan like Cursor IDE\nFeature: /plans catalog with dated .cursor/plans files, gitignore, Get/Build/Delete\nFeature: Cursor disk cleanup (Safe/Aggressive) in Settings AI agent and Telegram /cursorcache\nFix: Telegram project switch opens Deploy instead of a black empty frame\nFix: Get MD binds to this turn's plan file (not an older last plan)\nFix: Plan MD upload uses a clean ASCII .md filename\nFix: Plan buttons survive app restart (no more expired callbacks)",
   "changelog": [
-    "Feature: Telegram agent replies split understanding vs result with a clear separator",
-    "Fix: Mid-turn agent narration goes to live progress instead of the final reply",
-    "Fix: VPN keep-alive does not kill/reconnect an already-working tunnel"
+    "Feature: Telegram Plan Build button implements the plan like Cursor IDE",
+    "Feature: /plans catalog with dated .cursor/plans files, gitignore, Get/Build/Delete",
+    "Feature: Cursor disk cleanup (Safe/Aggressive) in Settings AI agent and Telegram /cursorcache",
+    "Fix: Telegram project switch opens Deploy instead of a black empty frame",
+    "Fix: Get MD binds to this turn's plan file (not an older last plan)",
+    "Fix: Plan MD upload uses a clean ASCII .md filename",
+    "Fix: Plan buttons survive app restart (no more expired callbacks)"
   ],
   "mandatory": false,
-  "publishedUtc": "2026-09-20T05:15:00Z"
+  "publishedUtc": "2026-09-20T10:10:00Z"
 }

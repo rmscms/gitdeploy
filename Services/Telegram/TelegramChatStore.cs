@@ -295,6 +295,116 @@ namespace GitDeployPro.Services.Telegram
             SaveThread(thread);
         }
 
+        public string? GetLastPlanPath(string projectPath)
+        {
+            var path = (LoadThread(projectPath).LastPlanPath ?? string.Empty).Trim();
+            return string.IsNullOrWhiteSpace(path) ? null : path;
+        }
+
+        public void SetLastPlanPath(string projectPath, string? planPath)
+        {
+            if (string.IsNullOrWhiteSpace(projectPath))
+            {
+                return;
+            }
+
+            var thread = LoadThread(projectPath);
+            thread.LastPlanPath = string.IsNullOrWhiteSpace(planPath) ? string.Empty : planPath.Trim();
+            SaveThread(thread);
+        }
+
+        public string RegisterPlanCallback(string projectPath, string planPath)
+        {
+            if (string.IsNullOrWhiteSpace(projectPath)
+                || string.IsNullOrWhiteSpace(planPath)
+                || !File.Exists(planPath))
+            {
+                return string.Empty;
+            }
+
+            var full = Path.GetFullPath(planPath);
+            var id = ShortPlanId(full);
+            var thread = LoadThread(projectPath);
+            thread.PlanCallbackMap ??= new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            thread.PlanCallbackMap[id] = full;
+            thread.LastPlanPath = full;
+
+            // Keep map small.
+            if (thread.PlanCallbackMap.Count > 40)
+            {
+                foreach (var old in thread.PlanCallbackMap
+                             .Where(kv => !string.Equals(kv.Key, id, StringComparison.OrdinalIgnoreCase))
+                             .Take(thread.PlanCallbackMap.Count - 30)
+                             .Select(kv => kv.Key)
+                             .ToList())
+                {
+                    thread.PlanCallbackMap.Remove(old);
+                }
+            }
+
+            SaveThread(thread);
+            return id;
+        }
+
+        public string? ResolvePlanCallback(string projectPath, string callbackId)
+        {
+            var id = (callbackId ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(projectPath))
+            {
+                return null;
+            }
+
+            var thread = LoadThread(projectPath);
+            if (thread.PlanCallbackMap != null
+                && thread.PlanCallbackMap.TryGetValue(id, out var mapped)
+                && !string.IsNullOrWhiteSpace(mapped)
+                && File.Exists(mapped))
+            {
+                return mapped;
+            }
+
+            return null;
+        }
+
+        public void ForgetPlanPath(string projectPath, string? planPath)
+        {
+            if (string.IsNullOrWhiteSpace(projectPath) || string.IsNullOrWhiteSpace(planPath))
+            {
+                return;
+            }
+
+            var full = Path.GetFullPath(planPath);
+            var thread = LoadThread(projectPath);
+            if (thread.PlanCallbackMap != null)
+            {
+                foreach (var key in thread.PlanCallbackMap
+                             .Where(kv => string.Equals(kv.Value, full, StringComparison.OrdinalIgnoreCase))
+                             .Select(kv => kv.Key)
+                             .ToList())
+                {
+                    thread.PlanCallbackMap.Remove(key);
+                }
+            }
+
+            if (string.Equals(thread.LastPlanPath, full, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(
+                    (thread.LastPlanPath ?? string.Empty).Trim(),
+                    planPath.Trim(),
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                thread.LastPlanPath = CursorPlanCatalog.GetLatest(projectPath) ?? string.Empty;
+            }
+
+            SaveThread(thread);
+        }
+
+        private static string ShortPlanId(string fullPath)
+        {
+            using var sha = System.Security.Cryptography.SHA256.Create();
+            var bytes = sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(fullPath));
+            return Convert.ToHexString(bytes.AsSpan(0, 4)).ToLowerInvariant(); // 8 hex chars
+        }
+
         public void RecordCursorUsage(string projectPath, AgentTokenUsage usage)
         {
             if (string.IsNullOrWhiteSpace(projectPath) || usage == null || !usage.Available)

@@ -54,7 +54,8 @@ namespace GitDeployPro.Services.Telegram
                 ResetKeyboard: false,
                 ResetHint: null,
                 DocumentPath: null,
-                DocumentCaption: null));
+                DocumentCaption: null,
+                UploadFileName: null));
             _signal.Release();
         }
 
@@ -63,7 +64,9 @@ namespace GitDeployPro.Services.Telegram
             long chatId,
             string projectPath,
             string documentPath,
-            string? caption)
+            string? caption,
+            JToken? replyMarkup = null,
+            string? uploadFileName = null)
         {
             if (Volatile.Read(ref _disposed) != 0
                 || string.IsNullOrWhiteSpace(token)
@@ -79,12 +82,13 @@ namespace GitDeployPro.Services.Telegram
                 chatId,
                 projectPath ?? string.Empty,
                 Text: string.Empty,
-                ReplyMarkup: null,
+                ReplyMarkup: replyMarkup,
                 ParseMode: null,
                 ResetKeyboard: false,
                 ResetHint: null,
                 DocumentPath: documentPath,
-                DocumentCaption: caption));
+                DocumentCaption: caption,
+                UploadFileName: uploadFileName));
             _signal.Release();
         }
 
@@ -111,7 +115,8 @@ namespace GitDeployPro.Services.Telegram
                 ResetKeyboard: true,
                 ResetHint: hintText,
                 DocumentPath: null,
-                DocumentCaption: null));
+                DocumentCaption: null,
+                UploadFileName: null));
             _signal.Release();
         }
 
@@ -191,12 +196,19 @@ namespace GitDeployPro.Services.Telegram
                             {
                                 using var docCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                                 docCts.CancelAfter(TimeSpan.FromSeconds(90));
+                                var uploadName = !string.IsNullOrWhiteSpace(job.UploadFileName)
+                                    ? job.UploadFileName
+                                    : (job.DocumentPath!.EndsWith(".md", StringComparison.OrdinalIgnoreCase)
+                                        ? CursorPlanFileWriter.TelegramUploadFileName(job.DocumentPath!)
+                                        : null);
                                 var messageId = await _client.SendDocumentAsync(
                                         job.Token,
                                         job.ChatId,
                                         job.DocumentPath!,
                                         job.DocumentCaption,
-                                        docCts.Token)
+                                        docCts.Token,
+                                        job.ReplyMarkup,
+                                        uploadName)
                                     .ConfigureAwait(false);
                                 if (messageId > 0 && !string.IsNullOrWhiteSpace(job.ProjectPath))
                                 {
@@ -286,6 +298,7 @@ namespace GitDeployPro.Services.Telegram
             bool ResetKeyboard,
             string? ResetHint,
             string? DocumentPath,
-            string? DocumentCaption);
+            string? DocumentCaption,
+            string? UploadFileName);
     }
 }

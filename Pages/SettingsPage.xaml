@@ -1370,6 +1370,57 @@
                                            FontSize="11"
                                            Foreground="{StaticResource Text.Muted}"
                                            TextWrapping="Wrap" />
+
+                                <Border Margin="0,16,0,0"
+                                        Padding="12"
+                                        Background="{StaticResource Surface.Card}"
+                                        BorderBrush="{StaticResource Border.Subtle}"
+                                        BorderThickness="1"
+                                        CornerRadius="8">
+                                    <StackPanel>
+                                        <TextBlock Text="Cursor disk cleanup"
+                                                   FontWeight="SemiBold"
+                                                   FontSize="12"
+                                                   Foreground="{StaticResource Text.Primary}" />
+                                        <TextBlock x:Name="CursorDiskSummaryText"
+                                                   Margin="0,6,0,0"
+                                                   FontSize="11"
+                                                   Foreground="{StaticResource Text.Muted}"
+                                                   TextWrapping="Wrap"
+                                                   Text="—" />
+                                        <TextBlock Margin="0,6,0,10"
+                                                   FontSize="11"
+                                                   Foreground="{StaticResource Text.Muted}"
+                                                   TextWrapping="Wrap"
+                                                   Text="Safe frees backup DB + old agent CLI + UI caches. Never deletes live state.vscdb (chats). Also available in Telegram: /cursorcache" />
+                                        <StackPanel Orientation="Horizontal">
+                                            <Button Content="Refresh"
+                                                    Height="32"
+                                                    MinWidth="100"
+                                                    Style="{StaticResource App.Button.Ghost}"
+                                                    Click="CursorDiskRefresh_Click" />
+                                            <Button Content="Safe clear"
+                                                    Height="32"
+                                                    MinWidth="120"
+                                                    Margin="8,0,0,0"
+                                                    Style="{StaticResource App.Button.Primary}"
+                                                    Click="CursorDiskSafeClear_Click"
+                                                    ToolTip="Deletes backup DB, old agent CLI builds, UI caches. Never deletes live state.vscdb." />
+                                            <Button Content="Aggressive"
+                                                    Height="32"
+                                                    MinWidth="110"
+                                                    Margin="8,0,0,0"
+                                                    Style="{StaticResource App.Button.Ghost}"
+                                                    Click="CursorDiskAggressiveClear_Click"
+                                                    ToolTip="Safe + snapshots + local edit History. Still keeps live chats DB." />
+                                        </StackPanel>
+                                        <TextBlock x:Name="CursorDiskResultText"
+                                                   Margin="0,8,0,0"
+                                                   FontSize="11"
+                                                   Foreground="{StaticResource Text.Muted}"
+                                                   TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Border>
                             </StackPanel>
                         </Expander>
 

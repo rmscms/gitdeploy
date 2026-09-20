@@ -31,7 +31,10 @@ namespace GitDeployPro.Services.Telegram
             {
                 if (app.MainWindow is MainWindow main)
                 {
+                    // SetCurrentProject tears down Deploy and clears ContentFrame —
+                    // remount Deploy so Telegram switches don't leave a black empty shell.
                     main.SetCurrentProject(path, showSetupWizard: false);
+                    main.NavigateToDeploy();
                     return;
                 }
 

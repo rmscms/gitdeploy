@@ -185,11 +185,23 @@ namespace GitDeployPro.Services.Telegram
             long chatId,
             string documentPath,
             string? caption,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            JToken? replyMarkup = null,
+            string? uploadFileName = null)
         {
             if (string.IsNullOrWhiteSpace(documentPath) || !File.Exists(documentPath))
             {
                 throw new FileNotFoundException("Document file was not found.", documentPath);
+            }
+
+            var telegramName = !string.IsNullOrWhiteSpace(uploadFileName)
+                ? uploadFileName.Trim()
+                : Path.GetFileName(documentPath);
+            if (documentPath.EndsWith(".md", StringComparison.OrdinalIgnoreCase)
+                && (string.IsNullOrWhiteSpace(uploadFileName)
+                    || !telegramName.EndsWith(".md", StringComparison.OrdinalIgnoreCase)))
+            {
+                telegramName = CursorPlanFileWriter.TelegramUploadFileName(documentPath);
             }
 
             using var form = new MultipartFormDataContent();
@@ -199,10 +211,15 @@ namespace GitDeployPro.Services.Telegram
                 form.Add(new StringContent(caption), "caption");
             }
 
+            if (replyMarkup != null)
+            {
+                form.Add(new StringContent(replyMarkup.ToString(Newtonsoft.Json.Formatting.None)), "reply_markup");
+            }
+
             await using var stream = File.OpenRead(documentPath);
             var fileContent = new StreamContent(stream);
             fileContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
-            form.Add(fileContent, "document", Path.GetFileName(documentPath));
+            form.Add(fileContent, "document", telegramName);
 
             using var request = new HttpRequestMessage(HttpMethod.Post, Api(token, "sendDocument"))
             {
@@ -323,7 +340,11 @@ namespace GitDeployPro.Services.Telegram
                     UserName = userName,
                     IsCallback = true,
                     CallbackQueryId = callback.Value<string>("id") ?? string.Empty,
-                    CallbackData = callback.Value<string>("data") ?? string.Empty
+                    CallbackData = callback.Value<string>("data") ?? string.Empty,
+                    // Needed so plan-md button can re-parse paths / body from the message under the button.
+                    Text = message?.Value<string>("text")
+                           ?? message?.Value<string>("caption")
+                           ?? string.Empty
                 };
             }
 

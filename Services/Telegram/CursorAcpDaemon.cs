@@ -675,6 +675,7 @@ namespace GitDeployPro.Services.Telegram
                 if (!string.IsNullOrWhiteSpace(planMd))
                 {
                     savedPath = CursorPlanFileWriter.Write(ProjectPath, name, overview, planMd);
+                    CursorPlanFileWriter.EnsurePlansDirectory(ProjectPath);
                     _lastPlanFilePath = savedPath;
                     onProgressSafe("📋 " + GitDeployPro.Services.Localization.Loc.T(
                         "cursor.planSaved",

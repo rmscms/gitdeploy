@@ -2096,6 +2096,8 @@ namespace GitDeployPro.Pages
                     : Loc.T("cursor.agentFound", detected);
             }
 
+            RefreshCursorDiskSummary();
+
             if (AgentEngineComboBox != null)
             {
                 var engine = (globalConfig.AgentEngine ?? "cursor").Trim().ToLowerInvariant();
@@ -2335,6 +2337,103 @@ namespace GitDeployPro.Pages
             {
                 CursorAgentPathTextBox.Text = detected;
             }
+        }
+
+        private void CursorDiskRefresh_Click(object sender, RoutedEventArgs e)
+            => RefreshCursorDiskSummary();
+
+        private async void CursorDiskSafeClear_Click(object sender, RoutedEventArgs e)
+            => await RunCursorDiskClearAsync(GitDeployPro.Services.Cursor.CursorCleanupProfile.Safe)
+                .ConfigureAwait(true);
+
+        private async void CursorDiskAggressiveClear_Click(object sender, RoutedEventArgs e)
+        {
+            var confirm = ModernMessageBox.Show(
+                Loc.T("cursor.diskAggressiveConfirm"),
+                Loc.T("cursor.diskTitle"),
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+            if (!confirm)
+            {
+                return;
+            }
+
+            await RunCursorDiskClearAsync(GitDeployPro.Services.Cursor.CursorCleanupProfile.Aggressive)
+                .ConfigureAwait(true);
+        }
+
+        private void RefreshCursorDiskSummary()
+        {
+            if (CursorDiskSummaryText == null)
+            {
+                return;
+            }
+
+            try
+            {
+                var scan = GitDeployPro.Services.Cursor.CursorDiskCleanupService.Scan();
+                var fmt = GitDeployPro.Services.Cursor.CursorDiskCleanupService.FormatBytes;
+                CursorDiskSummaryText.Text = Loc.T(
+                    "cursor.diskSummary",
+                    fmt(scan.TotalCursorBytes),
+                    fmt(scan.StateDbBytes),
+                    fmt(scan.StateBackupBytes),
+                    fmt(scan.SafeReclaimableBytes));
+                if (scan.CursorRunning)
+                {
+                    CursorDiskSummaryText.Text += "\n" + Loc.T(
+                        "cursor.diskRunning",
+                        string.Join(", ", scan.RunningProcessNames));
+                }
+            }
+            catch (Exception ex)
+            {
+                CursorDiskSummaryText.Text = ex.Message;
+            }
+        }
+
+        private async Task RunCursorDiskClearAsync(GitDeployPro.Services.Cursor.CursorCleanupProfile profile)
+        {
+            if (CursorDiskResultText != null)
+            {
+                CursorDiskResultText.Foreground = (System.Windows.Media.Brush)FindResource("Text.Muted");
+                CursorDiskResultText.Text = Loc.T("cursor.diskWorking");
+            }
+
+            var scan = GitDeployPro.Services.Cursor.CursorDiskCleanupService.Scan();
+            var force = false;
+            if (scan.CursorRunning)
+            {
+                var quit = ModernMessageBox.Show(
+                    Loc.T("cursor.diskNeedQuit"),
+                    Loc.T("cursor.diskTitle"),
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
+                if (!quit)
+                {
+                    if (CursorDiskResultText != null)
+                    {
+                        CursorDiskResultText.Text = Loc.T("cursor.diskCancelled");
+                    }
+
+                    return;
+                }
+
+                force = true;
+            }
+
+            var result = await GitDeployPro.Services.Cursor.CursorDiskCleanupService
+                .ClearAsync(profile, force)
+                .ConfigureAwait(true);
+
+            if (CursorDiskResultText != null)
+            {
+                CursorDiskResultText.Foreground = (System.Windows.Media.Brush)FindResource(
+                    result.Ok ? "Status.Success" : "Status.Error");
+                CursorDiskResultText.Text = result.Message;
+            }
+
+            RefreshCursorDiskSummary();
         }
 
         private void CodexDetectButton_Click(object sender, RoutedEventArgs e)
