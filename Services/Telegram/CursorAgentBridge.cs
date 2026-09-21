@@ -746,11 +746,15 @@ namespace GitDeployPro.Services.Telegram
             return combined;
         }
 
+        internal bool TryGetNodeEntry(string agentPath, out string? nodeExe, out string? indexJs)
+            => ResolveNodeEntryCached(agentPath, out nodeExe, out indexJs);
+
         private async Task RunTurnAsync(
             string projectPath,
             string text,
             string? photoPath,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            bool allowAutoModelPick = true)
         {
             EnsureProjectSynced(projectPath);
 
@@ -817,6 +821,19 @@ namespace GitDeployPro.Services.Telegram
             catch (OperationCanceledException)
             {
                 throw;
+            }
+            catch (Exception ex) when (CursorAcpErrorHelper.IsCapacityError(ex))
+            {
+                await HandleCapacityFailureAsync(
+                        projectPath,
+                        text,
+                        photoPath,
+                        agentPath,
+                        config.CursorAgentModel,
+                        cancellationToken,
+                        allowAutoModelPick)
+                    .ConfigureAwait(false);
+                return;
             }
             catch (Exception ex)
             {
@@ -897,6 +914,20 @@ namespace GitDeployPro.Services.Telegram
                 ? Loc.T("cursor.emptyReply")
                 : TrimReply(run.Output);
 
+            if (CursorAcpErrorHelper.IsFailureOutput(rawOutput))
+            {
+                await HandleCapacityFailureAsync(
+                        projectPath,
+                        text,
+                        photoPath,
+                        agentPath,
+                        config.CursorAgentModel,
+                        cancellationToken,
+                        allowAutoModelPick)
+                    .ConfigureAwait(false);
+                return;
+            }
+
             var docs = TelegramDocumentDispatch.CollectPaths(projectPath, text, rawOutput).ToList();
             if (!string.IsNullOrWhiteSpace(run.PlanFilePath) && File.Exists(run.PlanFilePath))
             {
@@ -917,6 +948,7 @@ namespace GitDeployPro.Services.Telegram
             }
 
             // Plan mode must always leave a dated .md under .cursor/plans/ for Get MD / Build.
+            // Prefer ACP create_plan output — never WriteFromReply on top of it (that made a 2nd junk file).
             string? planForButtons = null;
             if (!string.IsNullOrWhiteSpace(run.PlanFilePath) && File.Exists(run.PlanFilePath))
             {
@@ -924,6 +956,7 @@ namespace GitDeployPro.Services.Telegram
             }
             else if (_store.IsCursorPlanMode(projectPath))
             {
+                // Only fallback when create_plan never saved a file this turn.
                 planForButtons = CursorPlanFileWriter.WriteFromReply(projectPath, reply);
                 if (!string.IsNullOrWhiteSpace(planForButtons))
                 {
@@ -1755,11 +1788,123 @@ namespace GitDeployPro.Services.Telegram
             }
         }
 
+        /// <summary>Switch Cursor model without resetting plan/agent mode (capacity retry).</summary>
+        public void SwitchModelKeepMode(string projectPath, string model, string reason)
+        {
+            if (string.IsNullOrWhiteSpace(projectPath) || TelegramPaths.IsUnassigned(projectPath))
+            {
+                return;
+            }
+
+            var next = (model ?? string.Empty).Trim();
+            _config.UpdateGlobalConfig(cfg => cfg.CursorAgentModel = next);
+            // Do NOT CancelCurrentTurn — capacity auto-retry continues on the same turn CTS.
+            _store.ClearAllCursorSessions(projectPath);
+            CursorAcpPool.Instance.DisposeProject(projectPath);
+            PostStatus(projectPath, reason);
+            PrewarmForProject(projectPath);
+        }
+
+        private async Task HandleCapacityFailureAsync(
+            string projectPath,
+            string text,
+            string? photoPath,
+            string agentPath,
+            string? failedModel,
+            CancellationToken cancellationToken,
+            bool allowAutoModelPick)
+        {
+            var modelAtFailure = string.IsNullOrWhiteSpace(failedModel) ? "auto" : failedModel.Trim();
+
+            if (allowAutoModelPick)
+            {
+                var probeMsg = Loc.T("cursor.modelProbeStart");
+                PostStatus(projectPath, probeMsg);
+                NotifyTelegramWorking(projectPath, probeMsg);
+
+                CursorModelRouter.Instance.MarkBusy(modelAtFailure);
+
+                var pick = await CursorModelRouter.Instance
+                    .PickQuietestAsync(agentPath, modelAtFailure, cancellationToken, useCache: false)
+                    .ConfigureAwait(false);
+
+                if (!string.IsNullOrWhiteSpace(pick.BestModel))
+                {
+                    var label = CursorAcpErrorHelper.ShortModelLabel(pick.BestModel);
+                    var ms = pick.LatencyMs ?? 0;
+                    var announce = Loc.T("cursor.modelPicked", label, ms);
+                    NotifyTelegramWorking(projectPath, announce);
+                    SwitchModelKeepMode(projectPath, pick.BestModel, announce);
+
+                    await RunTurnAsync(
+                            projectPath,
+                            text,
+                            photoPath,
+                            cancellationToken,
+                            allowAutoModelPick: false)
+                        .ConfigureAwait(false);
+                    return;
+                }
+            }
+
+            await PublishCapacityFailureAsync(projectPath, text, photoPath, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        private async Task PublishCapacityFailureAsync(
+            string projectPath,
+            string originalText,
+            string? photoPath,
+            CancellationToken cancellationToken)
+        {
+            var config = _config.LoadGlobalConfig();
+            var model = string.IsNullOrWhiteSpace(config.CursorAgentModel) ? "auto" : config.CursorAgentModel.Trim();
+            var probed = CursorModelRouter.Instance.GetLastOkModelIds();
+            var alts = probed.Count > 0
+                ? probed
+                : await CursorAcpErrorHelper
+                    .SuggestAlternateModelsAsync(model, cancellationToken)
+                    .ConfigureAwait(false);
+            var retryId = TelegramTurnRetryBroker.Instance.Register(
+                projectPath,
+                originalText,
+                photoPath,
+                model,
+                alts);
+
+            var sb = new StringBuilder();
+            sb.AppendLine(Loc.T("cursor.capacityBusy"));
+            if (alts.Count > 0)
+            {
+                sb.AppendLine(Loc.T(
+                    "cursor.capacitySuggest",
+                    string.Join(", ", alts.Select(CursorAcpErrorHelper.ShortModelLabel))));
+            }
+
+            sb.AppendLine();
+            sb.AppendLine(Loc.T("cursor.capacityHint"));
+
+            JToken? markup = null;
+            if (!string.IsNullOrWhiteSpace(retryId))
+            {
+                markup = TelegramTurnRetryBroker.BuildKeyboard(retryId, alts);
+            }
+
+            await PublishAgentReplyAsync(
+                    projectPath,
+                    sb.ToString().Trim(),
+                    cancellationToken,
+                    preferredPlanFilePath: null,
+                    inlineMarkup: markup)
+                .ConfigureAwait(false);
+        }
+
         private async Task<string?> PublishAgentReplyAsync(
             string projectPath,
             string reply,
             CancellationToken cancellationToken,
-            string? preferredPlanFilePath = null)
+            string? preferredPlanFilePath = null,
+            JToken? inlineMarkup = null)
         {
             var message = new TelegramChatMessage
             {
@@ -1787,10 +1932,11 @@ namespace GitDeployPro.Services.Telegram
             {
                 const int maxLen = 3500;
                 var chunks = ChunkText(reply, maxLen).ToList();
-                JToken? markup = TelegramDeployCoordinator.BuildReplyKeyboard(projectPath);
+                JToken? markup = inlineMarkup ?? TelegramDeployCoordinator.BuildReplyKeyboard(projectPath);
 
                 // Only show Get MD / Build when THIS turn produced a real plan file.
-                if (_store.IsCursorPlanMode(projectPath)
+                if (inlineMarkup == null
+                    && _store.IsCursorPlanMode(projectPath)
                     && !string.IsNullOrWhiteSpace(preferredPlanFilePath)
                     && File.Exists(preferredPlanFilePath)
                     && CursorPlanCatalog.IsUnderPlansDir(projectPath, preferredPlanFilePath))

@@ -1,18 +1,15 @@
 {
-  "version": "2.2.87",
-  "fileName": "GitDeployPro-2.2.87.exe",
-  "downloadUrl": "versions/GitDeployPro-2.2.87.exe",
-  "sha256": "48B36AFFF60D0C221E546361F926B630B11FB6BFDBE4B91F8C9F857FE218A2F4",
-  "releaseNotes": "Feature: Cursor chats cleanup by project (age filter, progress, VACUUM)\nFeature: Purge orphan agentKv blobs / composer.content to reclaim multi-GB DB bloat\nFeature: Daily Cursor auto-clean (chats + orphans + cache/backups) with Telegram report\nFix: empty-state-draft no longer aborts the whole chat delete job\nFix: ItemTable auth/login keys verified and never deleted\nFix: Auto-clean no longer runs immediately on enable (waits for next scheduled time)\nFix: Safe disk clear also removes state.vscdb.gdp-bak-* backups",
+  "version": "2.3.9",
+  "fileName": "GitDeployPro-2.3.9.exe",
+  "downloadUrl": "versions/GitDeployPro-2.3.9.exe",
+  "sha256": "F83562850DE852FB0CA9A78064F2E12AC16C8831BDE0F7134A2F8C2BC579C566",
+  "releaseNotes": "Feature: Telegram capacity errors show clear busy message + Resume/Retry buttons (same message, no copy-paste)\nFeature: Auto-probe Cursor models after busy errors, pick quietest, announce switch, and resend once\nFix: Duplicate plan files from double create_plan — keep only the latest per turn\nFix: Capacity auto-retry no longer cancels its own turn when switching models",
   "changelog": [
-    "Feature: Cursor chats cleanup by project (age filter, progress, VACUUM)",
-    "Feature: Purge orphan agentKv blobs / composer.content to reclaim multi-GB DB bloat",
-    "Feature: Daily Cursor auto-clean (chats + orphans + cache/backups) with Telegram report",
-    "Fix: empty-state-draft no longer aborts the whole chat delete job",
-    "Fix: ItemTable auth/login keys verified and never deleted",
-    "Fix: Auto-clean no longer runs immediately on enable (waits for next scheduled time)",
-    "Fix: Safe disk clear also removes state.vscdb.gdp-bak-* backups"
+    "Feature: Telegram capacity errors show clear busy message + Resume/Retry buttons (same message, no copy-paste)",
+    "Feature: Auto-probe Cursor models after busy errors, pick quietest, announce switch, and resend once",
+    "Fix: Duplicate plan files from double create_plan — keep only the latest per turn",
+    "Fix: Capacity auto-retry no longer cancels its own turn when switching models"
   ],
   "mandatory": false,
-  "publishedUtc": "2026-09-20T15:05:00Z"
+  "publishedUtc": "2026-09-21T08:55:00Z"
 }

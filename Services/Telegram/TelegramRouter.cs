@@ -377,6 +377,24 @@ namespace GitDeployPro.Services.Telegram
                     return;
                 }
 
+                if (TelegramTurnRetryBroker.Instance.IsRetryCallback(data))
+                {
+                    var (handled, ack) = await TelegramTurnRetryBroker.Instance
+                        .TryHandleAsync(token, update.ChatId, data, cancellationToken)
+                        .ConfigureAwait(false);
+                    if (handled)
+                    {
+                        await _client.AnswerCallbackQueryAsync(
+                                token,
+                                update.CallbackQueryId,
+                                ack,
+                                cancellationToken)
+                            .ConfigureAwait(false);
+                    }
+
+                    return;
+                }
+
                 if (TelegramPlanMdBroker.Instance.IsPlanMdCallback(data))
                 {
                     var (handled, ack) = await TelegramPlanMdBroker.Instance

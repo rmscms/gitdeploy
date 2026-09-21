@@ -58,6 +58,9 @@ namespace GitDeployPro.Models
         public string LastPlanPath { get; set; } = "";
         /// <summary>Short id → absolute plan path for durable Telegram Get MD / Build buttons.</summary>
         public Dictionary<string, string> PlanCallbackMap { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+        /// <summary>Short id → failed turn payload for Telegram Resume after capacity errors.</summary>
+        public Dictionary<string, TelegramTurnRetryEntry> TurnRetryMap { get; set; } =
+            new(StringComparer.OrdinalIgnoreCase);
         /// <summary>Last turn token usage (Cursor), if reported.</summary>
         public long LastUsageInputTokens { get; set; }
         public long LastUsageOutputTokens { get; set; }
@@ -80,6 +83,15 @@ namespace GitDeployPro.Models
         public long LastUpdateId { get; set; }
         public string ActiveProjectPath { get; set; } = "";
         public long LastChatId { get; set; }
+    }
+
+    public sealed class TelegramTurnRetryEntry
+    {
+        public string Text { get; set; } = "";
+        public string PhotoPath { get; set; } = "";
+        public string ModelAtFailure { get; set; } = "";
+        public List<string> AltModels { get; set; } = new();
+        public DateTime Utc { get; set; }
     }
 
     public class TelegramThreadSummary

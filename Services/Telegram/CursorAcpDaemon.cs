@@ -122,6 +122,9 @@ namespace GitDeployPro.Services.Telegram
                 var sessionId = _sessionId
                     ?? throw new InvalidOperationException("ACP session was not created.");
 
+                // One plan file per turn — Cursor often calls create_plan twice (draft then final).
+                _lastPlanFilePath = null;
+
                 var assistant = new StringBuilder();
                 var thoughtBuf = new StringBuilder();
                 var lastThoughtFlush = DateTime.MinValue;
@@ -205,47 +208,12 @@ namespace GitDeployPro.Services.Telegram
                 try
                 {
                     using var reg = RegisterUpdateHandler(progressHandler);
-                    try
-                    {
-                        result = await SendRequestUnlockedAsync(
-                                "session/prompt",
-                                promptParams,
-                                cancellationToken,
-                                timeout: TimeSpan.FromMinutes(8))
-                            .ConfigureAwait(false);
-                    }
-                    catch (TimeoutException)
-                    {
-                        // Do not blindly re-run a long prompt after timeout.
-                        KillProcessUnlocked();
-                        throw;
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        KillProcessUnlocked();
-                        throw;
-                    }
-                    catch (CursorAcpAuthException)
-                    {
-                        KillProcessUnlocked();
-                        throw;
-                    }
-                    catch
-                    {
-                        // Dead pipe / crashed child — recreate once (not on timeout).
-                        KillProcessUnlocked();
-                        await StartProcessUnlockedAsync(cancellationToken).ConfigureAwait(false);
-                        await InitializeSessionUnlockedAsync(cancellationToken).ConfigureAwait(false);
-                        sessionId = _sessionId
-                            ?? throw new InvalidOperationException("ACP session was not created after restart.");
-                        promptParams["sessionId"] = sessionId;
-                        result = await SendRequestUnlockedAsync(
-                                "session/prompt",
-                                promptParams,
-                                cancellationToken,
-                                timeout: TimeSpan.FromMinutes(8))
-                            .ConfigureAwait(false);
-                    }
+                    result = await SendPromptWithRetriesUnlockedAsync(
+                            sessionId,
+                            promptParams,
+                            onProgress,
+                            cancellationToken)
+                        .ConfigureAwait(false);
                 }
                 finally
                 {
@@ -281,6 +249,11 @@ namespace GitDeployPro.Services.Telegram
                     text = result?["response"]?.ToString()?.Trim()
                            ?? result?["text"]?.ToString()?.Trim()
                            ?? string.Empty;
+                }
+
+                if (CursorAcpErrorHelper.IsFailureOutput(text))
+                {
+                    throw new InvalidOperationException(text);
                 }
 
                 var usage = AgentTokenUsage.FromJToken(result?["usage"], "acp");
@@ -387,6 +360,83 @@ namespace GitDeployPro.Services.Telegram
             {
                 throw new InvalidOperationException($"Cursor ACP exited immediately ({process.ExitCode}).");
             }
+        }
+
+        private async Task<JToken> SendPromptWithRetriesUnlockedAsync(
+            string sessionId,
+            JObject promptParams,
+            Action<string>? onProgress,
+            CancellationToken cancellationToken)
+        {
+            const int capacityAttempts = 4;
+            Exception? lastCapacity = null;
+            var pipeRetried = false;
+
+            for (var attempt = 1; attempt <= capacityAttempts; attempt++)
+            {
+                try
+                {
+                    return await SendRequestUnlockedAsync(
+                            "session/prompt",
+                            promptParams,
+                            cancellationToken,
+                            timeout: TimeSpan.FromMinutes(8))
+                        .ConfigureAwait(false);
+                }
+                catch (TimeoutException)
+                {
+                    KillProcessUnlocked();
+                    throw;
+                }
+                catch (OperationCanceledException)
+                {
+                    KillProcessUnlocked();
+                    throw;
+                }
+                catch (CursorAcpAuthException)
+                {
+                    KillProcessUnlocked();
+                    throw;
+                }
+                catch (Exception ex) when (CursorAcpErrorHelper.IsCapacityError(ex) && attempt < capacityAttempts)
+                {
+                    lastCapacity = ex;
+                    var waitSec = 12 * attempt;
+                    onProgress?.Invoke(GitDeployPro.Services.Localization.Loc.T(
+                        "cursor.progress.rateLimitRetry",
+                        attempt,
+                        capacityAttempts,
+                        waitSec));
+                    try
+                    {
+                        await Task.Delay(TimeSpan.FromSeconds(waitSec), cancellationToken).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        KillProcessUnlocked();
+                        throw;
+                    }
+
+                    continue;
+                }
+                catch (Exception) when (!pipeRetried)
+                {
+                    pipeRetried = true;
+                    KillProcessUnlocked();
+                    await StartProcessUnlockedAsync(cancellationToken).ConfigureAwait(false);
+                    await InitializeSessionUnlockedAsync(cancellationToken).ConfigureAwait(false);
+                    sessionId = _sessionId
+                        ?? throw new InvalidOperationException("ACP session was not created after restart.");
+                    promptParams["sessionId"] = sessionId;
+                }
+            }
+
+            if (lastCapacity != null)
+            {
+                throw lastCapacity;
+            }
+
+            throw new InvalidOperationException("ACP session/prompt failed.");
         }
 
         private async Task InitializeSessionUnlockedAsync(CancellationToken cancellationToken)
@@ -674,9 +724,27 @@ namespace GitDeployPro.Services.Telegram
             {
                 if (!string.IsNullOrWhiteSpace(planMd))
                 {
+                    // Cursor often fires create_plan twice in one turn (stub then full).
+                    // Keep only the latest file so /plans does not show a junk draft.
+                    var previous = _lastPlanFilePath;
                     savedPath = CursorPlanFileWriter.Write(ProjectPath, name, overview, planMd);
                     CursorPlanFileWriter.EnsurePlansDirectory(ProjectPath);
                     _lastPlanFilePath = savedPath;
+
+                    if (!string.IsNullOrWhiteSpace(previous)
+                        && !string.Equals(previous, savedPath, StringComparison.OrdinalIgnoreCase)
+                        && File.Exists(previous)
+                        && CursorPlanCatalog.IsUnderPlansDir(ProjectPath, previous))
+                    {
+                        try
+                        {
+                            CursorPlanCatalog.TryDelete(ProjectPath, previous, out _);
+                        }
+                        catch
+                        {
+                        }
+                    }
+
                     onProgressSafe("📋 " + GitDeployPro.Services.Localization.Loc.T(
                         "cursor.planSaved",
                         Path.GetFileName(savedPath)));

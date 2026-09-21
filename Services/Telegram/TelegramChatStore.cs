@@ -366,6 +366,71 @@ namespace GitDeployPro.Services.Telegram
             return null;
         }
 
+        public string RegisterTurnRetry(
+            string projectPath,
+            string userText,
+            string? photoPath,
+            string modelAtFailure,
+            IReadOnlyList<string> altModels)
+        {
+            if (string.IsNullOrWhiteSpace(projectPath) || string.IsNullOrWhiteSpace(userText))
+            {
+                return string.Empty;
+            }
+
+            var id = ShortRetryId(userText + "|" + DateTime.UtcNow.Ticks);
+            var thread = LoadThread(projectPath);
+            thread.TurnRetryMap ??= new Dictionary<string, TelegramTurnRetryEntry>(StringComparer.OrdinalIgnoreCase);
+            thread.TurnRetryMap[id] = new TelegramTurnRetryEntry
+            {
+                Text = userText.Trim(),
+                PhotoPath = string.IsNullOrWhiteSpace(photoPath) ? string.Empty : photoPath.Trim(),
+                ModelAtFailure = string.IsNullOrWhiteSpace(modelAtFailure) ? "auto" : modelAtFailure.Trim(),
+                AltModels = altModels?.Where(m => !string.IsNullOrWhiteSpace(m)).Distinct(StringComparer.OrdinalIgnoreCase).Take(4).ToList()
+                          ?? new List<string>(),
+                Utc = DateTime.UtcNow
+            };
+
+            if (thread.TurnRetryMap.Count > 20)
+            {
+                foreach (var old in thread.TurnRetryMap
+                             .OrderBy(kv => kv.Value.Utc)
+                             .Take(thread.TurnRetryMap.Count - 15)
+                             .Select(kv => kv.Key)
+                             .ToList())
+                {
+                    thread.TurnRetryMap.Remove(old);
+                }
+            }
+
+            SaveThread(thread);
+            return id;
+        }
+
+        public TelegramTurnRetryEntry? ResolveTurnRetry(string projectPath, string callbackId)
+        {
+            var id = (callbackId ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(projectPath))
+            {
+                return null;
+            }
+
+            var thread = LoadThread(projectPath);
+            if (thread.TurnRetryMap == null || !thread.TurnRetryMap.TryGetValue(id, out var entry))
+            {
+                return null;
+            }
+
+            if ((DateTime.UtcNow - entry.Utc).TotalHours > 48)
+            {
+                thread.TurnRetryMap.Remove(id);
+                SaveThread(thread);
+                return null;
+            }
+
+            return entry;
+        }
+
         public void ForgetPlanPath(string projectPath, string? planPath)
         {
             if (string.IsNullOrWhiteSpace(projectPath) || string.IsNullOrWhiteSpace(planPath))
@@ -399,9 +464,15 @@ namespace GitDeployPro.Services.Telegram
         }
 
         private static string ShortPlanId(string fullPath)
+            => ShortHashId(fullPath);
+
+        private static string ShortRetryId(string seed)
+            => ShortHashId(seed);
+
+        private static string ShortHashId(string seed)
         {
             using var sha = System.Security.Cryptography.SHA256.Create();
-            var bytes = sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(fullPath));
+            var bytes = sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(seed));
             return Convert.ToHexString(bytes.AsSpan(0, 4)).ToLowerInvariant(); // 8 hex chars
         }
 
