@@ -1,15 +1,17 @@
 {
-  "version": "2.3.9",
-  "fileName": "GitDeployPro-2.3.9.exe",
-  "downloadUrl": "versions/GitDeployPro-2.3.9.exe",
-  "sha256": "F83562850DE852FB0CA9A78064F2E12AC16C8831BDE0F7134A2F8C2BC579C566",
-  "releaseNotes": "Feature: Telegram capacity errors show clear busy message + Resume/Retry buttons (same message, no copy-paste)\nFeature: Auto-probe Cursor models after busy errors, pick quietest, announce switch, and resend once\nFix: Duplicate plan files from double create_plan — keep only the latest per turn\nFix: Capacity auto-retry no longer cancels its own turn when switching models",
+  "version": "2.3.42",
+  "fileName": "GitDeployPro-2.3.42.exe",
+  "downloadUrl": "versions/GitDeployPro-2.3.42.exe",
+  "sha256": "03C84698182FC3CEC5299962BDA2540C733B6F6B219E83AEEF81E3A2F0E6AF1E",
+  "releaseNotes": "Feature: Telegram plan MD is Telegram-compatible (no raw HTML, RTL Persian, tables→lists, formatted chat preview)\nFeature: Header local terminal modal at project root with Cmder-like colors (existing Deploy terminal unchanged)\nFeature: Send images as Telegram documents (full quality) and pass them to Cursor ACP/CLI\nFix: Plan turn no longer sends a duplicate reply card before preview+file\nFix: Build-plan status message no longer shows raw HTML tags\nFix: Local terminal no longer injects noisy ANSI prompt setup text",
   "changelog": [
-    "Feature: Telegram capacity errors show clear busy message + Resume/Retry buttons (same message, no copy-paste)",
-    "Feature: Auto-probe Cursor models after busy errors, pick quietest, announce switch, and resend once",
-    "Fix: Duplicate plan files from double create_plan — keep only the latest per turn",
-    "Fix: Capacity auto-retry no longer cancels its own turn when switching models"
+    "Feature: Telegram plan MD is Telegram-compatible (no raw HTML, RTL Persian, tables→lists, formatted chat preview)",
+    "Feature: Header local terminal modal at project root with Cmder-like colors (existing Deploy terminal unchanged)",
+    "Feature: Send images as Telegram documents (full quality) and pass them to Cursor ACP/CLI",
+    "Fix: Plan turn no longer sends a duplicate reply card before preview+file",
+    "Fix: Build-plan status message no longer shows raw HTML tags",
+    "Fix: Local terminal no longer injects noisy ANSI prompt setup text"
   ],
   "mandatory": false,
-  "publishedUtc": "2026-09-21T08:55:00Z"
+  "publishedUtc": "2026-09-22T09:10:00Z"
 }

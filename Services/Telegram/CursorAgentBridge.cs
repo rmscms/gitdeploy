@@ -800,7 +800,11 @@ namespace GitDeployPro.Services.Telegram
 
                 var prompt = BuildPrompt(projectPath, text, photoPath, resumeSession: hadConversation);
                 run = await daemon
-                    .PromptAsync(prompt, line => PostProgress(projectPath, line), cancellationToken)
+                    .PromptAsync(
+                        prompt,
+                        line => PostProgress(projectPath, line),
+                        cancellationToken,
+                        imagePath: photoPath)
                     .ConfigureAwait(false);
                 usedAcp = true;
 
@@ -970,19 +974,20 @@ namespace GitDeployPro.Services.Telegram
                     CursorPlanCatalog.IsUnderPlansDir(projectPath, p));
             }
 
-            var planPendingId = await PublishAgentReplyAsync(projectPath, reply, cancellationToken, planForButtons)
-                .ConfigureAwait(false);
-
-            // Auto-send only the plan file from this turn (not every scraped doc).
+            // Plan turn: one Telegram delivery = formatted plan preview + Build + .md file.
+            // Do NOT also send the agent reply card (Get MD / Build) — that was a duplicate.
             if (!string.IsNullOrWhiteSpace(planForButtons) && File.Exists(planForButtons))
             {
-                var buildId = planPendingId
-                              ?? TelegramPlanMdBroker.Instance.Register(projectPath, planForButtons);
+                AppendLocalAgentReply(projectPath, reply);
+                var buildId = TelegramPlanMdBroker.Instance.Register(projectPath, planForButtons);
                 await PublishPlanDocumentAsync(projectPath, planForButtons, cancellationToken, buildId)
                     .ConfigureAwait(false);
             }
             else
             {
+                await PublishAgentReplyAsync(projectPath, reply, cancellationToken, preferredPlanFilePath: null)
+                    .ConfigureAwait(false);
+
                 foreach (var doc in docs.Distinct(StringComparer.OrdinalIgnoreCase))
                 {
                     if (File.Exists(doc) && !CursorPlanCatalog.IsUnderPlansDir(projectPath, doc))
@@ -992,6 +997,21 @@ namespace GitDeployPro.Services.Telegram
                     }
                 }
             }
+        }
+
+        private void AppendLocalAgentReply(string projectPath, string reply)
+        {
+            var message = new TelegramChatMessage
+            {
+                Direction = TelegramMessageDirection.Outgoing,
+                Status = TelegramMessageStatus.Sent,
+                Text = reply,
+                Utc = DateTime.UtcNow,
+                SenderName = "Cursor"
+            };
+
+            _store.Append(projectPath, message);
+            TelegramPoller.Instance.RaiseMessage(projectPath, message);
         }
 
         private string BuildPrompt(string projectPath, string text, string? photoPath, bool resumeSession)
@@ -1075,6 +1095,9 @@ namespace GitDeployPro.Services.Telegram
             {
                 sb.AppendLine("- PLAN MODE (required): finish by calling create_plan so GitDeploy saves the plan under .cursor/plans/ as a dated .md.");
                 sb.AppendLine("- Do NOT write plan files under docs/ or elsewhere — only create_plan (GitDeploy stores them in .cursor/plans/, gitignored).");
+                sb.AppendLine("- Plan file body = plain Markdown only: # headings, **bold**, `code`, - lists. NEVER HTML tags (<b>/<code>/<i>).");
+                sb.AppendLine("- Persian plans: write naturally in Persian; avoid Markdown pipe tables (Telegram cannot render them) — use bullet lists instead.");
+                sb.AppendLine("- HTML is only for the short Telegram chat reply; the plan .md is opened as a document.");
                 sb.AppendLine("- The saved plan must be complete enough to Build later.");
             }
 
@@ -2002,6 +2025,33 @@ namespace GitDeployPro.Services.Telegram
             }
 
             var caption = Loc.T("cursor.planDocumentCaption", Path.GetFileName(planFilePath));
+
+            // Readable RTL HTML preview in chat (document alone has no parse_mode / no RTL).
+            try
+            {
+                var md = File.ReadAllText(planFilePath);
+                var preview = TelegramTextFormat.ToTelegramHtml(md);
+                if (!string.IsNullOrWhiteSpace(preview))
+                {
+                    const int maxLen = 3500;
+                    for (var i = 0; i < preview.Length; i += maxLen)
+                    {
+                        var chunk = preview.Substring(i, Math.Min(maxLen, preview.Length - i));
+                        var isLast = i + maxLen >= preview.Length;
+                        TelegramOutboundQueue.Instance.EnqueueText(
+                            token,
+                            chatId,
+                            projectPath,
+                            chunk,
+                            isLast ? markup : null,
+                            parseMode: "HTML");
+                    }
+                }
+            }
+            catch
+            {
+            }
+
             TelegramOutboundQueue.Instance.EnqueueDocument(
                 token,
                 chatId,

@@ -213,7 +213,9 @@ namespace GitDeployPro.Services.Telegram
                 var fileName = string.IsNullOrWhiteSpace(update.DocumentFileName)
                     ? $"document-{update.MessageId}.bin"
                     : update.DocumentFileName.Trim();
-                if (!IsAllowedTextDocument(fileName, update.DocumentMimeType))
+                var isImageDoc = IsAllowedImageDocument(fileName, update.DocumentMimeType);
+                var isTextDoc = IsAllowedTextDocument(fileName, update.DocumentMimeType);
+                if (!isImageDoc && !isTextDoc)
                 {
                     await SendBotAsync(
                         token,
@@ -238,10 +240,25 @@ namespace GitDeployPro.Services.Telegram
                             cancellationToken)
                         .ConfigureAwait(false);
                     attachmentName = Path.GetFileName(attachmentPath);
-                    agentText = BuildAgentTextWithDocument(body, attachmentPath, attachmentName);
-                    if (string.IsNullOrWhiteSpace(body))
+
+                    if (isImageDoc)
                     {
-                        body = Loc.T("telegram.document", attachmentName);
+                        // Send as document = full quality; treat like a photo for the agent/CLI.
+                        photoPath = attachmentPath;
+                        agentText = body;
+                        if (string.IsNullOrWhiteSpace(body))
+                        {
+                            body = Loc.T("telegram.photoDocument", attachmentName);
+                            agentText = string.Empty;
+                        }
+                    }
+                    else
+                    {
+                        agentText = BuildAgentTextWithDocument(body, attachmentPath, attachmentName);
+                        if (string.IsNullOrWhiteSpace(body))
+                        {
+                            body = Loc.T("telegram.document", attachmentName);
+                        }
                     }
                 }
                 catch
@@ -302,6 +319,21 @@ namespace GitDeployPro.Services.Telegram
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// Image sent as Telegram "document" (uncompressed) so quality is preserved.
+        /// </summary>
+        private static bool IsAllowedImageDocument(string fileName, string? mimeType)
+        {
+            var ext = Path.GetExtension(fileName ?? string.Empty).ToLowerInvariant();
+            if (ext is ".png" or ".jpg" or ".jpeg" or ".webp" or ".gif" or ".bmp" or ".tif" or ".tiff")
+            {
+                return true;
+            }
+
+            var mime = (mimeType ?? string.Empty).Trim().ToLowerInvariant();
+            return mime.StartsWith("image/", StringComparison.Ordinal);
         }
 
         private static string SanitizeFileName(string fileName)

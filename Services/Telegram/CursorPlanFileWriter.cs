@@ -25,8 +25,12 @@ namespace GitDeployPro.Services.Telegram
             var path = Path.Combine(plansDir, fileName);
 
             var title = string.IsNullOrWhiteSpace(name) ? "Plan" : name.Trim();
+            title = TelegramTextFormat.HtmlToMarkdown(title);
+            overview = TelegramTextFormat.HtmlToMarkdown(overview);
+            planMarkdown = TelegramTextFormat.HtmlToMarkdown(planMarkdown);
+
             var sb = new StringBuilder();
-            sb.AppendLine("# " + title);
+            sb.AppendLine("# " + title.TrimStart('#', ' ', '\u200F', '\u202B', '\u202C'));
             sb.AppendLine();
             if (!string.IsNullOrWhiteSpace(overview))
             {
@@ -37,7 +41,9 @@ namespace GitDeployPro.Services.Telegram
             sb.AppendLine((planMarkdown ?? string.Empty).Trim());
             sb.AppendLine();
 
-            File.WriteAllText(path, sb.ToString(), new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+            // One pass: tables→lists + RTL marks — Telegram-compatible Markdown.
+            var body = TelegramTextFormat.ToTelegramCompatibleMarkdown(sb.ToString());
+            File.WriteAllText(path, body + "\n", new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
             // Bump mtime explicitly so "latest by date" is unambiguous.
             File.SetLastWriteTimeUtc(path, DateTime.UtcNow);
             CursorPlanCatalog.Remember(projectPath, path);

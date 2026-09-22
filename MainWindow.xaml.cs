@@ -659,6 +659,12 @@ namespace GitDeployPro
             }
         }
 
+        private void HeaderLocalTerminal_Click(object sender, RoutedEventArgs e)
+        {
+            var path = _configService.LoadGlobalConfig().LastProjectPath;
+            Windows.ProjectLocalTerminalWindow.ShowOrFocus(path ?? string.Empty);
+        }
+
         private void SwitchProject(string path)
         {
             SetCurrentProject(path, showSetupWizard: true);

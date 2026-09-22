@@ -59,6 +59,7 @@ namespace GitDeployPro.Services.Telegram
         public static JObject BuildDocumentKeyboard(string pendingId)
             => TelegramMarkup.Inline(new[]
             {
+                (Loc.T("telegram.kbGetPlanMd"), CallbackPrefix + pendingId),
                 (Loc.T("telegram.kbBuildPlan"), CallbackBuildPrefix + pendingId)
             });
 
@@ -94,6 +95,7 @@ namespace GitDeployPro.Services.Telegram
             {
                 var boundId = Register(projectPath, path) ?? LastToken;
                 var caption = Loc.T("cursor.planDocumentCaption", Path.GetFileName(path));
+                // Get MD = file only (preview already shown when the plan was created).
                 TelegramOutboundQueue.Instance.EnqueueDocument(
                     token,
                     chatId,
@@ -164,7 +166,7 @@ namespace GitDeployPro.Services.Telegram
                     token,
                     chatId,
                     projectPath,
-                    TelegramMarkup.Html(Loc.T("telegram.planBuildQueued", Path.GetFileName(path))),
+                    Loc.T("telegram.planBuildQueued", TelegramMarkup.Html(Path.GetFileName(path))),
                     TelegramDeployCoordinator.BuildReplyKeyboard(projectPath),
                     parseMode: "HTML");
 
@@ -221,7 +223,7 @@ namespace GitDeployPro.Services.Telegram
                 token,
                 chatId,
                 projectPath,
-                TelegramMarkup.Html(Loc.T("telegram.plansDeletedOne", name)),
+                Loc.T("telegram.plansDeletedOne", TelegramMarkup.Html(name)),
                 TelegramDeployCoordinator.BuildReplyKeyboard(projectPath),
                 parseMode: "HTML");
             return Task.FromResult<(bool, string?)>((true, Loc.T("telegram.plansDeletedOneAck", name)));
