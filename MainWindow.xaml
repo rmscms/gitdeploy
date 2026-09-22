@@ -243,6 +243,17 @@
                                                FontSize="16"
                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                             </Button>
+                            <Button x:Name="HeaderLocalTerminalBtn"
+                                    Style="{StaticResource HeaderNavIconButtonStyle}"
+                                    Margin="0,0,6,0"
+                                    WindowChrome.IsHitTestVisibleInChrome="True"
+                                    Click="HeaderLocalTerminal_Click"
+                                    ToolTip="{loc:T nav.tip.localTerminal}">
+                                <ui:SymbolIcon Symbol="WindowConsole20"
+                                               Filled="False"
+                                               FontSize="16"
+                                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                            </Button>
                             <Button x:Name="HeaderDeployBtn"
                                     Style="{StaticResource HeaderNavIconButtonStyle}"
                                     WindowChrome.IsHitTestVisibleInChrome="True"

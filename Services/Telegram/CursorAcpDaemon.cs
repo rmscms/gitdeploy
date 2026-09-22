@@ -103,7 +103,8 @@ namespace GitDeployPro.Services.Telegram
         public async Task<AgentRunResult> PromptAsync(
             string promptText,
             Action<string>? onProgress,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            string? imagePath = null)
         {
             ThrowIfDisposed();
             await EnsureReadyAsync(cancellationToken).ConfigureAwait(false);
@@ -135,17 +136,21 @@ namespace GitDeployPro.Services.Telegram
                     HandleSessionUpdate(update, assistant, thoughtBuf, ref lastThoughtFlush, onProgress);
                 });
 
+                var promptBlocks = new JArray
+                {
+                    new JObject
+                    {
+                        ["type"] = "text",
+                        ["text"] = promptText
+                    }
+                };
+
+                TryAppendImageBlock(promptBlocks, imagePath);
+
                 var promptParams = new JObject
                 {
                     ["sessionId"] = sessionId,
-                    ["prompt"] = new JArray
-                    {
-                        new JObject
-                        {
-                            ["type"] = "text",
-                            ["text"] = promptText
-                        }
-                    }
+                    ["prompt"] = promptBlocks
                 };
 
                 using var heartbeatCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -280,6 +285,51 @@ namespace GitDeployPro.Services.Telegram
             {
                 _rpcLock.Release();
             }
+        }
+
+        private static void TryAppendImageBlock(JArray promptBlocks, string? imagePath)
+        {
+            if (string.IsNullOrWhiteSpace(imagePath) || !File.Exists(imagePath))
+            {
+                return;
+            }
+
+            try
+            {
+                var info = new FileInfo(imagePath);
+                // Keep ACP payloads reasonable (Telegram docs can be large).
+                if (info.Length <= 0 || info.Length > 12 * 1024 * 1024)
+                {
+                    return;
+                }
+
+                var bytes = File.ReadAllBytes(imagePath);
+                var mime = GuessImageMime(imagePath);
+                promptBlocks.Add(new JObject
+                {
+                    ["type"] = "image",
+                    ["mimeType"] = mime,
+                    ["data"] = Convert.ToBase64String(bytes)
+                });
+            }
+            catch
+            {
+                // Text prompt still includes the on-disk path for the agent to open.
+            }
+        }
+
+        private static string GuessImageMime(string path)
+        {
+            var ext = Path.GetExtension(path).ToLowerInvariant();
+            return ext switch
+            {
+                ".png" => "image/png",
+                ".gif" => "image/gif",
+                ".webp" => "image/webp",
+                ".bmp" => "image/bmp",
+                ".tif" or ".tiff" => "image/tiff",
+                _ => "image/jpeg"
+            };
         }
 
         public void Dispose()

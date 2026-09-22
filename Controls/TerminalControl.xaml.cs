@@ -72,6 +72,8 @@ namespace GitDeployPro.Controls
         private bool _dockedPresetsWired;
         private bool _appearanceReady;
         private bool _suppressAppearanceComboChange;
+        private IReadOnlyDictionary<string, string>? _xtermThemeOverride;
+        private string? _hostBackgroundOverrideHex;
 
         public bool ShowCommandBar
         {
@@ -134,9 +136,26 @@ namespace GitDeployPro.Controls
         private void ApplyHostBackgroundFromTheme()
         {
             var host = TerminalHostGrid ?? TerminalWebView?.Parent as Grid;
-            var color = ThemeService.Instance.GetTokenColor(
-                "terminal.hostBackground",
-                (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#0C0C0C"));
+            System.Windows.Media.Color color;
+            if (!string.IsNullOrWhiteSpace(_hostBackgroundOverrideHex))
+            {
+                try
+                {
+                    color = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(_hostBackgroundOverrideHex);
+                }
+                catch
+                {
+                    color = ThemeService.Instance.GetTokenColor(
+                        "terminal.hostBackground",
+                        (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#0C0C0C"));
+                }
+            }
+            else
+            {
+                color = ThemeService.Instance.GetTokenColor(
+                    "terminal.hostBackground",
+                    (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#0C0C0C"));
+            }
 
             if (host != null)
             {
@@ -157,6 +176,20 @@ namespace GitDeployPro.Controls
             }
         }
 
+        /// <summary>
+        /// Optional xterm.js palette for a specific host (e.g. project local modal).
+        /// Does not change global theme packs or other TerminalControl instances.
+        /// </summary>
+        public void SetXtermThemeOverride(IReadOnlyDictionary<string, string>? theme, string? hostBackgroundHex = null)
+        {
+            _xtermThemeOverride = theme;
+            _hostBackgroundOverrideHex = hostBackgroundHex;
+            if (IsLoaded)
+            {
+                _ = ApplyXtermThemeAsync();
+            }
+        }
+
         private async Task ApplyXtermThemeAsync()
         {
             ApplyHostBackgroundFromTheme();
@@ -170,7 +203,6 @@ namespace GitDeployPro.Controls
                 ["selectionBackground"] = tokens.GetString("terminal.xterm.selectionBackground", "rgba(128,128,128,0.35)")
             };
 
-            // Prefer resolved hex when Color map has values.
             if (tokens.Colors.ContainsKey("terminal.xterm.background"))
             {
                 theme["background"] = tokens.GetHex("terminal.xterm.background", theme["background"]);
@@ -186,8 +218,22 @@ namespace GitDeployPro.Controls
                 theme["cursor"] = tokens.GetHex("terminal.xterm.cursor", theme["cursor"]);
             }
 
+            if (_xtermThemeOverride != null)
+            {
+                foreach (var kv in _xtermThemeOverride)
+                {
+                    if (!string.IsNullOrWhiteSpace(kv.Key) && !string.IsNullOrWhiteSpace(kv.Value))
+                    {
+                        theme[kv.Key] = kv.Value;
+                    }
+                }
+            }
+
             await PostTerminalMessageAsync(new { type = "setTheme", theme });
-            await PostTerminalMessageAsync(new { type = "setForeground", value = GetCurrentTextColorHex() });
+            if (_xtermThemeOverride == null || !_xtermThemeOverride.ContainsKey("foreground"))
+            {
+                await PostTerminalMessageAsync(new { type = "setForeground", value = GetCurrentTextColorHex() });
+            }
         }
 
         private static void OnShowCommandBarChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)

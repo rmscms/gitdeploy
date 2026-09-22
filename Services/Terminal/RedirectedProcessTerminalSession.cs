@@ -32,11 +32,14 @@ namespace GitDeployPro.Services.Terminal
         {
             ThrowIfDisposed();
 
+            ParseShellCommand(_shell, out var fileName, out var arguments);
+
             _process = new Process
             {
                 StartInfo = new ProcessStartInfo
                 {
-                    FileName = _shell,
+                    FileName = fileName,
+                    Arguments = arguments,
                     UseShellExecute = false,
                     RedirectStandardInput = true,
                     RedirectStandardOutput = true,
@@ -175,6 +178,39 @@ namespace GitDeployPro.Services.Terminal
             {
                 throw new ObjectDisposedException(nameof(RedirectedProcessTerminalSession));
             }
+        }
+
+        private static void ParseShellCommand(string shell, out string fileName, out string arguments)
+        {
+            var raw = (shell ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                fileName = "cmd.exe";
+                arguments = string.Empty;
+                return;
+            }
+
+            if (raw.StartsWith('"'))
+            {
+                var end = raw.IndexOf('"', 1);
+                if (end > 1)
+                {
+                    fileName = raw[1..end];
+                    arguments = end + 1 < raw.Length ? raw[(end + 1)..].Trim() : string.Empty;
+                    return;
+                }
+            }
+
+            var space = raw.IndexOf(' ');
+            if (space < 0)
+            {
+                fileName = raw;
+                arguments = string.Empty;
+                return;
+            }
+
+            fileName = raw[..space];
+            arguments = raw[(space + 1)..].Trim();
         }
     }
 }
