@@ -1095,9 +1095,15 @@ namespace GitDeployPro.Services.Telegram
             {
                 sb.AppendLine("- PLAN MODE (required): finish by calling create_plan so GitDeploy saves the plan under .cursor/plans/ as a dated .md.");
                 sb.AppendLine("- Do NOT write plan files under docs/ or elsewhere — only create_plan (GitDeploy stores them in .cursor/plans/, gitignored).");
-                sb.AppendLine("- Plan file body = plain Markdown only: # headings, **bold**, `code`, - lists. NEVER HTML tags (<b>/<code>/<i>).");
-                sb.AppendLine("- Persian plans: write naturally in Persian; avoid Markdown pipe tables (Telegram cannot render them) — use bullet lists instead.");
-                sb.AppendLine("- HTML is only for the short Telegram chat reply; the plan .md is opened as a document.");
+                sb.AppendLine("- TELEGRAM PLAN DOCUMENT (this .md is opened inside Telegram as a file — write for that viewer):");
+                sb.AppendLine("  • Body = plain Markdown only. NEVER HTML tags (<b>/<code>/<i>/<br>).");
+                sb.AppendLine("  • Professional & well-structured (not necessarily short): clear # / ## / ### headings, emoji in titles OK, scannable sections.");
+                sb.AppendLine("  • Allowed: headings, **bold**, *italic*, `inline code`, fenced ``` code blocks (with language tag when useful), - / 1. lists, GFM pipe tables.");
+                sb.AppendLine("  • Code blocks: always use triple backticks; keep code LTR; do not put RTL marks or Persian wrapping inside fences.");
+                sb.AppendLine("  • Tables: OK — use standard Markdown pipe tables when they help clarity.");
+                sb.AppendLine("  • Do NOT use Mermaid / flowchart / sequenceDiagram blocks — Telegram will not render them; use numbered steps or a short bullet flow instead.");
+                sb.AppendLine("  • Persian: write naturally in Persian; keep paths, commands, and code in English/LTR.");
+                sb.AppendLine("- HTML is only for the short Telegram chat reply; the plan .md is the document attachment.");
                 sb.AppendLine("- The saved plan must be complete enough to Build later.");
             }
 
@@ -1546,7 +1552,10 @@ namespace GitDeployPro.Services.Telegram
                     }
                 }, heartbeatCts.Token);
 
-                var completed = await Task.WhenAny(tcs.Task, Task.Delay(TimeSpan.FromMinutes(8), cancellationToken))
+                var turnTimeout = new ConfigurationService()
+                    .LoadGlobalConfig()
+                    .GetCursorAgentTurnTimeout();
+                var completed = await Task.WhenAny(tcs.Task, Task.Delay(turnTimeout, cancellationToken))
                     .ConfigureAwait(false);
                 heartbeatCts.Cancel();
                 try
@@ -1570,7 +1579,9 @@ namespace GitDeployPro.Services.Telegram
                     {
                     }
 
-                    throw new TimeoutException(Loc.T("cursor.help.testTimeout"));
+                    throw new TimeoutException(Loc.T(
+                        "cursor.turnTimedOut",
+                        (int)Math.Round(turnTimeout.TotalMinutes)));
                 }
 
                 var exit = await tcs.Task.ConfigureAwait(false);

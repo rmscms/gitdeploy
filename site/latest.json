@@ -1,17 +1,16 @@
 {
-  "version": "2.3.42",
-  "fileName": "GitDeployPro-2.3.42.exe",
-  "downloadUrl": "versions/GitDeployPro-2.3.42.exe",
-  "sha256": "03C84698182FC3CEC5299962BDA2540C733B6F6B219E83AEEF81E3A2F0E6AF1E",
-  "releaseNotes": "Feature: Telegram plan MD is Telegram-compatible (no raw HTML, RTL Persian, tables→lists, formatted chat preview)\nFeature: Header local terminal modal at project root with Cmder-like colors (existing Deploy terminal unchanged)\nFeature: Send images as Telegram documents (full quality) and pass them to Cursor ACP/CLI\nFix: Plan turn no longer sends a duplicate reply card before preview+file\nFix: Build-plan status message no longer shows raw HTML tags\nFix: Local terminal no longer injects noisy ANSI prompt setup text",
+  "version": "2.3.56",
+  "fileName": "GitDeployPro-2.3.56.exe",
+  "downloadUrl": "versions/GitDeployPro-2.3.56.exe",
+  "sha256": "C766C147CD16866F4D0A2B2FE4BC10E7108B4234A4B47BEFA55C8CC246DFEBAA",
+  "releaseNotes": "Feature: Cursor agent turn timeout is configurable in Settings (5–180 minutes, default 30)\nFix: Telegram work on the same project no longer closes the Deploy SSH terminal or FTP session\nFix: Arrow keys stay in the Deploy terminal while a file editor is open\nFix: Tab accepts the visible terminal suggestion instead of the shell completion\nFix: Telegram plan files keep Markdown tables and drop Mermaid diagrams",
   "changelog": [
-    "Feature: Telegram plan MD is Telegram-compatible (no raw HTML, RTL Persian, tables→lists, formatted chat preview)",
-    "Feature: Header local terminal modal at project root with Cmder-like colors (existing Deploy terminal unchanged)",
-    "Feature: Send images as Telegram documents (full quality) and pass them to Cursor ACP/CLI",
-    "Fix: Plan turn no longer sends a duplicate reply card before preview+file",
-    "Fix: Build-plan status message no longer shows raw HTML tags",
-    "Fix: Local terminal no longer injects noisy ANSI prompt setup text"
+    "Feature: Cursor agent turn timeout is configurable in Settings (5–180 minutes, default 30)",
+    "Fix: Telegram work on the same project no longer closes the Deploy SSH terminal or FTP session",
+    "Fix: Arrow keys stay in the Deploy terminal while a file editor is open",
+    "Fix: Tab accepts the visible terminal suggestion instead of the shell completion",
+    "Fix: Telegram plan files keep Markdown tables and drop Mermaid diagrams"
   ],
   "mandatory": false,
-  "publishedUtc": "2026-09-22T09:10:00Z"
+  "publishedUtc": "2026-09-25T06:45:06Z"
 }

@@ -640,6 +640,7 @@
   "cursor.autoStatus": "بعدی {0} · آخرین {1}",
   "cursor.autoRunning": "در حال پاکسازی خودکار…",
   "cursor.agentFound": "ایجنت پیدا شد: {0}",
+  "cursor.turnTimedOut": "نوبت Cursor بعد از {0} دقیقه تایم‌اوت شد. در تنظیمات → Cursor agent مقدار را بیشتر کن و دوباره بزن.",
   "cursor.settingsSaved": "اتصال Cursor ذخیره شد. در حال استفاده از {0}",
   "cursor.settingsSavedMissing": "اتصال Cursor ذخیره شد، ولی هنوز اجرایی agent پیدا نشد.",
   "cursor.emptyReply": "(Cursor متنی برنگرداند.)",

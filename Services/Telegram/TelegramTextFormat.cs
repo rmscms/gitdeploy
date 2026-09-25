@@ -127,15 +127,58 @@ namespace GitDeployPro.Services.Telegram
 
         /// <summary>
         /// Clean Markdown for plan .md files opened in Telegram:
-        /// no HTML tags, tables → lists, RTL marks on Persian lines.
+        /// no HTML tags, keep tables/code fences, RTL marks on Persian prose lines only.
         /// </summary>
         public static string ToTelegramCompatibleMarkdown(string? text)
         {
             var md = HtmlToMarkdown(text);
-            md = ConvertMarkdownTablesToLists(md);
+            // Keep GFM tables — Telegram document viewer handles them; chat HTML still converts via ToTelegramHtml.
+            md = StripMermaidBlocks(md);
             md = ApplyRtlToMarkdown(md);
             md = Regex.Replace(md, @"\n{3,}", "\n\n");
             return md.Trim();
+        }
+
+        /// <summary>
+        /// Mermaid/flowchart fences do not render in Telegram docs — turn into a short note + keep inner text as bullets if any.
+        /// </summary>
+        public static string StripMermaidBlocks(string? text)
+        {
+            var raw = (text ?? string.Empty).Replace("\r\n", "\n");
+            if (string.IsNullOrWhiteSpace(raw)
+                || !Regex.IsMatch(raw, @"```\s*(mermaid|flowchart)\b", RegexOptions.IgnoreCase))
+            {
+                return raw;
+            }
+
+            return Regex.Replace(
+                raw,
+                @"```\s*(?:mermaid|flowchart)[^\n]*\n([\s\S]*?)```",
+                m =>
+                {
+                    var inner = m.Groups[1].Value.Trim();
+                    if (string.IsNullOrWhiteSpace(inner))
+                    {
+                        return "_(نمودار Mermaid در تلگرام نمایش داده نمی‌شود — به‌جای آن از لیست مراحل استفاده کنید.)_\n";
+                    }
+
+                    var sb = new StringBuilder();
+                    sb.AppendLine("**جریان (متن به‌جای Mermaid):**");
+                    foreach (var line in inner.Split('\n'))
+                    {
+                        var t = line.Trim();
+                        if (t.Length == 0)
+                        {
+                            continue;
+                        }
+
+                        sb.Append("- ").Append(t).Append('\n');
+                    }
+
+                    sb.AppendLine();
+                    return sb.ToString();
+                },
+                RegexOptions.IgnoreCase);
         }
 
         /// <summary>
@@ -192,7 +235,7 @@ namespace GitDeployPro.Services.Telegram
             return StripControlMarks(raw).Trim();
         }
 
-        /// <summary>GFM pipe tables → bullet lists (Telegram has no tables).</summary>
+        /// <summary>GFM pipe tables → bullet lists (for Telegram HTML chat only — plan .md keeps tables).</summary>
         public static string ConvertMarkdownTablesToLists(string? text)
         {
             var raw = (text ?? string.Empty).Replace("\r\n", "\n");
@@ -284,6 +327,13 @@ namespace GitDeployPro.Services.Telegram
                 }
 
                 if (inCode || string.IsNullOrWhiteSpace(line) || !IsMostlyRtl(line))
+                {
+                    sb.AppendLine(line);
+                    continue;
+                }
+
+                // Keep pipe-table rows untouched so GFM tables stay valid in Telegram docs.
+                if (TableRowLine.IsMatch(line) || TableSepLine.IsMatch(line))
                 {
                     sb.AppendLine(line);
                     continue;

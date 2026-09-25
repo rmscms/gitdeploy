@@ -128,6 +128,25 @@ namespace GitDeployPro.Services
             /// <summary>Optional model id passed to Cursor CLI (--model).</summary>
             public string CursorAgentModel { get; set; } = "";
 
+            /// <summary>
+            /// Max minutes for one Cursor agent turn (ACP <c>session/prompt</c> or one-shot CLI).
+            /// Default 30; clamped to 5–180 when applied.
+            /// </summary>
+            public int CursorAgentTurnTimeoutMinutes { get; set; } = 30;
+
+            /// <summary>Clamped turn timeout (5–180 minutes, default 30).</summary>
+            public TimeSpan GetCursorAgentTurnTimeout()
+            {
+                var minutes = CursorAgentTurnTimeoutMinutes;
+                if (minutes <= 0)
+                {
+                    minutes = 30;
+                }
+
+                minutes = Math.Clamp(minutes, 5, 180);
+                return TimeSpan.FromMinutes(minutes);
+            }
+
             /// <summary>Daily auto-clean of Cursor chats + disk cache while GitDeployPro is open.</summary>
             public bool CursorAutoCleanEnabled { get; set; }
 

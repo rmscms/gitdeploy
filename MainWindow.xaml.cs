@@ -674,9 +674,31 @@ namespace GitDeployPro
             }
         }
 
+        /// <summary>
+        /// True when Deploy is already open for this folder. Telegram sync must not rebuild it.
+        /// </summary>
+        public bool HasLiveDeploySession(string path)
+        {
+            if (_deployPage == null || string.IsNullOrWhiteSpace(path))
+            {
+                return false;
+            }
+
+            var lastPath = _configService.LoadGlobalConfig().LastProjectPath ?? string.Empty;
+            return SameProjectPath(lastPath, path);
+        }
+
         public void SetCurrentProject(string path, bool showSetupWizard = true)
         {
             using var scope = PerformanceSampler.Instance.BeginScope("navigation", "switch-project", path);
+
+            // Same folder: keep the open SSH terminal and FTP session.
+            if (HasLiveDeploySession(path))
+            {
+                TelegramChatStore.Instance.SetActiveProjectPath(path);
+                return;
+            }
+
             DiscardDeploySession();
             _configService.AddRecentProject(path);
             LoadRecentProjects();
@@ -725,16 +747,7 @@ namespace GitDeployPro
             }
 
             var lastPath = _configService.LoadGlobalConfig().LastProjectPath ?? string.Empty;
-            var sameProject = false;
-            try
-            {
-                sameProject = !string.IsNullOrWhiteSpace(lastPath)
-                    && string.Equals(Path.GetFullPath(lastPath), fullPath, StringComparison.OrdinalIgnoreCase);
-            }
-            catch
-            {
-                sameProject = string.Equals(lastPath, fullPath, StringComparison.OrdinalIgnoreCase);
-            }
+            var sameProject = SameProjectPath(lastPath, fullPath);
 
             // If the user is already on this project's Deploy page, reuse it.
             // SetCurrentProject → DiscardDeploySession tears down FTP and used to crash on Unloaded.
@@ -760,6 +773,26 @@ namespace GitDeployPro
             // Let Loaded/init settle before upload.
             await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Loaded);
             return await _deployPage.RunHeadlessDeployCommitPushAsync();
+        }
+
+        private static bool SameProjectPath(string left, string right)
+        {
+            if (string.IsNullOrWhiteSpace(left) || string.IsNullOrWhiteSpace(right))
+            {
+                return false;
+            }
+
+            try
+            {
+                return string.Equals(
+                    Path.GetFullPath(left.Trim()),
+                    Path.GetFullPath(right.Trim()),
+                    StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return string.Equals(left.Trim(), right.Trim(), StringComparison.OrdinalIgnoreCase);
+            }
         }
 
         private void DiscardDeploySession()
