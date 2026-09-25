@@ -2082,6 +2082,17 @@ namespace GitDeployPro.Pages
                 CursorAgentModelTextBox.Text = globalConfig.CursorAgentModel ?? string.Empty;
             }
 
+            if (CursorAgentTurnTimeoutMinutesTextBox != null)
+            {
+                var mins = globalConfig.CursorAgentTurnTimeoutMinutes;
+                if (mins <= 0)
+                {
+                    mins = 30;
+                }
+
+                CursorAgentTurnTimeoutMinutesTextBox.Text = mins.ToString();
+            }
+
             if (TelegramQuietProgressCheckBox != null)
             {
                 TelegramQuietProgressCheckBox.IsChecked = globalConfig.TelegramQuietProgress;
@@ -2255,8 +2266,20 @@ namespace GitDeployPro.Pages
             cfg.CursorAgentEnabled = CursorAgentEnabledCheckBox?.IsChecked == true;
             cfg.CursorAgentPath = CursorAgentPathTextBox?.Text?.Trim() ?? string.Empty;
             cfg.CursorAgentModel = CursorAgentModelTextBox?.Text?.Trim() ?? string.Empty;
+            cfg.CursorAgentTurnTimeoutMinutes = ParseCursorTurnTimeoutMinutes();
             PersistCursorAutoCleanFields(cfg);
             PersistSharedAgentFields(cfg);
+        }
+
+        private int ParseCursorTurnTimeoutMinutes()
+        {
+            var raw = CursorAgentTurnTimeoutMinutesTextBox?.Text?.Trim() ?? string.Empty;
+            if (!int.TryParse(raw, out var minutes) || minutes <= 0)
+            {
+                return 30;
+            }
+
+            return Math.Clamp(minutes, 5, 180);
         }
 
         private void PersistCursorAutoCleanFields(ConfigurationService.GlobalConfig cfg)

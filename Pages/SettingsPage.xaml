@@ -1345,6 +1345,18 @@
                                          Style="{StaticResource App.InputTextBox}"
                                          mah:TextBoxHelper.Watermark="e.g. composer-2.5" />
 
+                                <TextBlock Text="Turn timeout (minutes)" Margin="0,14,0,6" Style="{StaticResource App.MutedTextStyle}" FontSize="11" />
+                                <TextBox x:Name="CursorAgentTurnTimeoutMinutesTextBox"
+                                         Style="{StaticResource App.InputTextBox}"
+                                         Width="120"
+                                         HorizontalAlignment="Left"
+                                         mah:TextBoxHelper.Watermark="30" />
+                                <TextBlock Text="How long one Cursor turn (Build / chat) may run before GitDeploy stops it. Default 30. Allowed 5–180."
+                                           Margin="0,6,0,0"
+                                           FontSize="11"
+                                           Foreground="{StaticResource Text.Muted}"
+                                           TextWrapping="Wrap" />
+
                                 <StackPanel Orientation="Horizontal" Margin="0,14,0,10">
                                     <Button x:Name="CursorInstallButton"
                                             Content="Install CLI"

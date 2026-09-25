@@ -647,6 +647,7 @@
   "cursor.autoStatus": "Next {0} · last {1}",
   "cursor.autoRunning": "Auto-clean running…",
   "cursor.agentFound": "Agent found: {0}",
+  "cursor.turnTimedOut": "Cursor agent turn timed out after {0} minutes. Increase the timeout in Settings → Cursor agent, then retry.",
   "cursor.settingsSaved": "Cursor bridge saved. Using {0}",
   "cursor.settingsSavedMissing": "Cursor bridge saved, but agent executable was not found yet.",
   "cursor.emptyReply": "(Cursor returned no text.)",

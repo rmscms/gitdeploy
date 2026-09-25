@@ -1160,6 +1160,7 @@ namespace GitDeployPro.Pages
             var control = new TerminalControl
             {
                 ShowCommandBar = false,
+                KeepSessionOnUnload = true,
                 Visibility = Visibility.Collapsed
             };
             control.SetProjectPath(_projectConfig?.LocalProjectPath ?? string.Empty);

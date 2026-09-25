@@ -41,7 +41,7 @@ namespace GitDeployPro.Services.Telegram
             sb.AppendLine((planMarkdown ?? string.Empty).Trim());
             sb.AppendLine();
 
-            // One pass: tables→lists + RTL marks — Telegram-compatible Markdown.
+            // HTML→MD, strip Mermaid, keep tables, RTL on Persian prose — Telegram document-ready.
             var body = TelegramTextFormat.ToTelegramCompatibleMarkdown(sb.ToString());
             File.WriteAllText(path, body + "\n", new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
             // Bump mtime explicitly so "latest by date" is unambiguous.

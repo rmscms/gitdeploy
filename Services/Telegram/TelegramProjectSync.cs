@@ -31,8 +31,14 @@ namespace GitDeployPro.Services.Telegram
             {
                 if (app.MainWindow is MainWindow main)
                 {
-                    // SetCurrentProject tears down Deploy and clears ContentFrame —
-                    // remount Deploy so Telegram switches don't leave a black empty shell.
+                    // Same project: do not rebuild Deploy. That disposed the open SSH terminal.
+                    if (main.HasLiveDeploySession(path))
+                    {
+                        TelegramChatStore.Instance.SetActiveProjectPath(path);
+                        return;
+                    }
+
+                    // A real project change tears down Deploy — remount so the frame is not left empty.
                     main.SetCurrentProject(path, showSetupWizard: false);
                     main.NavigateToDeploy();
                     return;

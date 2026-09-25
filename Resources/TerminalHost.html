@@ -423,11 +423,18 @@
           }
 
           const q = lineBuffer;
-          if (cmd.toLowerCase().startsWith(q.toLowerCase())) {
+          const qLower = q.toLowerCase();
+          const cmdLower = cmd.toLowerCase();
+          if (cmdLower.startsWith(qLower)) {
             if (cmd.length <= q.length) {
               return null;
             }
-            return { mode: 'append', text: cmd.slice(q.length), command: cmd };
+            // Same casing on the typed prefix → append suffix only
+            if (cmd.slice(0, q.length) === q) {
+              return { mode: 'append', text: cmd.slice(q.length), command: cmd };
+            }
+            // Case differs (e.g. typed "Git", catalog "git …") → replace with catalog command
+            return { mode: 'replace', text: cmd, command: cmd };
           }
 
           // Matched via description — Tab replaces typed text with full command
@@ -650,18 +657,32 @@
         };
 
         const acceptGhost = () => {
-          const completion = getCompletion();
-          if (!completion || !getTypingEnabled()) {
+          if (!getTypingEnabled()) {
             return false;
           }
 
-          if (completion.mode === 'append') {
-            if (!completion.text) {
+          // Prefer the visible ghost suffix so Tab always matches what the user sees
+          // (avoids races with PSReadLine / stale overlay vs getCompletion()).
+          const visibleSuffix = (ghostEl
+            && ghostEl.style.display !== 'none'
+            && ghostEl.textContent)
+            ? ghostEl.textContent
+            : '';
+
+          const completion = getCompletion();
+          if (!completion && !visibleSuffix) {
+            return false;
+          }
+
+          if (visibleSuffix || (completion && completion.mode === 'append')) {
+            const text = visibleSuffix || (completion ? completion.text : '');
+            if (!text) {
               return false;
             }
-            lineBuffer += completion.text;
-            post({ type: 'input', data: completion.text });
+            lineBuffer += text;
+            post({ type: 'input', data: text });
             clearGhost();
+            updateSuggestion();
             return true;
           }
 
@@ -671,7 +692,24 @@
           lineBuffer = completion.command;
           post({ type: 'input', data: erase + completion.command });
           clearGhost();
+          updateSuggestion();
           return true;
+        };
+
+        const hasActiveSuggestionUi = () => {
+          if (!suggestionsEnabled) {
+            return false;
+          }
+          if (matches.length > 0 && getCompletion()) {
+            return true;
+          }
+          if (ghostEl && ghostEl.style.display !== 'none' && ghostEl.textContent) {
+            return true;
+          }
+          if (pickerEl && pickerEl.style.display !== 'none') {
+            return true;
+          }
+          return false;
         };
 
         const cycleMatch = (delta) => {
@@ -693,13 +731,18 @@
           const shift = ev.shiftKey;
 
           if (key === 'tab' && !ctrl && !shift) {
+            // Always accept our ghost when present — never leak Tab to the shell
+            // (PowerShell PSReadLine would complete a different command).
             if (acceptGhost()) {
+              return true;
+            }
+            if (hasActiveSuggestionUi()) {
               return true;
             }
             return false;
           }
 
-          if (key === 'arrowright' && !ctrl && !shift && getCompletion()) {
+          if (key === 'arrowright' && !ctrl && !shift && hasActiveSuggestionUi()) {
             if (acceptGhost()) {
               return true;
             }
@@ -718,8 +761,9 @@
           }
 
           if (key === 'escape' && !ctrl && !shift) {
-            if (matches.length > 0) {
+            if (matches.length > 0 || hasActiveSuggestionUi()) {
               clearGhost();
+              return true;
             }
             return false;
           }
@@ -970,6 +1014,9 @@
 
           if (suggestions.handleKeyDown(ev)) {
             ev.preventDefault();
+            if (typeof ev.stopPropagation === 'function') {
+              ev.stopPropagation();
+            }
             scheduleOverlaySync();
             return false;
           }

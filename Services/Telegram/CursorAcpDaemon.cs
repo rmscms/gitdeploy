@@ -426,11 +426,14 @@ namespace GitDeployPro.Services.Telegram
             {
                 try
                 {
+                    var turnTimeout = new ConfigurationService()
+                        .LoadGlobalConfig()
+                        .GetCursorAgentTurnTimeout();
                     return await SendRequestUnlockedAsync(
                             "session/prompt",
                             promptParams,
                             cancellationToken,
-                            timeout: TimeSpan.FromMinutes(8))
+                            timeout: turnTimeout)
                         .ConfigureAwait(false);
                 }
                 catch (TimeoutException)

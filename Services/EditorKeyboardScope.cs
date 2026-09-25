@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Input;
+using System.Windows.Media;
 using ICSharpCode.AvalonEdit;
 using Microsoft.Web.WebView2.Wpf;
 
@@ -12,10 +13,36 @@ namespace GitDeployPro.Services
     /// <summary>
     /// Routes arrow / home / end keys into the code editor.
     /// WPF directional navigation and the FTP tree otherwise keep those keys.
+    /// Never steals keys when the terminal (or another non-editor WebView) has focus.
     /// </summary>
     public static class EditorKeyboardScope
     {
         private static readonly List<Target> Targets = new();
+
+        /// <summary>
+        /// TerminalControl instances that currently own keyboard input.
+        /// Blocks stealing Up/Down for shell history even when WPF focus lags JS focus.
+        /// </summary>
+        private static readonly HashSet<object> TerminalInputOwners = new();
+
+        public static void SetTerminalInputOwner(object owner, bool active)
+        {
+            if (owner == null)
+            {
+                return;
+            }
+
+            if (active)
+            {
+                TerminalInputOwners.Add(owner);
+            }
+            else
+            {
+                TerminalInputOwners.Remove(owner);
+            }
+        }
+
+        public static bool IsTerminalInputActive => TerminalInputOwners.Count > 0;
 
         public static void ArmMonaco(WebView2? view)
         {
@@ -76,7 +103,19 @@ namespace GitDeployPro.Services
                 return false;
             }
 
-            if (IsPlainTextInput(Keyboard.FocusedElement) || IsPlainTextInput(e.OriginalSource as IInputElement))
+            var focused = Keyboard.FocusedElement;
+            var source = e.OriginalSource as IInputElement;
+
+            // Plain text fields keep their own caret keys.
+            if (IsPlainTextInput(focused) || IsPlainTextInput(source))
+            {
+                return false;
+            }
+
+            // Terminal owns input (flag and/or visual focus): do NOT steal Up/Down for history.
+            if (IsTerminalInputActive
+                || ShouldLeaveKeysToFocus(focused)
+                || ShouldLeaveKeysToFocus(source))
             {
                 return false;
             }
@@ -97,6 +136,14 @@ namespace GitDeployPro.Services
                 return false;
             }
 
+            // Monaco already focused — let WebView2 handle natively (don't re-focus / re-inject).
+            if (target.Kind == TargetKind.Monaco
+                && target.WebView != null
+                && target.WebView.IsKeyboardFocusWithin)
+            {
+                return false;
+            }
+
             e.Handled = true;
             var mods = Keyboard.Modifiers;
             switch (target.Kind)
@@ -113,6 +160,73 @@ namespace GitDeployPro.Services
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// True when focus is in the terminal host (or another WebView that is not the armed editor).
+        /// </summary>
+        private static bool ShouldLeaveKeysToFocus(IInputElement? element)
+        {
+            if (element is not DependencyObject d)
+            {
+                return false;
+            }
+
+            if (IsInsideTerminalControl(d))
+            {
+                return true;
+            }
+
+            var webView = FindAncestorWebView2(d);
+            if (webView == null)
+            {
+                return false;
+            }
+
+            // Armed Monaco editor WebView: leave keys only when it already has focus.
+            for (var i = 0; i < Targets.Count; i++)
+            {
+                if (Targets[i].Kind == TargetKind.Monaco && ReferenceEquals(Targets[i].WebView, webView))
+                {
+                    return webView.IsKeyboardFocusWithin;
+                }
+            }
+
+            // Any other WebView2 (Deploy terminal, local terminal, etc.)
+            return true;
+        }
+
+        private static bool IsInsideTerminalControl(DependencyObject? d)
+        {
+            while (d != null)
+            {
+                // Avoid hard project-cycle: match by type name.
+                if (string.Equals(d.GetType().Name, "TerminalControl", StringComparison.Ordinal))
+                {
+                    return true;
+                }
+
+                d = VisualTreeHelper.GetParent(d)
+                    ?? (d as FrameworkElement)?.Parent as DependencyObject;
+            }
+
+            return false;
+        }
+
+        private static WebView2? FindAncestorWebView2(DependencyObject? d)
+        {
+            while (d != null)
+            {
+                if (d is WebView2 wv)
+                {
+                    return wv;
+                }
+
+                d = VisualTreeHelper.GetParent(d)
+                    ?? (d as FrameworkElement)?.Parent as DependencyObject;
+            }
+
+            return null;
         }
 
         private static Target? FindActiveTarget()

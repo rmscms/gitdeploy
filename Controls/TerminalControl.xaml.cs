@@ -75,6 +75,12 @@ namespace GitDeployPro.Controls
         private IReadOnlyDictionary<string, string>? _xtermThemeOverride;
         private string? _hostBackgroundOverrideHex;
 
+        /// <summary>
+        /// Deploy hosts the control inside a page that unloads on navigation.
+        /// Unload must not drop the SSH shell; only <see cref="DisposeTerminalAsync"/> does.
+        /// </summary>
+        public bool KeepSessionOnUnload { get; set; }
+
         public bool ShowCommandBar
         {
             get => (bool)GetValue(ShowCommandBarProperty);
@@ -93,6 +99,27 @@ namespace GitDeployPro.Controls
             ApplyHostBackgroundFromTheme();
             WireDockedSavedCommandsPanel();
             TerminalSuggestionStore.SuggestionsChanged += OnSuggestionsChanged;
+
+            // Keep EditorKeyboardScope from stealing Up/Down while this terminal has input.
+            if (TerminalWebView != null)
+            {
+                TerminalWebView.GotFocus += (_, _) => EditorKeyboardScope.SetTerminalInputOwner(this, true);
+                TerminalWebView.LostFocus += (_, _) => EditorKeyboardScope.SetTerminalInputOwner(this, false);
+                TerminalWebView.PreviewMouseDown += (_, _) =>
+                {
+                    try { TerminalWebView.Focus(); } catch { /* ignore */ }
+                    EditorKeyboardScope.SetTerminalInputOwner(this, true);
+                };
+            }
+
+            if (TerminalHostGrid != null)
+            {
+                TerminalHostGrid.PreviewMouseDown += (_, _) =>
+                {
+                    try { TerminalWebView?.Focus(); } catch { /* ignore */ }
+                    EditorKeyboardScope.SetTerminalInputOwner(this, true);
+                };
+            }
         }
 
         private void OnSuggestionsChanged()
@@ -650,16 +677,23 @@ namespace GitDeployPro.Controls
 
         private async void TerminalControl_Unloaded(object sender, RoutedEventArgs e)
         {
+            lock (_activeTerminals)
+            {
+                _activeTerminals.Remove(this);
+            }
+
+            // Deploy page unloads when the frame changes. The SSH shell stays until dispose.
+            if (KeepSessionOnUnload && !_disposed)
+            {
+                return;
+            }
+
             ThemeService.Instance.ThemeChanged -= OnDeployThemeChanged;
             ConfigurationService.ConnectionsChanged -= OnConnectionsChanged;
             TerminalSuggestionStore.SuggestionsChanged -= OnSuggestionsChanged;
             WorkspacePreferencesStore.AppearanceChanged -= OnAppearanceChanged;
             CloseSavedCommandsWindow();
-
-            lock (_activeTerminals)
-            {
-                _activeTerminals.Remove(this);
-            }
+            EditorKeyboardScope.SetTerminalInputOwner(this, false);
 
             await DisconnectAsync(includeCloseMessage: false);
             ReleaseWebViewBridge();
@@ -1792,6 +1826,16 @@ namespace GitDeployPro.Controls
 
         public Task FocusTerminalAsync()
         {
+            try
+            {
+                TerminalWebView?.Focus();
+            }
+            catch
+            {
+                // ignore focus failures (webview not ready)
+            }
+
+            EditorKeyboardScope.SetTerminalInputOwner(this, true);
             return PostTerminalMessageAsync(new { type = "focus" });
         }
 
