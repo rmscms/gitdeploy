@@ -1,16 +1,15 @@
 {
-  "version": "2.3.56",
-  "fileName": "GitDeployPro-2.3.56.exe",
-  "downloadUrl": "versions/GitDeployPro-2.3.56.exe",
-  "sha256": "C766C147CD16866F4D0A2B2FE4BC10E7108B4234A4B47BEFA55C8CC246DFEBAA",
-  "releaseNotes": "Feature: Cursor agent turn timeout is configurable in Settings (5–180 minutes, default 30)\nFix: Telegram work on the same project no longer closes the Deploy SSH terminal or FTP session\nFix: Arrow keys stay in the Deploy terminal while a file editor is open\nFix: Tab accepts the visible terminal suggestion instead of the shell completion\nFix: Telegram plan files keep Markdown tables and drop Mermaid diagrams",
+  "version": "2.3.78",
+  "fileName": "GitDeployPro-2.3.78.exe",
+  "downloadUrl": "versions/GitDeployPro-2.3.78.exe",
+  "sha256": "D6B8BB921E0E328BB0606C39A70ACE8CB5194E6BABC684E55E2DB6D636179D62",
+  "releaseNotes": "Feature: Telegram Terminal opens a favorite SSH session, sends each line to the server, and returns output as a shell block with Exit and the current directory\nFeature: While the agent is busy, the next Telegram message stays queued and you get a notice until the current turn finishes\nFix: Telegram sends the full plan file instead of the short stub\nFix: A command typed in the terminal while SSH is disconnected stays there (pick a server or Exit) instead of starting the agent",
   "changelog": [
-    "Feature: Cursor agent turn timeout is configurable in Settings (5–180 minutes, default 30)",
-    "Fix: Telegram work on the same project no longer closes the Deploy SSH terminal or FTP session",
-    "Fix: Arrow keys stay in the Deploy terminal while a file editor is open",
-    "Fix: Tab accepts the visible terminal suggestion instead of the shell completion",
-    "Fix: Telegram plan files keep Markdown tables and drop Mermaid diagrams"
+    "Feature: Telegram Terminal opens a favorite SSH session, sends each line to the server, and returns output as a shell block with Exit and the current directory",
+    "Feature: While the agent is busy, the next Telegram message stays queued and you get a notice until the current turn finishes",
+    "Fix: Telegram sends the full plan file instead of the short stub",
+    "Fix: A command typed in the terminal while SSH is disconnected stays there (pick a server or Exit) instead of starting the agent"
   ],
   "mandatory": false,
-  "publishedUtc": "2026-09-25T06:45:06Z"
+  "publishedUtc": "2026-09-26T06:03:58Z"
 }

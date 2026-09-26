@@ -45,7 +45,7 @@ namespace GitDeployPro.Services.Telegram
             return Task.FromResult(BuildReplyKeyboard(projectPath));
         }
 
-        public static JObject BuildReplyKeyboard(string? projectPath = null)
+        public static JObject BuildReplyKeyboard(string? projectPath = null, bool includeTerminalExit = false)
         {
             var showDeploy = TelegramProjectProfile.SupportsDeploy(projectPath);
             var planMode = !string.IsNullOrWhiteSpace(projectPath)
@@ -55,18 +55,18 @@ namespace GitDeployPro.Services.Telegram
                 : Loc.T("telegram.kbPlan");
             if (showDeploy)
             {
-                return TelegramMarkup.ReplyKeyboard(
+                var keyboard = TelegramMarkup.ReplyKeyboard(
                     new[]
                     {
                         Loc.T("telegram.kbProjects"),
-                        Loc.T("telegram.kbStatus"),
+                        Loc.T("telegram.kbPreview"),
                         Loc.T("telegram.kbDeploy")
                     },
                     new[]
                     {
-                        Loc.T("telegram.kbPreview"),
+                        Loc.T("telegram.kbStatus"),
                         Loc.T("telegram.kbClear"),
-                        Loc.T("telegram.kbEngine")
+                        Loc.T("telegram.kbTerminal")
                     },
                     new[]
                     {
@@ -79,9 +79,10 @@ namespace GitDeployPro.Services.Telegram
                         Loc.T("telegram.kbPlans"),
                         Loc.T("telegram.kbCursorCache")
                     });
+                return includeTerminalExit ? WithTerminalExit(keyboard) : keyboard;
             }
 
-            return TelegramMarkup.ReplyKeyboard(
+            var plain = TelegramMarkup.ReplyKeyboard(
                 new[]
                 {
                     Loc.T("telegram.kbProjects"),
@@ -90,7 +91,7 @@ namespace GitDeployPro.Services.Telegram
                 },
                 new[]
                 {
-                    Loc.T("telegram.kbEngine"),
+                    Loc.T("telegram.kbTerminal"),
                     Loc.T("telegram.kbRestartAgent"),
                     Loc.T("telegram.kbModel")
                 },
@@ -100,6 +101,17 @@ namespace GitDeployPro.Services.Telegram
                     Loc.T("telegram.kbPlans"),
                     Loc.T("telegram.kbCursorCache")
                 });
+            return includeTerminalExit ? WithTerminalExit(plain) : plain;
+        }
+
+        private static JObject WithTerminalExit(JObject keyboard)
+        {
+            var rows = keyboard["keyboard"] as JArray;
+            rows?.Add(new JArray
+            {
+                new JObject { ["text"] = Loc.T("telegram.kbTerminalExit") }
+            });
+            return keyboard;
         }
 
         /// <summary>

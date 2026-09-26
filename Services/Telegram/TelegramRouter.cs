@@ -29,6 +29,8 @@ namespace GitDeployPro.Services.Telegram
         public const string CallbackEngineMenu = "agent:engine:menu";
         public const string CallbackEngineCursor = "agent:engine:cursor";
         public const string CallbackEngineCodex = "agent:engine:codex";
+        public const string CallbackTermPrefix = "term:";
+        public const string CallbackTermClose = "term:close";
         public const string CallbackCursorCache = "cache:menu";
         public const string CallbackCursorCacheSafe = "cache:safe";
         public const string CallbackCursorCacheSafeForce = "cache:safe:force";
@@ -70,6 +72,23 @@ namespace GitDeployPro.Services.Telegram
             }
 
             var text = (update.Text ?? string.Empty).Trim();
+            if (IsTerminalCommand(text))
+            {
+                await ReplyTerminalFavoritesAsync(token, update, cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            if (TelegramSshSessionHub.IsArmed(update.ChatId) && IsTerminalCloseCommand(text))
+            {
+                await CloseTerminalAsync(token, update, cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            if (TelegramSshSessionHub.IsArmed(update.ChatId) && IsLeaveTerminalCommand(text))
+            {
+                await LeaveTerminalModeAsync(update.ChatId).ConfigureAwait(false);
+            }
+
             if (IsProjectsCommand(text))
             {
                 await ReplyProjectsAsync(token, update, cancellationToken).ConfigureAwait(false);
@@ -183,6 +202,29 @@ namespace GitDeployPro.Services.Telegram
             var hasDocument = !string.IsNullOrWhiteSpace(update.DocumentFileId);
             if (string.IsNullOrWhiteSpace(body) && !hasPhoto && !hasDocument)
             {
+                return;
+            }
+
+            if (TelegramSshSessionHub.IsArmed(update.ChatId))
+            {
+                if (!TelegramSshSessionHub.IsOpen(update.ChatId))
+                {
+                    await ReplyTerminalOfflineAsync(token, update, cancellationToken).ConfigureAwait(false);
+                    return;
+                }
+
+                if (hasPhoto || hasDocument)
+                {
+                    await SendBotAsync(
+                        token,
+                        update.ChatId,
+                        TelegramMarkup.Html(Loc.T("telegram.termBusyMedia")),
+                        CloseTerminalKeyboard(),
+                        cancellationToken).ConfigureAwait(false);
+                    return;
+                }
+
+                await RunTerminalCommandAsync(token, update, body, cancellationToken).ConfigureAwait(false);
                 return;
             }
 
@@ -504,6 +546,13 @@ namespace GitDeployPro.Services.Telegram
                 {
                     await ReplyHomeAsync(token, update, cancellationToken).ConfigureAwait(false);
                     await _client.AnswerCallbackQueryAsync(token, update.CallbackQueryId, null, cancellationToken)
+                        .ConfigureAwait(false);
+                    return;
+                }
+
+                if (data.StartsWith(CallbackTermPrefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    await HandleTerminalCallbackAsync(token, update, data, cancellationToken)
                         .ConfigureAwait(false);
                     return;
                 }
@@ -2015,6 +2064,278 @@ namespace GitDeployPro.Services.Telegram
             }
 
             return sb.ToString();
+        }
+
+        private static bool IsTerminalCommand(string text)
+            => MatchesCommand(text, "/terminal", "telegram.kbTerminal", "terminal", "ترمینال");
+
+        private static bool IsTerminalCloseCommand(string text)
+            => MatchesCommand(
+                text,
+                "/exit",
+                "telegram.kbTerminalExit",
+                "telegram.kbTerminalClose",
+                "exit",
+                "بستن ترمینال");
+
+        private async Task ReplyTerminalFavoritesAsync(
+            string token,
+            TelegramIncomingUpdate update,
+            CancellationToken cancellationToken)
+        {
+            TelegramSshSessionHub.Arm(update.ChatId);
+
+            var profiles = new ConfigurationService().LoadConnections()
+                .Where(p => p.IsFavorite && ConnectionProfileFilters.IsSshTerminalProfile(p))
+                .OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
+                .Take(20)
+                .ToList();
+
+            if (profiles.Count == 0)
+            {
+                TelegramSshSessionHub.Disarm(update.ChatId);
+                await SendBotAsync(
+                    token,
+                    update.ChatId,
+                    TelegramMarkup.Html(Loc.T("telegram.termNoFavorites")),
+                    TelegramDeployCoordinator.BuildReplyKeyboard(ResolveInboundProjectPath(_config.LoadGlobalConfig())),
+                    cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            var rows = profiles
+                .Select(p => (IReadOnlyList<(string Text, string Data)>)new[]
+                {
+                    (p.Name, CallbackTermPrefix + p.Id)
+                })
+                .ToList();
+            rows.Add(new[] { (Loc.T("telegram.kbTerminalExit"), CallbackTermClose) });
+
+            await SendBotAsync(
+                token,
+                update.ChatId,
+                TelegramMarkup.Html(Loc.T("telegram.termPick")),
+                TelegramMarkup.InlineRows(rows),
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        private async Task HandleTerminalCallbackAsync(
+            string token,
+            TelegramIncomingUpdate update,
+            string data,
+            CancellationToken cancellationToken)
+        {
+            if (string.Equals(data, CallbackTermClose, StringComparison.OrdinalIgnoreCase))
+            {
+                await CloseTerminalAsync(token, update, cancellationToken).ConfigureAwait(false);
+                await _client.AnswerCallbackQueryAsync(token, update.CallbackQueryId, null, cancellationToken)
+                    .ConfigureAwait(false);
+                return;
+            }
+
+            var id = data[CallbackTermPrefix.Length..].Trim();
+            var profile = new ConfigurationService().LoadConnections()
+                .FirstOrDefault(p =>
+                    string.Equals(p.Id, id, StringComparison.OrdinalIgnoreCase)
+                    && p.IsFavorite
+                    && ConnectionProfileFilters.IsSshTerminalProfile(p));
+            if (profile == null)
+            {
+                await _client.AnswerCallbackQueryAsync(
+                    token,
+                    update.CallbackQueryId,
+                    Loc.T("telegram.termProfileMissing"),
+                    cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            await _client.AnswerCallbackQueryAsync(token, update.CallbackQueryId, profile.Name, cancellationToken)
+                .ConfigureAwait(false);
+
+            var (ok, message) = await TelegramSshSessionHub.ConnectAsync(update.ChatId, profile)
+                .ConfigureAwait(false);
+            if (!ok)
+            {
+                await SendBotAsync(
+                    token,
+                    update.ChatId,
+                    TelegramMarkup.Html(Loc.T("telegram.termConnectFailed", message)),
+                    null,
+                    cancellationToken).ConfigureAwait(false);
+                await ReplyTerminalOfflineAsync(token, update, cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            await SendBotAsync(
+                token,
+                update.ChatId,
+                TelegramMarkup.Html(Loc.T("telegram.termConnected", profile.Name)),
+                TerminalSessionKeyboard(),
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        private async Task CloseTerminalAsync(
+            string token,
+            TelegramIncomingUpdate update,
+            CancellationToken cancellationToken)
+        {
+            TelegramSshSessionHub.Disarm(update.ChatId);
+            await TelegramSshSessionHub.CloseAsync(update.ChatId).ConfigureAwait(false);
+            var active = ResolveInboundProjectPath(_config.LoadGlobalConfig());
+            await SendBotAsync(
+                token,
+                update.ChatId,
+                TelegramMarkup.Html(Loc.T("telegram.termClosed")),
+                TelegramDeployCoordinator.BuildReplyKeyboard(active),
+                cancellationToken,
+                active).ConfigureAwait(false);
+        }
+
+        private async Task RunTerminalCommandAsync(
+            string token,
+            TelegramIncomingUpdate update,
+            string body,
+            CancellationToken cancellationToken)
+        {
+            if (IsTerminalCloseCommand(body))
+            {
+                await CloseTerminalAsync(token, update, cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            var guard = TelegramSshCommandGuard.Evaluate(body);
+            if (!guard.Ok)
+            {
+                await SendBotAsync(
+                    token,
+                    update.ChatId,
+                    TelegramMarkup.Html(TelegramSshCommandGuard.BlockMessage(guard.BlockKey)),
+                    CloseTerminalKeyboard(),
+                    cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            try
+            {
+                var (output, cwd, stillRunning) = await TelegramSshSessionHub
+                    .RunAsync(update.ChatId, guard.Command)
+                    .ConfigureAwait(false);
+                var bodyHtml = FormatShellBlock(guard.Command, output, cwd);
+                if (stillRunning)
+                {
+                    bodyHtml = TelegramMarkup.Html(Loc.T("telegram.termStillRunning")) + "\n" + bodyHtml;
+                }
+
+                await SendBotAsync(
+                    token,
+                    update.ChatId,
+                    bodyHtml,
+                    CloseTerminalKeyboard(),
+                    cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception)
+            {
+                await TelegramSshSessionHub.CloseAsync(update.ChatId).ConfigureAwait(false);
+                await ReplyTerminalOfflineAsync(token, update, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        private async Task LeaveTerminalModeAsync(long chatId)
+        {
+            TelegramSshSessionHub.Disarm(chatId);
+            await TelegramSshSessionHub.CloseAsync(chatId).ConfigureAwait(false);
+        }
+
+        private async Task ReplyTerminalOfflineAsync(
+            string token,
+            TelegramIncomingUpdate update,
+            CancellationToken cancellationToken)
+        {
+            TelegramSshSessionHub.Arm(update.ChatId);
+            var profiles = new ConfigurationService().LoadConnections()
+                .Where(p => p.IsFavorite && ConnectionProfileFilters.IsSshTerminalProfile(p))
+                .OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
+                .Take(20)
+                .ToList();
+            var rows = profiles
+                .Select(p => (IReadOnlyList<(string Text, string Data)>)new[]
+                {
+                    (p.Name, CallbackTermPrefix + p.Id)
+                })
+                .ToList();
+            rows.Add(new[] { (Loc.T("telegram.kbTerminalExit"), CallbackTermClose) });
+            await SendBotAsync(
+                token,
+                update.ChatId,
+                TelegramMarkup.Html(Loc.T("telegram.termSshDown")),
+                TelegramMarkup.InlineRows(rows),
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        private static bool IsLeaveTerminalCommand(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text) || IsTerminalCommand(text) || IsTerminalCloseCommand(text))
+            {
+                return false;
+            }
+
+            return IsProjectsCommand(text)
+                || IsHelpCommand(text)
+                || IsStartCommand(text)
+                || IsStatusCommand(text)
+                || IsPlansCommand(text)
+                || IsPlanModeCommand(text)
+                || IsAgentModeCommand(text)
+                || IsDeployCommand(text)
+                || IsPreviewCommand(text)
+                || IsEngineCommand(text)
+                || IsClearLocalCommand(text)
+                || IsCursorCacheCommand(text)
+                || IsWipeTelegramCommand(text)
+                || IsRestartAgentCommand(text)
+                || IsStopAgentCommand(text)
+                || IsModelCommand(text)
+                || text.StartsWith("/model", StringComparison.OrdinalIgnoreCase)
+                || text.StartsWith("/project", StringComparison.OrdinalIgnoreCase)
+                || text.StartsWith('/');
+        }
+
+        private JObject TerminalSessionKeyboard()
+        {
+            var active = ResolveInboundProjectPath(_config.LoadGlobalConfig());
+            var keyboard = TelegramDeployCoordinator.BuildReplyKeyboard(active, includeTerminalExit: true);
+            return keyboard;
+        }
+
+        private static JObject CloseTerminalKeyboard()
+            => TelegramMarkup.Inline(
+                new[] { (Loc.T("telegram.kbTerminalExit"), CallbackTermClose) });
+
+        private static string FormatShellBlock(string command, string? output, string? cwd)
+        {
+            var body = "$ " + (command ?? string.Empty).Trim();
+            var text = (output ?? string.Empty).Trim();
+            body += string.IsNullOrWhiteSpace(text)
+                ? "\n"
+                : "\n" + TrimTerminalOutput(text);
+            var where = (cwd ?? string.Empty).Trim();
+            if (where.Length > 0)
+            {
+                body += "\n" + where;
+            }
+
+            return "<pre><code class=\"language-shell\">" + TelegramMarkup.Html(body) + "</code></pre>";
+        }
+
+        private static string TrimTerminalOutput(string output)
+        {
+            const int max = 3500;
+            if (output.Length <= max)
+            {
+                return output;
+            }
+
+            return output[..max] + "\n…";
         }
 
         private static bool IsEngineCommand(string text)
