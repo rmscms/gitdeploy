@@ -67,7 +67,9 @@ namespace GitDeployPro.Services.Telegram
 
             if (!_workers.TryAdd(key, 0))
             {
-                PostStatus(projectPath, Loc.T("cursor.queued", queue.Count));
+                var notice = Loc.T("cursor.queued", queue.Count);
+                PostStatus(projectPath, notice);
+                NotifyTelegramWorking(projectPath, notice);
                 return;
             }
 

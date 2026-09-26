@@ -67,7 +67,9 @@ namespace GitDeployPro.Services.Telegram
 
             if (!_workers.TryAdd(key, 0))
             {
-                PostStatus(projectPath, Loc.T("cursor.queued", queue.Count));
+                var notice = Loc.T("cursor.queued", queue.Count);
+                PostStatus(projectPath, notice);
+                NotifyTelegramWorking(projectPath, notice);
                 return;
             }
 
@@ -776,6 +778,7 @@ namespace GitDeployPro.Services.Telegram
             ResolveNodeEntryCached(agentPath, out var nodeExe, out var indexJs);
 
             // Prefer warm ACP daemon (process stays alive across turns).
+            var planTurnStartedUtc = DateTime.UtcNow;
             AgentRunResult? run = null;
             var usedAcp = false;
             try
@@ -952,15 +955,23 @@ namespace GitDeployPro.Services.Telegram
             }
 
             // Plan mode must always leave a dated .md under .cursor/plans/ for Get MD / Build.
-            // Prefer ACP create_plan output — never WriteFromReply on top of it (that made a 2nd junk file).
+            // Cursor often writes the full plan itself (e.g. 2026-09-25-watchlist-sections.md)
+            // and the chat reply is only a short status. Never send that short reply as the plan.
             string? planForButtons = null;
             if (!string.IsNullOrWhiteSpace(run.PlanFilePath) && File.Exists(run.PlanFilePath))
             {
                 planForButtons = run.PlanFilePath;
             }
-            else if (_store.IsCursorPlanMode(projectPath))
+
+            planForButtons = PreferFullPlanFile(
+                projectPath,
+                planForButtons,
+                reply,
+                planTurnStartedUtc);
+
+            if (string.IsNullOrWhiteSpace(planForButtons) && _store.IsCursorPlanMode(projectPath))
             {
-                // Only fallback when create_plan never saved a file this turn.
+                // Only fallback when this turn saved no real plan file.
                 planForButtons = CursorPlanFileWriter.WriteFromReply(projectPath, reply);
                 if (!string.IsNullOrWhiteSpace(planForButtons))
                 {
@@ -2084,6 +2095,67 @@ namespace GitDeployPro.Services.Telegram
             _store.Append(projectPath, note);
             TelegramPoller.Instance.RaiseMessage(projectPath, note);
             await Task.CompletedTask.ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Send the longest plan written this turn. A short status reply must not win over the real .md.
+        /// </summary>
+        private static string? PreferFullPlanFile(
+            string projectPath,
+            string? current,
+            string? reply,
+            DateTime sinceUtc)
+        {
+            var candidates = new List<string>();
+            if (!string.IsNullOrWhiteSpace(current) && File.Exists(current))
+            {
+                candidates.Add(current);
+            }
+
+            foreach (var path in CursorPlanCatalog.ListWrittenSince(projectPath, sinceUtc))
+            {
+                candidates.Add(path);
+            }
+
+            foreach (System.Text.RegularExpressions.Match match in System.Text.RegularExpressions.Regex.Matches(
+                         reply ?? string.Empty,
+                         @"`?([A-Za-z0-9][A-Za-z0-9._-]{0,80}\.md)`?"))
+            {
+                var resolved = CursorPlanCatalog.ResolveByFileName(projectPath, match.Groups[1].Value);
+                if (!string.IsNullOrWhiteSpace(resolved))
+                {
+                    candidates.Add(resolved);
+                }
+            }
+
+            var best = candidates
+                .Where(File.Exists)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderByDescending(p => new FileInfo(p).Length)
+                .ThenByDescending(File.GetLastWriteTimeUtc)
+                .FirstOrDefault();
+
+            if (string.IsNullOrWhiteSpace(best))
+            {
+                return current;
+            }
+
+            var bestLen = new FileInfo(best).Length;
+            foreach (var extra in CursorPlanCatalog.ListWrittenSince(projectPath, sinceUtc))
+            {
+                if (string.Equals(extra, best, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var len = new FileInfo(extra).Length;
+                if (len > 0 && len * 2 < bestLen)
+                {
+                    CursorPlanCatalog.TryDelete(projectPath, extra, out _);
+                }
+            }
+
+            return best;
         }
 
         private static bool LooksLikePlanFile(string path)

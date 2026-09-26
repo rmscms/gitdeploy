@@ -36,6 +36,20 @@ namespace GitDeployPro.Services.Telegram
         public static string? GetLatest(string projectPath)
             => List(projectPath, max: 1).FirstOrDefault();
 
+        /// <summary>
+        /// Plans written during this turn. Longest file wins — Cursor often saves the
+        /// full plan itself, while a short chat reply must not replace it.
+        /// </summary>
+        public static IReadOnlyList<string> ListWrittenSince(string projectPath, DateTime sinceUtc)
+        {
+            var since = sinceUtc.AddSeconds(-2);
+            return List(projectPath, max: 50)
+                .Where(p => File.GetLastWriteTimeUtc(p) >= since)
+                .OrderByDescending(p => new FileInfo(p).Length)
+                .ThenByDescending(File.GetLastWriteTimeUtc)
+                .ToList();
+        }
+
         public static string? GetByIndex(string projectPath, int index)
         {
             if (index < 0)
