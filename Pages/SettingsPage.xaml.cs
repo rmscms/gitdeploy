@@ -156,6 +156,12 @@ namespace GitDeployPro.Pages
                 var projectPath = _configService.LoadGlobalConfig().LastProjectPath;
                 TerminalSuggestionsPanel?.Reload(projectPath);
             }
+
+            if (section == "telegram")
+            {
+                var projectPath = _configService.LoadGlobalConfig().LastProjectPath;
+                TelegramTerminalCommandsPanel?.Reload(projectPath);
+            }
         }
 
         private void SetNavActive(System.Windows.Controls.Button? button, bool active)
@@ -197,6 +203,7 @@ namespace GitDeployPro.Pages
                 LoadWorkspacePreferences();
                 RefreshLanguageUiTexts();
                 LoadTelegramSettings(globalConfig);
+                TelegramTerminalCommandsPanel?.Reload(globalConfig.LastProjectPath);
                 LoadVpnSettings(globalConfig);
                 TerminalSuggestionsPanel?.Reload(globalConfig.LastProjectPath);
                 if (SshKeyPathTextBox != null)
@@ -851,6 +858,7 @@ namespace GitDeployPro.Pages
             await LoadGitInfo(projectConfig);
             UpdateDangerZoneUi(path);
             TerminalSuggestionsPanel?.Reload(path);
+            TelegramTerminalCommandsPanel?.Reload(path);
         }
 
         private void UpdateDangerZoneUi(string? path)
