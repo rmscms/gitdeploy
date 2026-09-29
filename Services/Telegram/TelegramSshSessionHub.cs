@@ -19,6 +19,7 @@ namespace GitDeployPro.Services.Telegram
         private const string DoneMarker = "__GDP_DONE__";
         private static readonly ConcurrentDictionary<long, Session> Sessions = new();
         private static readonly ConcurrentDictionary<long, byte> Armed = new();
+        private static readonly ConcurrentDictionary<long, string> TerminalProjectPaths = new();
         private static readonly Regex Csi = new(@"\x1B\[[0-?]*[ -/]*[@-~]", RegexOptions.Compiled);
         private static readonly Regex Osc = new(@"\x1B\][^\x07\x1B]*(?:\x07|\x1B\\)?", RegexOptions.Compiled);
         private static readonly Regex ShellMark = new(@"\](?:3008|0);[^\\\r\n]*\\?", RegexOptions.Compiled);
@@ -30,7 +31,29 @@ namespace GitDeployPro.Services.Telegram
 
         public static void Arm(long chatId) => Armed[chatId] = 1;
 
-        public static void Disarm(long chatId) => Armed.TryRemove(chatId, out _);
+        public static void Disarm(long chatId)
+        {
+            Armed.TryRemove(chatId, out _);
+            TerminalProjectPaths.TryRemove(chatId, out _);
+        }
+
+        public static string? GetTerminalProjectPath(long chatId)
+        {
+            return TerminalProjectPaths.TryGetValue(chatId, out var path) && !string.IsNullOrWhiteSpace(path)
+                ? path
+                : null;
+        }
+
+        public static void SetTerminalProjectPath(long chatId, string? projectPath)
+        {
+            if (string.IsNullOrWhiteSpace(projectPath))
+            {
+                TerminalProjectPaths.TryRemove(chatId, out _);
+                return;
+            }
+
+            TerminalProjectPaths[chatId] = projectPath.Trim();
+        }
 
         public static async Task<(bool Ok, string Message)> ConnectAsync(long chatId, ConnectionProfile profile)
         {
@@ -58,17 +81,22 @@ namespace GitDeployPro.Services.Telegram
                 session.Dispose();
             }
 
+            TerminalProjectPaths.TryRemove(chatId, out _);
             await Task.CompletedTask.ConfigureAwait(false);
         }
 
-        public static async Task<(string Output, string Cwd, bool StillRunning)> RunAsync(long chatId, string command)
+        public static async Task<(string Output, string Cwd, bool StillRunning)> RunAsync(
+            long chatId,
+            string command,
+            int timeoutSeconds = 12,
+            bool longRunning = false)
         {
             if (!Sessions.TryGetValue(chatId, out var session))
             {
                 throw new InvalidOperationException("closed");
             }
 
-            return await session.RunAsync(command).ConfigureAwait(false);
+            return await session.RunAsync(command, timeoutSeconds, longRunning).ConfigureAwait(false);
         }
 
         public static (string Output, string Cwd) CleanOutput(string? raw, string? command = null)
@@ -193,7 +221,10 @@ namespace GitDeployPro.Services.Telegram
                 }
             }
 
-            public async Task<(string Output, string Cwd, bool StillRunning)> RunAsync(string command)
+            public async Task<(string Output, string Cwd, bool StillRunning)> RunAsync(
+                string command,
+                int timeoutSeconds = 12,
+                bool longRunning = false)
             {
                 await _gate.WaitAsync().ConfigureAwait(false);
                 try
@@ -205,6 +236,9 @@ namespace GitDeployPro.Services.Telegram
                         throw new InvalidOperationException("closed");
                     }
 
+                    var timeout = Math.Clamp(timeoutSeconds, 5, 300);
+                    var idleCutoffMs = longRunning ? 15000 : 800;
+
                     shell.Write(command + "\n");
                     shell.Write("printf '%s\\n' \"" + DoneMarker + "${PWD}\"\n");
                     shell.Flush();
@@ -213,7 +247,7 @@ namespace GitDeployPro.Services.Telegram
                     var started = Stopwatch.StartNew();
                     var lastData = Stopwatch.StartNew();
                     var sawMarker = false;
-                    while (started.Elapsed < TimeSpan.FromSeconds(12))
+                    while (started.Elapsed < TimeSpan.FromSeconds(timeout))
                     {
                         if (shell.DataAvailable)
                         {
@@ -225,7 +259,7 @@ namespace GitDeployPro.Services.Telegram
                                 break;
                             }
                         }
-                        else if (buffer.Length > 0 && lastData.ElapsedMilliseconds >= 800)
+                        else if (!longRunning && buffer.Length > 0 && lastData.ElapsedMilliseconds >= idleCutoffMs)
                         {
                             break;
                         }
@@ -236,7 +270,7 @@ namespace GitDeployPro.Services.Telegram
                     }
 
                     var (cleaned, cwd) = CleanOutput(buffer.ToString(), command);
-                    return (cleaned, cwd, !sawMarker && started.Elapsed >= TimeSpan.FromSeconds(12));
+                    return (cleaned, cwd, !sawMarker);
                 }
                 finally
                 {

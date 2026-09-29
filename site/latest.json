@@ -1,15 +1,14 @@
 {
-  "version": "2.3.78",
-  "fileName": "GitDeployPro-2.3.78.exe",
-  "downloadUrl": "versions/GitDeployPro-2.3.78.exe",
-  "sha256": "D6B8BB921E0E328BB0606C39A70ACE8CB5194E6BABC684E55E2DB6D636179D62",
-  "releaseNotes": "Feature: Telegram Terminal opens a favorite SSH session, sends each line to the server, and returns output as a shell block with Exit and the current directory\nFeature: While the agent is busy, the next Telegram message stays queued and you get a notice until the current turn finishes\nFix: Telegram sends the full plan file instead of the short stub\nFix: A command typed in the terminal while SSH is disconnected stays there (pick a server or Exit) instead of starting the agent",
+  "version": "2.3.99",
+  "fileName": "GitDeployPro-2.3.99.exe",
+  "downloadUrl": "versions/GitDeployPro-2.3.99.exe",
+  "sha256": "3D76B747C66C60E99CA4F148E44C425637EE76A54C6B59144153E9A95315C296",
+  "releaseNotes": "Feature: Telegram terminal shows this project's preset buttons; a trusted command runs on the open SSH session, and a build that restarts systemd is split so the session stays up\nFeature: Telegram accepts zip and pdf files and hands them to the agent\nFix: Settings opens again (invalid Terminal24 icon no longer crashes the page)",
   "changelog": [
-    "Feature: Telegram Terminal opens a favorite SSH session, sends each line to the server, and returns output as a shell block with Exit and the current directory",
-    "Feature: While the agent is busy, the next Telegram message stays queued and you get a notice until the current turn finishes",
-    "Fix: Telegram sends the full plan file instead of the short stub",
-    "Fix: A command typed in the terminal while SSH is disconnected stays there (pick a server or Exit) instead of starting the agent"
+    "Feature: Telegram terminal shows this project's preset buttons; a trusted command runs on the open SSH session, and a build that restarts systemd is split so the session stays up",
+    "Feature: Telegram accepts zip and pdf files and hands them to the agent",
+    "Fix: Settings opens again (invalid Terminal24 icon no longer crashes the page)"
   ],
   "mandatory": false,
-  "publishedUtc": "2026-09-26T06:03:58Z"
+  "publishedUtc": "2026-09-29T05:15:00Z"
 }

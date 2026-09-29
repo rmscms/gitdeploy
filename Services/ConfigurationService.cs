@@ -35,6 +35,9 @@ namespace GitDeployPro.Services
             public string DefaultSshKeyPath { get; set; } = "";
             public List<TerminalCommandPreset> TerminalPresets { get; set; } = new();
 
+            /// <summary>Trusted Telegram SSH presets (inline buttons, per project).</summary>
+            public List<TelegramTerminalCommand> TelegramTerminalCommands { get; set; } = new();
+
             /// <summary>
             /// Saved-commands UI: "dock" (strip above terminal) or "float" (helper tool window).
             /// </summary>
@@ -426,6 +429,7 @@ namespace GitDeployPro.Services
             config.RecentProjects ??= new List<RecentProjectEntry>();
             config.TerminalPresets ??= new List<TerminalCommandPreset>();
             config.TerminalSuggestions ??= new List<TerminalSuggestion>();
+            config.TelegramTerminalCommands ??= new List<TelegramTerminalCommand>();
             config.BackupSchedules ??= new List<BackupSchedule>();
             config.BackupHistory ??= new List<BackupHistoryEntry>();
             MigrateAppThemeId(config, token);
@@ -508,6 +512,7 @@ namespace GitDeployPro.Services
             config.RecentProjects ??= new List<RecentProjectEntry>();
             config.TerminalPresets ??= new List<TerminalCommandPreset>();
             config.TerminalSuggestions ??= new List<TerminalSuggestion>();
+            config.TelegramTerminalCommands ??= new List<TelegramTerminalCommand>();
             config.BackupSchedules ??= new List<BackupSchedule>();
             config.BackupHistory ??= new List<BackupHistoryEntry>();
 

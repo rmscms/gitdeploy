@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -30,7 +31,9 @@ namespace GitDeployPro.Services.Telegram
         public const string CallbackEngineCursor = "agent:engine:cursor";
         public const string CallbackEngineCodex = "agent:engine:codex";
         public const string CallbackTermPrefix = "term:";
+        public const string CallbackTermCmdPrefix = "term:cmd:";
         public const string CallbackTermClose = "term:close";
+        private const int TrustedTerminalTimeoutSeconds = 180;
         public const string CallbackCursorCache = "cache:menu";
         public const string CallbackCursorCacheSafe = "cache:safe";
         public const string CallbackCursorCacheSafeForce = "cache:safe:force";
@@ -219,7 +222,7 @@ namespace GitDeployPro.Services.Telegram
                         token,
                         update.ChatId,
                         TelegramMarkup.Html(Loc.T("telegram.termBusyMedia")),
-                        CloseTerminalKeyboard(),
+                        TerminalInlineKeyboard(update.ChatId),
                         cancellationToken).ConfigureAwait(false);
                     return;
                 }
@@ -257,7 +260,8 @@ namespace GitDeployPro.Services.Telegram
                     : update.DocumentFileName.Trim();
                 var isImageDoc = IsAllowedImageDocument(fileName, update.DocumentMimeType);
                 var isTextDoc = IsAllowedTextDocument(fileName, update.DocumentMimeType);
-                if (!isImageDoc && !isTextDoc)
+                var isBinaryDoc = IsAllowedBinaryDocument(fileName, update.DocumentMimeType);
+                if (!isImageDoc && !isTextDoc && !isBinaryDoc)
                 {
                     await SendBotAsync(
                         token,
@@ -294,9 +298,17 @@ namespace GitDeployPro.Services.Telegram
                             agentText = string.Empty;
                         }
                     }
-                    else
+                    else if (isTextDoc)
                     {
                         agentText = BuildAgentTextWithDocument(body, attachmentPath, attachmentName);
+                        if (string.IsNullOrWhiteSpace(body))
+                        {
+                            body = Loc.T("telegram.document", attachmentName);
+                        }
+                    }
+                    else
+                    {
+                        agentText = BuildAgentTextWithBinaryDocument(body, attachmentPath, attachmentName);
                         if (string.IsNullOrWhiteSpace(body))
                         {
                             body = Loc.T("telegram.document", attachmentName);
@@ -361,6 +373,23 @@ namespace GitDeployPro.Services.Telegram
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// ZIP/PDF and similar binaries: download locally and let the agent inspect via tools.
+        /// </summary>
+        private static bool IsAllowedBinaryDocument(string fileName, string? mimeType)
+        {
+            var ext = Path.GetExtension(fileName ?? string.Empty).ToLowerInvariant();
+            if (ext is ".zip" or ".pdf")
+            {
+                return true;
+            }
+
+            var mime = (mimeType ?? string.Empty).Trim().ToLowerInvariant();
+            return mime is "application/zip"
+                or "application/x-zip-compressed"
+                or "application/pdf";
         }
 
         /// <summary>
@@ -434,6 +463,88 @@ namespace GitDeployPro.Services.Telegram
             sb.AppendLine("--- end attached file ---");
             sb.AppendLine($"Local copy: {filePath}");
             return sb.ToString().Trim();
+        }
+
+        private static string BuildAgentTextWithBinaryDocument(string captionOrText, string filePath, string displayName)
+        {
+            var sb = new StringBuilder();
+            var intro = (captionOrText ?? string.Empty).Trim();
+            if (!string.IsNullOrWhiteSpace(intro))
+            {
+                sb.AppendLine(intro);
+                sb.AppendLine();
+            }
+
+            var ext = Path.GetExtension(displayName ?? filePath).ToLowerInvariant();
+            var isZip = ext is ".zip";
+            var isPdf = ext is ".pdf";
+
+            if (isZip)
+            {
+                sb.AppendLine($"User attached a ZIP archive ({displayName}). Extract or inspect it with your tools, then follow the request.");
+            }
+            else if (isPdf)
+            {
+                sb.AppendLine($"User attached a PDF ({displayName}). Read or extract its text with your tools, then follow the request.");
+            }
+            else
+            {
+                sb.AppendLine($"User attached a binary file ({displayName}). Open or inspect it with your tools, then follow the request.");
+            }
+
+            sb.AppendLine();
+            sb.AppendLine($"--- Attached file: {displayName} ---");
+            sb.AppendLine($"Local copy: {filePath}");
+
+            try
+            {
+                var info = new FileInfo(filePath);
+                if (info.Exists)
+                {
+                    sb.AppendLine($"Size: {info.Length} bytes");
+                }
+            }
+            catch
+            {
+                // ignore size probe failures
+            }
+
+            if (isZip)
+            {
+                AppendZipEntryListing(sb, filePath);
+            }
+
+            sb.AppendLine("--- end attached file ---");
+            sb.AppendLine("Use shell/tools on the local path above; do not ask the user to re-upload.");
+            return sb.ToString().Trim();
+        }
+
+        private static void AppendZipEntryListing(StringBuilder sb, string zipPath)
+        {
+            const int maxEntries = 200;
+            try
+            {
+                using var archive = ZipFile.OpenRead(zipPath);
+                var entries = archive.Entries;
+                sb.AppendLine($"ZIP entries ({Math.Min(entries.Count, maxEntries)} shown):");
+                var count = 0;
+                foreach (var entry in entries)
+                {
+                    if (count >= maxEntries)
+                    {
+                        sb.AppendLine($"... and {entries.Count - maxEntries} more entries");
+                        break;
+                    }
+
+                    var name = string.IsNullOrWhiteSpace(entry.FullName) ? "(empty)" : entry.FullName;
+                    sb.AppendLine($"  - {name} ({entry.Length} bytes)");
+                    count++;
+                }
+            }
+            catch (Exception ex)
+            {
+                sb.AppendLine($"(Could not list ZIP contents: {ex.Message})");
+            }
         }
 
         private async Task HandleCallbackAsync(
@@ -2133,6 +2244,13 @@ namespace GitDeployPro.Services.Telegram
                 return;
             }
 
+            if (data.StartsWith(CallbackTermCmdPrefix, StringComparison.OrdinalIgnoreCase))
+            {
+                await HandleTerminalPresetCallbackAsync(token, update, data, cancellationToken)
+                    .ConfigureAwait(false);
+                return;
+            }
+
             var id = data[CallbackTermPrefix.Length..].Trim();
             var profile = new ConfigurationService().LoadConnections()
                 .FirstOrDefault(p =>
@@ -2166,12 +2284,213 @@ namespace GitDeployPro.Services.Telegram
                 return;
             }
 
+            var terminalProject = ResolveProjectForSshProfile(profile);
+            TelegramSshSessionHub.SetTerminalProjectPath(update.ChatId, terminalProject);
             await SendBotAsync(
                 token,
                 update.ChatId,
                 TelegramMarkup.Html(Loc.T("telegram.termConnected", profile.Name)),
                 TerminalSessionKeyboard(),
                 cancellationToken).ConfigureAwait(false);
+            await SendBotAsync(
+                token,
+                update.ChatId,
+                TelegramMarkup.Html(Loc.T("telegram.termPresetsHint")),
+                TerminalInlineKeyboard(update.ChatId),
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        private async Task HandleTerminalPresetCallbackAsync(
+            string token,
+            TelegramIncomingUpdate update,
+            string data,
+            CancellationToken cancellationToken)
+        {
+            var id = data[CallbackTermCmdPrefix.Length..].Trim();
+            var preset = TelegramTerminalCommandStore.FindById(id);
+            if (preset == null)
+            {
+                await _client.AnswerCallbackQueryAsync(
+                    token,
+                    update.CallbackQueryId,
+                    Loc.T("telegram.termPresetMissing"),
+                    cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            var terminalProject = ResolveTerminalProjectPath(update.ChatId);
+            if (!TelegramTerminalCommandStore.PathsMatch(preset.ProjectPath, terminalProject))
+            {
+                await _client.AnswerCallbackQueryAsync(
+                    token,
+                    update.CallbackQueryId,
+                    Loc.T("telegram.termPresetWrongProject"),
+                    cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            if (!TelegramSshSessionHub.IsOpen(update.ChatId))
+            {
+                await _client.AnswerCallbackQueryAsync(
+                    token,
+                    update.CallbackQueryId,
+                    Loc.T("telegram.termNotConnected"),
+                    cancellationToken).ConfigureAwait(false);
+                await ReplyTerminalOfflineAsync(token, update, cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            await _client.AnswerCallbackQueryAsync(
+                token,
+                update.CallbackQueryId,
+                preset.ButtonLabel,
+                cancellationToken).ConfigureAwait(false);
+
+            await RunTrustedTerminalPresetAsync(token, update, preset, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        private async Task RunTrustedTerminalPresetAsync(
+            string token,
+            TelegramIncomingUpdate update,
+            TelegramTerminalCommand preset,
+            CancellationToken cancellationToken)
+        {
+            var command = (preset.Command ?? string.Empty).Trim();
+            if (command.Length == 0)
+            {
+                return;
+            }
+
+            if (command.Contains('\n') || command.Contains('\r'))
+            {
+                await SendBotAsync(
+                    token,
+                    update.ChatId,
+                    TelegramMarkup.Html(TelegramSshCommandGuard.BlockMessage("telegram.termBlockMultiline")),
+                    TerminalInlineKeyboard(update.ChatId),
+                    cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            if (preset.NotifyBeforeRun)
+            {
+                var notify = (preset.NotifyMessage ?? string.Empty).Trim();
+                if (string.IsNullOrWhiteSpace(notify))
+                {
+                    notify = Loc.T("telegram.termPresetNotify", preset.ButtonLabel);
+                }
+
+                await SendBotAsync(
+                    token,
+                    update.ChatId,
+                    TelegramMarkup.Html(notify),
+                    TerminalInlineKeyboard(update.ChatId),
+                    cancellationToken).ConfigureAwait(false);
+            }
+
+            try
+            {
+                if (TrySplitBeforeSystemctlRestart(command, out var buildPart, out var restartPart))
+                {
+                    await RunTrustedPresetSegmentAsync(
+                        token,
+                        update,
+                        buildPart,
+                        cancellationToken).ConfigureAwait(false);
+
+                    if (!TelegramSshSessionHub.IsOpen(update.ChatId))
+                    {
+                        await ReplyTerminalOfflineAsync(token, update, cancellationToken).ConfigureAwait(false);
+                        return;
+                    }
+
+                    await SendBotAsync(
+                        token,
+                        update.ChatId,
+                        TelegramMarkup.Html(Loc.T("telegram.termPresetRestarting", preset.ButtonLabel)),
+                        TerminalInlineKeyboard(update.ChatId),
+                        cancellationToken).ConfigureAwait(false);
+
+                    await RunTrustedPresetSegmentAsync(
+                        token,
+                        update,
+                        restartPart,
+                        cancellationToken).ConfigureAwait(false);
+                    return;
+                }
+
+                await RunTrustedPresetSegmentAsync(token, update, command, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                await HandleTrustedPresetFailureAsync(token, update, ex.Message, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+        }
+
+        private async Task RunTrustedPresetSegmentAsync(
+            string token,
+            TelegramIncomingUpdate update,
+            string command,
+            CancellationToken cancellationToken)
+        {
+            var (output, cwd, stillRunning) = await TelegramSshSessionHub
+                .RunAsync(update.ChatId, command, TrustedTerminalTimeoutSeconds, longRunning: true)
+                .ConfigureAwait(false);
+            var bodyHtml = FormatShellBlock(command, output, cwd);
+            if (stillRunning)
+            {
+                bodyHtml = TelegramMarkup.Html(Loc.T("telegram.termStillRunning")) + "\n" + bodyHtml;
+            }
+
+            await SendBotAsync(
+                token,
+                update.ChatId,
+                bodyHtml,
+                TerminalInlineKeyboard(update.ChatId),
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        private async Task HandleTrustedPresetFailureAsync(
+            string token,
+            TelegramIncomingUpdate update,
+            string message,
+            CancellationToken cancellationToken)
+        {
+            if (!TelegramSshSessionHub.IsOpen(update.ChatId))
+            {
+                await TelegramSshSessionHub.CloseAsync(update.ChatId).ConfigureAwait(false);
+                await ReplyTerminalOfflineAsync(token, update, cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            await SendBotAsync(
+                token,
+                update.ChatId,
+                TelegramMarkup.Html(Loc.T("telegram.termPresetFailed", message)),
+                TerminalInlineKeyboard(update.ChatId),
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        private static bool TrySplitBeforeSystemctlRestart(
+            string command,
+            out string beforeRestart,
+            out string restartPart)
+        {
+            const string needle = "&& sudo systemctl restart";
+            var idx = command.IndexOf(needle, StringComparison.OrdinalIgnoreCase);
+            if (idx < 0)
+            {
+                beforeRestart = command;
+                restartPart = string.Empty;
+                return false;
+            }
+
+            beforeRestart = command[..idx].Trim();
+            restartPart = command[(idx + "&& ".Length)..].Trim();
+            return beforeRestart.Length > 0 && restartPart.Length > 0;
         }
 
         private async Task CloseTerminalAsync(
@@ -2210,7 +2529,7 @@ namespace GitDeployPro.Services.Telegram
                     token,
                     update.ChatId,
                     TelegramMarkup.Html(TelegramSshCommandGuard.BlockMessage(guard.BlockKey)),
-                    CloseTerminalKeyboard(),
+                    TerminalInlineKeyboard(update.ChatId),
                     cancellationToken).ConfigureAwait(false);
                 return;
             }
@@ -2230,7 +2549,7 @@ namespace GitDeployPro.Services.Telegram
                     token,
                     update.ChatId,
                     bodyHtml,
-                    CloseTerminalKeyboard(),
+                    TerminalInlineKeyboard(update.ChatId),
                     cancellationToken).ConfigureAwait(false);
             }
             catch (Exception)
@@ -2307,9 +2626,60 @@ namespace GitDeployPro.Services.Telegram
             return keyboard;
         }
 
-        private static JObject CloseTerminalKeyboard()
-            => TelegramMarkup.Inline(
-                new[] { (Loc.T("telegram.kbTerminalExit"), CallbackTermClose) });
+        private string ResolveTerminalProjectPath(long chatId)
+        {
+            var bound = TelegramSshSessionHub.GetTerminalProjectPath(chatId);
+            if (!string.IsNullOrWhiteSpace(bound) && !TelegramPaths.IsUnassigned(bound))
+            {
+                return bound;
+            }
+
+            return ResolveInboundProjectPath(_config.LoadGlobalConfig());
+        }
+
+        private string ResolveProjectForSshProfile(ConnectionProfile profile)
+        {
+            var name = (profile.Name ?? string.Empty).Trim();
+            if (!string.IsNullOrWhiteSpace(name))
+            {
+                foreach (var path in ListRecentProjects())
+                {
+                    try
+                    {
+                        var folder = Path.GetFileName(path.Trim().TrimEnd('\\', '/'));
+                        if (string.Equals(folder, name, StringComparison.OrdinalIgnoreCase))
+                        {
+                            return path;
+                        }
+                    }
+                    catch
+                    {
+                        // ignore bad paths
+                    }
+                }
+            }
+
+            return ResolveInboundProjectPath(_config.LoadGlobalConfig());
+        }
+
+        private JObject TerminalInlineKeyboard(long chatId)
+        {
+            var projectPath = ResolveTerminalProjectPath(chatId);
+            var rows = new List<IReadOnlyList<(string Text, string Data)>>();
+            foreach (var preset in TelegramTerminalCommandStore.ResolveForProject(projectPath))
+            {
+                var label = preset.ButtonLabel;
+                if (label.Length > 48)
+                {
+                    label = label[..45] + "…";
+                }
+
+                rows.Add(new[] { (label, CallbackTermCmdPrefix + preset.Id) });
+            }
+
+            rows.Add(new[] { (Loc.T("telegram.kbTerminalExit"), CallbackTermClose) });
+            return TelegramMarkup.InlineRows(rows);
+        }
 
         private static string FormatShellBlock(string command, string? output, string? cwd)
         {

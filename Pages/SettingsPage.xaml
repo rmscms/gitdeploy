@@ -1255,6 +1255,21 @@
                                            TextWrapping="Wrap" />
                             </StackPanel>
                         </Expander>
+
+                        <Expander Style="{StaticResource Settings.Expander}" IsExpanded="True" Margin="0,12,0,0">
+                            <Expander.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:SymbolIcon Symbol="KeyCommand24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Accent.Primary}" VerticalAlignment="Center" />
+                                    <StackPanel>
+                                        <TextBlock Text="Telegram terminal presets" FontWeight="SemiBold" FontSize="13" />
+                                        <TextBlock Text="Project-scoped inline buttons (trusted commands with &amp;&amp;, sudo, restart)."
+                                                   FontSize="10"
+                                                   Foreground="{StaticResource Text.Muted}" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Expander.Header>
+                            <controls:TelegramTerminalCommandsPanel x:Name="TelegramTerminalCommandsPanel" />
+                        </Expander>
                     </StackPanel>
 
                     <!-- AI AGENT -->
