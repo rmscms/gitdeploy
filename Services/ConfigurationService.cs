@@ -202,6 +202,9 @@ namespace GitDeployPro.Services
             /// <summary>API key for cloud Codex providers (OpenRouter / OpenAI), DPAPI. Local providers ignore it.</summary>
             public string OpenRouterApiKey { get; set; } = "";
 
+            /// <summary>Password for encrypted server-config export/import (DPAPI at rest).</summary>
+            public string ServerBackupPassword { get; set; } = "";
+
             /// <summary>UTC of last automatic Codex CLI update check (24h cadence).</summary>
             public DateTime? LastCodexCliUpdateCheckUtc { get; set; }
 

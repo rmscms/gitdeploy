@@ -402,6 +402,7 @@
   "telegram.kbTerminalExit": "Exit",
   "telegram.termNoFavorites": "No favorite SSH profile. Star an SSH profile in Connection Manager.",
   "telegram.termPick": "Pick a favorite SSH. After connect, each line is sent to the server.",
+  "telegram.termProjectSsh": "Project · {0}",
   "telegram.termConnected": "Connected: {0}\nSend a single-line command. To return to the agent: Close terminal",
   "telegram.termClosed": "Terminal closed. The next message goes to the agent again.",
   "telegram.termNotConnected": "Terminal is not connected. Tap Terminal.",

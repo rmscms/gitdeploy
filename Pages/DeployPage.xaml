@@ -813,39 +813,61 @@
                                                         </ListBox.ItemContainerStyle>
                                                         <ListBox.ItemTemplate>
                                                             <DataTemplate>
-                                                                <Grid>
-                                                                    <Grid.ColumnDefinitions>
-                                                                        <ColumnDefinition Width="Auto" />
-                                                                        <ColumnDefinition Width="*" />
-                                                                    </Grid.ColumnDefinitions>
-                                                                    <Button Grid.Column="0"
-                                                                            Content="{Binding FavoriteGlyph}"
-                                                                            Width="28"
-                                                                            Height="28"
-                                                                            Padding="0"
-                                                                            Margin="0,0,4,0"
-                                                                            FontSize="14"
-                                                                            Foreground="{Binding FavoriteBrush}"
-                                                                            Background="Transparent"
-                                                                            BorderThickness="0"
-                                                                            Cursor="Hand"
-                                                                            VerticalAlignment="Center"
-                                                                            Visibility="{Binding FavoriteStarVisibility}"
-                                                                            ToolTip="{Binding FavoriteToolTip}"
-                                                                            Click="NewTerminalFavoriteButton_Click" />
-                                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                                                        <TextBlock Text="{Binding Title}"
-                                                                                   FontSize="13"
-                                                                                   FontWeight="SemiBold"
-                                                                                   Foreground="{StaticResource Text.Primary}"
-                                                                                   TextTrimming="CharacterEllipsis" />
-                                                                        <TextBlock Text="{Binding Subtitle}"
-                                                                                   FontSize="11"
-                                                                                   Foreground="{StaticResource Text.Muted}"
-                                                                                   TextTrimming="CharacterEllipsis"
-                                                                                   Visibility="{Binding SubtitleVisibility}" />
-                                                                    </StackPanel>
-                                                                </Grid>
+                                                                <Border Background="{Binding RowBackground}"
+                                                                        BorderBrush="{Binding RowBorderBrush}"
+                                                                        BorderThickness="1"
+                                                                        CornerRadius="6"
+                                                                        Padding="6,4"
+                                                                        Margin="0,1">
+                                                                    <Grid>
+                                                                        <Grid.ColumnDefinitions>
+                                                                            <ColumnDefinition Width="Auto" />
+                                                                            <ColumnDefinition Width="*" />
+                                                                            <ColumnDefinition Width="Auto" />
+                                                                        </Grid.ColumnDefinitions>
+                                                                        <Border Grid.Column="0"
+                                                                                Background="{StaticResource Status.InfoSurface}"
+                                                                                BorderBrush="{StaticResource Status.Info}"
+                                                                                BorderThickness="1"
+                                                                                CornerRadius="4"
+                                                                                Padding="6,2"
+                                                                                Margin="0,0,8,0"
+                                                                                VerticalAlignment="Center"
+                                                                                Visibility="{Binding ProjectBadgeVisibility}">
+                                                                            <TextBlock Text="Project"
+                                                                                       FontSize="10"
+                                                                                       FontWeight="SemiBold"
+                                                                                       Foreground="{StaticResource Status.Info}" />
+                                                                        </Border>
+                                                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                                            <TextBlock Text="{Binding Title}"
+                                                                                       FontSize="13"
+                                                                                       FontWeight="SemiBold"
+                                                                                       Foreground="{StaticResource Text.Primary}"
+                                                                                       TextTrimming="CharacterEllipsis" />
+                                                                            <TextBlock Text="{Binding Subtitle}"
+                                                                                       FontSize="11"
+                                                                                       Foreground="{StaticResource Text.Muted}"
+                                                                                       TextTrimming="CharacterEllipsis"
+                                                                                       Visibility="{Binding SubtitleVisibility}" />
+                                                                        </StackPanel>
+                                                                        <Button Grid.Column="2"
+                                                                                Content="{Binding FavoriteGlyph}"
+                                                                                Width="28"
+                                                                                Height="28"
+                                                                                Padding="0"
+                                                                                Margin="4,0,0,0"
+                                                                                FontSize="14"
+                                                                                Foreground="{Binding FavoriteBrush}"
+                                                                                Background="Transparent"
+                                                                                BorderThickness="0"
+                                                                                Cursor="Hand"
+                                                                                VerticalAlignment="Center"
+                                                                                Visibility="{Binding FavoriteStarVisibility}"
+                                                                                ToolTip="{Binding FavoriteToolTip}"
+                                                                                Click="NewTerminalFavoriteButton_Click" />
+                                                                    </Grid>
+                                                                </Border>
                                                             </DataTemplate>
                                                         </ListBox.ItemTemplate>
                                                     </ListBox>

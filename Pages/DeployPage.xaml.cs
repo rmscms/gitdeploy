@@ -873,10 +873,21 @@ namespace GitDeployPro.Pages
                 IsLocal = true
             });
 
-            var projectProfile = GetActiveConnectionProfile();
+            ConnectionProfile? projectProfile = null;
+            try
+            {
+                projectProfile = ProjectSshAssignments.ResolveDefaultProfile(
+                    _projectConfig,
+                    _configService.LoadConnections());
+            }
+            catch
+            {
+                // picker still works without project SSH.
+            }
+
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            if (projectProfile != null && ConnectionProfileFilters.IsSshTerminalProfile(projectProfile))
+            if (projectProfile != null)
             {
                 seen.Add(projectProfile.Id);
                 _newTerminalPickerItems.Add(CreateTerminalPickerItem(projectProfile, isProjectDefault: true));
@@ -910,6 +921,7 @@ namespace GitDeployPro.Pages
                 Title = profile.Name,
                 Subtitle = BuildConnectionSubtitle(profile, isProjectDefault),
                 Profile = profile,
+                IsProjectDefault = isProjectDefault,
                 IsFavorite = profile.IsFavorite,
                 FavoriteGlyph = profile.IsFavorite ? "★" : "☆",
                 FavoriteToolTip = Loc.T(profile.IsFavorite ? "deploy.tip.unfavoriteSsh" : "deploy.tip.favoriteSsh")
@@ -1076,6 +1088,7 @@ namespace GitDeployPro.Pages
             public string Title { get; init; } = string.Empty;
             public string Subtitle { get; init; } = string.Empty;
             public bool IsLocal { get; init; }
+            public bool IsProjectDefault { get; init; }
             public ConnectionProfile? Profile { get; init; }
             public bool IsFavorite { get; init; }
             public string FavoriteGlyph { get; init; } = "☆";
@@ -1085,7 +1098,16 @@ namespace GitDeployPro.Pages
                 IsFavorite
                     ? System.Windows.Media.Color.FromRgb(0xE6, 0xB8, 0x4D)
                     : System.Windows.Media.Color.FromRgb(0x8A, 0x8A, 0x8A));
-            public Visibility FavoriteStarVisibility => IsLocal ? Visibility.Collapsed : Visibility.Visible;
+            public Visibility FavoriteStarVisibility =>
+                IsLocal || IsProjectDefault ? Visibility.Collapsed : Visibility.Visible;
+            public Visibility ProjectBadgeVisibility =>
+                IsProjectDefault ? Visibility.Visible : Visibility.Collapsed;
+            public System.Windows.Media.Brush RowBackground => IsProjectDefault
+                ? ThemeService.Instance.GetTokenBrush("Status.InfoSurface", System.Windows.Media.Color.FromRgb(0x1A, 0x2A, 0x3D))
+                : System.Windows.Media.Brushes.Transparent;
+            public System.Windows.Media.Brush RowBorderBrush => IsProjectDefault
+                ? ThemeService.Instance.GetTokenBrush("Status.Info", System.Windows.Media.Color.FromRgb(0x3B, 0x82, 0xF6))
+                : System.Windows.Media.Brushes.Transparent;
             public Visibility SubtitleVisibility =>
                 string.IsNullOrWhiteSpace(Subtitle) ? Visibility.Collapsed : Visibility.Visible;
         }

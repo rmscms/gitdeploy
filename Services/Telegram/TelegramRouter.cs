@@ -1360,9 +1360,9 @@ namespace GitDeployPro.Services.Telegram
                 var family = data[CallbackModelFamilyPrefix.Length..].Trim().ToLowerInvariant();
                 var all = await GetCursorModelsBoundedAsync(forceRefresh: false, cancellationToken)
                     .ConfigureAwait(false);
-                var subset = all
-                    .Where(m => string.Equals(m.Family, family, StringComparison.OrdinalIgnoreCase))
-                    .OrderBy(m => m.DisplayName, StringComparer.OrdinalIgnoreCase)
+                var subset = CursorModelCatalog.FilterForPicker(all
+                        .Where(m => string.Equals(m.Family, family, StringComparison.OrdinalIgnoreCase))
+                        .ToList())
                     .Take(24)
                     .ToList();
                 await SendBotAsync(
@@ -2196,37 +2196,60 @@ namespace GitDeployPro.Services.Telegram
         {
             TelegramSshSessionHub.Arm(update.ChatId);
 
-            var profiles = new ConfigurationService().LoadConnections()
+            var projectPath = ResolveInboundProjectPath(_config.LoadGlobalConfig());
+            var allConnections = new ConfigurationService().LoadConnections();
+            var projectConfig = string.IsNullOrWhiteSpace(projectPath)
+                ? null
+                : _config.LoadProjectConfig(projectPath);
+            var projectDefault = ProjectSshAssignments.ResolveDefaultProfile(projectConfig, allConnections);
+
+            var profiles = allConnections
                 .Where(p => p.IsFavorite && ConnectionProfileFilters.IsSshTerminalProfile(p))
                 .OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
-                .Take(20)
                 .ToList();
 
-            if (profiles.Count == 0)
+            if (projectDefault == null && profiles.Count == 0)
             {
                 TelegramSshSessionHub.Disarm(update.ChatId);
                 await SendBotAsync(
                     token,
                     update.ChatId,
                     TelegramMarkup.Html(Loc.T("telegram.termNoFavorites")),
-                    TelegramDeployCoordinator.BuildReplyKeyboard(ResolveInboundProjectPath(_config.LoadGlobalConfig())),
+                    TelegramDeployCoordinator.BuildReplyKeyboard(projectPath),
                     cancellationToken).ConfigureAwait(false);
                 return;
             }
 
-            var rows = profiles
-                .Select(p => (IReadOnlyList<(string Text, string Data)>)new[]
+            var rows = new List<IReadOnlyList<(string Text, string Data, string? Style)>>();
+            if (projectDefault != null)
+            {
+                var label = Loc.T("telegram.termProjectSsh", projectDefault.Name);
+                if (label.Length > 48)
                 {
-                    (p.Name, CallbackTermPrefix + p.Id)
-                })
-                .ToList();
-            rows.Add(new[] { (Loc.T("telegram.kbTerminalExit"), CallbackTermClose) });
+                    label = label[..45] + "…";
+                }
+
+                rows.Add(new (string Text, string Data, string? Style)[]
+                {
+                    (label, CallbackTermPrefix + projectDefault.Id, "primary")
+                });
+            }
+
+            foreach (var p in profiles
+                         .Where(p => projectDefault == null
+                                     || !string.Equals(p.Id, projectDefault.Id, StringComparison.OrdinalIgnoreCase))
+                         .Take(19))
+            {
+                rows.Add(new[] { (p.Name, CallbackTermPrefix + p.Id, (string?)null) });
+            }
+
+            rows.Add(new[] { (Loc.T("telegram.kbTerminalExit"), CallbackTermClose, (string?)null) });
 
             await SendBotAsync(
                 token,
                 update.ChatId,
                 TelegramMarkup.Html(Loc.T("telegram.termPick")),
-                TelegramMarkup.InlineRows(rows),
+                TelegramMarkup.InlineStyledRows(rows),
                 cancellationToken).ConfigureAwait(false);
         }
 
@@ -2252,12 +2275,11 @@ namespace GitDeployPro.Services.Telegram
             }
 
             var id = data[CallbackTermPrefix.Length..].Trim();
-            var profile = new ConfigurationService().LoadConnections()
-                .FirstOrDefault(p =>
-                    string.Equals(p.Id, id, StringComparison.OrdinalIgnoreCase)
-                    && p.IsFavorite
-                    && ConnectionProfileFilters.IsSshTerminalProfile(p));
-            if (profile == null)
+            var connections = new ConfigurationService().LoadConnections();
+            var profile = connections.FirstOrDefault(p =>
+                string.Equals(p.Id, id, StringComparison.OrdinalIgnoreCase)
+                && ConnectionProfileFilters.IsSshTerminalProfile(p));
+            if (profile == null || !IsAllowedTerminalProfile(profile, connections))
             {
                 await _client.AnswerCallbackQueryAsync(
                     token,
@@ -2635,6 +2657,25 @@ namespace GitDeployPro.Services.Telegram
             }
 
             return ResolveInboundProjectPath(_config.LoadGlobalConfig());
+        }
+
+        private bool IsAllowedTerminalProfile(ConnectionProfile profile, IReadOnlyList<ConnectionProfile> connections)
+        {
+            if (profile.IsFavorite)
+            {
+                return true;
+            }
+
+            var projectPath = ResolveInboundProjectPath(_config.LoadGlobalConfig());
+            if (string.IsNullOrWhiteSpace(projectPath))
+            {
+                return false;
+            }
+
+            var projectConfig = _config.LoadProjectConfig(projectPath);
+            var projectDefault = ProjectSshAssignments.ResolveDefaultProfile(projectConfig, connections);
+            return projectDefault != null
+                   && string.Equals(projectDefault.Id, profile.Id, StringComparison.OrdinalIgnoreCase);
         }
 
         private string ResolveProjectForSshProfile(ConnectionProfile profile)

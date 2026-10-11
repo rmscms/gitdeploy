@@ -39,7 +39,9 @@ namespace GitDeployPro.Pages
         private readonly List<string> _draftAssignedFtpIds = new();
         private string _draftDefaultFtpId = string.Empty;
         private bool _draftFtpConfirmed = true;
+        private string _draftDefaultSshId = string.Empty;
         private List<ConnectionProfile> _remoteFtpProfiles = new();
+        private List<ConnectionProfile> _sshTerminalProfiles = new();
         private bool _telegramTokenDirty;
         private bool _openRouterKeyDirty;
         private bool _vpnStatusHooked;
@@ -217,6 +219,11 @@ namespace GitDeployPro.Pages
                         globalConfig.DeployDefaultWorkers > 0 ? globalConfig.DeployDefaultWorkers : 8,
                         1,
                         8).ToString();
+                }
+
+                if (ServerBackupPasswordBox != null)
+                {
+                    ServerBackupPasswordBox.Password = EncryptionService.Decrypt(globalConfig.ServerBackupPassword ?? string.Empty);
                 }
             }
             catch (Exception ex)
@@ -844,6 +851,7 @@ namespace GitDeployPro.Pages
             LocalPathTextBox.Text = path;
             var projectConfig = _configService.LoadProjectConfig(path);
             LoadFtpAssignmentDraft(projectConfig);
+            LoadSshDefaultDraft(projectConfig);
 
             AutoInitGitCheckBox.IsChecked = projectConfig.AutoInitGit;
             AutoCommitCheckBox.IsChecked = projectConfig.AutoCommit;
@@ -978,6 +986,34 @@ namespace GitDeployPro.Pages
             catch { }
         }
 
+        private void LoadSshDefaultDraft(ProjectConfig projectConfig)
+        {
+            _sshTerminalProfiles = _configService.LoadConnections()
+                .Where(ConnectionProfileFilters.IsSshTerminalProfile)
+                .OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            _draftDefaultSshId = string.IsNullOrWhiteSpace(projectConfig.DefaultSshProfileId)
+                ? ProjectSshAssignments.GetDefaultId(projectConfig, _sshTerminalProfiles)
+                : projectConfig.DefaultSshProfileId.Trim();
+
+            if (DefaultSshProfileComboBox == null)
+            {
+                return;
+            }
+
+            DefaultSshProfileComboBox.ItemsSource = _sshTerminalProfiles;
+            DefaultSshProfileComboBox.SelectedItem = _sshTerminalProfiles.FirstOrDefault(p =>
+                string.Equals(p.Id, _draftDefaultSshId, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private void DefaultSshProfileComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (DefaultSshProfileComboBox?.SelectedItem is ConnectionProfile profile)
+            {
+                _draftDefaultSshId = profile.Id;
+            }
+        }
+
         private void LoadFtpAssignmentDraft(ProjectConfig projectConfig)
         {
             _remoteFtpProfiles = _configService.LoadConnections()
@@ -999,11 +1035,116 @@ namespace GitDeployPro.Pages
             RefreshAssignedFtpUi();
         }
 
+        private string ResolveServerBackupPassword()
+        {
+            var fromBox = ServerBackupPasswordBox?.Password?.Trim() ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(fromBox))
+            {
+                return fromBox;
+            }
+
+            return EncryptionService.Decrypt(_configService.LoadGlobalConfig().ServerBackupPassword ?? string.Empty);
+        }
+
+        private void ExportServerConfigButton_Click(object sender, RoutedEventArgs e)
+        {
+            var password = ResolveServerBackupPassword();
+            if (string.IsNullOrWhiteSpace(password))
+            {
+                ModernMessageBox.Show(
+                    "Set a server backup password above, click Save, then export again.",
+                    "Server backup",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+
+            var dialog = new Microsoft.Win32.SaveFileDialog
+            {
+                Title = "Export server config",
+                Filter = "GitDeployPro backup (*.gdpbackup)|*.gdpbackup|JSON (*.json)|*.json",
+                FileName = $"GitDeployPro-server-{DateTime.Now:yyyyMMdd-HHmm}.gdpbackup"
+            };
+            if (dialog.ShowDialog() != true)
+            {
+                return;
+            }
+
+            try
+            {
+                var projectPath = LocalPathTextBox?.Text?.Trim();
+                new ServerConfigBackupService().ExportToFile(dialog.FileName, password, projectPath);
+                ModernMessageBox.Show("Server config exported.", "Server backup", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show(ex.Message, "Export failed", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void ImportServerConfigButton_Click(object sender, RoutedEventArgs e)
+        {
+            var password = ResolveServerBackupPassword();
+            if (string.IsNullOrWhiteSpace(password))
+            {
+                ModernMessageBox.Show(
+                    "Set the backup password above (same as export), click Save, then import again.",
+                    "Server backup",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+
+            var dialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = "Import server config",
+                Filter = "GitDeployPro backup (*.gdpbackup)|*.gdpbackup|JSON (*.json)|*.json"
+            };
+            if (dialog.ShowDialog() != true)
+            {
+                return;
+            }
+
+            var merge = ModernMessageBox.ShowWithResult(
+                "Merge imported connection profiles with existing ones?\n\nYes = merge by id\nNo = replace all connections",
+                "Import server config",
+                MessageBoxButton.YesNoCancel,
+                MessageBoxImage.Question);
+            if (merge == MessageBoxResult.Cancel)
+            {
+                return;
+            }
+
+            try
+            {
+                var service = new ServerConfigBackupService();
+                var payload = service.ImportFromFile(dialog.FileName, password);
+                var projectPath = LocalPathTextBox?.Text?.Trim();
+                service.ApplyImport(payload, mergeConnections: merge == MessageBoxResult.Yes, projectPath);
+                if (!string.IsNullOrWhiteSpace(projectPath))
+                {
+                    _ = ReloadSettingsForPath(projectPath);
+                }
+
+                ModernMessageBox.Show("Server config imported.", "Server backup", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show(ex.Message, "Import failed", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
         private void ClearFtpAssignmentDraft()
         {
             _draftAssignedFtpIds.Clear();
             _draftDefaultFtpId = string.Empty;
             _draftFtpConfirmed = true;
+            _draftDefaultSshId = string.Empty;
+            _sshTerminalProfiles.Clear();
+            if (DefaultSshProfileComboBox != null)
+            {
+                DefaultSshProfileComboBox.ItemsSource = null;
+            }
             _remoteFtpProfiles = _configService.LoadConnections()
                 .Where(ConnectionProfileFilters.IsRemoteFileProfile)
                 .OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
@@ -1361,6 +1502,7 @@ namespace GitDeployPro.Pages
                 projectConfig.ConnectionProfileId = selectedProfile?.Id ?? "";
                 projectConfig.ConnectionProfileIds = _draftAssignedFtpIds.ToList();
                 projectConfig.FtpSyncTargetConfirmed = _draftAssignedFtpIds.Count <= 1 || _draftFtpConfirmed;
+                projectConfig.DefaultSshProfileId = _draftDefaultSshId ?? string.Empty;
                 projectConfig.FtpHost = selectedProfile?.Host ?? "";
                 projectConfig.FtpPort = selectedProfile?.Port ?? 21;
                 projectConfig.FtpUsername = selectedProfile?.Username ?? "";
@@ -1411,6 +1553,14 @@ namespace GitDeployPro.Pages
                     cfg.MinimizeToTray = minimizeToTray;
                     cfg.DefaultSshKeyPath = SshKeyPathTextBox?.Text?.Trim() ?? string.Empty;
                     cfg.DeployDefaultWorkers = deployWorkers;
+                    if (ServerBackupPasswordBox != null)
+                    {
+                        var backupPassword = ServerBackupPasswordBox.Password ?? string.Empty;
+                        cfg.ServerBackupPassword = string.IsNullOrWhiteSpace(backupPassword)
+                            ? string.Empty
+                            : EncryptionService.Encrypt(backupPassword);
+                    }
+
                     PersistTelegramFields(cfg);
                     PersistCursorFields(cfg);
                     PersistCodexFields(cfg);

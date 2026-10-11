@@ -247,21 +247,37 @@
                              ItemContainerStyle="{StaticResource App.ListBoxItem.Card}">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <StackPanel>
-                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding Name}" FontSize="14" Foreground="{StaticResource Text.Primary}" FontWeight="SemiBold"/>
-                                        <TextBlock Text="{Binding Enabled, StringFormat= (Enabled: {0})}"
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Name}" FontSize="14" Foreground="{StaticResource Text.Primary}" FontWeight="SemiBold"/>
+                                            <TextBlock Text="{Binding Enabled, StringFormat= (Enabled: {0})}"
+                                                       FontSize="11"
+                                                       Foreground="{StaticResource Text.Muted}"
+                                                       Margin="10,0,0,0"/>
+                                        </StackPanel>
+                                        <TextBlock Text="{Binding Frequency}"
+                                                   FontSize="12"
+                                                   Foreground="{StaticResource Text.Secondary}"/>
+                                        <TextBlock Text="{Binding NextRunLocal, StringFormat=Next: {0:G}}"
                                                    FontSize="11"
-                                                   Foreground="{StaticResource Text.Muted}"
-                                                   Margin="10,0,0,0"/>
+                                                   Foreground="{StaticResource Status.Info}"/>
                                     </StackPanel>
-                                    <TextBlock Text="{Binding Frequency}"
-                                               FontSize="12"
-                                               Foreground="{StaticResource Text.Secondary}"/>
-                                    <TextBlock Text="{Binding NextRunLocal, StringFormat=Next: {0:G}}"
-                                               FontSize="11"
-                                               Foreground="{StaticResource Status.Info}"/>
-                                </StackPanel>
+                                    <Button Grid.Column="1"
+                                            Content="📂"
+                                            Width="34"
+                                            Height="34"
+                                            Padding="0"
+                                            Margin="8,0,0,0"
+                                            VerticalAlignment="Center"
+                                            Style="{StaticResource App.IconButton}"
+                                            ToolTip="Open saved backups folder"
+                                            Click="OpenScheduleFolderFromList_Click"/>
+                                </Grid>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>

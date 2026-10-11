@@ -36,6 +36,9 @@ namespace GitDeployPro.Models
         /// <summary>True after the user confirms the sync target (or the project has a single FTP).</summary>
         public bool FtpSyncTargetConfirmed { get; set; }
 
+        /// <summary>Default SSH profile for Deploy terminal and Telegram (falls back to default FTP when it uses SSH).</summary>
+        public string DefaultSshProfileId { get; set; } = "";
+
         // Legacy Fields (Kept for backward compatibility if needed, but UI will use ProfileId)
         public string FtpHost { get; set; } = "";
         public string FtpUsername { get; set; } = "";
