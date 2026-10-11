@@ -1,14 +1,17 @@
 {
-  "version": "2.3.99",
-  "fileName": "GitDeployPro-2.3.99.exe",
-  "downloadUrl": "versions/GitDeployPro-2.3.99.exe",
-  "sha256": "3D76B747C66C60E99CA4F148E44C425637EE76A54C6B59144153E9A95315C296",
-  "releaseNotes": "Feature: Telegram terminal shows this project's preset buttons; a trusted command runs on the open SSH session, and a build that restarts systemd is split so the session stays up\nFeature: Telegram accepts zip and pdf files and hands them to the agent\nFix: Settings opens again (invalid Terminal24 icon no longer crashes the page)",
+  "version": "2.4.41",
+  "fileName": "GitDeployPro-2.4.41.exe",
+  "downloadUrl": "versions/GitDeployPro-2.4.41.exe",
+  "sha256": "303633C233F99CBCFCBB06D3A99AF72F31BA2413C318E29F9848D64D1141D1F4",
+  "releaseNotes": "Feature: Pick a default SSH profile per project for Deploy terminal and Telegram (shown with a Project badge)\nFeature: Export and import FTP/SSH profiles as an encrypted server-config backup in Settings\nFeature: Telegram Cursor model picker keeps Sonnet and only shows the cheapest Fable options\nFeature: Open a schedule's backup folder from the Backup Scheduler list\nFix: Nav menu lists Deploy above Dashboard\nFix: Settings opens again (invalid Terminal24 icon replaced)",
   "changelog": [
-    "Feature: Telegram terminal shows this project's preset buttons; a trusted command runs on the open SSH session, and a build that restarts systemd is split so the session stays up",
-    "Feature: Telegram accepts zip and pdf files and hands them to the agent",
-    "Fix: Settings opens again (invalid Terminal24 icon no longer crashes the page)"
+    "Feature: Pick a default SSH profile per project for Deploy terminal and Telegram (shown with a Project badge)",
+    "Feature: Export and import FTP/SSH profiles as an encrypted server-config backup in Settings",
+    "Feature: Telegram Cursor model picker keeps Sonnet and only shows the cheapest Fable options",
+    "Feature: Open a schedule's backup folder from the Backup Scheduler list",
+    "Fix: Nav menu lists Deploy above Dashboard",
+    "Fix: Settings opens again (invalid Terminal24 icon replaced)"
   ],
   "mandatory": false,
-  "publishedUtc": "2026-09-29T05:15:00Z"
+  "publishedUtc": "2026-10-11T08:45:00Z"
 }

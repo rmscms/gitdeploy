@@ -83,6 +83,100 @@ namespace GitDeployPro.Services.Telegram
                 .ToList();
         }
 
+        /// <summary>
+        /// Trim noisy model lists for Telegram picker: keep Sonnet visible, cap Fable variants to cheap picks.
+        /// </summary>
+        public static IReadOnlyList<CursorModelInfo> FilterForPicker(IReadOnlyList<CursorModelInfo> models)
+        {
+            if (models == null || models.Count == 0)
+            {
+                return Array.Empty<CursorModelInfo>();
+            }
+
+            var fable = models
+                .Where(m => m.Id.Contains("fable", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(FableCheapRank)
+                .ThenBy(m => m.DisplayName, StringComparer.OrdinalIgnoreCase)
+                .Take(2)
+                .ToList();
+
+            var fableIds = new HashSet<string>(fable.Select(m => m.Id), StringComparer.OrdinalIgnoreCase);
+            var result = models
+                .Where(m => !m.Id.Contains("fable", StringComparison.OrdinalIgnoreCase) || fableIds.Contains(m.Id))
+                .OrderBy(PickerSortRank)
+                .ThenBy(m => m.DisplayName, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            return result;
+        }
+
+        private static int FableCheapRank(CursorModelInfo model)
+        {
+            var id = model.Id.ToLowerInvariant();
+            if (id.Contains("fast", StringComparison.Ordinal))
+            {
+                return 0;
+            }
+
+            if (id.Contains("medium", StringComparison.Ordinal) || id.Contains("sol-", StringComparison.Ordinal))
+            {
+                return 1;
+            }
+
+            if (id.Contains("spark", StringComparison.Ordinal))
+            {
+                return 2;
+            }
+
+            if (id.Contains("high", StringComparison.Ordinal) || id.Contains("thinking", StringComparison.Ordinal))
+            {
+                return 9;
+            }
+
+            return 5;
+        }
+
+        private static int PickerSortRank(CursorModelInfo model)
+        {
+            var id = model.Id.ToLowerInvariant();
+            if (id.Contains("sonnet", StringComparison.Ordinal))
+            {
+                return 0;
+            }
+
+            if (id.Contains("composer", StringComparison.Ordinal))
+            {
+                return 1;
+            }
+
+            if (id.Contains("grok", StringComparison.Ordinal))
+            {
+                return 2;
+            }
+
+            if (id.Contains("gpt", StringComparison.Ordinal) || id.Contains("sol-", StringComparison.Ordinal))
+            {
+                return 3;
+            }
+
+            if (id.Contains("gemini", StringComparison.Ordinal))
+            {
+                return 4;
+            }
+
+            if (id.Contains("fable", StringComparison.Ordinal))
+            {
+                return 8;
+            }
+
+            if (id.Contains("opus", StringComparison.Ordinal))
+            {
+                return 9;
+            }
+
+            return 5;
+        }
+
         public static string DetectFamily(string modelId)
         {
             var id = (modelId ?? string.Empty).Trim().ToLowerInvariant();

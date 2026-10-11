@@ -36,17 +36,33 @@ namespace GitDeployPro.Services.Telegram
 
         public static JObject InlineRows(IEnumerable<IReadOnlyList<(string Text, string Data)>> rows)
         {
+            return InlineStyledRows(rows.Select(r => r.Select(t => (t.Text, t.Data, (string?)null)).ToList()));
+        }
+
+        public static JObject InlineStyledRows(IEnumerable<IReadOnlyList<(string Text, string Data, string? Style)>> rows)
+        {
             var keyboard = new JArray();
             foreach (var row in rows)
             {
                 var jrow = new JArray();
-                foreach (var (text, data) in row)
+                foreach (var (text, data, style) in row)
                 {
-                    jrow.Add(new JObject
+                    if (string.IsNullOrWhiteSpace(text) || string.IsNullOrWhiteSpace(data))
+                    {
+                        continue;
+                    }
+
+                    var button = new JObject
                     {
                         ["text"] = Truncate(text, 64),
                         ["callback_data"] = Truncate(data, 64)
-                    });
+                    };
+                    if (!string.IsNullOrWhiteSpace(style))
+                    {
+                        button["style"] = style;
+                    }
+
+                    jrow.Add(button);
                 }
 
                 if (jrow.Count > 0)

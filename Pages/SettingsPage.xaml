@@ -795,6 +795,57 @@
                             </StackPanel>
                         </Border>
 
+                        <Border Style="{StaticResource Settings.ToolbarCard}">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                    <ui:SymbolIcon Symbol="KeyCommand24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Status.Info}" VerticalAlignment="Center" />
+                                    <TextBlock Text="Default SSH (Deploy + Telegram)" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" />
+                                </StackPanel>
+                                <TextBlock Text="SSH profile used first in Deploy terminal and Telegram. Falls back to default FTP when it uses SSH."
+                                           Foreground="{StaticResource Text.Muted}"
+                                           FontSize="11"
+                                           Margin="0,0,0,10"
+                                           TextWrapping="Wrap" />
+                                <ComboBox x:Name="DefaultSshProfileComboBox"
+                                          Height="36"
+                                          Style="{StaticResource App.InputComboBox}"
+                                          DisplayMemberPath="DisplayName"
+                                          SelectionChanged="DefaultSshProfileComboBox_SelectionChanged" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource Settings.ToolbarCard}">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                    <ui:SymbolIcon Symbol="ShieldLock24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Accent.Primary}" VerticalAlignment="Center" />
+                                    <TextBlock Text="Server config backup" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" />
+                                </StackPanel>
+                                <TextBlock Text="Export or restore FTP, SSH, and database profiles as an encrypted JSON file."
+                                           Foreground="{StaticResource Text.Muted}"
+                                           FontSize="11"
+                                           Margin="0,0,0,10"
+                                           TextWrapping="Wrap" />
+                                <TextBlock Text="Backup password" Foreground="{StaticResource Text.Muted}" FontSize="11" Margin="0,0,0,4" />
+                                <PasswordBox x:Name="ServerBackupPasswordBox"
+                                             Height="34"
+                                             Margin="0,0,0,10"
+                                             Style="{StaticResource App.InputPasswordBox}" />
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Content="Export…"
+                                            Height="34"
+                                            Padding="14,0"
+                                            Margin="0,0,8,0"
+                                            Style="{StaticResource App.Button.Ghost}"
+                                            Click="ExportServerConfigButton_Click" />
+                                    <Button Content="Import…"
+                                            Height="34"
+                                            Padding="14,0"
+                                            Style="{StaticResource App.Button.Primary}"
+                                            Click="ImportServerConfigButton_Click" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
                         <Border Style="{StaticResource Settings.ToolbarCard}" Background="{StaticResource Surface.Input}">
                             <Grid>
                                 <Grid.RowDefinitions>

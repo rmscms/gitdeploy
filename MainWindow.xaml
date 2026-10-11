@@ -315,15 +315,6 @@
                                     <DropShadowEffect BlurRadius="18" Opacity="0.4" Color="Black" ShadowDepth="4" />
                                 </Border.Effect>
                                 <StackPanel x:Name="NavMenuItemsPanel">
-                                    <Button x:Name="NavItemDashboard"
-                                            Style="{StaticResource NavPopupItemStyle}"
-                                            Tag="dashboard"
-                                            Click="Dashboard_Click">
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="📊" FontSize="13" Width="22" Margin="0,0,8,0" Foreground="{StaticResource Text.Muted}" />
-                                            <TextBlock Text="{loc:T nav.dashboard}" FontSize="12.5" Foreground="{StaticResource Text.Primary}" VerticalAlignment="Center" />
-                                        </StackPanel>
-                                    </Button>
                                     <Button x:Name="NavItemDeploy"
                                             Style="{StaticResource NavPopupItemStyle}"
                                             Tag="deploy"
@@ -331,6 +322,15 @@
                                         <StackPanel Orientation="Horizontal">
                                             <TextBlock Text="🚀" FontSize="13" Width="22" Margin="0,0,8,0" Foreground="{StaticResource Text.Muted}" />
                                             <TextBlock Text="{loc:T nav.deploy}" FontSize="12.5" Foreground="{StaticResource Text.Primary}" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+                                    <Button x:Name="NavItemDashboard"
+                                            Style="{StaticResource NavPopupItemStyle}"
+                                            Tag="dashboard"
+                                            Click="Dashboard_Click">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="📊" FontSize="13" Width="22" Margin="0,0,8,0" Foreground="{StaticResource Text.Muted}" />
+                                            <TextBlock Text="{loc:T nav.dashboard}" FontSize="12.5" Foreground="{StaticResource Text.Primary}" VerticalAlignment="Center" />
                                         </StackPanel>
                                     </Button>
                                     <Button x:Name="NavItemDirectUpload"

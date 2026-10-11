@@ -395,6 +395,7 @@
   "telegram.kbTerminalExit": "Exit",
   "telegram.termNoFavorites": "هیچ SSH علاقه‌مندی نیست. در Connection Manager روی پروفایل SSH ستاره بزن.",
   "telegram.termPick": "یک SSH علاقه‌مندی را انتخاب کن. بعد از اتصال، هر خط دستور به سرور می‌رود.",
+  "telegram.termProjectSsh": "پروژه · {0}",
   "telegram.termConnected": "وصل شد: {0}\nدستور تک‌خطی بفرست. برای برگشت به ایجنت: بستن ترمینال",
   "telegram.termClosed": "ترمینال بسته شد. پیام بعدی دوباره به ایجنت می‌رود.",
   "telegram.termNotConnected": "ترمینال وصل نیست. دکمه ترمینال را بزن.",

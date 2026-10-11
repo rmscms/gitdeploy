@@ -3082,6 +3082,15 @@ namespace GitDeployPro.Pages
             }
         }
 
+        private void OpenScheduleFolderFromList_Click(object sender, RoutedEventArgs e)
+        {
+            e.Handled = true;
+            if (sender is System.Windows.Controls.Button { DataContext: BackupSchedule schedule })
+            {
+                OpenScheduleOutputFolder(schedule);
+            }
+        }
+
         private void OpenOutputFolder_Click(object sender, RoutedEventArgs e)
         {
             if (SelectedSchedule == null)
@@ -3090,22 +3099,22 @@ namespace GitDeployPro.Pages
                 return;
             }
 
-            var targetPath = SelectedSchedule.OutputDirectory;
-            if (string.IsNullOrWhiteSpace(targetPath))
-            {
-                targetPath = GetDefaultOutputDirectory();
-            }
+            OpenScheduleOutputFolder(SelectedSchedule);
+        }
+
+        private void OpenScheduleOutputFolder(BackupSchedule schedule)
+        {
+            var targetPath = ResolveScheduleOutputDirectory(schedule);
 
             try
             {
                 Directory.CreateDirectory(targetPath);
-                var info = new ProcessStartInfo
+                Process.Start(new ProcessStartInfo
                 {
                     FileName = "explorer.exe",
                     Arguments = $"\"{targetPath}\"",
                     UseShellExecute = true
-                };
-                Process.Start(info);
+                });
             }
             catch (Exception ex)
             {
