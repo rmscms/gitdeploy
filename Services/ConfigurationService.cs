@@ -15,6 +15,12 @@ namespace GitDeployPro.Services
         private const string SessionFoldersFile = "session_folders.json"; // Session Manager folder structure
         private const string ProjectConfigFile = ".gitdeploy.config";
 
+        /// <summary>How many recent project folders to keep in global config.</summary>
+        public const int MaxRecentProjects = 100;
+
+        /// <summary>How many recent projects the title-bar popup shows before "More…".</summary>
+        public const int RecentProjectsPopupVisible = 10;
+
         public string GetAppDataFolder() => GetAppDataPath();
 
         private string GetAppDataPath()
@@ -560,7 +566,7 @@ namespace GitDeployPro.Services
 
             config.RecentProjects = config.RecentProjects
                 .OrderByDescending(p => p.LastOpenedUtc)
-                .Take(10)
+                .Take(MaxRecentProjects)
                 .ToList();
 
             config.LastProjectPath = normalizedPath;
@@ -595,7 +601,7 @@ namespace GitDeployPro.Services
             config.RecentProjects = config.RecentProjects
                 .Where(p => !string.Equals(p.Path, normalizedPath, StringComparison.OrdinalIgnoreCase))
                 .OrderByDescending(p => p.LastOpenedUtc)
-                .Take(10)
+                .Take(MaxRecentProjects)
                 .ToList();
 
             if (string.Equals(config.LastProjectPath, normalizedPath, StringComparison.OrdinalIgnoreCase)

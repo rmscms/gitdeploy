@@ -191,6 +191,9 @@ namespace GitDeployPro.Services.Telegram
                 };
 
                 var client = new SshClient(info);
+                // Profile KeepAliveSeconds is often 300 (too long for NAT on :7983). Cap at 10s.
+                var keepAliveSeconds = _profile.KeepAliveSeconds > 0 ? Math.Clamp(_profile.KeepAliveSeconds, 10, 300) : 10;
+                client.KeepAliveInterval = TimeSpan.FromSeconds(Math.Min(keepAliveSeconds, 10));
                 client.Connect();
                 if (!client.IsConnected)
                 {

@@ -1013,7 +1013,8 @@ namespace GitDeployPro.Controls
 
             if (includeCloseMessage)
             {
-                await WriteToTerminalAsync("\r\nSession closed.\r\n");
+                await WriteToTerminalAsync(
+                    "\r\nConnection lost (idle/network). Reconnect — keepalives run every 10s; if this repeats, raise the server/firewall idle timeout on the SSH port.\r\n");
             }
         }
 

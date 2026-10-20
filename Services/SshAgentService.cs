@@ -140,15 +140,16 @@ namespace GitDeployPro.Services
 
             // Match CMD/Git: let ssh offer default keys and agent identities.
             // Pinning IdentitiesOnly to one file hides a working second key.
+            // BatchMode: never hang on passphrase/host prompts inside the app (no TTY).
             var customKey = LoadConfiguredKeyPath();
             if (!string.IsNullOrWhiteSpace(customKey)
                 && File.Exists(customKey)
                 && !IsDefaultHomeSshKey(customKey))
             {
-                return $"\"{sshExe}\" -i \"{customKey}\" -o StrictHostKeyChecking=accept-new";
+                return $"\"{sshExe}\" -i \"{customKey}\" -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20";
             }
 
-            return $"\"{sshExe}\" -o StrictHostKeyChecking=accept-new";
+            return $"\"{sshExe}\" -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20";
         }
 
         public void RememberKeyPath(string? keyPath)

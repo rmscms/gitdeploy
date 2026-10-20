@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
@@ -16,8 +17,13 @@ namespace GitDeployPro.Services.Telegram
     {
         public const string CallbackProjectPrefix = "p:";
         public const string CallbackMenuProjects = "menu:projects";
+        public const string CallbackMenuProjectsSearch = "menu:projects:search";
+        public const string CallbackMenuProjectsPagePrefix = "menu:projects:p:";
         public const string CallbackMenuHelp = "menu:help";
         public const string CallbackMenuStatus = "menu:status";
+        private const int TelegramProjectsPageSize = 8;
+        private static readonly ConcurrentDictionary<long, DateTime> AwaitingProjectSearch =
+            new();
         public const string CallbackRestartAsk = "agent:restart:ask";
         public const string CallbackRestartYes = "agent:restart:yes";
         public const string CallbackRestartNo = "agent:restart:no";
@@ -184,6 +190,7 @@ namespace GitDeployPro.Services.Telegram
 
             if (text.StartsWith("/project", StringComparison.OrdinalIgnoreCase))
             {
+                AwaitingProjectSearch.TryRemove(update.ChatId, out _);
                 var name = text["/project".Length..].Trim();
                 if (string.IsNullOrWhiteSpace(name))
                 {
@@ -197,6 +204,14 @@ namespace GitDeployPro.Services.Telegram
 
             if (text.StartsWith('/'))
             {
+                AwaitingProjectSearch.TryRemove(update.ChatId, out _);
+                return;
+            }
+
+            if (TryConsumeAwaitingProjectSearch(update.ChatId, out _)
+                && !string.IsNullOrWhiteSpace(text))
+            {
+                await SwitchProjectByNameAsync(token, update, text.Trim(), cancellationToken).ConfigureAwait(false);
                 return;
             }
 
@@ -653,6 +668,30 @@ namespace GitDeployPro.Services.Telegram
                     return;
                 }
 
+                if (string.Equals(data, CallbackMenuProjectsSearch, StringComparison.OrdinalIgnoreCase))
+                {
+                    AwaitingProjectSearch[update.ChatId] = DateTime.UtcNow;
+                    await SendBotAsync(
+                        token,
+                        update.ChatId,
+                        TelegramMarkup.Html(Loc.T("telegram.projectsSearchPrompt")),
+                        null,
+                        cancellationToken).ConfigureAwait(false);
+                    await _client.AnswerCallbackQueryAsync(token, update.CallbackQueryId, null, cancellationToken)
+                        .ConfigureAwait(false);
+                    return;
+                }
+
+                if (data.StartsWith(CallbackMenuProjectsPagePrefix, StringComparison.OrdinalIgnoreCase)
+                    && int.TryParse(data[CallbackMenuProjectsPagePrefix.Length..], out var page)
+                    && page >= 0)
+                {
+                    await ReplyProjectsAsync(token, update, cancellationToken, page).ConfigureAwait(false);
+                    await _client.AnswerCallbackQueryAsync(token, update.CallbackQueryId, null, cancellationToken)
+                        .ConfigureAwait(false);
+                    return;
+                }
+
                 if (string.Equals(data, CallbackMenuHelp, StringComparison.OrdinalIgnoreCase))
                 {
                     await ReplyHomeAsync(token, update, cancellationToken).ConfigureAwait(false);
@@ -706,6 +745,7 @@ namespace GitDeployPro.Services.Telegram
                         return;
                     }
 
+                    AwaitingProjectSearch.TryRemove(update.ChatId, out _);
                     await SwitchToProjectAsync(token, update, path, cancellationToken)
                         .ConfigureAwait(false);
                     await _client.AnswerCallbackQueryAsync(
@@ -1771,7 +1811,8 @@ namespace GitDeployPro.Services.Telegram
         private async Task ReplyProjectsAsync(
             string token,
             TelegramIncomingUpdate update,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            int page = 0)
         {
             var config = _config.LoadGlobalConfig();
             var active = ResolveInboundProjectPath(config);
@@ -1787,8 +1828,24 @@ namespace GitDeployPro.Services.Telegram
                 return;
             }
 
+            if (page < 0)
+            {
+                page = 0;
+            }
+
+            var totalPages = Math.Max(1, (int)Math.Ceiling(projects.Count / (double)TelegramProjectsPageSize));
+            if (page >= totalPages)
+            {
+                page = totalPages - 1;
+            }
+
+            var slice = projects
+                .Skip(page * TelegramProjectsPageSize)
+                .Take(TelegramProjectsPageSize)
+                .ToList();
+
             var rows = new List<IReadOnlyList<(string Text, string Data)>>();
-            foreach (var path in projects)
+            foreach (var path in slice)
             {
                 var name = TelegramPaths.DisplayName(path);
                 var isActive = string.Equals(path, active, StringComparison.OrdinalIgnoreCase)
@@ -1802,14 +1859,55 @@ namespace GitDeployPro.Services.Telegram
                 rows.Add(new[] { (label, CallbackProjectPrefix + TelegramPaths.ToProjectKey(path)) });
             }
 
-            rows.Add(new[] { (Loc.T("telegram.btnStatus"), CallbackMenuStatus) });
+            var nav = new List<(string Text, string Data)>();
+            if (page > 0)
+            {
+                nav.Add((Loc.T("telegram.projectsPrev"), CallbackMenuProjectsPagePrefix + (page - 1)));
+            }
+
+            if (page < totalPages - 1)
+            {
+                nav.Add((Loc.T("telegram.projectsMore"), CallbackMenuProjectsPagePrefix + (page + 1)));
+            }
+
+            if (nav.Count > 0)
+            {
+                rows.Add(nav);
+            }
+
+            rows.Add(new[]
+            {
+                (Loc.T("telegram.projectsSearch"), CallbackMenuProjectsSearch),
+                (Loc.T("telegram.btnStatus"), CallbackMenuStatus)
+            });
+
+            var hint = projects.Count > TelegramProjectsPageSize
+                ? Loc.T("telegram.projectsHintPaged", page + 1, totalPages, projects.Count)
+                : Loc.T("telegram.projectsHint");
 
             await SendBotAsync(
                 token,
                 update.ChatId,
-                $"<b>{TelegramMarkup.Html(Loc.T("telegram.projectsTitle"))}</b>\n{TelegramMarkup.Html(Loc.T("telegram.projectsHint"))}",
+                $"<b>{TelegramMarkup.Html(Loc.T("telegram.projectsTitle"))}</b>\n{TelegramMarkup.Html(hint)}",
                 TelegramMarkup.InlineRows(rows),
                 cancellationToken).ConfigureAwait(false);
+        }
+
+        private static bool TryConsumeAwaitingProjectSearch(long chatId, out DateTime startedUtc)
+        {
+            startedUtc = default;
+            if (!AwaitingProjectSearch.TryGetValue(chatId, out startedUtc))
+            {
+                return false;
+            }
+
+            AwaitingProjectSearch.TryRemove(chatId, out _);
+            if ((DateTime.UtcNow - startedUtc).TotalMinutes > 3)
+            {
+                return false;
+            }
+
+            return true;
         }
 
         private async Task SwitchProjectByNameAsync(
