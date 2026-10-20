@@ -736,6 +736,48 @@ namespace GitDeployPro.Windows
             });
         }
 
+        /// <summary>
+        /// Live git progress: percent lines replace the last log line; milestones append.
+        /// Also mirrors into the status text under the progress bar.
+        /// </summary>
+        private void AddGitProgress(string message)
+        {
+            if (string.IsNullOrWhiteSpace(message))
+            {
+                return;
+            }
+
+            var line = message.Trim();
+            var isLivePct = line.Contains('%', StringComparison.Ordinal)
+                            || line.Contains("Receiving objects", StringComparison.OrdinalIgnoreCase)
+                            || line.Contains("Resolving deltas", StringComparison.OrdinalIgnoreCase)
+                            || line.Contains("Counting objects", StringComparison.OrdinalIgnoreCase)
+                            || line.Contains("Compressing objects", StringComparison.OrdinalIgnoreCase)
+                            || line.Contains("Writing objects", StringComparison.OrdinalIgnoreCase);
+
+            Dispatcher.Invoke(() =>
+            {
+                SetupProgressStatus.Text = line.Length > 90 ? line[..87] + "…" : line;
+
+                if (string.IsNullOrWhiteSpace(LogText.Text) || LogText.Text == "Initializing...")
+                {
+                    LogText.Text = line;
+                }
+                else if (isLivePct)
+                {
+                    var text = LogText.Text;
+                    var lastBreak = text.LastIndexOf('\n');
+                    LogText.Text = lastBreak >= 0 ? text[..(lastBreak + 1)] + line : line;
+                }
+                else
+                {
+                    LogText.Text += Environment.NewLine + line;
+                }
+
+                OverlayLogScrollViewer?.ScrollToEnd();
+            });
+        }
+
         private async void Finish_Click(object sender, RoutedEventArgs e)
         {
             try
@@ -826,10 +868,8 @@ namespace GitDeployPro.Windows
                             return;
                         }
 
-                        AddLog("Creating .gitignore...");
-                        CreateGitIgnore(_projectPath);
-
-                        AddLog("Initializing & Connecting to Remote...");
+                        // Do NOT create a local .gitignore before remote sync — remote wins if it has one.
+                        AddLog("Connecting over SSH/HTTPS — live fetch progress will appear below…");
                         var initBranches = new List<string> { sourceBranch };
                         if (!string.IsNullOrEmpty(targetBranch) && !string.Equals(targetBranch, sourceBranch, StringComparison.OrdinalIgnoreCase))
                         {
@@ -837,15 +877,13 @@ namespace GitDeployPro.Windows
                         }
 
                         await InitializeRemoteGitAsync(remote, initBranches);
+                        AddLog("Remote sync finished.");
 
-                        AddLog("Pulling changes from remote...");
-                        try
+                        // Only seed .gitignore when the remote tree did not include one.
+                        if (!File.Exists(Path.Combine(_projectPath, ".gitignore")))
                         {
-                            await _gitService.PullAsync();
-                        }
-                        catch (Exception pullEx)
-                        {
-                            AddLog($"Remote pull warning: {pullEx.Message}");
+                            AddLog("No .gitignore on remote — creating a default one…");
+                            CreateGitIgnore(_projectPath);
                         }
                     }
                 }
@@ -961,7 +999,7 @@ namespace GitDeployPro.Windows
 
             try
             {
-                await _gitService.InitRepoAsync(initBranches, remote);
+                await _gitService.InitRepoAsync(initBranches, remote, AddGitProgress);
             }
             catch (Exception ex) when (IsSshSetupException(ex))
             {
@@ -971,8 +1009,8 @@ namespace GitDeployPro.Windows
                     throw;
                 }
 
-                AddLog("Retrying git push...");
-                await _gitService.PushAsync();
+                AddLog("Retrying remote sync (pull if remote has history)...");
+                await _gitService.SyncNewLocalRepoWithRemoteAsync("origin", AddGitProgress);
             }
         }
 

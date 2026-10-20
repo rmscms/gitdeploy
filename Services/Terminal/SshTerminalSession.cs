@@ -1,5 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Net.Sockets;
+using System.Reflection;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Renci.SshNet;
@@ -9,6 +12,12 @@ namespace GitDeployPro.Services.Terminal
 {
     public sealed class SshTerminalSession : ITerminalSession
     {
+        /// <summary>
+        /// NAT/firewall on non-standard SSH ports often drop idle TCP in ~2–4 minutes.
+        /// Keep this well under that window.
+        /// </summary>
+        private static readonly TimeSpan KeepAlivePeriod = TimeSpan.FromSeconds(10);
+
         private readonly string _host;
         private readonly string _user;
         private readonly string _password;
@@ -20,6 +29,8 @@ namespace GitDeployPro.Services.Terminal
         private ShellStream? _shellStream;
         private CancellationTokenSource? _readLoopCts;
         private Task? _readLoopTask;
+        private int _sessionClosedRaised;
+        private int _stopping;
         private bool _disposed;
 
         public event Action<string>? OutputReceived;
@@ -54,11 +65,17 @@ namespace GitDeployPro.Services.Terminal
 
                 _sshClient = new SshClient(connectionInfo);
                 _sshClient.ConnectionInfo.Timeout = TimeSpan.FromSeconds(20);
+                // Interactive shells often sit idle (composer, editors). Without SSH keepalives,
+                // NAT/firewall/sshd idle timers commonly drop the TCP after a few minutes.
+                _sshClient.KeepAliveInterval = KeepAlivePeriod;
+                _sshClient.ErrorOccurred += OnClientError;
                 _sshClient.Connect();
                 if (!_sshClient.IsConnected)
                 {
                     throw new InvalidOperationException("SSH client reported disconnected after connect.");
                 }
+
+                TryEnableTcpKeepAlive(_sshClient);
 
                 var terminalModes = new Dictionary<TerminalModes, uint>
                 {
@@ -85,6 +102,8 @@ namespace GitDeployPro.Services.Terminal
                 {
                     throw new InvalidOperationException("Failed to open SSH shell stream.");
                 }
+
+                _shellStream.ErrorOccurred += OnShellError;
             }, cancellationToken);
 
             _readLoopCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -131,6 +150,8 @@ namespace GitDeployPro.Services.Terminal
                 return;
             }
 
+            Interlocked.Exchange(ref _stopping, 1);
+
             _readLoopCts?.Cancel();
 
             if (_readLoopTask != null)
@@ -147,7 +168,11 @@ namespace GitDeployPro.Services.Terminal
 
             try
             {
-                _shellStream?.Close();
+                if (_shellStream != null)
+                {
+                    _shellStream.ErrorOccurred -= OnShellError;
+                    _shellStream.Close();
+                }
             }
             catch
             {
@@ -156,9 +181,13 @@ namespace GitDeployPro.Services.Terminal
 
             try
             {
-                if (_sshClient?.IsConnected == true)
+                if (_sshClient != null)
                 {
-                    _sshClient.Disconnect();
+                    _sshClient.ErrorOccurred -= OnClientError;
+                    if (_sshClient.IsConnected)
+                    {
+                        _sshClient.Disconnect();
+                    }
                 }
             }
             catch
@@ -174,7 +203,7 @@ namespace GitDeployPro.Services.Terminal
             _readLoopCts = null;
             _readLoopTask = null;
 
-            SessionClosed?.Invoke();
+            RaiseSessionClosed();
         }
 
         public async ValueTask DisposeAsync()
@@ -188,23 +217,83 @@ namespace GitDeployPro.Services.Terminal
             _disposed = true;
         }
 
-        private async Task ReadLoopAsync(CancellationToken cancellationToken)
+        private void OnClientError(object? sender, ExceptionEventArgs e)
         {
+            RaiseSessionClosed();
+        }
+
+        private void OnShellError(object? sender, ExceptionEventArgs e)
+        {
+            RaiseSessionClosed();
+        }
+
+        private void RaiseSessionClosed()
+        {
+            if (Interlocked.Exchange(ref _sessionClosedRaised, 1) != 0)
+            {
+                return;
+            }
+
             try
             {
-                while (!cancellationToken.IsCancellationRequested && IsConnected)
+                SessionClosed?.Invoke();
+            }
+            catch
+            {
+                // UI handlers must not break teardown.
+            }
+        }
+
+        private async Task ReadLoopAsync(CancellationToken cancellationToken)
+        {
+            var buffer = new byte[8192];
+            try
+            {
+                while (!cancellationToken.IsCancellationRequested && Volatile.Read(ref _stopping) == 0)
                 {
-                    if (_shellStream!.DataAvailable)
+                    var client = _sshClient;
+                    var stream = _shellStream;
+                    if (client == null || stream == null || !client.IsConnected)
                     {
-                        var text = _shellStream.Read();
+                        break;
+                    }
+
+                    try
+                    {
+                        if (!stream.DataAvailable)
+                        {
+                            await Task.Delay(40, cancellationToken);
+                            continue;
+                        }
+
+                        var read = stream.Read(buffer, 0, buffer.Length);
+                        if (read <= 0)
+                        {
+                            // Channel EOF — shell closed on the server (TMOUT/logout) or TCP died.
+                            break;
+                        }
+
+                        var text = Encoding.UTF8.GetString(buffer, 0, read);
                         if (!string.IsNullOrEmpty(text))
                         {
                             OutputReceived?.Invoke(text);
                         }
                     }
-                    else
+                    catch (OperationCanceledException)
                     {
-                        await Task.Delay(30, cancellationToken);
+                        throw;
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                        break;
+                    }
+                    catch (SshConnectionException)
+                    {
+                        break;
+                    }
+                    catch (SocketException)
+                    {
+                        break;
                     }
                 }
             }
@@ -218,7 +307,71 @@ namespace GitDeployPro.Services.Terminal
             }
             finally
             {
-                SessionClosed?.Invoke();
+                if (Volatile.Read(ref _stopping) == 0)
+                {
+                    RaiseSessionClosed();
+                }
+            }
+        }
+
+        /// <summary>
+        /// SSH protocol keepalives help, but some middleboxes only refresh on TCP keepalive.
+        /// Best-effort: find the underlying socket via reflection and enable SO_KEEPALIVE.
+        /// </summary>
+        private static void TryEnableTcpKeepAlive(SshClient client)
+        {
+            try
+            {
+                var sessionProp = typeof(BaseClient).GetProperty(
+                    "Session",
+                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                var session = sessionProp?.GetValue(client);
+                if (session == null)
+                {
+                    return;
+                }
+
+                Socket? socket = null;
+                foreach (var name in new[] { "Socket", "_socket", "Connection" })
+                {
+                    var member = session.GetType().GetProperty(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+                        ?? (MemberInfo?)session.GetType().GetField(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                    if (member == null)
+                    {
+                        continue;
+                    }
+
+                    var value = member is PropertyInfo pi ? pi.GetValue(session) : ((FieldInfo)member).GetValue(session);
+                    if (value is Socket s)
+                    {
+                        socket = s;
+                        break;
+                    }
+                }
+
+                if (socket == null || !socket.Connected)
+                {
+                    return;
+                }
+
+                socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
+
+                // Windows: start probes after 30s idle, every 10s.
+                if (OperatingSystem.IsWindows())
+                {
+                    const uint on = 1;
+                    const uint timeMs = 30_000;
+                    const uint intervalMs = 10_000;
+                    var inValue = new byte[12];
+                    BitConverter.GetBytes(on).CopyTo(inValue, 0);
+                    BitConverter.GetBytes(timeMs).CopyTo(inValue, 4);
+                    BitConverter.GetBytes(intervalMs).CopyTo(inValue, 8);
+                    socket.IOControl(IOControlCode.KeepAliveValues, inValue, null);
+                }
+            }
+            catch
+            {
+                // Optional hardening — SSH keepalives still run.
             }
         }
 

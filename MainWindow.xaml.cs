@@ -467,13 +467,17 @@ namespace GitDeployPro
                 ProjectAvatarBorder.Background = System.Windows.Media.Brushes.Gray;
             }
 
-            // Populate Recent Projects List
+            // Populate Recent Projects List (top N; older via More / Search)
             RecentProjectsList.ItemsSource = null;
-            if (config.RecentProjects != null && config.RecentProjects.Any())
+            var allRecent = (config.RecentProjects ?? new())
+                .Where(entry => !string.IsNullOrWhiteSpace(entry.Path))
+                .OrderByDescending(entry => entry.LastOpenedUtc)
+                .ToList();
+
+            if (allRecent.Count > 0)
             {
-                var recentItems = config.RecentProjects
-                    .Where(entry => !string.IsNullOrWhiteSpace(entry.Path))
-                    .OrderByDescending(entry => entry.LastOpenedUtc)
+                var recentItems = allRecent
+                    .Take(ConfigurationService.RecentProjectsPopupVisible)
                     .Select(entry =>
                     {
                         string name = System.IO.Path.GetFileName(entry.Path);
@@ -486,8 +490,22 @@ namespace GitDeployPro
                         };
                     })
                     .ToList();
-                
+
                 RecentProjectsList.ItemsSource = recentItems;
+            }
+
+            var hiddenCount = Math.Max(0, allRecent.Count - ConfigurationService.RecentProjectsPopupVisible);
+            if (MoreProjectsButton != null)
+            {
+                MoreProjectsButton.Visibility = allRecent.Count > ConfigurationService.RecentProjectsPopupVisible
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
+                if (MoreProjectsButtonText != null)
+                {
+                    MoreProjectsButtonText.Text = hiddenCount > 0
+                        ? Loc.T("projectPicker.moreWithCount", hiddenCount)
+                        : Loc.T("projectPicker.more");
+                }
             }
         }
 
@@ -606,6 +624,22 @@ namespace GitDeployPro
                 string path = btn.Tag.ToString();
                 SwitchProject(path);
                 ProjectMenuPopup.IsOpen = false;
+            }
+        }
+
+        private void MoreProjects_Click(object sender, RoutedEventArgs e)
+        {
+            ProjectMenuPopup.IsOpen = false;
+
+            var projects = _configService.LoadGlobalConfig().RecentProjects ?? new();
+            var picker = new ProjectPickerWindow(projects)
+            {
+                Owner = this
+            };
+
+            if (picker.ShowDialog() == true && !string.IsNullOrWhiteSpace(picker.SelectedPath))
+            {
+                SwitchProject(picker.SelectedPath);
             }
         }
 

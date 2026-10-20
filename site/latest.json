@@ -1,17 +1,17 @@
 {
-  "version": "2.4.41",
-  "fileName": "GitDeployPro-2.4.41.exe",
-  "downloadUrl": "versions/GitDeployPro-2.4.41.exe",
-  "sha256": "303633C233F99CBCFCBB06D3A99AF72F31BA2413C318E29F9848D64D1141D1F4",
-  "releaseNotes": "Feature: Pick a default SSH profile per project for Deploy terminal and Telegram (shown with a Project badge)\nFeature: Export and import FTP/SSH profiles as an encrypted server-config backup in Settings\nFeature: Telegram Cursor model picker keeps Sonnet and only shows the cheapest Fable options\nFeature: Open a schedule's backup folder from the Backup Scheduler list\nFix: Nav menu lists Deploy above Dashboard\nFix: Settings opens again (invalid Terminal24 icon replaced)",
+  "version": "2.4.65",
+  "fileName": "GitDeployPro-2.4.65.exe",
+  "downloadUrl": "versions/GitDeployPro-2.4.65.exe",
+  "sha256": "4EBC46EA15A649EB5EA23F64EEF428D96C6F97714F6FF835E276DD8835B441BF",
+  "releaseNotes": "Feature: Search and open older projects beyond the top 10 recent (header More + Telegram pages/search)\nFeature: Project setup syncs from remote first when GitHub already has history, with live fetch progress\nFix: Setup no longer overwrites a remote .gitignore with a local bootstrap file\nFix: SSH keepalives every 10s to reduce idle NAT/firewall disconnects\nFix: Clearer terminal message when the SSH session drops\nFix: SSH BatchMode avoids hanging on passphrase/host prompts during setup",
   "changelog": [
-    "Feature: Pick a default SSH profile per project for Deploy terminal and Telegram (shown with a Project badge)",
-    "Feature: Export and import FTP/SSH profiles as an encrypted server-config backup in Settings",
-    "Feature: Telegram Cursor model picker keeps Sonnet and only shows the cheapest Fable options",
-    "Feature: Open a schedule's backup folder from the Backup Scheduler list",
-    "Fix: Nav menu lists Deploy above Dashboard",
-    "Fix: Settings opens again (invalid Terminal24 icon replaced)"
+    "Feature: Search and open older projects beyond the top 10 recent (header More + Telegram pages/search)",
+    "Feature: Project setup syncs from remote first when GitHub already has history, with live fetch progress",
+    "Fix: Setup no longer overwrites a remote .gitignore with a local bootstrap file",
+    "Fix: SSH keepalives every 10s to reduce idle NAT/firewall disconnects",
+    "Fix: Clearer terminal message when the SSH session drops",
+    "Fix: SSH BatchMode avoids hanging on passphrase/host prompts during setup"
   ],
   "mandatory": false,
-  "publishedUtc": "2026-10-11T08:45:00Z"
+  "publishedUtc": "2026-10-20T05:40:00Z"
 }

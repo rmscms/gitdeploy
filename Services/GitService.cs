@@ -145,78 +145,26 @@ namespace GitDeployPro.Services
             await RunGitCommandAsync($"restore --source=HEAD --staged --worktree -- {QuoteGitArgument(normalized)}");
         }
 
-        public async Task InitRepoAsync(List<string> branches, string remoteUrl)
+        public async Task InitRepoAsync(List<string> branches, string remoteUrl, Action<string>? progress = null)
         {
             if (IsGitRepository()) return;
 
+            void Report(string message) => progress?.Invoke(message);
+
             // 1. Init
+            Report("git init…");
             await RunGitCommandAsync("init");
-
             EnsureGitFolderHidden();
-
-            // Check identity before commit
             await EnsureIdentityConfiguredAsync();
 
-            // 2. Add all files
-            await RunGitCommandAsync("add .");
+            var preferredLocal = branches != null && branches.Count > 0
+                ? branches[0]
+                : "main";
 
-            // 3. Initial commit
-            try 
+            // 2. Remote-first: if origin already has history, sync from GitHub before any local commit/push.
+            if (!string.IsNullOrWhiteSpace(remoteUrl))
             {
-                await RunGitCommandAsync("commit -m \"Initial commit by GitDeploy Pro\"");
-            }
-            catch (GitCommandException ex) when (IsNothingToCommitError(ex))
-            {
-                await RunGitCommandAsync("commit --allow-empty -m \"Initial empty commit by GitDeploy Pro\"");
-            }
-
-            // 4. Create Branches
-            if (branches != null && branches.Any())
-            {
-                // The current branch after init is usually 'master' or 'main' depending on git config.
-                // We rename current branch to the first selected one
-                string firstBranch = branches[0];
-                await RunGitCommandAsync($"branch -M {firstBranch}");
-
-                // Check if we have a valid commit (HEAD exists)
-                bool hasCommits = false;
-                try
-                {
-                    await RunGitCommandAsync("rev-parse HEAD");
-                    hasCommits = true;
-                }
-                catch 
-                { 
-                    // No commits yet (unborn branch)
-                    // Try one last time to force an initial commit allow-empty
-                    try
-                    {
-                        await RunGitCommandAsync("commit --allow-empty -m \"Initial empty commit\"");
-                        hasCommits = true;
-                    }
-                    catch { }
-                }
-
-                // Create other branches ONLY if we have a valid commit
-                if (hasCommits)
-                {
-                    for (int i = 1; i < branches.Count; i++)
-                    {
-                        try 
-                        { 
-                            await RunGitCommandAsync($"branch {branches[i]}"); 
-                        } 
-                        catch (GitCommandException ex) when (IsBranchAlreadyExistsError(ex))
-                        {
-                            // Ignore only "already exists" branch warnings.
-                        }
-                    }
-                }
-            }
-
-            // 5. Set Remote
-            if (!string.IsNullOrEmpty(remoteUrl))
-            {
+                Report($"Setting origin → {remoteUrl}");
                 try
                 {
                     await RunGitCommandAsync($"remote add origin {remoteUrl}");
@@ -226,10 +174,352 @@ namespace GitDeployPro.Services
                     await RunGitCommandAsync($"remote set-url origin {remoteUrl}");
                 }
 
+                Report("Loading SSH key / preparing agent…");
                 await EnsureSshKeyForRemoteAsync("origin", remoteUrl);
-                string current = await GetCurrentBranchAsync();
-                await RunGitCommandAsync($"push -u origin {current}");
+
+                Report("Checking remote branches (ls-remote)…");
+                var remoteHeads = await ListRemoteHeadsAsync("origin");
+                if (remoteHeads.Count > 0)
+                {
+                    var trackBranch = PickRemoteBranch(remoteHeads, preferredLocal);
+                    Report($"Remote has history — fetching origin/{trackBranch} (live progress below)…");
+                    await RunGitCommandWithProgressAsync(
+                        "fetch --progress origin",
+                        progress,
+                        timeout: TimeSpan.FromMinutes(60));
+
+                    Report($"Checking out {trackBranch} (remote files win over local bootstrap)…");
+                    await CheckoutRemoteBranchPreferRemoteAsync(trackBranch, "origin", progress);
+                    try
+                    {
+                        await RunGitCommandAsync($"branch --set-upstream-to=origin/{trackBranch} {trackBranch}");
+                    }
+                    catch
+                    {
+                        // tracking optional
+                    }
+
+                    // Extra local branch names from wizard (e.g. production) when missing.
+                    if (branches != null)
+                    {
+                        foreach (var extra in branches.Skip(1))
+                        {
+                            if (string.IsNullOrWhiteSpace(extra)
+                                || string.Equals(extra, trackBranch, StringComparison.OrdinalIgnoreCase))
+                            {
+                                continue;
+                            }
+
+                            try
+                            {
+                                await RunGitCommandAsync($"branch {extra}");
+                            }
+                            catch (GitCommandException ex) when (IsBranchAlreadyExistsError(ex))
+                            {
+                            }
+                        }
+                    }
+
+                    Report("Remote sync complete.");
+                    return;
+                }
+
+                // Remote exists but is empty → create local history then push.
+                Report("Remote is empty — creating local commit, then push…");
+                await CreateLocalBootstrapCommitAsync(branches, preferredLocal);
+                await RunGitCommandWithProgressAsync(
+                    $"push --progress -u origin {preferredLocal}",
+                    progress,
+                    timeout: TimeSpan.FromMinutes(30));
+                return;
             }
+
+            // 3. Local-only repo
+            Report("Creating local repository…");
+            await CreateLocalBootstrapCommitAsync(branches, preferredLocal);
+        }
+
+        private async Task CreateLocalBootstrapCommitAsync(List<string>? branches, string firstBranch)
+        {
+            await RunGitCommandAsync("add .");
+            try
+            {
+                await RunGitCommandAsync("commit -m \"Initial commit by GitDeploy Pro\"");
+            }
+            catch (GitCommandException ex) when (IsNothingToCommitError(ex))
+            {
+                await RunGitCommandAsync("commit --allow-empty -m \"Initial empty commit by GitDeploy Pro\"");
+            }
+
+            if (string.IsNullOrWhiteSpace(firstBranch))
+            {
+                firstBranch = "main";
+            }
+
+            await RunGitCommandAsync($"branch -M {firstBranch}");
+
+            if (branches == null || branches.Count <= 1)
+            {
+                return;
+            }
+
+            for (int i = 1; i < branches.Count; i++)
+            {
+                try
+                {
+                    await RunGitCommandAsync($"branch {branches[i]}");
+                }
+                catch (GitCommandException ex) when (IsBranchAlreadyExistsError(ex))
+                {
+                }
+            }
+        }
+
+        /// <summary>
+        /// After local init + origin: if remote already has commits, fetch and checkout tracking branch.
+        /// Only push -u when the remote has no heads.
+        /// </summary>
+        public async Task SyncNewLocalRepoWithRemoteAsync(string remote = "origin", Action<string>? progress = null)
+        {
+            void Report(string message) => progress?.Invoke(message);
+
+            Report("Loading SSH key / preparing agent…");
+            await EnsureSshKeyForRemoteAsync(remote);
+
+            Report("Checking remote branches (ls-remote)…");
+            var remoteHeads = await ListRemoteHeadsAsync(remote);
+            var current = "main";
+            try
+            {
+                current = await GetCurrentBranchAsync();
+                if (string.IsNullOrWhiteSpace(current) || current == "HEAD")
+                {
+                    current = "main";
+                }
+            }
+            catch
+            {
+                current = "main";
+            }
+
+            if (remoteHeads.Count == 0)
+            {
+                Report("Remote empty — pushing…");
+                await RunGitCommandWithProgressAsync(
+                    $"push --progress -u {remote} {current}",
+                    progress,
+                    timeout: TimeSpan.FromMinutes(30));
+                return;
+            }
+
+            var trackBranch = PickRemoteBranch(remoteHeads, current);
+            Report($"Fetching {remote}/{trackBranch}…");
+            await RunGitCommandWithProgressAsync(
+                $"fetch --progress {remote}",
+                progress,
+                timeout: TimeSpan.FromMinutes(60));
+
+            Report($"Checking out {trackBranch} (remote files win over local bootstrap)…");
+            await CheckoutRemoteBranchPreferRemoteAsync(trackBranch, remote, progress);
+
+            try
+            {
+                await RunGitCommandAsync($"branch --set-upstream-to={remote}/{trackBranch} {trackBranch}");
+            }
+            catch
+            {
+            }
+
+            Report("Remote sync complete.");
+        }
+
+        /// <summary>
+        /// Checkout remote branch; if untracked local bootstrap files (e.g. setup .gitignore)
+        /// would block checkout, remove those conflicts so the remote tree wins.
+        /// </summary>
+        private async Task CheckoutRemoteBranchPreferRemoteAsync(
+            string trackBranch,
+            string remote,
+            Action<string>? progress)
+        {
+            var remoteRef = $"{remote}/{trackBranch}";
+            try
+            {
+                await ClearUntrackedFilesBlockingRemoteCheckoutAsync(progress).ConfigureAwait(false);
+                await RunGitCommandAsync($"checkout -B {trackBranch} {remoteRef}").ConfigureAwait(false);
+            }
+            catch (GitCommandException ex) when (IsCheckoutWouldOverwriteError(ex))
+            {
+                progress?.Invoke("Local untracked files conflict with remote — clearing blockers, retrying…");
+                await ClearUntrackedFilesFromCheckoutErrorAsync(ex, progress).ConfigureAwait(false);
+                await ClearUntrackedFilesBlockingRemoteCheckoutAsync(progress).ConfigureAwait(false);
+                try
+                {
+                    await RunGitCommandAsync($"checkout -B {trackBranch} {remoteRef}").ConfigureAwait(false);
+                }
+                catch (GitCommandException)
+                {
+                    await RunGitCommandAsync($"reset --hard {remoteRef}").ConfigureAwait(false);
+                    await RunGitCommandAsync($"branch -M {trackBranch}").ConfigureAwait(false);
+                }
+            }
+            catch (GitCommandException)
+            {
+                await RunGitCommandAsync($"reset --hard {remoteRef}").ConfigureAwait(false);
+                await RunGitCommandAsync($"branch -M {trackBranch}").ConfigureAwait(false);
+            }
+        }
+
+        private static bool IsCheckoutWouldOverwriteError(GitCommandException ex)
+        {
+            var details = ex.GetDetailedMessage();
+            return details.Contains("would be overwritten by checkout", StringComparison.OrdinalIgnoreCase)
+                   || details.Contains("Please move or remove them before you switch", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private Task ClearUntrackedFilesBlockingRemoteCheckoutAsync(Action<string>? progress)
+        {
+            // Setup used to drop a local .gitignore before fetch; remote copy must win.
+            return TryDeleteUntrackedWorkingFileAsync(".gitignore", progress);
+        }
+
+        private async Task ClearUntrackedFilesFromCheckoutErrorAsync(GitCommandException ex, Action<string>? progress)
+        {
+            var details = ex.GetDetailedMessage() ?? string.Empty;
+            foreach (var line in details.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                var path = line.Trim().TrimStart('\t', ' ');
+                if (path.Length == 0
+                    || path.Contains(':', StringComparison.Ordinal)
+                    || path.StartsWith("error", StringComparison.OrdinalIgnoreCase)
+                    || path.StartsWith("Aborting", StringComparison.OrdinalIgnoreCase)
+                    || path.StartsWith("Please ", StringComparison.OrdinalIgnoreCase)
+                    || path.StartsWith("The following", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                // Git lists conflicting paths indented, e.g. "\t.gitignore"
+                if (path.Contains('/') || path.Contains('\\') || path.StartsWith('.')
+                    || path.Equals(".gitignore", StringComparison.OrdinalIgnoreCase))
+                {
+                    await TryDeleteUntrackedWorkingFileAsync(path, progress).ConfigureAwait(false);
+                }
+            }
+        }
+
+        private async Task TryDeleteUntrackedWorkingFileAsync(string relativePath, Action<string>? progress)
+        {
+            if (string.IsNullOrWhiteSpace(relativePath) || string.IsNullOrWhiteSpace(_workingDirectory))
+            {
+                return;
+            }
+
+            var normalized = relativePath.Replace('/', Path.DirectorySeparatorChar).Trim();
+            if (normalized.Contains("..", StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            var fullPath = Path.Combine(_workingDirectory, normalized);
+            if (!File.Exists(fullPath))
+            {
+                return;
+            }
+
+            // Only remove untracked local files — never touch tracked ones.
+            try
+            {
+                await RunGitCommandAsync(
+                        $"ls-files --error-unmatch -- {QuoteGitArgument(normalized.Replace('\\', '/'))}")
+                    .ConfigureAwait(false);
+                // Tracked in index — keep.
+                return;
+            }
+            catch (GitCommandException)
+            {
+                // Not in index → untracked; safe to remove so remote checkout can proceed.
+            }
+            catch
+            {
+                return;
+            }
+
+            try
+            {
+                File.Delete(fullPath);
+                progress?.Invoke($"Removed local untracked '{normalized}' so remote version can check out.");
+            }
+            catch
+            {
+                // ignore delete failures; checkout retry may still fail with a clear error
+            }
+        }
+
+        private async Task<List<string>> ListRemoteHeadsAsync(string remote)
+        {
+            try
+            {
+                // Fail fast on bad SSH key / network instead of hanging the setup wizard.
+                var lsRemote = await RunGitCommandAsync(
+                    $"ls-remote --heads {remote}",
+                    timeout: TimeSpan.FromSeconds(45));
+                return (lsRemote ?? string.Empty)
+                    .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                    .Select(ParseRemoteHeadName)
+                    .Where(name => !string.IsNullOrWhiteSpace(name))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }
+            catch (GitCommandException)
+            {
+                throw;
+            }
+        }
+
+        private static string PickRemoteBranch(IReadOnlyList<string> remoteHeads, string preferred)
+        {
+            if (remoteHeads.Count == 0)
+            {
+                return string.IsNullOrWhiteSpace(preferred) ? "main" : preferred;
+            }
+
+            if (!string.IsNullOrWhiteSpace(preferred)
+                && remoteHeads.Any(h => string.Equals(h, preferred, StringComparison.OrdinalIgnoreCase)))
+            {
+                return remoteHeads.First(h => string.Equals(h, preferred, StringComparison.OrdinalIgnoreCase));
+            }
+
+            var main = remoteHeads.FirstOrDefault(h => string.Equals(h, "main", StringComparison.OrdinalIgnoreCase));
+            if (!string.IsNullOrWhiteSpace(main))
+            {
+                return main;
+            }
+
+            var master = remoteHeads.FirstOrDefault(h => string.Equals(h, "master", StringComparison.OrdinalIgnoreCase));
+            if (!string.IsNullOrWhiteSpace(master))
+            {
+                return master;
+            }
+
+            return remoteHeads[0];
+        }
+
+        private static string ParseRemoteHeadName(string lsRemoteLine)
+        {
+            if (string.IsNullOrWhiteSpace(lsRemoteLine))
+            {
+                return string.Empty;
+            }
+
+            const string marker = "refs/heads/";
+            var idx = lsRemoteLine.LastIndexOf(marker, StringComparison.OrdinalIgnoreCase);
+            if (idx < 0)
+            {
+                return string.Empty;
+            }
+
+            return lsRemoteLine[(idx + marker.Length)..].Trim();
         }
 
         public async Task<List<string>> GetBranchesAsync()
@@ -1057,6 +1347,193 @@ namespace GitDeployPro.Services
             }
         }
 
+        /// <summary>
+        /// Runs git with streamed stderr/stdout so UI can show live fetch/push progress.
+        /// Git progress uses CR updates; we surface each completed progress line.
+        /// </summary>
+        private async Task RunGitCommandWithProgressAsync(
+            string arguments,
+            Action<string>? onProgress,
+            TimeSpan? timeout = null,
+            string? workingDirectory = null)
+        {
+            var resolvedWorkingDirectory = workingDirectory ?? _workingDirectory;
+            var gate = GetRepoGate(resolvedWorkingDirectory);
+            await gate.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                TryClearIndexLock(resolvedWorkingDirectory);
+                await ExecuteGitProcessWithProgressAsync(arguments, resolvedWorkingDirectory, onProgress, timeout)
+                    .ConfigureAwait(false);
+            }
+            finally
+            {
+                gate.Release();
+            }
+        }
+
+        private async Task ExecuteGitProcessWithProgressAsync(
+            string arguments,
+            string resolvedWorkingDirectory,
+            Action<string>? onProgress,
+            TimeSpan? timeout)
+        {
+            using var process = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = ResolveGitExecutable(),
+                    Arguments = arguments,
+                    WorkingDirectory = resolvedWorkingDirectory,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    StandardOutputEncoding = Encoding.UTF8,
+                    StandardErrorEncoding = Encoding.UTF8
+                }
+            };
+
+            process.StartInfo.EnvironmentVariables["GIT_TERMINAL_PROMPT"] = "0";
+            process.StartInfo.EnvironmentVariables["GIT_ASKPASS"] = "echo";
+            process.StartInfo.EnvironmentVariables["SSH_ASKPASS"] = "echo";
+            var gitSshCommand = _sshAgentService.TryGetGitSshCommand();
+            if (!string.IsNullOrWhiteSpace(gitSshCommand))
+            {
+                process.StartInfo.EnvironmentVariables["GIT_SSH_COMMAND"] = gitSshCommand;
+            }
+
+            if (!process.Start())
+            {
+                throw new GitCommandException(
+                    "git",
+                    arguments,
+                    resolvedWorkingDirectory,
+                    -1,
+                    string.Empty,
+                    "Failed to start git process.");
+            }
+
+            var stdoutBuilder = new StringBuilder();
+            var stderrBuilder = new StringBuilder();
+            var lastEmit = DateTime.MinValue;
+            var lastLine = string.Empty;
+
+            void Emit(string? raw)
+            {
+                var line = (raw ?? string.Empty).Trim();
+                if (line.Length == 0)
+                {
+                    return;
+                }
+
+                // Throttle noisy percentage updates (~4/sec) but always show new phases.
+                var now = DateTime.UtcNow;
+                var isPct = line.Contains('%', StringComparison.Ordinal);
+                if (isPct
+                    && string.Equals(line, lastLine, StringComparison.Ordinal)
+                    && (now - lastEmit).TotalMilliseconds < 250)
+                {
+                    return;
+                }
+
+                if (isPct && (now - lastEmit).TotalMilliseconds < 200)
+                {
+                    return;
+                }
+
+                lastEmit = now;
+                lastLine = line;
+                try
+                {
+                    onProgress?.Invoke(line);
+                }
+                catch
+                {
+                    // UI callback must never break git.
+                }
+            }
+
+            async Task PumpAsync(StreamReader reader, StringBuilder sink)
+            {
+                var buffer = new char[1024];
+                var line = new StringBuilder();
+                while (true)
+                {
+                    var read = await reader.ReadAsync(buffer.AsMemory(0, buffer.Length)).ConfigureAwait(false);
+                    if (read <= 0)
+                    {
+                        break;
+                    }
+
+                    for (var i = 0; i < read; i++)
+                    {
+                        var ch = buffer[i];
+                        if (ch is '\r' or '\n')
+                        {
+                            if (line.Length == 0)
+                            {
+                                continue;
+                            }
+
+                            var text = line.ToString();
+                            line.Clear();
+                            sink.AppendLine(text);
+                            Emit(text);
+                        }
+                        else
+                        {
+                            line.Append(ch);
+                        }
+                    }
+                }
+
+                if (line.Length > 0)
+                {
+                    var text = line.ToString();
+                    sink.AppendLine(text);
+                    Emit(text);
+                }
+            }
+
+            var stdoutTask = PumpAsync(process.StandardOutput, stdoutBuilder);
+            var stderrTask = PumpAsync(process.StandardError, stderrBuilder);
+
+            var commandTimeout = timeout ?? GetDefaultTimeout(arguments);
+            using var timeoutCts = new CancellationTokenSource(commandTimeout);
+            try
+            {
+                await process.WaitForExitAsync(timeoutCts.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                TryTerminateProcess(process);
+                TryClearIndexLock(resolvedWorkingDirectory);
+                await Task.WhenAll(stdoutTask, stderrTask).ConfigureAwait(false);
+                throw new GitCommandException(
+                    "git",
+                    arguments,
+                    resolvedWorkingDirectory,
+                    -1,
+                    stdoutBuilder.ToString(),
+                    stderrBuilder.ToString(),
+                    $"Git command timed out after {commandTimeout.TotalSeconds:0} seconds.");
+            }
+
+            await Task.WhenAll(stdoutTask, stderrTask).ConfigureAwait(false);
+
+            if (process.ExitCode != 0)
+            {
+                throw new GitCommandException(
+                    "git",
+                    arguments,
+                    resolvedWorkingDirectory,
+                    process.ExitCode,
+                    stdoutBuilder.ToString(),
+                    stderrBuilder.ToString());
+            }
+        }
+
         public Task<GitSshStatus> PrepareSshForRemoteAsync(string remoteUrl)
         {
             return _sshAgentService.PrepareForRemoteAsync(remoteUrl ?? string.Empty);
@@ -1152,12 +1629,14 @@ namespace GitDeployPro.Services
 
         private static TimeSpan GetDefaultTimeout(string arguments)
         {
-            if (arguments.StartsWith("clone", StringComparison.OrdinalIgnoreCase))
+            if (arguments.StartsWith("clone", StringComparison.OrdinalIgnoreCase)
+                || arguments.StartsWith("fetch", StringComparison.OrdinalIgnoreCase))
             {
                 return TimeSpan.FromMinutes(60);
             }
 
-            if (arguments.StartsWith("add", StringComparison.OrdinalIgnoreCase) ||
+            if (arguments.StartsWith("push", StringComparison.OrdinalIgnoreCase) ||
+                arguments.StartsWith("add", StringComparison.OrdinalIgnoreCase) ||
                 arguments.StartsWith("status", StringComparison.OrdinalIgnoreCase) ||
                 arguments.StartsWith("diff", StringComparison.OrdinalIgnoreCase) ||
                 arguments.StartsWith("commit", StringComparison.OrdinalIgnoreCase))
