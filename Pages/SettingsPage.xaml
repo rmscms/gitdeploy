@@ -6,7 +6,8 @@
       xmlns:controls="clr-namespace:GitDeployPro.Controls"
       xmlns:loc="clr-namespace:GitDeployPro.Services.Localization"
       Title="SettingsPage"
-      Background="{StaticResource Surface.Base}">
+      Background="{StaticResource Surface.Base}"
+      Foreground="{StaticResource Text.Primary}">
     <Page.Resources>
         <Style x:Key="Settings.NavButton" TargetType="Button" BasedOn="{StaticResource App.SidebarNavButton}">
             <Setter Property="Height" Value="38" />
@@ -141,6 +142,7 @@
             <Setter Property="CornerRadius" Value="8" />
             <Setter Property="Padding" Value="12,10" />
             <Setter Property="Margin" Value="0,0,0,8" />
+            <Setter Property="TextElement.Foreground" Value="{StaticResource Text.Primary}" />
         </Style>
     </Page.Resources>
 
@@ -799,7 +801,11 @@
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                                     <ui:SymbolIcon Symbol="KeyCommand24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Status.Info}" VerticalAlignment="Center" />
-                                    <TextBlock Text="Default SSH (Deploy + Telegram)" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" />
+                                    <TextBlock Text="Default SSH (Deploy + Telegram)"
+                                               FontWeight="SemiBold"
+                                               FontSize="13"
+                                               VerticalAlignment="Center"
+                                               Foreground="{StaticResource Text.Primary}" />
                                 </StackPanel>
                                 <TextBlock Text="SSH profile used first in Deploy terminal and Telegram. Falls back to default FTP when it uses SSH."
                                            Foreground="{StaticResource Text.Muted}"
@@ -818,7 +824,11 @@
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                                     <ui:SymbolIcon Symbol="ShieldLock24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Accent.Primary}" VerticalAlignment="Center" />
-                                    <TextBlock Text="Server config backup" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" />
+                                    <TextBlock Text="Server config backup"
+                                               FontWeight="SemiBold"
+                                               FontSize="13"
+                                               VerticalAlignment="Center"
+                                               Foreground="{StaticResource Text.Primary}" />
                                 </StackPanel>
                                 <TextBlock Text="Export or restore FTP, SSH, and database profiles as an encrypted JSON file."
                                            Foreground="{StaticResource Text.Muted}"

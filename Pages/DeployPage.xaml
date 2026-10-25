@@ -340,6 +340,48 @@
                                                        VerticalAlignment="Center"
                                                        HorizontalAlignment="Center" />
                                         </Button>
+                                        <Button x:Name="AutoRefreshTimerButton"
+                                                MinWidth="48"
+                                                Height="28"
+                                                Margin="6,0,0,0"
+                                                Padding="6,0"
+                                                VerticalAlignment="Center"
+                                                Style="{StaticResource App.IconButton}"
+                                                BorderThickness="1"
+                                                Cursor="Hand"
+                                                ToolTip="{loc:T deploy.tip.autoRefresh}"
+                                                Click="AutoRefreshTimerButton_Click">
+                                            <TextBlock x:Name="AutoRefreshTimerButtonText"
+                                                       Text="⏱ 10s"
+                                                       FontSize="11"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{StaticResource Status.Error}"
+                                                       VerticalAlignment="Center"
+                                                       HorizontalAlignment="Center" />
+                                        </Button>
+                                        <Button x:Name="ManualRefreshButton"
+                                                Width="30"
+                                                Height="28"
+                                                MinWidth="30"
+                                                MinHeight="28"
+                                                Margin="4,0,0,0"
+                                                Padding="0"
+                                                VerticalAlignment="Center"
+                                                Style="{StaticResource App.IconButton}"
+                                                Background="{StaticResource Status.InfoSurface}"
+                                                BorderBrush="{StaticResource Status.Info}"
+                                                BorderThickness="1"
+                                                Cursor="Hand"
+                                                ToolTip="{loc:T deploy.tip.manualRefresh}"
+                                                Click="ManualRefreshButton_Click">
+                                            <TextBlock x:Name="ManualRefreshButtonText"
+                                                       Text="🔄"
+                                                       FontSize="13"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{StaticResource Status.Info}"
+                                                       VerticalAlignment="Center"
+                                                       HorizontalAlignment="Center" />
+                                        </Button>
                                     </StackPanel>
                                     <Button x:Name="ActionButton"
                                             Content="🔍 COMPARE"

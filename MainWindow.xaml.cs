@@ -494,10 +494,11 @@ namespace GitDeployPro
                 RecentProjectsList.ItemsSource = recentItems;
             }
 
+            // Always show More/Search when any projects exist (discoverable even at ≤10).
             var hiddenCount = Math.Max(0, allRecent.Count - ConfigurationService.RecentProjectsPopupVisible);
             if (MoreProjectsButton != null)
             {
-                MoreProjectsButton.Visibility = allRecent.Count > ConfigurationService.RecentProjectsPopupVisible
+                MoreProjectsButton.Visibility = allRecent.Count > 0
                     ? Visibility.Visible
                     : Visibility.Collapsed;
                 if (MoreProjectsButtonText != null)

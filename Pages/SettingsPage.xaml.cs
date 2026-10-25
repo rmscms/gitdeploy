@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Navigation;
+using System.Windows.Threading;
 using FluentFTP;
 using GitDeployPro.Controls;
 using GitDeployPro.Models;
@@ -180,6 +181,9 @@ namespace GitDeployPro.Pages
         {
             try
             {
+                // Let the page paint first — theme pack scan / git / panel reloads were freezing open.
+                await Dispatcher.Yield(DispatcherPriority.Loaded);
+
                 var globalConfig = _configService.LoadGlobalConfig();
                 if (!string.IsNullOrEmpty(globalConfig.LastProjectPath))
                 {
@@ -189,6 +193,7 @@ namespace GitDeployPro.Pages
                 {
                     UpdateDangerZoneUi(null);
                 }
+
                 var startupEnabled = _autoStartService.IsEnabled();
                 LaunchOnStartupCheckBox.IsChecked = startupEnabled;
                 ShowBackupLocalhostWarningCheckBox.IsChecked = globalConfig.ShowBackupSchedulerLocalhostWarning;
@@ -198,16 +203,12 @@ namespace GitDeployPro.Pages
                     _configService.UpdateGlobalConfig(cfg => cfg.LaunchOnStartup = startupEnabled);
                 }
 
-                RefreshStartupAudit();
                 RefreshUpdateStatus(globalConfig);
-                RefreshThemePacksList();
                 LoadLanguageCombo(globalConfig.UiLanguage);
                 LoadWorkspacePreferences();
                 RefreshLanguageUiTexts();
                 LoadTelegramSettings(globalConfig);
-                TelegramTerminalCommandsPanel?.Reload(globalConfig.LastProjectPath);
                 LoadVpnSettings(globalConfig);
-                TerminalSuggestionsPanel?.Reload(globalConfig.LastProjectPath);
                 if (SshKeyPathTextBox != null)
                 {
                     SshKeyPathTextBox.Text = globalConfig.DefaultSshKeyPath ?? string.Empty;
@@ -225,6 +226,11 @@ namespace GitDeployPro.Pages
                 {
                     ServerBackupPasswordBox.Password = EncryptionService.Decrypt(globalConfig.ServerBackupPassword ?? string.Empty);
                 }
+
+                // Heavy / section-scoped work: defer so opening Settings stays responsive.
+                await Dispatcher.Yield(DispatcherPriority.Background);
+                RefreshStartupAudit();
+                // Theme packs / terminal dictionaries load when those nav sections open.
             }
             catch (Exception ex)
             {

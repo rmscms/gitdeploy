@@ -93,7 +93,9 @@ namespace GitDeployPro.Pages
         private int _autoRefreshTickCount;
         private DateTime _lastBranchRefreshUtc = DateTime.MinValue;
         private static readonly TimeSpan BranchRefreshInterval = TimeSpan.FromSeconds(60);
+        /// <summary>Full refresh (incl. remote fetch) every N light ticks. Default 10s × 6 ≈ 60s.</summary>
         private const int FullRefreshTickInterval = 6;
+        private static readonly int[] AutoRefreshSecondOptions = { 10, 30, 60, 0 };
 
         public DeployPage()
         {
@@ -147,6 +149,7 @@ namespace GitDeployPro.Pages
             ApplyBranchDetailsVisibility();
             UpdateBranchSummaryUi();
             RefreshDefaultWorkersButtonToolTip();
+            ApplyAutoRefreshTimerFromConfig();
             AttachDeployThemeHandlers();
         }
 
@@ -2408,7 +2411,8 @@ namespace GitDeployPro.Pages
                     _lastBranchRefreshUtc = AppTimeService.UtcNow;
                 }
 
-                await RefreshBranchStatusAsync();
+                // Fetch remote only on full refreshes (not every lightweight poll).
+                await RefreshBranchStatusAsync(fetchRemote: includeExpensiveOperations);
 
                 // Determine Button State
                 UpdateActionButtonState(_cachedUncommittedCount, _cachedTotalCommits);
@@ -2573,13 +2577,27 @@ namespace GitDeployPro.Pages
             }
         }
 
-        private async Task RefreshBranchStatusAsync()
+        private async Task RefreshBranchStatusAsync(bool fetchRemote = false)
         {
             if (!_gitService.IsGitRepository())
             {
                 _branchStatus = new BranchStatusInfo();
                 UpdatePushBadgeUi();
                 return;
+            }
+
+            // Never fetch on the 10s timer — network + git process wake the CPU constantly.
+            // Fetch only when the caller asks (full refresh / pull-deploy / commit preflight).
+            if (fetchRemote)
+            {
+                try
+                {
+                    await _gitService.FetchAsync();
+                }
+                catch (Exception ex)
+                {
+                    AddLog($"ℹ️ Fetch skipped: {ex.Message}");
+                }
             }
 
             _branchStatus = await _gitService.GetBranchStatusAsync();
@@ -2803,8 +2821,19 @@ namespace GitDeployPro.Pages
 
                 // Remote exists
                 int ahead = _branchStatus != null ? _branchStatus.AheadCount : 0;
-                
-                if (ahead > 0)
+                int behind = _branchStatus != null ? _branchStatus.BehindCount : 0;
+
+                if (behind > 0)
+                {
+                    SetActionButton(
+                        "pullDeploy",
+                        Loc.T("deploy.pullDeployButton", behind),
+                        "Accent.Secondary",
+                        true);
+                    StatusText.Text = Loc.T("deploy.pullDeployHint", behind);
+                    StatusText.Foreground = GetThemeBrush("Status.Warning", System.Windows.Media.Brushes.Orange);
+                }
+                else if (ahead > 0)
                 {
                     string pushLabel = $"☁️ PUSH ({ahead})";
                     SetActionButton("push", pushLabel, "Surface.Shell", true);
@@ -2864,14 +2893,151 @@ namespace GitDeployPro.Pages
         {
             _autoRefreshTimer = new DispatcherTimer
             {
-                Interval = TimeSpan.FromSeconds(10) // Refresh every 10 seconds for better UX
+                Interval = TimeSpan.FromSeconds(10)
             };
             _autoRefreshTimer.Tick += AutoRefreshTimer_Tick;
-            _autoRefreshTimer.Start();
+            ApplyAutoRefreshTimerFromConfig();
+        }
+
+        private void ApplyAutoRefreshTimerFromConfig()
+        {
+            var seconds = NormalizeAutoRefreshSeconds(
+                _configService.LoadGlobalConfig().DeployAutoRefreshSeconds);
+            RefreshAutoRefreshTimerButtonUi(seconds);
+
+            if (_autoRefreshTimer == null)
+            {
+                return;
+            }
+
+            if (seconds <= 0)
+            {
+                _autoRefreshTimer.Stop();
+                return;
+            }
+
+            _autoRefreshTimer.Interval = TimeSpan.FromSeconds(seconds);
+            if (!_autoRefreshTimer.IsEnabled)
+            {
+                _autoRefreshTimer.Start();
+            }
+        }
+
+        private static int NormalizeAutoRefreshSeconds(int seconds)
+        {
+            if (seconds <= 0)
+            {
+                return 0;
+            }
+
+            if (seconds <= 10)
+            {
+                return 10;
+            }
+
+            if (seconds <= 30)
+            {
+                return 30;
+            }
+
+            return 60;
+        }
+
+        private void RefreshAutoRefreshTimerButtonUi(int seconds)
+        {
+            if (AutoRefreshTimerButtonText == null)
+            {
+                return;
+            }
+
+            // CPU load cue: 10s red, 30s orange, 60s green, Off muted green/teal.
+            string accentKey;
+            string surfaceKey;
+            string tipKey;
+            if (seconds <= 0)
+            {
+                AutoRefreshTimerButtonText.Text = Loc.T("deploy.autoRefresh.off");
+                accentKey = "Status.Success";
+                surfaceKey = "Status.SuccessSurface";
+                tipKey = "deploy.tip.autoRefreshOff";
+            }
+            else
+            {
+                AutoRefreshTimerButtonText.Text = Loc.T("deploy.autoRefresh.label", seconds);
+                tipKey = "deploy.tip.autoRefresh";
+                if (seconds <= 10)
+                {
+                    accentKey = "Status.Error";
+                    surfaceKey = "Status.ErrorSurface";
+                }
+                else if (seconds <= 30)
+                {
+                    accentKey = "Status.Warning";
+                    surfaceKey = "Status.WarningSurface";
+                }
+                else
+                {
+                    accentKey = "Status.Success";
+                    surfaceKey = "Status.SuccessSurface";
+                }
+            }
+
+            var accent = GetThemeBrush(accentKey, System.Windows.Media.Brushes.Gray);
+            var surface = GetThemeBrush(surfaceKey, System.Windows.Media.Brushes.Transparent);
+            AutoRefreshTimerButtonText.Foreground = accent;
+
+            if (AutoRefreshTimerButton != null)
+            {
+                AutoRefreshTimerButton.Foreground = accent;
+                AutoRefreshTimerButton.BorderBrush = accent;
+                AutoRefreshTimerButton.Background = surface;
+                AutoRefreshTimerButton.ToolTip = seconds <= 0
+                    ? Loc.T(tipKey)
+                    : Loc.T(tipKey, seconds);
+            }
+        }
+
+        private void AutoRefreshTimerButton_Click(object sender, RoutedEventArgs e)
+        {
+            var current = NormalizeAutoRefreshSeconds(
+                _configService.LoadGlobalConfig().DeployAutoRefreshSeconds);
+            var index = Array.IndexOf(AutoRefreshSecondOptions, current);
+            if (index < 0)
+            {
+                index = 0;
+            }
+
+            var next = AutoRefreshSecondOptions[(index + 1) % AutoRefreshSecondOptions.Length];
+            _configService.UpdateGlobalConfig(cfg => cfg.DeployAutoRefreshSeconds = next);
+            ApplyAutoRefreshTimerFromConfig();
+
+            StatusText.Text = next <= 0
+                ? Loc.T("deploy.autoRefresh.statusOff")
+                : Loc.T("deploy.autoRefresh.statusOn", next);
+            StatusText.Foreground = GetThemeBrush("Text.Muted", System.Windows.Media.Brushes.LightGray);
+        }
+
+        private void ManualRefreshButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (isDeploying)
+            {
+                return;
+            }
+
+            StatusText.Text = Loc.T("deploy.manualRefresh.working");
+            StatusText.Foreground = GetThemeBrush("Text.Muted", System.Windows.Media.Brushes.LightGray);
+            // Full refresh: local status + remote fetch so Commit/Push / Pull&Deploy update now.
+            LoadGitData(includeExpensiveOperations: true, refreshBranches: true);
         }
 
         private void AutoRefreshTimer_Tick(object? sender, EventArgs e)
         {
+            // Skip work while the Deploy page is not visible (page kept alive across nav).
+            if (!IsVisible || !IsLoaded)
+            {
+                return;
+            }
+
             _autoRefreshTickCount++;
             bool runFullRefresh = _autoRefreshTickCount % FullRefreshTickInterval == 0;
             LoadGitData(includeExpensiveOperations: runFullRefresh, refreshBranches: runFullRefresh);
@@ -2994,6 +3160,10 @@ namespace GitDeployPro.Pages
             {
                 await HandleCommit();
             }
+            else if (action == "pullDeploy")
+            {
+                await HandlePullDeployAsync();
+            }
             else if (action == "push")
             {
                 await PushToGithub();
@@ -3002,6 +3172,148 @@ namespace GitDeployPro.Pages
             {
                 await HandleCompare();
             }
+        }
+
+        /// <summary>
+        /// Clean working tree + behind upstream: pull incoming commits and deploy only that diff.
+        /// </summary>
+        private async Task HandlePullDeployAsync()
+        {
+            if (isDeploying)
+            {
+                return;
+            }
+
+            try
+            {
+                if (!_gitService.IsGitRepository())
+                {
+                    ModernMessageBox.Show(Loc.T("deploy.pullDeployNoGit"), Loc.T("deploy.pullDeployTitle"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                var uncommitted = await _gitService.GetUncommittedCountAsync();
+                if (uncommitted > 0)
+                {
+                    ModernMessageBox.Show(
+                        Loc.T("deploy.pullDeployDirty"),
+                        Loc.T("deploy.pullDeployTitle"),
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                    return;
+                }
+
+                if (IsFtpDeploymentMode() && !HasFtpTargetConfigured())
+                {
+                    ModernMessageBox.Show(
+                        Loc.T("deploy.pullDeployNoFtp"),
+                        Loc.T("deploy.pullDeployTitle"),
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                    return;
+                }
+
+                AddLog("⬇️ Pull & Deploy: fetching…");
+                await RefreshBranchStatusAsync(fetchRemote: true);
+                if (_branchStatus == null || !_branchStatus.HasRemote || _branchStatus.BehindCount <= 0)
+                {
+                    ModernMessageBox.Show(
+                        Loc.T("deploy.pullDeployNotBehind"),
+                        Loc.T("deploy.pullDeployTitle"),
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+                    UpdateActionButtonState();
+                    return;
+                }
+
+                var preview = await _gitService.GetIncomingUpstreamChangesAsync();
+                var confirm = ModernMessageBox.ShowWithResult(
+                    Loc.T("deploy.pullDeployConfirm", _branchStatus.BehindCount, preview.Count),
+                    Loc.T("deploy.pullDeployTitle"),
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
+                if (confirm != MessageBoxResult.Yes)
+                {
+                    return;
+                }
+
+                AddLog($"⬇️ Pulling {_branchStatus.BehindCount} commit(s) from remote…");
+                PullRangeResult pullResult;
+                try
+                {
+                    pullResult = await _gitService.PullWithRangeAsync();
+                }
+                catch (GitMergeConflictException conflictEx)
+                {
+                    AddLog($"❌ {conflictEx.Message}");
+                    ModernMessageBox.Show(
+                        Loc.T("deploy.pullDeployConflict"),
+                        Loc.T("deploy.pullDeployTitle"),
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Error);
+                    LoadGitData();
+                    return;
+                }
+
+                AddLog($"✅ Pull complete ({ShortSha(pullResult.OldHead)} → {ShortSha(pullResult.NewHead)}).");
+                var files = pullResult.Files ?? new List<FileChange>();
+                if (files.Count == 0)
+                {
+                    AddLog("ℹ️ No file changes in pull range — nothing to deploy.");
+                    StatusText.Text = Loc.T("deploy.pullDeployEmpty");
+                    StatusText.Foreground = GetThemeBrush("Status.Success", System.Windows.Media.Brushes.LightGreen);
+                    LoadGitData();
+                    return;
+                }
+
+                _fileViewModels = files.Select(c => new DeployFileViewModel(c) { IsSelected = true }).ToList();
+                FilesListBox.ItemsSource = _fileViewModels;
+                SelectAllCheckBox.IsChecked = true;
+                SelectFileSilently(-1);
+                DeployButton.Visibility = Visibility.Collapsed;
+
+                AddLog($"🚀 Deploying {files.Count} file(s) from pull diff…");
+                var deployResult = await StartDeployProcess(files, isAutoFlow: true, runGitPostSteps: false);
+                if (deployResult.HasFatalError || deployResult.IsCompleteFailure)
+                {
+                    AddLog("⛔ Pull & Deploy: upload failed.");
+                    StatusText.Text = Loc.T("deploy.pullDeployUploadFailed");
+                    StatusText.Foreground = GetThemeBrush("Status.Error", System.Windows.Media.Brushes.OrangeRed);
+                }
+                else
+                {
+                    await AddDeploymentHistoryRecordAsync(files);
+                    AddLog("✅ Pull & Deploy finished.");
+                    StatusText.Text = Loc.T("deploy.pullDeployDone", files.Count, deployResult.UploadedCount);
+                    StatusText.Foreground = GetThemeBrush("Status.Success", System.Windows.Media.Brushes.LightGreen);
+                }
+
+                LoadGitData();
+                _ = DirectUploadDock.RefreshGitOverlayPublicAsync();
+            }
+            catch (Exception ex)
+            {
+                string detail = ex is GitCommandException gitEx
+                    ? gitEx.GetUserFacingMessage()
+                    : (ex.InnerException?.Message ?? ex.Message);
+                AddLog($"❌ Pull & Deploy failed: {detail}");
+                ModernMessageBox.Show(
+                    Loc.T("deploy.pullDeployFailed", detail),
+                    Loc.T("deploy.pullDeployTitle"),
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+                LoadGitData();
+            }
+        }
+
+        private static string ShortSha(string? sha)
+        {
+            if (string.IsNullOrWhiteSpace(sha))
+            {
+                return "?";
+            }
+
+            return sha.Length <= 7 ? sha : sha[..7];
         }
 
         /// <summary>
@@ -3129,6 +3441,29 @@ namespace GitDeployPro.Pages
 
         private async Task<GitDeployPro.Services.Telegram.TelegramDeployResult> RunDeployCommitPushPipelineAsync(List<FileChange> changes, string commitMessage)
         {
+            var message = string.IsNullOrWhiteSpace(commitMessage)
+                ? $"deploy update {AppTimeService.LocalNow:yyyy-MM-dd HH:mm}"
+                : commitMessage.Trim();
+
+            // Preflight: if remote is ahead, commit → pull/merge → deploy union → push
+            // (deploy-first would put only local files on the server and miss teammate changes).
+            try
+            {
+                await _gitService.FetchAsync();
+                _branchStatus = await _gitService.GetBranchStatusAsync();
+                UpdatePushBadgeUi();
+            }
+            catch (Exception fetchEx)
+            {
+                AddLog($"ℹ️ Preflight fetch: {fetchEx.Message}");
+            }
+
+            var behind = _branchStatus != null && _branchStatus.HasRemote && _branchStatus.BehindCount > 0;
+            if (behind)
+            {
+                return await RunCommitPullDeployPushPipelineAsync(changes, message);
+            }
+
             var filesToDeploy = changes
                 .Select(c => new FileChange { Name = c.Name, Type = c.Type, DiffPatch = c.DiffPatch })
                 .ToList();
@@ -3168,10 +3503,6 @@ namespace GitDeployPro.Pages
                 }
             }
 
-            var message = string.IsNullOrWhiteSpace(commitMessage)
-                ? $"deploy update {AppTimeService.LocalNow:yyyy-MM-dd HH:mm}"
-                : commitMessage.Trim();
-
             AddLog("📝 Step 2/2: Deploy succeeded, committing and pushing...");
             await _gitService.CommitChangesAsync(message);
             AddLog("✅ Commit completed.");
@@ -3187,6 +3518,111 @@ namespace GitDeployPro.Pages
                 : Loc.T("telegram.deployOkPushWarn", filesToDeploy.Count, deployResult.UploadedCount);
             return GitDeployPro.Services.Telegram.TelegramDeployResult.Succeed(
                 filesToDeploy.Count,
+                deployResult.UploadedCount,
+                pushSucceeded,
+                summary);
+        }
+
+        /// <summary>
+        /// When remote is ahead: commit local → pull/merge → deploy (local ∪ pull-diff) → push.
+        /// </summary>
+        private async Task<GitDeployPro.Services.Telegram.TelegramDeployResult> RunCommitPullDeployPushPipelineAsync(
+            List<FileChange> localChanges,
+            string commitMessage)
+        {
+            var behindCount = _branchStatus?.BehindCount ?? 0;
+            if (!_headlessTelegram)
+            {
+                var confirm = ModernMessageBox.ShowWithResult(
+                    Loc.T("deploy.behindIntegrateConfirm", behindCount),
+                    Loc.T("deploy.behindIntegrateTitle"),
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
+                if (confirm != MessageBoxResult.Yes)
+                {
+                    AddLog("⏸ Commit+Push cancelled — remote is ahead and user declined integrate.");
+                    return GitDeployPro.Services.Telegram.TelegramDeployResult.Fail(
+                        Loc.T("deploy.behindIntegrateCancelled"),
+                        localChanges.Count);
+                }
+            }
+            else
+            {
+                AddLog(Loc.T("deploy.behindIntegrateAuto", behindCount));
+            }
+
+            AddLog($"📝 Step 1/4: Committing local changes ({localChanges.Count} file(s))…");
+            await _gitService.CommitChangesAsync(commitMessage);
+            AddLog("✅ Local commit completed.");
+
+            AddLog($"⬇️ Step 2/4: Pulling {behindCount} remote commit(s)…");
+            PullRangeResult pullResult;
+            try
+            {
+                pullResult = await _gitService.PullWithRangeAsync();
+            }
+            catch (GitMergeConflictException conflictEx)
+            {
+                AddLog($"❌ {conflictEx.Message}");
+                StatusText.Text = Loc.T("deploy.pullDeployConflict");
+                StatusText.Foreground = GetThemeBrush("Status.Error", System.Windows.Media.Brushes.OrangeRed);
+                LoadGitData();
+                return GitDeployPro.Services.Telegram.TelegramDeployResult.Fail(
+                    Loc.T("deploy.pullDeployConflict"),
+                    localChanges.Count);
+            }
+
+            var union = GitService.UnionFileChanges(localChanges, pullResult.Files);
+            AddLog(
+                $"📦 Step 3/4: Deploying union — local {localChanges.Count} + incoming {pullResult.Files.Count} → {union.Count} file(s).");
+
+            _fileViewModels = union.Select(c => new DeployFileViewModel(c) { IsSelected = true }).ToList();
+            FilesListBox.ItemsSource = _fileViewModels;
+            SelectAllCheckBox.IsChecked = true;
+            SelectFileSilently(-1);
+            DeployButton.IsEnabled = false;
+            DeployButton.Visibility = Visibility.Collapsed;
+            ClearCompareContext(clearList: false);
+
+            var deployResult = await StartDeployProcess(union, isAutoFlow: true, runGitPostSteps: false);
+            if (deployResult.HasFatalError || deployResult.IsCompleteFailure)
+            {
+                AddLog("⛔ Deploy failed after pull. Push skipped.");
+                StatusText.Text = Loc.T("deploy.pullDeployUploadFailed");
+                StatusText.Foreground = GetThemeBrush("Status.Error", System.Windows.Media.Brushes.OrangeRed);
+                var fatal = string.IsNullOrWhiteSpace(deployResult.FatalErrorMessage)
+                    ? Loc.T("telegram.deployUploadFailed")
+                    : deployResult.FatalErrorMessage;
+                LoadGitData();
+                return GitDeployPro.Services.Telegram.TelegramDeployResult.Fail(fatal, union.Count);
+            }
+
+            if (deployResult.IsPartialSuccess)
+            {
+                var continueAfterWarning = ConfirmContinueGitAfterPartialDeploy(deployResult);
+                if (!continueAfterWarning)
+                {
+                    AddLog("⏸ Push skipped by user after partial deploy warning.");
+                    LoadGitData();
+                    return GitDeployPro.Services.Telegram.TelegramDeployResult.Fail(
+                        Loc.T("telegram.deployPartialSkipped"),
+                        union.Count);
+                }
+            }
+
+            AddLog("☁️ Step 4/4: Pushing merged history…");
+            await SyncLocalBranchesIfNeededAsync();
+            bool pushSucceeded = await PushToGithub();
+            AddLog(pushSucceeded ? "✅ Integrate pipeline finished." : "⚠️ Integrate pipeline finished with push error.");
+            await AddDeploymentHistoryRecordAsync(union);
+            LoadGitData();
+            _ = DirectUploadDock.RefreshGitOverlayPublicAsync();
+
+            var summary = pushSucceeded
+                ? Loc.T("telegram.deployOk", union.Count, deployResult.UploadedCount)
+                : Loc.T("telegram.deployOkPushWarn", union.Count, deployResult.UploadedCount);
+            return GitDeployPro.Services.Telegram.TelegramDeployResult.Succeed(
+                union.Count,
                 deployResult.UploadedCount,
                 pushSucceeded,
                 summary);
@@ -3563,8 +3999,49 @@ namespace GitDeployPro.Pages
                     current++;
                     if (file.Type == ChangeType.Deleted)
                     {
-                        result.SkippedCount++;
-                        AddLog($"⏭ Skipped delete sync for {file.Name} (remote delete is not enabled in deploy pipeline).");
+                        string deleteRelative = (file.OldPath ?? file.Name).Replace("\\", "/").TrimEnd('/');
+                        if (!RemotePathResolver.TryResolveDeployTarget(
+                                deleteRelative,
+                                mappings,
+                                defaultRemoteBase,
+                                out var deleteRemotePath,
+                                out _,
+                                out _))
+                        {
+                            result.SkippedCount++;
+                            AddLog($"⏭ Skipped delete {file.Name} (outside all path mappings).");
+                            continue;
+                        }
+
+                        try
+                        {
+                            ProgressText.Text = $"Deleting {current}/{total}: {file.Name}";
+                            DeployProgressBar.Value = total > 0 ? (current * 100) / total : 0;
+                            AddLog($"🗑 Deleting remote {file.Name} → {deleteRemotePath}");
+                            try
+                            {
+                                await remote.DeleteAsync(deleteRemotePath, isDirectory: false);
+                            }
+                            catch
+                            {
+                                await remote.DeleteAsync(deleteRemotePath, isDirectory: true);
+                            }
+
+                            result.UploadedCount++;
+                            AddLog($"✅ Deleted remote {file.Name}");
+                        }
+                        catch (Exception deleteEx)
+                        {
+                            var detail = RemoteTransferErrorFormatter.Format(
+                                deleteEx,
+                                fileName: file.Name,
+                                remotePath: deleteRemotePath,
+                                protocol: protocol,
+                                profileName: profile.Name);
+                            result.FailedItems.Add(new DeployFailedItem(file.Name, detail));
+                            AddLog($"❌ Delete failed {file.Name}: {RemoteTransferErrorFormatter.ResolveRootCause(deleteEx)}");
+                        }
+
                         continue;
                     }
 
@@ -4008,8 +4485,26 @@ namespace GitDeployPro.Pages
                 current++;
                 if (file.Type == ChangeType.Deleted)
                 {
-                    result.SkippedCount++;
-                    AddLog($"[SIMULATION] ⏭ Skipping delete for {file.Name}");
+                    var deleteRelative = (file.OldPath ?? file.Name).Replace("\\", "/").TrimEnd('/');
+                    if (!RemotePathResolver.TryResolveDeployTarget(
+                            deleteRelative,
+                            mappings,
+                            defaultRemoteBase,
+                            out var deleteRemotePath,
+                            out _,
+                            out _))
+                    {
+                        result.SkippedCount++;
+                        AddLog($"[SIMULATION] ⏭ Skipped delete {file.Name} (outside all path mappings).");
+                        continue;
+                    }
+
+                    AddLog($"[SIMULATION] 🗑 Deleting {file.Name} → {deleteRemotePath}");
+                    ProgressText.Text = $"Simulating delete {current}/{total}: {file.Name}";
+                    DeployProgressBar.Value = total > 0 ? (current * 100) / total : 0;
+                    await Task.Delay(200);
+                    result.UploadedCount++;
+                    AddLog($"[SIMULATION] ✅ Deleted {file.Name}");
                     continue;
                 }
 

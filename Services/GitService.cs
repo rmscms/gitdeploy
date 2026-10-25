@@ -1062,6 +1062,148 @@ namespace GitDeployPro.Services
             await RunGitCommandAsync($"pull {remote} {branch}");
         }
 
+        /// <summary>Lightweight fetch so ahead/behind counts stay accurate.</summary>
+        public async Task FetchAsync(string remote = "origin")
+        {
+            var remoteUrl = await GetRemoteUrlAsync(remote);
+            if (string.IsNullOrWhiteSpace(remoteUrl))
+            {
+                return;
+            }
+
+            await EnsureSshKeyForRemoteAsync(remote, remoteUrl);
+            await RunGitCommandAsync($"fetch {remote}", timeout: TimeSpan.FromMinutes(5));
+        }
+
+        /// <summary>
+        /// Files changed between two commits (old..new), same shape as deploy FileChange list.
+        /// </summary>
+        public async Task<List<FileChange>> GetChangedFilesBetweenCommitsAsync(string oldSha, string newSha)
+        {
+            if (string.IsNullOrWhiteSpace(oldSha) || string.IsNullOrWhiteSpace(newSha))
+            {
+                return new List<FileChange>();
+            }
+
+            if (string.Equals(oldSha.Trim(), newSha.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                return new List<FileChange>();
+            }
+
+            // Reuse branch-diff parser: target..source == old..new
+            return await GetDiffAsync(newSha.Trim(), oldSha.Trim());
+        }
+
+        /// <summary>
+        /// Preview what would arrive from upstream without merging: HEAD..@{upstream}.
+        /// </summary>
+        public async Task<List<FileChange>> GetIncomingUpstreamChangesAsync()
+        {
+            var status = await GetBranchStatusAsync();
+            if (!status.HasRemote || string.IsNullOrWhiteSpace(status.RemoteBranch))
+            {
+                return new List<FileChange>();
+            }
+
+            return await GetDiffAsync(status.RemoteBranch, "HEAD");
+        }
+
+        /// <summary>
+        /// Pull and return the file list that changed due to the pull (old HEAD..new HEAD).
+        /// Throws on merge conflict (leaves repo in conflict state for the user to fix).
+        /// </summary>
+        public async Task<PullRangeResult> PullWithRangeAsync(string remote = "origin")
+        {
+            var oldHead = await GetLastCommitHashAsync();
+            if (string.IsNullOrWhiteSpace(oldHead))
+            {
+                throw new InvalidOperationException("Cannot pull: repository has no commits yet.");
+            }
+
+            try
+            {
+                await PullAsync(remote);
+            }
+            catch (GitCommandException ex) when (LooksLikeMergeConflict(ex))
+            {
+                throw new GitMergeConflictException(
+                    "Pull produced merge conflicts. Resolve them in Git, then retry.",
+                    ex);
+            }
+
+            if (await HasUnmergedPathsAsync())
+            {
+                throw new GitMergeConflictException(
+                    "Pull produced merge conflicts. Resolve them in Git, then retry.");
+            }
+
+            var newHead = await GetLastCommitHashAsync();
+            var files = await GetChangedFilesBetweenCommitsAsync(oldHead, newHead);
+            return new PullRangeResult
+            {
+                OldHead = oldHead,
+                NewHead = newHead ?? string.Empty,
+                Files = files
+            };
+        }
+
+        public async Task<bool> HasUnmergedPathsAsync()
+        {
+            try
+            {
+                var output = await RunGitCommandAsync("diff --name-only --diff-filter=U");
+                return !string.IsNullOrWhiteSpace(output);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool LooksLikeMergeConflict(GitCommandException ex)
+        {
+            var text = $"{ex.Message}\n{ex.StandardError}\n{ex.StandardOutput}";
+            return text.Contains("CONFLICT", StringComparison.OrdinalIgnoreCase)
+                   || text.Contains("Automatic merge failed", StringComparison.OrdinalIgnoreCase)
+                   || text.Contains("fix conflicts", StringComparison.OrdinalIgnoreCase)
+                   || text.Contains("unmerged paths", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>Merge two deploy file lists by path; Deleted wins over other types.</summary>
+        public static List<FileChange> UnionFileChanges(
+            IEnumerable<FileChange>? first,
+            IEnumerable<FileChange>? second)
+        {
+            var map = new Dictionary<string, FileChange>(StringComparer.OrdinalIgnoreCase);
+            foreach (var file in (first ?? Enumerable.Empty<FileChange>())
+                         .Concat(second ?? Enumerable.Empty<FileChange>()))
+            {
+                if (file == null || string.IsNullOrWhiteSpace(file.Name))
+                {
+                    continue;
+                }
+
+                var key = file.Name.Replace('\\', '/').Trim();
+                if (map.TryGetValue(key, out var existing))
+                {
+                    if (file.Type == ChangeType.Deleted)
+                    {
+                        map[key] = file;
+                    }
+                    else if (existing.Type != ChangeType.Deleted)
+                    {
+                        map[key] = file;
+                    }
+                }
+                else
+                {
+                    map[key] = file;
+                }
+            }
+
+            return map.Values.ToList();
+        }
+
         public async Task CloneRepositoryAsync(string remoteUrl, string targetDirectory)
         {
             if (string.IsNullOrWhiteSpace(remoteUrl))
@@ -2142,6 +2284,21 @@ namespace GitDeployPro.Services
     {
         PushedToRemote,
         SkippedNoRemote
+    }
+
+    public sealed class PullRangeResult
+    {
+        public string OldHead { get; set; } = "";
+        public string NewHead { get; set; } = "";
+        public List<FileChange> Files { get; set; } = new();
+    }
+
+    public sealed class GitMergeConflictException : Exception
+    {
+        public GitMergeConflictException(string message, Exception? inner = null)
+            : base(message, inner)
+        {
+        }
     }
 
     public class GitCommandException : Exception

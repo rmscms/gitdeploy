@@ -17,6 +17,7 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using GitDeployPro.Behaviors;
 using GitDeployPro.Services;
+using GitDeployPro.Services.Localization;
 using GitDeployPro.Services.Remote;
 using GitDeployPro.Services.Theme;
 using FluentFTP;
@@ -234,53 +235,43 @@ namespace GitDeployPro.Controls
 
             if (RefreshButton != null)
             {
-                RefreshButton.Padding = compact ? new Thickness(6, 2, 6, 2) : new Thickness(10, 4, 10, 4);
-                RefreshButton.Margin = compact ? new Thickness(0, 0, 4, 0) : new Thickness(0, 0, 10, 0);
+                RefreshButton.Padding = compact ? new Thickness(6, 0, 6, 0) : new Thickness(8, 0, 8, 0);
+                RefreshButton.Margin = compact ? new Thickness(0, 0, 4, 0) : new Thickness(0, 0, 6, 0);
             }
 
-            if (SelectAllButton != null)
+            if (SelectionToggleButton != null)
             {
-                SelectAllButton.Padding = compact ? new Thickness(6, 2, 6, 2) : new Thickness(10, 4, 10, 4);
-                SelectAllButton.Margin = compact ? new Thickness(2, 0, 2, 0) : new Thickness(10, 0, 10, 0);
+                SelectionToggleButton.Padding = compact ? new Thickness(6, 0, 6, 0) : new Thickness(8, 0, 8, 0);
+                SelectionToggleButton.Margin = compact ? new Thickness(0, 0, 4, 0) : new Thickness(0, 0, 6, 0);
             }
 
-            if (DeselectAllButton != null)
+            if (AutoDiskSyncToolbarButton != null)
             {
-                DeselectAllButton.Padding = compact ? new Thickness(6, 2, 6, 2) : new Thickness(10, 4, 10, 4);
-                DeselectAllButton.Margin = compact ? new Thickness(2, 0, 0, 0) : new Thickness(10, 0, 0, 0);
+                AutoDiskSyncToolbarButton.Padding = compact ? new Thickness(6, 0, 6, 0) : new Thickness(8, 0, 8, 0);
+                AutoDiskSyncToolbarButton.Margin = new Thickness(0);
             }
 
-            // Compact dock: icon-only buttons so the toolbar can wrap cleanly without overlapping stats.
+            // Compact dock: icon-only for refresh/select; keep auto-refresh label short.
             if (RefreshButtonLabel != null)
             {
                 RefreshButtonLabel.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
-                RefreshButtonLabel.Text = "Refresh from Disk";
-                if (RefreshButtonLabel.Parent is StackPanel refreshIcon && refreshIcon.Children.Count > 0
-                    && refreshIcon.Children[0] is TextBlock refreshEmoji)
+                if (RefreshButtonIcon != null)
                 {
-                    refreshEmoji.Margin = compact ? new Thickness(0) : new Thickness(0, 0, 5, 0);
+                    RefreshButtonIcon.Margin = compact ? new Thickness(0) : new Thickness(0, 0, 5, 0);
                 }
             }
 
-            if (SelectAllButtonLabel != null)
+            if (SelectionToggleLabel != null)
             {
-                SelectAllButtonLabel.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
-                if (SelectAllButtonLabel.Parent is StackPanel selectIcon && selectIcon.Children.Count > 0
-                    && selectIcon.Children[0] is TextBlock selectEmoji)
+                SelectionToggleLabel.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+                if (SelectionToggleIcon != null)
                 {
-                    selectEmoji.Margin = compact ? new Thickness(0) : new Thickness(0, 0, 5, 0);
+                    SelectionToggleIcon.Margin = compact ? new Thickness(0) : new Thickness(0, 0, 5, 0);
                 }
             }
 
-            if (DeselectAllButtonLabel != null)
-            {
-                DeselectAllButtonLabel.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
-                if (DeselectAllButtonLabel.Parent is StackPanel deselectIcon && deselectIcon.Children.Count > 0
-                    && deselectIcon.Children[0] is TextBlock deselectEmoji)
-                {
-                    deselectEmoji.Margin = compact ? new Thickness(0) : new Thickness(0, 0, 5, 0);
-                }
-            }
+            RefreshAutoDiskSyncToolbarUi();
+            UpdateSelectionToggleUi(CountSelectedFiles());
 
             if (TreeLegendText != null)
             {
@@ -511,17 +502,52 @@ namespace GitDeployPro.Controls
             if (AutoDiskSyncCheck.IsChecked == true)
             {
                 _autoDiskSyncTimer.Start();
-                // Keep status quiet — background sync should feel invisible.
             }
             else
             {
                 _autoDiskSyncTimer.Stop();
             }
+
+            RefreshAutoDiskSyncToolbarUi();
+        }
+
+        private void RefreshAutoDiskSyncToolbarUi()
+        {
+            if (AutoDiskSyncToolbarButton == null || AutoDiskSyncToolbarButtonText == null)
+            {
+                return;
+            }
+
+            var on = AutoDiskSyncCheck?.IsChecked == true;
+            AutoDiskSyncToolbarButtonText.Text = on
+                ? Loc.T("deploy.directAutoRefresh.on")
+                : Loc.T("deploy.directAutoRefresh.off");
+
+            var accentKey = on ? "Status.Warning" : "Status.Success";
+            var surfaceKey = on ? "Status.WarningSurface" : "Status.SuccessSurface";
+            var accent = TryFindResource(accentKey) as System.Windows.Media.Brush
+                         ?? System.Windows.Media.Brushes.Gray;
+            var surface = TryFindResource(surfaceKey) as System.Windows.Media.Brush
+                          ?? System.Windows.Media.Brushes.Transparent;
+
+            AutoDiskSyncToolbarButtonText.Foreground = accent;
+            AutoDiskSyncToolbarButton.Foreground = accent;
+            AutoDiskSyncToolbarButton.BorderBrush = accent;
+            AutoDiskSyncToolbarButton.Background = surface;
+            AutoDiskSyncToolbarButton.ToolTip = on
+                ? Loc.T("deploy.tip.directAutoRefreshOn")
+                : Loc.T("deploy.tip.directAutoRefreshOff");
         }
 
         private void AutoDiskSyncTimer_Tick(object? sender, EventArgs e)
         {
             if (_isUploading || _isRefreshingFromDisk || AutoDiskSyncCheck?.IsChecked != true)
+            {
+                return;
+            }
+
+            // Avoid disk rescans while the control is off-screen (Deploy page kept alive).
+            if (!IsVisible || !IsLoaded)
             {
                 return;
             }
@@ -1350,16 +1376,35 @@ namespace GitDeployPro.Controls
             }
         }
 
-        private void SelectAllButton_Click(object sender, RoutedEventArgs e)
+        private void SelectionToggleButton_Click(object sender, RoutedEventArgs e)
         {
-            foreach (var item in _items) item.IsChecked = true;
+            var selected = CountSelectedFiles();
+            if (selected > 0)
+            {
+                foreach (var item in _items)
+                {
+                    item.IsChecked = false;
+                }
+            }
+            else
+            {
+                foreach (var item in _items)
+                {
+                    item.IsChecked = true;
+                }
+            }
+
             UpdateStats();
         }
 
-        private void DeselectAllButton_Click(object sender, RoutedEventArgs e)
+        private void AutoDiskSyncToolbarButton_Click(object sender, RoutedEventArgs e)
         {
-            foreach (var item in _items) item.IsChecked = false;
-            UpdateStats();
+            if (AutoDiskSyncCheck == null)
+            {
+                return;
+            }
+
+            AutoDiskSyncCheck.IsChecked = AutoDiskSyncCheck.IsChecked != true;
         }
 
         private void ItemCheckBox_Click(object sender, RoutedEventArgs e)
@@ -2912,24 +2957,81 @@ namespace GitDeployPro.Controls
         {
             int total = 0;
             int selected = 0;
-
-            void Count(IEnumerable<FileSystemItem> list)
-            {
-                foreach (var item in list)
-                {
-                    if (!item.IsFolder)
-                    {
-                        total++;
-                        if (item.IsChecked == true) selected++;
-                    }
-                    if (item.Children != null) Count(item.Children);
-                }
-            }
-
-            Count(_items);
+            CountFiles(_items, ref total, ref selected);
 
             TotalFilesText.Text = total.ToString();
             SelectedFilesText.Text = selected.ToString();
+            UpdateSelectionToggleUi(selected);
+        }
+
+        private int CountSelectedFiles()
+        {
+            int total = 0;
+            int selected = 0;
+            CountFiles(_items, ref total, ref selected);
+            return selected;
+        }
+
+        private static void CountFiles(IEnumerable<FileSystemItem> list, ref int total, ref int selected)
+        {
+            foreach (var item in list)
+            {
+                if (!item.IsFolder)
+                {
+                    total++;
+                    if (item.IsChecked == true)
+                    {
+                        selected++;
+                    }
+                }
+
+                if (item.Children != null)
+                {
+                    CountFiles(item.Children, ref total, ref selected);
+                }
+            }
+        }
+
+        private void UpdateSelectionToggleUi(int selectedCount)
+        {
+            if (SelectionToggleButton == null || SelectionToggleIcon == null || SelectionToggleLabel == null)
+            {
+                return;
+            }
+
+            var hasSelection = selectedCount > 0;
+            if (hasSelection)
+            {
+                SelectionToggleIcon.Text = "⬜";
+                SelectionToggleLabel.Text = Loc.T("deploy.clearSelection");
+                SelectionToggleButton.ToolTip = Loc.T("deploy.deselectAll");
+
+                var accent = TryFindResource("Status.Error") as System.Windows.Media.Brush
+                             ?? System.Windows.Media.Brushes.OrangeRed;
+                var surface = TryFindResource("Status.ErrorSurface") as System.Windows.Media.Brush
+                              ?? System.Windows.Media.Brushes.Transparent;
+                SelectionToggleIcon.Foreground = accent;
+                SelectionToggleLabel.Foreground = accent;
+                SelectionToggleButton.Foreground = accent;
+                SelectionToggleButton.BorderBrush = accent;
+                SelectionToggleButton.Background = surface;
+            }
+            else
+            {
+                SelectionToggleIcon.Text = "☑️";
+                SelectionToggleLabel.Text = Loc.T("deploy.selectAllShort");
+                SelectionToggleButton.ToolTip = Loc.T("deploy.selectAll");
+
+                var accent = TryFindResource("Status.Success") as System.Windows.Media.Brush
+                             ?? System.Windows.Media.Brushes.LightGreen;
+                var surface = TryFindResource("Status.SuccessSurface") as System.Windows.Media.Brush
+                              ?? System.Windows.Media.Brushes.Transparent;
+                SelectionToggleIcon.Foreground = accent;
+                SelectionToggleLabel.Foreground = accent;
+                SelectionToggleButton.Foreground = accent;
+                SelectionToggleButton.BorderBrush = accent;
+                SelectionToggleButton.Background = surface;
+            }
         }
 
         private void StopButton_Click(object sender, RoutedEventArgs e)

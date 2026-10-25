@@ -75,16 +75,13 @@
                                   VerticalAlignment="Center"
                                   Margin="0,0,12,4"
                                   ToolTip="{loc:T deploy.tip.overwriteDetail}" />
+                        <!-- Hidden: toggled from toolbar Auto Refresh chip (keeps existing timer logic). -->
                         <CheckBox x:Name="AutoDiskSyncCheck"
                                   Content="Auto Sync Disk"
                                   IsChecked="True"
-                                  Foreground="{StaticResource Text.Primary}"
-                                  FontWeight="SemiBold"
-                                  VerticalAlignment="Center"
-                                  Margin="0,0,12,4"
+                                  Visibility="Collapsed"
                                   Checked="AutoDiskSyncCheck_Changed"
-                                  Unchecked="AutoDiskSyncCheck_Changed"
-                                  ToolTip="{loc:T deploy.tip.autoSyncDetail}" />
+                                  Unchecked="AutoDiskSyncCheck_Changed" />
                         <TextBlock x:Name="SessionStatusText"
                                    Text=""
                                    Foreground="{StaticResource Status.Warning}"
@@ -203,34 +200,54 @@
                                 Click="RefreshButton_Click"
                                 Style="{StaticResource App.Button.Ghost}"
                                 Margin="0,0,6,0"
-                                MinWidth="28"
+                                MinWidth="30"
+                                Height="30"
+                                Padding="6,0"
+                                BorderThickness="1"
+                                BorderBrush="{StaticResource Status.Info}"
+                                Background="{StaticResource Status.InfoSurface}"
+                                Cursor="Hand"
                                 ToolTip="{loc:T deploy.tip.refreshDiskDetail}">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="🔄" Foreground="{StaticResource Status.Info}" Margin="0,0,5,0" />
-                                <TextBlock x:Name="RefreshButtonLabel" Text="Refresh from Disk" Foreground="{StaticResource Text.Secondary}" />
+                                <TextBlock x:Name="RefreshButtonIcon" Text="🔄" Foreground="{StaticResource Status.Info}" Margin="0,0,5,0" VerticalAlignment="Center" />
+                                <TextBlock x:Name="RefreshButtonLabel" Text="Refresh" Foreground="{StaticResource Status.Info}" VerticalAlignment="Center" FontWeight="SemiBold" FontSize="11" />
                             </StackPanel>
                         </Button>
-                        <Button x:Name="SelectAllButton"
-                                Click="SelectAllButton_Click"
+                        <Button x:Name="SelectionToggleButton"
+                                Click="SelectionToggleButton_Click"
                                 Style="{StaticResource App.Button.Ghost}"
                                 Margin="0,0,6,0"
-                                MinWidth="28"
+                                MinWidth="30"
+                                Height="30"
+                                Padding="6,0"
+                                BorderThickness="1"
+                                BorderBrush="{StaticResource Status.Success}"
+                                Background="{StaticResource Status.SuccessSurface}"
+                                Cursor="Hand"
                                 ToolTip="{loc:T deploy.selectAll}">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="☑️" Foreground="{StaticResource Status.Success}" Margin="0,0,5,0" />
-                                <TextBlock x:Name="SelectAllButtonLabel" Text="Select All" Foreground="{StaticResource Text.Secondary}" />
+                                <TextBlock x:Name="SelectionToggleIcon" Text="☑️" Foreground="{StaticResource Status.Success}" Margin="0,0,5,0" VerticalAlignment="Center" />
+                                <TextBlock x:Name="SelectionToggleLabel" Text="Select" Foreground="{StaticResource Status.Success}" VerticalAlignment="Center" FontWeight="SemiBold" FontSize="11" />
                             </StackPanel>
                         </Button>
-                        <Button x:Name="DeselectAllButton"
-                                Click="DeselectAllButton_Click"
+                        <Button x:Name="AutoDiskSyncToolbarButton"
+                                Click="AutoDiskSyncToolbarButton_Click"
                                 Style="{StaticResource App.Button.Ghost}"
                                 Margin="0,0,0,0"
-                                MinWidth="28"
-                                ToolTip="{loc:T deploy.deselectAll}">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="⬜" Foreground="{StaticResource Status.Error}" Margin="0,0,5,0" />
-                                <TextBlock x:Name="DeselectAllButtonLabel" Text="Deselect All" Foreground="{StaticResource Text.Secondary}" />
-                            </StackPanel>
+                                MinWidth="48"
+                                Height="30"
+                                Padding="6,0"
+                                BorderThickness="1"
+                                BorderBrush="{StaticResource Status.Success}"
+                                Background="{StaticResource Status.SuccessSurface}"
+                                Cursor="Hand"
+                                ToolTip="{loc:T deploy.tip.autoSyncDetail}">
+                            <TextBlock x:Name="AutoDiskSyncToolbarButtonText"
+                                       Text="⏱ On"
+                                       Foreground="{StaticResource Status.Success}"
+                                       FontWeight="SemiBold"
+                                       FontSize="11"
+                                       VerticalAlignment="Center" />
                         </Button>
                     </WrapPanel>
 

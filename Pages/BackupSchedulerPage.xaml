@@ -134,28 +134,53 @@
                 <TextBlock Text="🗓️" FontSize="34" Margin="0,0,12,0" VerticalAlignment="Center"/>
                 <StackPanel>
                     <TextBlock Text="Backup Scheduler" Style="{StaticResource App.PageTitleTextStyle}"/>
-                    <TextBlock Text="Define multiple database export plans with independent cadences."
+                    <TextBlock Text="Short wizard, optional OpenVPN per plan, and import/export between machines."
                                Style="{StaticResource App.PageSubtitleTextStyle}"/>
                 </StackPanel>
             </StackPanel>
             <StackPanel Grid.Column="1"
                         Orientation="Horizontal"
                         HorizontalAlignment="Right">
-                <Button Content="🗓 Open full history"
+                <Button Content="⬆ Export plan"
+                        Margin="0,0,8,0"
+                        Height="40"
+                        Padding="14,0"
+                        Style="{StaticResource App.Button.Ghost}"
+                        BorderBrush="{StaticResource Status.Info}"
+                        Foreground="{StaticResource Status.Info}"
+                        ToolTip="Export selected backup plan + linked connections as JSON"
+                        Click="ExportBackupPlan_Click"/>
+                <Button Content="⬇ Import plan"
                         Margin="0,0,12,0"
+                        Height="40"
+                        Padding="14,0"
+                        Style="{StaticResource App.Button.Ghost}"
+                        BorderBrush="{StaticResource Status.Success}"
+                        Foreground="{StaticResource Status.Success}"
+                        ToolTip="Import a backup plan JSON from another GitDeploy machine"
+                        Click="ImportBackupPlan_Click"/>
+                <Button Content="🗓 History"
+                        Margin="0,0,8,0"
+                        Height="40"
+                        Padding="14,0"
                         Style="{StaticResource App.Button.Ghost}"
                         Click="OpenHistoryButton_Click"/>
                 <Button x:Name="HeaderActiveTasksButton"
                         Content="{Binding ActiveTasksLabel}"
-                        Margin="0,0,12,0"
+                        Margin="0,0,8,0"
                         Style="{StaticResource HeaderSoftInfoButtonStyle}"
                         Click="OpenTasks_Click"/>
-                <Button Content="🧪 Integrity sample"
-                        Margin="0,0,12,0"
+                <Button Content="🧪 Integrity"
+                        Margin="0,0,8,0"
+                        Height="40"
+                        Padding="14,0"
                         Style="{StaticResource App.Button.Ghost}"
                         Click="OpenIntegritySampling_Click"/>
-                <Button Content="🗖 Pop-out"
+                <Button Content="🗖"
+                        Width="40"
+                        Height="40"
                         Style="{StaticResource DetachPageButtonStyle}"
+                        ToolTip="Pop-out"
                         Click="OpenInWindow_Click"/>
             </StackPanel>
         </Grid>
@@ -253,18 +278,32 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0">
-                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding Name}" FontSize="14" Foreground="{StaticResource Text.Primary}" FontWeight="SemiBold"/>
-                                            <TextBlock Text="{Binding Enabled, StringFormat= (Enabled: {0})}"
-                                                       FontSize="11"
-                                                       Foreground="{StaticResource Text.Muted}"
-                                                       Margin="10,0,0,0"/>
-                                        </StackPanel>
+                                        <DockPanel LastChildFill="True">
+                                            <Border DockPanel.Dock="Right"
+                                                    Margin="8,0,0,0"
+                                                    Padding="8,2"
+                                                    CornerRadius="8"
+                                                    Background="{StaticResource Status.SuccessSurface}"
+                                                    VerticalAlignment="Center"
+                                                    Visibility="{Binding Enabled, Converter={StaticResource BoolToVisibility}}">
+                                                <TextBlock Text="ON"
+                                                           FontSize="10"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="{StaticResource Status.Success}"/>
+                                            </Border>
+                                            <TextBlock Text="{Binding Name}"
+                                                       FontSize="14"
+                                                       Foreground="{StaticResource Text.Primary}"
+                                                       FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                        </DockPanel>
                                         <TextBlock Text="{Binding Frequency}"
                                                    FontSize="12"
+                                                   Margin="0,4,0,0"
                                                    Foreground="{StaticResource Text.Secondary}"/>
-                                        <TextBlock Text="{Binding NextRunLocal, StringFormat=Next: {0:G}}"
+                                        <TextBlock Text="{Binding NextRunLocal, StringFormat=Next: {0:g}}"
                                                    FontSize="11"
+                                                   Margin="0,2,0,0"
                                                    Foreground="{StaticResource Status.Info}"/>
                                     </StackPanel>
                                     <Button Grid.Column="1"
@@ -293,46 +332,29 @@
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
-                    <Border Grid.Row="0" Style="{StaticResource WidgetCardStyle}" Margin="0,0,0,12">
+                    <Border Grid.Row="0" Style="{StaticResource WidgetCardStyle}" Margin="0,0,0,12" Padding="14,12">
                         <StackPanel>
                             <TextBlock Text="{Binding WizardStepTitle}" Style="{StaticResource App.SectionTitleTextStyle}"/>
-                            <TextBlock Text="Step-by-step flow with readiness checks before execution."
+                            <TextBlock Text="Short steps: basics → local DB → strategy → VPN → readiness → run."
                                        Style="{StaticResource App.CaptionTextStyle}"/>
-                            <UniformGrid Columns="4" Margin="0,12,0,0">
-                                <Button x:Name="Step1Button"
-                                        Content="1) Connection"
-                                        Tag="1"
-                                        Style="{StaticResource App.Button.Ghost}"
-                                        Margin="0,0,8,0"
-                                        Click="StepButton_Click"/>
-                                <Button x:Name="Step2Button"
-                                        Content="2) Strategy"
-                                        Tag="2"
-                                        Style="{StaticResource App.Button.Ghost}"
-                                        Margin="0,0,8,0"
-                                        Click="StepButton_Click"/>
-                                <Button x:Name="Step3Button"
-                                        Content="3) Readiness"
-                                        Tag="3"
-                                        Style="{StaticResource App.Button.Ghost}"
-                                        Margin="0,0,8,0"
-                                        Click="StepButton_Click"/>
-                                <Button x:Name="Step4Button"
-                                        Content="4) Confirm"
-                                        Tag="4"
-                                        Style="{StaticResource App.Button.Ghost}"
-                                        Click="StepButton_Click"/>
+                            <UniformGrid Columns="6" Margin="0,12,0,0">
+                                <Button x:Name="Step1Button" Content="1 Basics" Tag="1" Style="{StaticResource App.Button.Ghost}" Margin="0,0,6,0" Height="34" FontSize="11" Click="StepButton_Click"/>
+                                <Button x:Name="Step2Button" Content="2 Local DB" Tag="2" Style="{StaticResource App.Button.Ghost}" Margin="0,0,6,0" Height="34" FontSize="11" Click="StepButton_Click"/>
+                                <Button x:Name="Step3Button" Content="3 Strategy" Tag="3" Style="{StaticResource App.Button.Ghost}" Margin="0,0,6,0" Height="34" FontSize="11" Click="StepButton_Click"/>
+                                <Button x:Name="Step4Button" Content="4 VPN" Tag="4" Style="{StaticResource App.Button.Ghost}" Margin="0,0,6,0" Height="34" FontSize="11" Click="StepButton_Click"/>
+                                <Button x:Name="Step5Button" Content="5 Ready" Tag="5" Style="{StaticResource App.Button.Ghost}" Margin="0,0,6,0" Height="34" FontSize="11" Click="StepButton_Click"/>
+                                <Button x:Name="Step6Button" Content="6 Run" Tag="6" Style="{StaticResource App.Button.Ghost}" Height="34" FontSize="11" Click="StepButton_Click"/>
                             </UniformGrid>
                         </StackPanel>
                     </Border>
 
                     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                         <StackPanel Width="Auto">
-                            <Border x:Name="Step1Panel" Style="{StaticResource WidgetCardStyle}">
+                            <Border x:Name="Step1Panel" Style="{StaticResource WidgetCardStyle}" Padding="16">
                                 <StackPanel>
-                                    <TextBlock Text="Step 1 - Connection and database"
+                                    <TextBlock Text="Basics"
                                                Style="{StaticResource App.SectionTitleTextStyle}"/>
-                                    <TextBlock Text="Choose profile and target database before moving forward."
+                                    <TextBlock Text="Name, connection profile, and remote database."
                                                Style="{StaticResource App.CaptionTextStyle}"/>
                                     <Grid Margin="0,12,0,0">
                                         <Grid.ColumnDefinitions>
@@ -384,118 +406,97 @@
                                             </Border>
                                         </StackPanel>
                                     </Grid>
+                                </StackPanel>
+                            </Border>
 
-                                    <Border Style="{StaticResource WidgetCardStyle}" Margin="0,12,0,0">
-                                        <StackPanel>
-                                            <TextBlock Text="Localhost restore validation"
-                                                       Style="{StaticResource App.SectionTitleTextStyle}"/>
-                                            <TextBlock Text="Optional: after backup finishes, import artifact into a temporary localhost database to verify recoverability."
-                                                       Style="{StaticResource App.CaptionTextStyle}"/>
-                                            <CheckBox Content="Enable localhost restore validation (warning-only if it fails)"
-                                                      Margin="0,10,0,0"
-                                                      Foreground="{StaticResource Text.Secondary}"
-                                                      IsChecked="{Binding SelectedSchedule.EnableLocalRestoreValidation, Mode=TwoWay}"/>
-                                            <Grid Margin="0,10,0,0">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="120"/>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="*"/>
-                                                </Grid.ColumnDefinitions>
-                                                <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                                                    <TextBlock Text="IP / Host"
-                                                               FontSize="11"
-                                                               Foreground="{StaticResource Text.Muted}"
-                                                               Margin="0,0,0,4"/>
-                                                    <TextBox ToolTip="Localhost only"
-                                                             Text="{Binding SelectedSchedule.LocalValidationHost, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                             IsEnabled="{Binding SelectedSchedule.EnableLocalRestoreValidation}"/>
-                                                </StackPanel>
-                                                <StackPanel Grid.Column="1" Margin="0,0,8,0">
-                                                    <TextBlock Text="Port"
-                                                               FontSize="11"
-                                                               Foreground="{StaticResource Text.Muted}"
-                                                               Margin="0,0,0,4"/>
-                                                    <TextBox ToolTip="Example: 3306"
-                                                             Text="{Binding SelectedSchedule.LocalValidationPort, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
-                                                             IsEnabled="{Binding SelectedSchedule.EnableLocalRestoreValidation}"/>
-                                                </StackPanel>
-                                                <StackPanel Grid.Column="2" Margin="0,0,8,0">
-                                                    <TextBlock Text="Database name"
-                                                               FontSize="11"
-                                                               Foreground="{StaticResource Text.Muted}"
-                                                               Margin="0,0,0,4"/>
-                                                    <TextBox ToolTip="Auto-created if missing"
-                                                             Text="{Binding SelectedSchedule.LocalValidationDatabaseName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                             IsEnabled="{Binding SelectedSchedule.EnableLocalRestoreValidation}"/>
-                                                </StackPanel>
-                                                <StackPanel Grid.Column="3">
-                                                    <TextBlock Text="Username"
-                                                               FontSize="11"
-                                                               Foreground="{StaticResource Text.Muted}"
-                                                               Margin="0,0,0,4"/>
-                                                    <TextBox ToolTip="Database username"
-                                                             Text="{Binding SelectedSchedule.LocalValidationUsername, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                             IsEnabled="{Binding SelectedSchedule.EnableLocalRestoreValidation}"/>
-                                                </StackPanel>
-                                            </Grid>
-                                            <Grid Margin="0,8,0,0">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                </Grid.ColumnDefinitions>
-                                                <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                                                    <TextBlock Text="Password"
-                                                               FontSize="11"
-                                                               Foreground="{StaticResource Text.Muted}"
-                                                               Margin="0,0,0,4"/>
-                                                    <TextBox ToolTip="Database password"
-                                                             Text="{Binding SelectedSchedule.LocalValidationPassword, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                             IsEnabled="{Binding SelectedSchedule.EnableLocalRestoreValidation}"/>
-                                                </StackPanel>
-                                                <StackPanel Grid.Column="1" Margin="0,0,8,0">
-                                                    <TextBlock Text="Charset"
-                                                               FontSize="11"
-                                                               Foreground="{StaticResource Text.Muted}"
-                                                               Margin="0,0,0,4"/>
-                                                    <TextBox ToolTip="Use auto for server-compatible utf8mb4"
-                                                             Text="{Binding SelectedSchedule.LocalValidationCharset, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                             IsEnabled="{Binding SelectedSchedule.EnableLocalRestoreValidation}"/>
-                                                </StackPanel>
-                                                <StackPanel Grid.Column="2" Margin="0,0,8,0">
-                                                    <TextBlock Text="Collation"
-                                                               FontSize="11"
-                                                               Foreground="{StaticResource Text.Muted}"
-                                                               Margin="0,0,0,4"/>
-                                                    <TextBox ToolTip="Use auto for server-compatible collation"
-                                                             Text="{Binding SelectedSchedule.LocalValidationCollation, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                             IsEnabled="{Binding SelectedSchedule.EnableLocalRestoreValidation}"/>
-                                                </StackPanel>
-                                                <StackPanel Grid.Column="3" VerticalAlignment="Bottom">
-                                                    <Button Content="Test + create DB"
-                                                            Style="{StaticResource App.Button.Toolbar}"
-                                                            IsEnabled="{Binding SelectedSchedule.EnableLocalRestoreValidation}"
-                                                            Click="TestLocalValidationProfile_Click"/>
-                                                </StackPanel>
-                                            </Grid>
-                                            <Border Background="{StaticResource Status.SuccessSurface}" CornerRadius="6" Padding="8" Margin="0,8,0,0">
-                                                <TextBlock Text="{Binding LocalValidationStatus}"
-                                                           FontSize="11"
-                                                           TextWrapping="Wrap"
-                                                           Foreground="{Binding LocalValidationStatusBrush}"/>
-                                            </Border>
+                            <Border x:Name="Step2Panel" Style="{StaticResource WidgetCardStyle}" Padding="16">
+                                <StackPanel>
+                                    <TextBlock Text="Local DB"
+                                               Style="{StaticResource App.SectionTitleTextStyle}"/>
+                                    <TextBlock Text="Optional: after backup, import into a temporary localhost database to verify recoverability."
+                                               Style="{StaticResource App.CaptionTextStyle}"/>
+                                    <CheckBox Content="Enable localhost restore validation (warning-only if it fails)"
+                                              Margin="0,10,0,0"
+                                              Foreground="{StaticResource Text.Secondary}"
+                                              IsChecked="{Binding SelectedSchedule.EnableLocalRestoreValidation, Mode=TwoWay}"/>
+                                    <Grid Margin="0,10,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="120"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                            <TextBlock Text="IP / Host" FontSize="11" Foreground="{StaticResource Text.Muted}" Margin="0,0,0,4"/>
+                                            <TextBox ToolTip="Localhost only"
+                                                     Text="{Binding SelectedSchedule.LocalValidationHost, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                     IsEnabled="{Binding SelectedSchedule.EnableLocalRestoreValidation}"/>
                                         </StackPanel>
+                                        <StackPanel Grid.Column="1" Margin="0,0,8,0">
+                                            <TextBlock Text="Port" FontSize="11" Foreground="{StaticResource Text.Muted}" Margin="0,0,0,4"/>
+                                            <TextBox ToolTip="Example: 3306"
+                                                     Text="{Binding SelectedSchedule.LocalValidationPort, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                                                     IsEnabled="{Binding SelectedSchedule.EnableLocalRestoreValidation}"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2" Margin="0,0,8,0">
+                                            <TextBlock Text="Database name" FontSize="11" Foreground="{StaticResource Text.Muted}" Margin="0,0,0,4"/>
+                                            <TextBox ToolTip="Auto-created if missing"
+                                                     Text="{Binding SelectedSchedule.LocalValidationDatabaseName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                     IsEnabled="{Binding SelectedSchedule.EnableLocalRestoreValidation}"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="3">
+                                            <TextBlock Text="Username" FontSize="11" Foreground="{StaticResource Text.Muted}" Margin="0,0,0,4"/>
+                                            <TextBox ToolTip="Database username"
+                                                     Text="{Binding SelectedSchedule.LocalValidationUsername, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                     IsEnabled="{Binding SelectedSchedule.EnableLocalRestoreValidation}"/>
+                                        </StackPanel>
+                                    </Grid>
+                                    <Grid Margin="0,8,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                            <TextBlock Text="Password" FontSize="11" Foreground="{StaticResource Text.Muted}" Margin="0,0,0,4"/>
+                                            <TextBox ToolTip="Database password"
+                                                     Text="{Binding SelectedSchedule.LocalValidationPassword, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                     IsEnabled="{Binding SelectedSchedule.EnableLocalRestoreValidation}"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Margin="0,0,8,0">
+                                            <TextBlock Text="Charset" FontSize="11" Foreground="{StaticResource Text.Muted}" Margin="0,0,0,4"/>
+                                            <TextBox ToolTip="Use auto for server-compatible utf8mb4"
+                                                     Text="{Binding SelectedSchedule.LocalValidationCharset, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                     IsEnabled="{Binding SelectedSchedule.EnableLocalRestoreValidation}"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2" Margin="0,0,8,0">
+                                            <TextBlock Text="Collation" FontSize="11" Foreground="{StaticResource Text.Muted}" Margin="0,0,0,4"/>
+                                            <TextBox ToolTip="Use auto for server-compatible collation"
+                                                     Text="{Binding SelectedSchedule.LocalValidationCollation, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                     IsEnabled="{Binding SelectedSchedule.EnableLocalRestoreValidation}"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="3" VerticalAlignment="Bottom">
+                                            <Button Content="Test + create DB"
+                                                    Style="{StaticResource App.Button.Toolbar}"
+                                                    IsEnabled="{Binding SelectedSchedule.EnableLocalRestoreValidation}"
+                                                    Click="TestLocalValidationProfile_Click"/>
+                                        </StackPanel>
+                                    </Grid>
+                                    <Border Background="{StaticResource Status.SuccessSurface}" CornerRadius="6" Padding="8" Margin="0,8,0,0">
+                                        <TextBlock Text="{Binding LocalValidationStatus}"
+                                                   FontSize="11"
+                                                   TextWrapping="Wrap"
+                                                   Foreground="{Binding LocalValidationStatusBrush}"/>
                                     </Border>
                                 </StackPanel>
                             </Border>
 
-                            <Border x:Name="Step2Panel" Style="{StaticResource WidgetCardStyle}">
+                            <Border x:Name="Step3Panel" Style="{StaticResource WidgetCardStyle}" Padding="16">
                                 <StackPanel>
-                                    <TextBlock Text="Step 2 - Strategy and output"
+                                    <TextBlock Text="Strategy"
                                                Style="{StaticResource App.SectionTitleTextStyle}"/>
-                                    <TextBlock Text="Define timing first, then backup strategy, then output and retention."
+                                    <TextBlock Text="Timing, backup mode, output path, and retention."
                                                Style="{StaticResource App.CaptionTextStyle}"/>
 
                                     <Border Style="{StaticResource WidgetCardStyle}" Margin="0,12,0,12">
@@ -727,11 +728,66 @@
                                 </StackPanel>
                             </Border>
 
-                            <Border x:Name="Step3Panel" Style="{StaticResource WidgetCardStyle}">
+                            <Border x:Name="Step4Panel" Style="{StaticResource WidgetCardStyle}" Padding="16">
+                                <StackPanel>
+                                    <TextBlock Text="VPN"
+                                               Style="{StaticResource App.SectionTitleTextStyle}"/>
+                                    <TextBlock Text="Optional OpenVPN for this schedule. GitDeploy connects before backup and disconnects after only if it opened the tunnel."
+                                               Style="{StaticResource App.CaptionTextStyle}"
+                                               TextWrapping="Wrap"/>
+                                    <CheckBox x:Name="BackupVpnRequiredCheck"
+                                              Content="This backup requires VPN"
+                                              Margin="0,14,0,0"
+                                              Foreground="{StaticResource Text.Secondary}"
+                                              IsChecked="{Binding SelectedSchedule.VpnRequired, Mode=TwoWay}"
+                                              Checked="BackupVpnRequired_Changed"
+                                              Unchecked="BackupVpnRequired_Changed"/>
+                                    <StackPanel x:Name="BackupVpnOptionsPanel" Margin="0,12,0,0">
+                                        <TextBlock Text="OpenVPN client"
+                                                   FontSize="12"
+                                                   Foreground="{StaticResource Text.Muted}"/>
+                                        <ComboBox x:Name="BackupVpnProviderCombo"
+                                                  Margin="0,6,0,0"
+                                                  SelectionChanged="BackupVpnProviderCombo_SelectionChanged">
+                                            <ComboBoxItem Content="OpenVPN Connect" Tag="OpenVpnConnect"/>
+                                            <ComboBoxItem Content="OpenVPN GUI (Community)" Tag="OpenVpn"/>
+                                        </ComboBox>
+                                        <TextBlock Text="Profile"
+                                                   FontSize="12"
+                                                   Margin="0,12,0,0"
+                                                   Foreground="{StaticResource Text.Muted}"/>
+                                        <DockPanel Margin="0,6,0,0">
+                                            <Button Content="⟳"
+                                                    DockPanel.Dock="Right"
+                                                    Width="40"
+                                                    Height="32"
+                                                    Margin="8,0,0,0"
+                                                    Style="{StaticResource App.Button.Ghost}"
+                                                    ToolTip="Refresh VPN profiles"
+                                                    Click="BackupVpnRefreshProfiles_Click"/>
+                                            <ComboBox x:Name="BackupVpnProfileCombo"
+                                                      ItemsSource="{Binding VpnProfileNames}"
+                                                      SelectedItem="{Binding SelectedSchedule.VpnProfileName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                        </DockPanel>
+                                        <Border Background="{StaticResource Status.InfoSurface}"
+                                                CornerRadius="6"
+                                                Padding="8"
+                                                Margin="0,12,0,0">
+                                            <TextBlock x:Name="BackupVpnStatusText"
+                                                       FontSize="11"
+                                                       TextWrapping="Wrap"
+                                                       Foreground="{StaticResource Status.Info}"
+                                                       Text="Configure OpenVPN paths in Settings → VPN if profiles do not appear."/>
+                                        </Border>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <Border x:Name="Step5Panel" Style="{StaticResource WidgetCardStyle}" Padding="16">
                                 <StackPanel>
                                     <DockPanel>
                                         <StackPanel DockPanel.Dock="Left">
-                                            <TextBlock Text="Step 3 - Server readiness and permissions"
+                                            <TextBlock Text="Readiness"
                                                        Style="{StaticResource App.SectionTitleTextStyle}"/>
                                             <TextBlock Text="Checks must pass before backup starts."
                                                        Style="{StaticResource App.CaptionTextStyle}"/>
@@ -783,11 +839,11 @@
                                 </StackPanel>
                             </Border>
 
-                            <Border x:Name="Step4Panel" Style="{StaticResource WidgetCardStyle}">
+                            <Border x:Name="Step6Panel" Style="{StaticResource WidgetCardStyle}" Padding="16">
                                 <StackPanel>
-                                    <TextBlock Text="Step 4 - Confirm and run"
+                                    <TextBlock Text="Confirm"
                                                Style="{StaticResource App.SectionTitleTextStyle}"/>
-                                    <TextBlock Text="Review your final configuration before running backup."
+                                    <TextBlock Text="Review configuration, then run or pause."
                                                Style="{StaticResource App.CaptionTextStyle}"/>
                                     <Border Background="{StaticResource Surface.Input}"
                                             CornerRadius="8"
@@ -921,6 +977,23 @@
                                                     <Run Text="{Binding SelectedSchedule.LocalValidationCollation}"/>
                                                 </TextBlock>
                                             </Grid>
+                                            <Grid Margin="0,6,0,0"
+                                                  Visibility="{Binding SelectedSchedule.VpnRequired, Converter={StaticResource BoolToVisibility}}">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="170"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="VPN"
+                                                           Foreground="{StaticResource Text.Muted}"
+                                                           FontSize="11"/>
+                                                <TextBlock Grid.Column="1"
+                                                           Foreground="{StaticResource Text.Primary}"
+                                                           TextWrapping="Wrap">
+                                                    <Run Text="{Binding SelectedSchedule.VpnProvider}"/>
+                                                    <Run Text=" · "/>
+                                                    <Run Text="{Binding SelectedSchedule.VpnProfileName}"/>
+                                                </TextBlock>
+                                            </Grid>
                                         </StackPanel>
                                     </Border>
 
@@ -1003,21 +1076,29 @@
                         <Button x:Name="PreviousStepButton"
                                 Grid.Column="0"
                                 Content="← Previous"
+                                Height="40"
+                                Padding="16,0"
                                 Style="{StaticResource App.Button.Ghost}"
                                 Click="PreviousStep_Click"/>
                         <Button Grid.Column="1"
                                 Content="{Binding SaveChangesButtonText}"
                                 Margin="10,0,0,0"
+                                Height="40"
+                                Padding="16,0"
                                 Style="{StaticResource SaveChangesButtonStyle}"
                                 Click="SaveSchedules_Click"/>
                         <TextBlock Grid.Column="2"
                                    Text="{Binding WizardStepHint}"
                                    Foreground="{StaticResource Text.Muted}"
                                    VerticalAlignment="Center"
-                                   HorizontalAlignment="Center"/>
+                                   HorizontalAlignment="Center"
+                                   TextWrapping="Wrap"
+                                   Margin="12,0"/>
                         <Button x:Name="NextStepButton"
                                 Grid.Column="3"
                                 Content="Next →"
+                                Height="40"
+                                Padding="18,0"
                                 Style="{StaticResource App.Button.Primary}"
                                 Click="NextStep_Click"/>
                     </Grid>

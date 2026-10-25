@@ -225,6 +225,29 @@ namespace GitDeployPro.Models
             set => SetProperty(ref _localValidationCollation, value);
         }
 
+        private bool _vpnRequired;
+        /// <summary>When true, GitDeploy connects the selected OpenVPN profile before backup and disconnects after if it opened the tunnel.</summary>
+        public bool VpnRequired
+        {
+            get => _vpnRequired;
+            set => SetProperty(ref _vpnRequired, value);
+        }
+
+        private string _vpnProvider = "OpenVpnConnect";
+        /// <summary>OpenVpnConnect or OpenVpn (GUI).</summary>
+        public string VpnProvider
+        {
+            get => _vpnProvider;
+            set => SetProperty(ref _vpnProvider, value);
+        }
+
+        private string _vpnProfileName = string.Empty;
+        public string VpnProfileName
+        {
+            get => _vpnProfileName;
+            set => SetProperty(ref _vpnProfileName, value);
+        }
+
         private DateTime? _lastRunUtc;
         public DateTime? LastRunUtc
         {

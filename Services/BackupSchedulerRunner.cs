@@ -171,6 +171,7 @@ namespace GitDeployPro.Services
             };
 
             BackupTaskHandle? taskHandle = null;
+            await using var vpnScope = await BackupVpnScope.EnterAsync(schedule).ConfigureAwait(false);
             try
             {
                 taskHandle = _taskMonitor.StartTask(schedule, profile, allowCancel: true, "Scheduled");

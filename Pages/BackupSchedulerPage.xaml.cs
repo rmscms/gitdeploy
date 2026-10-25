@@ -17,6 +17,7 @@ using System.Windows.Threading;
 using GitDeployPro.Controls;
 using GitDeployPro.Models;
 using GitDeployPro.Services;
+using GitDeployPro.Services.Vpn;
 using GitDeployPro.Windows;
 using Renci.SshNet;
 using Renci.SshNet.Common;
@@ -42,9 +43,11 @@ namespace GitDeployPro.Pages
         private readonly BackupIntegritySamplingService _integritySamplingService = new();
         private readonly NotificationService _notificationService = new();
         private readonly BackupTaskMonitor _taskMonitor = BackupTaskMonitor.Instance;
+        private readonly BackupPlanTransferService _planTransfer = new();
         private string _localValidationStatus = "Local validation settings are not tested yet.";
         private MediaBrush _localValidationStatusBrush = StatusInfoBrush;
         private bool _isLocalValidationBusy;
+        private bool _suppressBackupVpnUi;
         private static MediaBrush ResolveThemeBrush(string resourceKey, MediaBrush fallback)
         {
             if (string.IsNullOrWhiteSpace(resourceKey))
@@ -112,6 +115,7 @@ namespace GitDeployPro.Pages
         public ObservableCollection<BackupHistoryEntry> BackupHistory { get; } = BackupHistoryStore.LoadHistory();
         public ObservableCollection<ProjectBackupFileItem> ProjectBackupFiles { get; } = new();
         public ObservableCollection<ReadinessCheckItem> ReadinessChecks { get; } = new();
+        public ObservableCollection<string> VpnProfileNames { get; } = new();
         public List<BackupModeOption> BackupModes { get; } = new()
         {
             new BackupModeOption(BackupMode.Standard, "Standard (safe)"),
@@ -326,13 +330,17 @@ namespace GitDeployPro.Pages
             }
         }
 
-        public string WizardStepTitle => $"Step {CurrentWizardStep} of 4";
+        private const int WizardStepCount = 6;
+
+        public string WizardStepTitle => $"Step {CurrentWizardStep} of {WizardStepCount}";
 
         public string WizardStepHint => CurrentWizardStep switch
         {
-            1 => "Choose connection and target database.",
-            2 => "Define mode, cadence, and output settings.",
-            3 => "All readiness checks must pass.",
+            1 => "Basics: name, connection, and target database.",
+            2 => "Optional localhost restore validation database.",
+            3 => "Strategy: timing, mode, and output.",
+            4 => "VPN: connect OpenVPN for this backup only if needed.",
+            5 => "All readiness checks must pass.",
             _ => "Confirm summary and run backup."
         };
 
@@ -826,9 +834,19 @@ namespace GitDeployPro.Pages
                 e.PropertyName == nameof(BackupSchedule.LocalValidationUsername) ||
                 e.PropertyName == nameof(BackupSchedule.LocalValidationPassword) ||
                 e.PropertyName == nameof(BackupSchedule.LocalValidationCharset) ||
-                e.PropertyName == nameof(BackupSchedule.LocalValidationCollation))
+                e.PropertyName == nameof(BackupSchedule.LocalValidationCollation) ||
+                e.PropertyName == nameof(BackupSchedule.VpnRequired) ||
+                e.PropertyName == nameof(BackupSchedule.VpnProvider) ||
+                e.PropertyName == nameof(BackupSchedule.VpnProfileName))
             {
                 _readinessDirty = true;
+            }
+
+            if (e.PropertyName == nameof(BackupSchedule.VpnRequired) ||
+                e.PropertyName == nameof(BackupSchedule.VpnProvider) ||
+                e.PropertyName == nameof(BackupSchedule.VpnProfileName))
+            {
+                RefreshVpnStepUi();
             }
 
             if (e.PropertyName == nameof(BackupSchedule.EnableLocalRestoreValidation) ||
@@ -926,7 +944,7 @@ namespace GitDeployPro.Pages
             ReadinessChecks.Add(new ReadinessCheckItem(
                 "Pending",
                 "Readiness checks are pending.",
-                "Move to step 3 and run checks.",
+                "Move to step 5 and run checks.",
                 "Run readiness checks before backup.",
                 StatusInfoBrush));
             OnPropertyChanged(nameof(ReadinessChecks));
@@ -948,15 +966,35 @@ namespace GitDeployPro.Pages
             Step2Panel.Visibility = CurrentWizardStep == 2 ? Visibility.Visible : Visibility.Collapsed;
             Step3Panel.Visibility = CurrentWizardStep == 3 ? Visibility.Visible : Visibility.Collapsed;
             Step4Panel.Visibility = CurrentWizardStep == 4 ? Visibility.Visible : Visibility.Collapsed;
+            if (Step5Panel != null)
+            {
+                Step5Panel.Visibility = CurrentWizardStep == 5 ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            if (Step6Panel != null)
+            {
+                Step6Panel.Visibility = CurrentWizardStep == 6 ? Visibility.Visible : Visibility.Collapsed;
+            }
 
             PreviousStepButton.IsEnabled = CurrentWizardStep > 1;
-            NextStepButton.IsEnabled = CurrentWizardStep < 4;
-            NextStepButton.Content = CurrentWizardStep == 3 ? "Go to confirm →" : "Next →";
+            NextStepButton.IsEnabled = CurrentWizardStep < WizardStepCount;
+            NextStepButton.Content = CurrentWizardStep == 5 ? "Go to confirm →" : "Next →";
 
             UpdateStepButtonVisual(Step1Button, 1);
             UpdateStepButtonVisual(Step2Button, 2);
             UpdateStepButtonVisual(Step3Button, 3);
             UpdateStepButtonVisual(Step4Button, 4);
+            if (Step5Button != null)
+            {
+                UpdateStepButtonVisual(Step5Button, 5);
+            }
+
+            if (Step6Button != null)
+            {
+                UpdateStepButtonVisual(Step6Button, 6);
+            }
+
+            RefreshVpnStepUi();
         }
 
         private void UpdateStepButtonVisual(System.Windows.Controls.Button button, int step)
@@ -990,7 +1028,284 @@ namespace GitDeployPro.Pages
             button.Foreground = primaryText;
         }
 
+        private void RefreshVpnStepUi()
+        {
+            if (!IsLoaded || BackupVpnOptionsPanel == null || BackupVpnRequiredCheck == null)
+            {
+                return;
+            }
+
+            var required = SelectedSchedule?.VpnRequired == true;
+            BackupVpnOptionsPanel.Visibility = required ? Visibility.Visible : Visibility.Collapsed;
+            if (!required)
+            {
+                return;
+            }
+
+            var providerId = VpnProviderFactory.NormalizeProviderId(
+                string.IsNullOrWhiteSpace(SelectedSchedule?.VpnProvider)
+                    ? _configService.LoadGlobalConfig().VpnProvider
+                    : SelectedSchedule!.VpnProvider);
+
+            SelectBackupVpnProviderCombo(providerId);
+            if (SelectedSchedule != null &&
+                !string.Equals(SelectedSchedule.VpnProvider, providerId, StringComparison.OrdinalIgnoreCase))
+            {
+                SelectedSchedule.VpnProvider = providerId;
+            }
+
+            RefreshBackupVpnProfiles(SelectedSchedule?.VpnProfileName);
+        }
+
+        private string GetBackupVpnProviderId()
+        {
+            if (BackupVpnProviderCombo?.SelectedItem is ComboBoxItem item && item.Tag is string tag)
+            {
+                return VpnProviderFactory.NormalizeProviderId(tag);
+            }
+
+            return VpnProviderFactory.OpenVpnConnect;
+        }
+
+        private void SelectBackupVpnProviderCombo(string providerId)
+        {
+            if (BackupVpnProviderCombo == null)
+            {
+                return;
+            }
+
+            _suppressBackupVpnUi = true;
+            try
+            {
+                for (var i = 0; i < BackupVpnProviderCombo.Items.Count; i++)
+                {
+                    if (BackupVpnProviderCombo.Items[i] is ComboBoxItem item
+                        && item.Tag is string tag
+                        && string.Equals(tag, providerId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        BackupVpnProviderCombo.SelectedIndex = i;
+                        return;
+                    }
+                }
+
+                BackupVpnProviderCombo.SelectedIndex = 0;
+            }
+            finally
+            {
+                _suppressBackupVpnUi = false;
+            }
+        }
+
+        private void RefreshBackupVpnProfiles(string? selectedName)
+        {
+            var cfg = _configService.LoadGlobalConfig();
+            var providerId = GetBackupVpnProviderId();
+            var provider = VpnProviderFactory.Create(providerId);
+            var exe = provider.ResolveExecutablePath(
+                VpnProviderFactory.ResolveConfiguredPath(new ConfigurationService.GlobalConfig
+                {
+                    VpnProvider = providerId,
+                    VpnOpenVpnGuiPath = cfg.VpnOpenVpnGuiPath,
+                    VpnOpenVpnConnectPath = cfg.VpnOpenVpnConnectPath
+                }));
+
+            IReadOnlyList<VpnProfileInfo> profiles;
+            try
+            {
+                profiles = provider.ListProfiles(exe);
+            }
+            catch (Exception ex)
+            {
+                profiles = Array.Empty<VpnProfileInfo>();
+                if (BackupVpnStatusText != null)
+                {
+                    BackupVpnStatusText.Text = $"Could not list profiles: {ex.Message}";
+                }
+            }
+
+            var names = profiles
+                .Select(p => p.Name)
+                .Where(n => !string.IsNullOrWhiteSpace(n))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            VpnProfileNames.Clear();
+            foreach (var name in names)
+            {
+                VpnProfileNames.Add(name);
+            }
+
+            if (BackupVpnStatusText != null)
+            {
+                BackupVpnStatusText.Text = names.Count > 0
+                    ? $"{names.Count} profile(s) from {provider.DisplayName}."
+                    : "No profiles found. Install OpenVPN and set the executable path in Settings → VPN.";
+            }
+
+            if (SelectedSchedule == null)
+            {
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(selectedName)
+                && names.Any(n => string.Equals(n, selectedName, StringComparison.OrdinalIgnoreCase)))
+            {
+                SelectedSchedule.VpnProfileName = selectedName!;
+            }
+            else if (!string.IsNullOrWhiteSpace(SelectedSchedule.VpnProfileName)
+                     && !names.Any(n => string.Equals(n, SelectedSchedule.VpnProfileName, StringComparison.OrdinalIgnoreCase)))
+            {
+                // Keep stored name so import/cross-machine plans still show the intended profile.
+            }
+            else if (string.IsNullOrWhiteSpace(SelectedSchedule.VpnProfileName) && names.Count == 1)
+            {
+                SelectedSchedule.VpnProfileName = names[0];
+            }
+        }
+
+        private void BackupVpnRequired_Changed(object sender, RoutedEventArgs e)
+        {
+            RefreshVpnStepUi();
+        }
+
+        private void BackupVpnProviderCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_suppressBackupVpnUi || SelectedSchedule == null)
+            {
+                return;
+            }
+
+            SelectedSchedule.VpnProvider = GetBackupVpnProviderId();
+            RefreshBackupVpnProfiles(SelectedSchedule.VpnProfileName);
+        }
+
+        private void BackupVpnRefreshProfiles_Click(object sender, RoutedEventArgs e)
+        {
+            RefreshBackupVpnProfiles(SelectedSchedule?.VpnProfileName);
+        }
+
+        private void ExportBackupPlan_Click(object sender, RoutedEventArgs e)
+        {
+            if (SelectedSchedule == null)
+            {
+                ModernMessageBox.Show("Select a schedule to export.", "Backup Scheduler", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            if (HasUnsavedScheduleChanges && !TryPersistSchedules(showConfirmation: false))
+            {
+                return;
+            }
+
+            var safeName = string.Join("_", (SelectedSchedule.Name ?? "backup")
+                .Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries));
+            if (string.IsNullOrWhiteSpace(safeName))
+            {
+                safeName = "backup";
+            }
+
+            using var dialog = new Forms.SaveFileDialog
+            {
+                Filter = BackupPlanTransferService.FileFilter,
+                FileName = $"{safeName}.gitdeploy.backup-plan.json",
+                AddExtension = true,
+                DefaultExt = "gitdeploy.backup-plan.json",
+                OverwritePrompt = true
+            };
+
+            if (dialog.ShowDialog() != Forms.DialogResult.OK)
+            {
+                return;
+            }
+
+            try
+            {
+                _planTransfer.ExportToFile(dialog.FileName, new[] { SelectedSchedule });
+                ModernMessageBox.Show(
+                    $"Exported plan to:\n{dialog.FileName}",
+                    "Backup Scheduler",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show(
+                    $"Export failed:\n{ex.Message}",
+                    "Backup Scheduler",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
+        }
+
+        private void ImportBackupPlan_Click(object sender, RoutedEventArgs e)
+        {
+            using var dialog = new Forms.OpenFileDialog
+            {
+                Filter = BackupPlanTransferService.FileFilter,
+                CheckFileExists = true,
+                Multiselect = false
+            };
+
+            if (dialog.ShowDialog() != Forms.DialogResult.OK)
+            {
+                return;
+            }
+
+            try
+            {
+                var package = _planTransfer.LoadFromFile(dialog.FileName);
+                var scheduleNames = string.Join(", ",
+                    package.Schedules.Select(s => s.Name).Where(n => !string.IsNullOrWhiteSpace(n)).Take(5));
+                var preview =
+                    $"Import {package.Schedules.Count} schedule(s) and {package.Connections.Count} connection(s)?\n\n" +
+                    (string.IsNullOrWhiteSpace(scheduleNames) ? "" : $"Schedules: {scheduleNames}\n\n") +
+                    "Existing local schedules are kept. Imported schedules get new IDs. " +
+                    "Passwords may need to be re-entered if they do not decrypt on this machine.";
+
+                var confirm = ModernMessageBox.ShowWithResult(
+                    preview,
+                    "Import backup plan",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
+                if (confirm != MessageBoxResult.Yes)
+                {
+                    return;
+                }
+
+                var result = _planTransfer.ImportPackage(package);
+                LoadConnectionProfiles();
+                LoadSchedules();
+                if (Schedules.Count > 0)
+                {
+                    SelectedSchedule = Schedules[^1];
+                }
+
+                var warningText = result.Warnings.Count == 0
+                    ? string.Empty
+                    : "\n\nWarnings:\n- " + string.Join("\n- ", result.Warnings.Take(8));
+                ModernMessageBox.Show(
+                    $"Imported {result.SchedulesAdded} schedule(s), " +
+                    $"added {result.ConnectionsAdded} connection(s), " +
+                    $"updated {result.ConnectionsUpdated} connection(s).{warningText}",
+                    "Backup Scheduler",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.Show(
+                    $"Import failed:\n{ex.Message}",
+                    "Backup Scheduler",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
+        }
+
         private bool ValidateStepOne(out string message)
+            => ValidateBasicsStep(out message);
+
+        private bool ValidateBasicsStep(out string message)
         {
             if (SelectedSchedule == null)
             {
@@ -1007,6 +1322,60 @@ namespace GitDeployPro.Pages
             if (string.IsNullOrWhiteSpace(SelectedSchedule.DatabaseName))
             {
                 message = "Choose a target database before continuing.";
+                return false;
+            }
+
+            message = string.Empty;
+            return true;
+        }
+
+        private bool ValidateLocalDbStep(out string message)
+        {
+            if (SelectedSchedule == null)
+            {
+                message = "Select or create a schedule first.";
+                return false;
+            }
+
+            if (!SelectedSchedule.EnableLocalRestoreValidation)
+            {
+                message = string.Empty;
+                return true;
+            }
+
+            if (string.IsNullOrWhiteSpace(SelectedSchedule.LocalValidationHost))
+            {
+                message = "Local validation host is required when restore validation is enabled.";
+                return false;
+            }
+
+            if (SelectedSchedule.LocalValidationPort <= 0)
+            {
+                message = "Local validation port must be a positive number.";
+                return false;
+            }
+
+            message = string.Empty;
+            return true;
+        }
+
+        private bool ValidateVpnStep(out string message)
+        {
+            if (SelectedSchedule == null)
+            {
+                message = "Select or create a schedule first.";
+                return false;
+            }
+
+            if (!SelectedSchedule.VpnRequired)
+            {
+                message = string.Empty;
+                return true;
+            }
+
+            if (string.IsNullOrWhiteSpace(SelectedSchedule.VpnProfileName))
+            {
+                message = "Select an OpenVPN profile for this backup, or turn off VPN required.";
                 return false;
             }
 
@@ -2420,7 +2789,7 @@ namespace GitDeployPro.Pages
 
         private async Task NavigateToStepAsync(int targetStep, bool interactive)
         {
-            targetStep = Math.Max(1, Math.Min(4, targetStep));
+            targetStep = Math.Max(1, Math.Min(WizardStepCount, targetStep));
             if (targetStep == CurrentWizardStep)
             {
                 return;
@@ -2428,19 +2797,31 @@ namespace GitDeployPro.Pages
 
             if (targetStep > CurrentWizardStep)
             {
-                if (CurrentWizardStep == 1 && !ValidateStepOne(out var stepOneMessage))
+                if (CurrentWizardStep == 1 && !ValidateBasicsStep(out var basicsMessage))
                 {
-                    if (interactive) ModernMessageBox.Show(stepOneMessage, "Backup Scheduler", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    if (interactive) ModernMessageBox.Show(basicsMessage, "Backup Scheduler", MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
 
-                if (CurrentWizardStep == 2 && !ValidateStepTwo(out var stepTwoMessage))
+                if (CurrentWizardStep == 2 && !ValidateLocalDbStep(out var localDbMessage))
                 {
-                    if (interactive) ModernMessageBox.Show(stepTwoMessage, "Backup Scheduler", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    if (interactive) ModernMessageBox.Show(localDbMessage, "Backup Scheduler", MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
 
-                if (CurrentWizardStep == 3)
+                if (CurrentWizardStep == 3 && !ValidateStepTwo(out var strategyMessage))
+                {
+                    if (interactive) ModernMessageBox.Show(strategyMessage, "Backup Scheduler", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                if (CurrentWizardStep == 4 && !ValidateVpnStep(out var vpnMessage))
+                {
+                    if (interactive) ModernMessageBox.Show(vpnMessage, "Backup Scheduler", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                if (CurrentWizardStep == 5)
                 {
                     if (_readinessDirty)
                     {
@@ -2461,7 +2842,7 @@ namespace GitDeployPro.Pages
             }
 
             CurrentWizardStep = targetStep;
-            if (CurrentWizardStep == 3 && _readinessDirty)
+            if (CurrentWizardStep == 5 && _readinessDirty)
             {
                 await RunReadinessChecksAsync(interactive: false);
             }
@@ -2786,9 +3167,9 @@ namespace GitDeployPro.Pages
                 return;
             }
 
-            if (CurrentWizardStep != 4)
+            if (CurrentWizardStep != WizardStepCount)
             {
-                ModernMessageBox.Show("Complete steps 1 to 4 before running backup.", "Backup Scheduler", MessageBoxButton.OK, MessageBoxImage.Information);
+                ModernMessageBox.Show("Complete all wizard steps before running backup.", "Backup Scheduler", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
@@ -2812,7 +3193,7 @@ namespace GitDeployPro.Pages
             if (!ValidateStepThree(out var readinessMessage))
             {
                 ModernMessageBox.Show(readinessMessage, "Backup Scheduler", MessageBoxButton.OK, MessageBoxImage.Warning);
-                CurrentWizardStep = 3;
+                CurrentWizardStep = 5;
                 UpdateWizardUiState();
                 return;
             }
@@ -2867,6 +3248,12 @@ namespace GitDeployPro.Pages
 
             try
             {
+                await using var vpnScope = await BackupVpnScope.EnterAsync(SelectedSchedule, cancellationToken: _backupCts.Token);
+                if (SelectedSchedule.VpnRequired)
+                {
+                    AddRunLog($"VPN ready: {SelectedSchedule.VpnProfileName}");
+                }
+
                 var result = await _backupService.RunBackupAsync(profile, SelectedSchedule, progress, _backupCts.Token, _pauseSource);
                 var sizeLabel = FormatBytes(result.BytesWritten);
                 AddRunLog($"Backup completed ({sizeLabel}) → {result.OutputPath}");

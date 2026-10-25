@@ -107,6 +107,12 @@ namespace GitDeployPro.Services
             public int DeployDefaultWorkers { get; set; } = 8;
 
             /// <summary>
+            /// Deploy page auto-refresh interval in seconds. Default 10 (current behavior).
+            /// Allowed: 10, 30, 60, or 0 = off. Full remote fetch still runs less often.
+            /// </summary>
+            public int DeployAutoRefreshSeconds { get; set; } = 10;
+
+            /// <summary>
             /// Legacy alias kept in sync with <see cref="AppThemeId"/> for older configs / Deploy UI.
             /// </summary>
             public string DeployThemeId { get; set; } = "default";

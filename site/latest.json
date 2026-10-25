@@ -1,17 +1,20 @@
 {
-  "version": "2.4.65",
-  "fileName": "GitDeployPro-2.4.65.exe",
-  "downloadUrl": "versions/GitDeployPro-2.4.65.exe",
-  "sha256": "4EBC46EA15A649EB5EA23F64EEF428D96C6F97714F6FF835E276DD8835B441BF",
-  "releaseNotes": "Feature: Search and open older projects beyond the top 10 recent (header More + Telegram pages/search)\nFeature: Project setup syncs from remote first when GitHub already has history, with live fetch progress\nFix: Setup no longer overwrites a remote .gitignore with a local bootstrap file\nFix: SSH keepalives every 10s to reduce idle NAT/firewall disconnects\nFix: Clearer terminal message when the SSH session drops\nFix: SSH BatchMode avoids hanging on passphrase/host prompts during setup",
+  "version": "2.5.37",
+  "fileName": "GitDeployPro-2.5.37.exe",
+  "downloadUrl": "versions/GitDeployPro-2.5.37.exe",
+  "sha256": "74EAE0AC87E2BEDBA6B2AD0E8BD1ECAC08C9C1CF2D494798E549C6802AF3C41E",
+  "releaseNotes": "Feature: Pull & Deploy when behind remote, with optional Commit & Push first\nFeature: Deploy tab moved first in the main header\nFeature: Deploy CPU refresh interval (10/30/60/Off) with colored chips and manual sync\nFeature: Direct Upload auto disk-sync chip and smarter select/deselect merge\nFeature: Backup Scheduler 6-step wizard (Basics, Local DB, Strategy, VPN, Ready, Confirm)\nFeature: Per-schedule OpenVPN connect before backup / disconnect only if this run opened it\nFeature: Backup plan Import/Export JSON with linked connections\nFix: Settings → Server no longer hangs on open when syncing theme/terminal\nFix: Settings Server text readable again under Dark theme",
   "changelog": [
-    "Feature: Search and open older projects beyond the top 10 recent (header More + Telegram pages/search)",
-    "Feature: Project setup syncs from remote first when GitHub already has history, with live fetch progress",
-    "Fix: Setup no longer overwrites a remote .gitignore with a local bootstrap file",
-    "Fix: SSH keepalives every 10s to reduce idle NAT/firewall disconnects",
-    "Fix: Clearer terminal message when the SSH session drops",
-    "Fix: SSH BatchMode avoids hanging on passphrase/host prompts during setup"
+    "Feature: Pull & Deploy when behind remote, with optional Commit & Push first",
+    "Feature: Deploy tab moved first in the main header",
+    "Feature: Deploy CPU refresh interval (10/30/60/Off) with colored chips and manual sync",
+    "Feature: Direct Upload auto disk-sync chip and smarter select/deselect merge",
+    "Feature: Backup Scheduler 6-step wizard (Basics, Local DB, Strategy, VPN, Ready, Confirm)",
+    "Feature: Per-schedule OpenVPN connect before backup / disconnect only if this run opened it",
+    "Feature: Backup plan Import/Export JSON with linked connections",
+    "Fix: Settings → Server no longer hangs on open when syncing theme/terminal",
+    "Fix: Settings Server text readable again under Dark theme"
   ],
   "mandatory": false,
-  "publishedUtc": "2026-10-20T05:40:00Z"
+  "publishedUtc": "2026-10-25T07:05:32Z"
 }
