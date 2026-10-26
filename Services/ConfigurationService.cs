@@ -189,36 +189,45 @@ namespace GitDeployPro.Services
 
             /// <summary>
             /// When true, Telegram only gets "Still working" every ~30s for any agent engine
-            /// (Cursor / Codex). Tool and thinking detail stay in the in-app chat.
+            /// (Cursor / Claude). Tool and thinking detail stay in the in-app chat.
             /// </summary>
             public bool TelegramQuietProgress { get; set; }
 
             /// <summary>Legacy JSON key — migrated into <see cref="TelegramQuietProgress"/>.</summary>
             public bool CursorTelegramQuietProgress { get; set; }
 
-            /// <summary>Active AI agent engine for Telegram turns: cursor | codex.</summary>
+            /// <summary>Active AI agent engine for Telegram turns: cursor | claude.</summary>
             public string AgentEngine { get; set; } = "cursor";
 
-            /// <summary>When true, Codex CLI bridge can run project chats (when AgentEngine=codex).</summary>
-            public bool CodexAgentEnabled { get; set; }
+            /// <summary>When true, Claude Code CLI bridge can run project chats (when AgentEngine=claude).</summary>
+            public bool ClaudeAgentEnabled { get; set; }
 
-            /// <summary>Optional full path to codex executable.</summary>
-            public string CodexCliPath { get; set; } = "";
+            /// <summary>Optional full path to the claude executable.</summary>
+            public string ClaudeCliPath { get; set; } = "";
 
-            /// <summary>Codex backend: openrouter | ollama | lmstudio | openai.</summary>
-            public string CodexProvider { get; set; } = "openrouter";
+            /// <summary>Optional model alias/id passed to Claude Code (--model), e.g. sonnet | opus | haiku.</summary>
+            public string ClaudeAgentModel { get; set; } = "";
 
-            /// <summary>Model id/slug for the active Codex provider.</summary>
-            public string CodexAgentModel { get; set; } = "poolside/laguna-s-2.1:free";
+            /// <summary>Claude Code permission mode: acceptEdits | bypassPermissions.</summary>
+            public string ClaudePermissionMode { get; set; } = "bypassPermissions";
 
-            /// <summary>API key for cloud Codex providers (OpenRouter / OpenAI), DPAPI. Local providers ignore it.</summary>
-            public string OpenRouterApiKey { get; set; } = "";
+            /// <summary>Max minutes for one Claude Code turn. Default 30; clamped to 5–180 when applied.</summary>
+            public int ClaudeAgentTurnTimeoutMinutes { get; set; } = 30;
+
+            /// <summary>Clamped Claude turn timeout (5–180 minutes, default 30).</summary>
+            public TimeSpan GetClaudeAgentTurnTimeout()
+            {
+                var minutes = ClaudeAgentTurnTimeoutMinutes;
+                if (minutes <= 0)
+                {
+                    minutes = 30;
+                }
+
+                return TimeSpan.FromMinutes(Math.Clamp(minutes, 5, 180));
+            }
 
             /// <summary>Password for encrypted server-config export/import (DPAPI at rest).</summary>
             public string ServerBackupPassword { get; set; } = "";
-
-            /// <summary>UTC of last automatic Codex CLI update check (24h cadence).</summary>
-            public DateTime? LastCodexCliUpdateCheckUtc { get; set; }
 
             /// <summary>When true, VPN keep-alive / connect helpers are active.</summary>
             public bool VpnEnabled { get; set; }
@@ -449,16 +458,10 @@ namespace GitDeployPro.Services
             config.BackupHistory ??= new List<BackupHistoryEntry>();
             MigrateAppThemeId(config, token);
             MigrateTelegramQuietProgress(config, token);
-            if (string.IsNullOrWhiteSpace(config.CodexProvider))
+            if (string.Equals(config.AgentEngine?.Trim(), "codex", StringComparison.OrdinalIgnoreCase))
             {
-                config.CodexProvider = "openrouter";
-            }
-
-            if (string.IsNullOrWhiteSpace(config.CodexAgentModel)
-                || string.Equals(config.CodexAgentModel.Trim(), "openrouter/free", StringComparison.OrdinalIgnoreCase))
-            {
-                // openrouter/free burns rate limit very fast on agent turns; prefer a coding free model.
-                config.CodexAgentModel = "poolside/laguna-s-2.1:free";
+                // Codex engine was removed; fall back to the default.
+                config.AgentEngine = "cursor";
             }
 
             return config;

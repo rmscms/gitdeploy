@@ -1,20 +1,15 @@
 {
-  "version": "2.5.37",
-  "fileName": "GitDeployPro-2.5.37.exe",
-  "downloadUrl": "versions/GitDeployPro-2.5.37.exe",
-  "sha256": "74EAE0AC87E2BEDBA6B2AD0E8BD1ECAC08C9C1CF2D494798E549C6802AF3C41E",
-  "releaseNotes": "Feature: Pull & Deploy when behind remote, with optional Commit & Push first\nFeature: Deploy tab moved first in the main header\nFeature: Deploy CPU refresh interval (10/30/60/Off) with colored chips and manual sync\nFeature: Direct Upload auto disk-sync chip and smarter select/deselect merge\nFeature: Backup Scheduler 6-step wizard (Basics, Local DB, Strategy, VPN, Ready, Confirm)\nFeature: Per-schedule OpenVPN connect before backup / disconnect only if this run opened it\nFeature: Backup plan Import/Export JSON with linked connections\nFix: Settings → Server no longer hangs on open when syncing theme/terminal\nFix: Settings Server text readable again under Dark theme",
+  "version": "2.5.58",
+  "fileName": "GitDeployPro-2.5.58.exe",
+  "downloadUrl": "versions/GitDeployPro-2.5.58.exe",
+  "sha256": "A700032AB59DEE3BE4D1D0390D8EEC143435CB425DDEADE0F62AEF29BFC8C9CD",
+  "releaseNotes": "Feature: Claude Code CLI agent for Telegram project chats (claude -p, stream-json, session resume, queue, Stop, timeout, token usage)\nFeature: Driver-based agent engines (IAgentDriver) — switch Cursor / Claude with /engine; Claude model picker (sonnet, opus, haiku)\nFeature: Settings → AI Agent → Claude Code section (install, detect, save, test, permission mode, turn timeout)\nFix: Removed the Codex / OpenRouter agent and its settings; old Codex engine config falls back to Cursor",
   "changelog": [
-    "Feature: Pull & Deploy when behind remote, with optional Commit & Push first",
-    "Feature: Deploy tab moved first in the main header",
-    "Feature: Deploy CPU refresh interval (10/30/60/Off) with colored chips and manual sync",
-    "Feature: Direct Upload auto disk-sync chip and smarter select/deselect merge",
-    "Feature: Backup Scheduler 6-step wizard (Basics, Local DB, Strategy, VPN, Ready, Confirm)",
-    "Feature: Per-schedule OpenVPN connect before backup / disconnect only if this run opened it",
-    "Feature: Backup plan Import/Export JSON with linked connections",
-    "Fix: Settings → Server no longer hangs on open when syncing theme/terminal",
-    "Fix: Settings Server text readable again under Dark theme"
+    "Feature: Claude Code CLI agent for Telegram project chats (claude -p, stream-json, session resume, queue, Stop, timeout, token usage)",
+    "Feature: Driver-based agent engines (IAgentDriver) — switch Cursor / Claude with /engine; Claude model picker (sonnet, opus, haiku)",
+    "Feature: Settings → AI Agent → Claude Code section (install, detect, save, test, permission mode, turn timeout)",
+    "Fix: Removed the Codex / OpenRouter agent and its settings; old Codex engine config falls back to Cursor"
   ],
   "mandatory": false,
-  "publishedUtc": "2026-10-25T07:05:32Z"
+  "publishedUtc": "2026-10-26T14:22:00Z"
 }

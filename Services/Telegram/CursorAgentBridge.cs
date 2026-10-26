@@ -17,9 +17,13 @@ namespace GitDeployPro.Services.Telegram
     /// Runs Cursor CLI for a project chat turn (warm ACP daemon preferred, one-shot -p fallback)
     /// and mirrors the reply into the thread + Telegram.
     /// </summary>
-    public sealed class CursorAgentBridge
+    public sealed class CursorAgentBridge : IAgentDriver
     {
         public static CursorAgentBridge Instance { get; } = new();
+
+        public AgentEngineKind Kind => AgentEngineKind.Cursor;
+
+        public string DisplayName => "Cursor";
 
         private readonly ConcurrentDictionary<string, byte> _workers = new(StringComparer.OrdinalIgnoreCase);
         private readonly ConcurrentDictionary<string, ConcurrentQueue<PendingTurn>> _queues =

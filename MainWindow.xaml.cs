@@ -134,7 +134,6 @@ namespace GitDeployPro
             }
 
             await AppUpdateCoordinator.RunAutomaticCheckAsync(this);
-            _ = GitDeployPro.Services.Telegram.CodexCliUpdateService.RunAutomaticCheckAsync();
         }
 
         private void TryShowWhatsNewAfterUpdate()
@@ -331,7 +330,6 @@ namespace GitDeployPro
         private async void UpdateCheckTimer_Tick(object? sender, EventArgs e)
         {
             await AppUpdateCoordinator.RunAutomaticCheckAsync(this);
-            _ = GitDeployPro.Services.Telegram.CodexCliUpdateService.RunAutomaticCheckAsync();
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;

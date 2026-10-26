@@ -259,21 +259,21 @@ namespace GitDeployPro.Services.Telegram
             SaveThread(thread);
         }
 
-        public string GetCodexSessionId(string projectPath)
+        public string GetClaudeSessionId(string projectPath)
         {
-            return LoadThread(projectPath).CodexSessionId ?? string.Empty;
+            return LoadThread(projectPath).ClaudeSessionId ?? string.Empty;
         }
 
-        public void SetCodexSessionId(string projectPath, string? sessionId)
+        public void SetClaudeSessionId(string projectPath, string? sessionId)
         {
             var thread = LoadThread(projectPath);
-            thread.CodexSessionId = (sessionId ?? string.Empty).Trim();
+            thread.ClaudeSessionId = (sessionId ?? string.Empty).Trim();
             SaveThread(thread);
         }
 
-        public void ClearCodexSession(string projectPath)
+        public void ClearClaudeSession(string projectPath)
         {
-            SetCodexSessionId(projectPath, string.Empty);
+            SetClaudeSessionId(projectPath, string.Empty);
         }
 
         public string GetCursorAgentMode(string projectPath)

@@ -50,8 +50,8 @@ namespace GitDeployPro.Models
         public string CursorAcpSessionId { get; set; } = "";
         /// <summary>One-shot CLI --resume session id.</summary>
         public string CursorCliSessionId { get; set; } = "";
-        /// <summary>Codex exec resume session id.</summary>
-        public string CodexSessionId { get; set; } = "";
+        /// <summary>Claude Code --resume session id.</summary>
+        public string ClaudeSessionId { get; set; } = "";
         /// <summary>Cursor ACP/CLI mode for this project: agent | plan.</summary>
         public string CursorAgentMode { get; set; } = "agent";
         /// <summary>Absolute path of the latest plan .md for this project (survives app restart).</summary>

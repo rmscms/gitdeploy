@@ -1348,7 +1348,7 @@
                             <StackPanel>
                                 <ComboBox x:Name="AgentEngineComboBox" Height="34" Style="{StaticResource App.InputComboBox}">
                                     <ComboBoxItem Content="Cursor" Tag="cursor" IsSelected="True" />
-                                    <ComboBoxItem Content="Codex (OpenRouter)" Tag="codex" />
+                                    <ComboBoxItem Content="Claude Code" Tag="claude" />
                                 </ComboBox>
 
                                 <CheckBox x:Name="TelegramQuietProgressCheckBox"
@@ -1356,7 +1356,7 @@
                                           Foreground="{StaticResource Text.Secondary}"
                                           FontSize="12"
                                           Margin="0,14,0,4" />
-                                <TextBlock Text="Applies to all engines (Cursor and Codex). Unchecked = tool/thinking lines on Telegram. Checked = only a short Still working ping every 30 seconds. In-app chat still shows full progress."
+                                <TextBlock Text="Applies to all engines (Cursor and Claude). Unchecked = tool/thinking lines on Telegram. Checked = only a short Still working ping every 30 seconds. In-app chat still shows full progress."
                                            Margin="24,0,0,4"
                                            FontSize="11"
                                            Foreground="{StaticResource Text.Muted}"
@@ -1745,114 +1745,73 @@
 
                         <Expander Style="{StaticResource Settings.Expander}" IsExpanded="True" Margin="0,12,0,0">
                             <Expander.Header>
-                                <Grid>
-                                    <StackPanel Orientation="Horizontal">
-                                        <ui:SymbolIcon Symbol="Cloud24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Accent.Primary}" VerticalAlignment="Center" />
-                                        <StackPanel>
-                                            <TextBlock Text="Codex agent" FontWeight="SemiBold" FontSize="13" />
-                                            <TextBlock Text="OpenRouter-backed Codex CLI for Telegram turns." FontSize="10" Foreground="{StaticResource Text.Muted}" />
-                                        </StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:SymbolIcon Symbol="Bot24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Accent.Primary}" VerticalAlignment="Center" />
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="Claude Code agent" FontWeight="SemiBold" FontSize="13" />
+                                        <TextBlock Text="Forward real chat messages to Claude Code CLI (claude -p, stream-json)."
+                                                   FontSize="10"
+                                                   Foreground="{StaticResource Text.Muted}" />
                                     </StackPanel>
-                                    <Button HorizontalAlignment="Right"
-                                            VerticalAlignment="Center"
-                                            Style="{StaticResource App.IconButton}"
-                                            Width="32"
-                                            Height="32"
-                                            Padding="0"
-                                            ToolTip="Codex CLI setup guide"
-                                            Click="CodexHelpButton_Click">
-                                        <ui:SymbolIcon Symbol="Info24" FontSize="16" Foreground="{StaticResource Accent.Primary}" />
-                                    </Button>
-                                </Grid>
+                                </StackPanel>
                             </Expander.Header>
                             <StackPanel>
-                                <CheckBox x:Name="CodexAgentEnabledCheckBox"
-                                          Content="Enable Codex bridge"
+                                <CheckBox x:Name="ClaudeAgentEnabledCheckBox"
+                                          Content="Enable Claude Code bridge for project chats"
                                           Foreground="{StaticResource Text.Secondary}"
                                           FontSize="12"
                                           Margin="0,0,0,10" />
-                                <TextBlock Text="Provider (Codex needs Responses API)" Margin="0,0,0,6" Style="{StaticResource App.MutedTextStyle}" FontSize="11" />
-                                <ComboBox x:Name="CodexProviderComboBox"
-                                          Height="34"
-                                          Style="{StaticResource App.InputComboBox}"
-                                          SelectionChanged="CodexProviderComboBox_SelectionChanged">
-                                    <ComboBoxItem Content="OpenRouter (cloud free/paid)" Tag="openrouter" IsSelected="True" />
-                                    <ComboBoxItem Content="Ollama (local free)" Tag="ollama" />
-                                    <ComboBoxItem Content="LM Studio (local free)" Tag="lmstudio" />
-                                    <ComboBoxItem Content="OpenAI (paid)" Tag="openai" />
-                                </ComboBox>
-                                <TextBlock x:Name="CodexProviderHintText"
-                                           Margin="0,6,0,12"
-                                           FontSize="11"
-                                           Foreground="{StaticResource Text.Muted}"
-                                           TextWrapping="Wrap"
-                                           Text="OpenRouter free limits are tight for agents. For unlimited free coding use Ollama locally (install Ollama + pull a coding model)." />
                                 <TextBlock FontSize="11" Margin="0,0,0,12" TextWrapping="Wrap" Foreground="{StaticResource Text.Muted}">
-                                    <Run Text="Guide: " />
-                                    <Hyperlink NavigateUri="https://openrouter.ai/docs/cookbook/coding-agents/codex-cli"
+                                    <Run Text="Install with npm, run " />
+                                    <Run Text="claude" FontFamily="Consolas" />
+                                    <Run Text=" once in a terminal to log in, then pick Claude as the engine above. Guide: " />
+                                    <Hyperlink NavigateUri="https://docs.claude.com/en/docs/claude-code/overview"
                                                RequestNavigate="CursorDocsLink_RequestNavigate">
-                                        <Run Text="Codex + providers" Foreground="{StaticResource Accent.Primary}" />
+                                        <Run Text="Claude Code docs" Foreground="{StaticResource Accent.Primary}" />
                                     </Hyperlink>
                                 </TextBlock>
-                                <TextBlock Text="Codex executable (optional)" Margin="0,0,0,6" Style="{StaticResource App.MutedTextStyle}" FontSize="11" />
-                                <TextBox x:Name="CodexCliPathTextBox" Style="{StaticResource App.InputTextBox}"
-                                         mah:TextBoxHelper.Watermark="Leave empty to auto-detect codex" />
-                                <TextBlock Text="Model id" Margin="0,14,0,6" Style="{StaticResource App.MutedTextStyle}" FontSize="11" />
-                                <TextBox x:Name="CodexAgentModelTextBox" Style="{StaticResource App.InputTextBox}"
-                                         mah:TextBoxHelper.Watermark="poolside/laguna-s-2.1:free" />
-                                <TextBlock x:Name="CodexModelHintText"
-                                           Text="Suggested models change with the provider. You can type any id the provider accepts."
-                                           Margin="0,6,0,14" FontSize="11" Foreground="{StaticResource Text.Muted}" TextWrapping="Wrap" />
-                                <TextBlock x:Name="CodexApiKeyLabel" Text="API key" Margin="0,0,0,6" Style="{StaticResource App.MutedTextStyle}" FontSize="11" />
-                                <PasswordBox x:Name="OpenRouterApiKeyBox" Height="34" PasswordChanged="OpenRouterApiKeyBox_PasswordChanged" />
-                                <TextBlock x:Name="OpenRouterKeyHint"
-                                           Margin="0,6,0,14" FontSize="11" Foreground="{StaticResource Text.Muted}" TextWrapping="Wrap"
-                                           Text="Stored encrypted. Local providers (Ollama / LM Studio) do not need a real key." />
-                                <WrapPanel Orientation="Horizontal" Margin="0,0,0,10">
-                                    <Button x:Name="CodexInstallButton"
-                                            Content="Install CLI"
+                                <TextBlock Text="Claude executable (optional)" Margin="0,0,0,6" Style="{StaticResource App.MutedTextStyle}" FontSize="11" />
+                                <TextBox x:Name="ClaudeCliPathTextBox" Style="{StaticResource App.InputTextBox}"
+                                         mah:TextBoxHelper.Watermark="Leave empty to auto-detect claude" />
+                                <TextBlock Text="Model (optional)" Margin="0,14,0,6" Style="{StaticResource App.MutedTextStyle}" FontSize="11" />
+                                <TextBox x:Name="ClaudeAgentModelTextBox" Style="{StaticResource App.InputTextBox}"
+                                         mah:TextBoxHelper.Watermark="sonnet | opus | haiku — empty = Claude Code default" />
+                                <TextBlock Text="Permission mode" Margin="0,14,0,6" Style="{StaticResource App.MutedTextStyle}" FontSize="11" />
+                                <ComboBox x:Name="ClaudePermissionModeComboBox" Height="34" Style="{StaticResource App.InputComboBox}">
+                                    <ComboBoxItem Content="Bypass permissions (full access, unattended)" Tag="bypassPermissions" IsSelected="True" />
+                                    <ComboBoxItem Content="Accept edits (file edits only)" Tag="acceptEdits" />
+                                </ComboBox>
+                                <TextBlock Text="Max minutes per turn (5-180)" Margin="0,14,0,6" Style="{StaticResource App.MutedTextStyle}" FontSize="11" />
+                                <TextBox x:Name="ClaudeTurnTimeoutTextBox" Style="{StaticResource App.InputTextBox}" MaxWidth="120" HorizontalAlignment="Left" />
+                                <WrapPanel Orientation="Horizontal" Margin="0,16,0,10">
+                                    <Button Content="Install CLI"
                                             Height="32"
                                             MinWidth="110"
                                             Margin="0,0,8,8"
                                             Style="{StaticResource App.Button.Primary}"
-                                            Click="CodexInstallButton_Click"
-                                            ToolTip="Prefers npm (visible progress). Official installer shows a 3s heartbeat while downloading." />
-                                    <Button x:Name="CodexUpdateButton"
-                                            Content="Update CLI"
+                                            Click="ClaudeInstallButton_Click"
+                                            ToolTip="Opens a terminal and runs npm install -g @anthropic-ai/claude-code" />
+                                    <Button Content="Detect Claude"
                                             Height="32"
                                             MinWidth="110"
                                             Margin="0,0,8,8"
                                             Style="{StaticResource App.Button.Ghost}"
-                                            Click="CodexUpdateButton_Click"
-                                            ToolTip="Upgrades Codex via npm @latest (silent). Falls back to a PowerShell window if npm is missing." />
-                                    <Button Content="Detect Codex"
+                                            Click="ClaudeDetectButton_Click" />
+                                    <Button Content="Save Claude"
                                             Height="32"
                                             MinWidth="110"
                                             Margin="0,0,8,8"
                                             Style="{StaticResource App.Button.Ghost}"
-                                            Click="CodexDetectButton_Click" />
-                                    <Button Content="Save Codex"
+                                            Click="ClaudeSaveButton_Click" />
+                                    <Button Content="Test"
                                             Height="32"
-                                            MinWidth="110"
+                                            MinWidth="90"
                                             Margin="0,0,8,8"
                                             Style="{StaticResource App.Button.Ghost}"
-                                            Click="CodexSaveButton_Click" />
-                                    <Button x:Name="CodexTestConnectionButton"
-                                            Content="Test connection"
-                                            Height="32"
-                                            MinWidth="130"
-                                            Margin="0,0,8,8"
-                                            Style="{StaticResource App.Button.Ghost}"
-                                            Click="CodexTestConnectionButton_Click"
-                                            ToolTip="Checks Codex binary + OpenRouter API key (GET /api/v1/key)" />
+                                            Click="ClaudeTestButton_Click"
+                                            ToolTip="Runs claude --version" />
                                 </WrapPanel>
-                                <TextBlock x:Name="CodexInstallHintText"
-                                           Margin="0,0,0,8"
-                                           FontSize="11"
-                                           Foreground="{StaticResource Text.Muted}"
-                                           TextWrapping="Wrap"
-                                           Text="Install / Update use npm when available. App also auto-updates Codex about once every 24 hours while running." />
-                                <TextBlock x:Name="CodexStatusText" FontSize="11" Foreground="{StaticResource Text.Muted}" TextWrapping="Wrap" />
+                                <TextBlock x:Name="ClaudeStatusText" FontSize="11" Foreground="{StaticResource Text.Muted}" TextWrapping="Wrap" />
                             </StackPanel>
                         </Expander>
                     </StackPanel>

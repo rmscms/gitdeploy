@@ -35,7 +35,7 @@ namespace GitDeployPro.Services.Telegram
         public const string CallbackStopTurn = "agent:stop";
         public const string CallbackEngineMenu = "agent:engine:menu";
         public const string CallbackEngineCursor = "agent:engine:cursor";
-        public const string CallbackEngineCodex = "agent:engine:codex";
+        public const string CallbackEngineClaude = "agent:engine:claude";
         public const string CallbackTermPrefix = "term:";
         public const string CallbackTermCmdPrefix = "term:cmd:";
         public const string CallbackTermClose = "term:close";
@@ -724,7 +724,7 @@ namespace GitDeployPro.Services.Telegram
                     || string.Equals(data, CallbackStopTurn, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(data, CallbackEngineMenu, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(data, CallbackEngineCursor, StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(data, CallbackEngineCodex, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(data, CallbackEngineClaude, StringComparison.OrdinalIgnoreCase)
                     || data.StartsWith(CallbackModelFamilyPrefix, StringComparison.OrdinalIgnoreCase)
                     || data.StartsWith(CallbackModelPrefix, StringComparison.OrdinalIgnoreCase))
                 {
@@ -1073,10 +1073,9 @@ namespace GitDeployPro.Services.Telegram
                         return;
                     }
 
-                    if (AgentFacade.GetActiveEngine() == AgentEngineKind.Codex)
+                    if (AgentFacade.GetActiveEngine() == AgentEngineKind.Claude)
                     {
-                        var hit = CodexModelCatalog.Find(arg);
-                        var id = hit?.Id ?? arg;
+                        var id = arg.Trim();
                         AgentFacade.SetModelAndRestart(active, id);
                         await SendBotAsync(
                             token,
@@ -1147,6 +1146,14 @@ namespace GitDeployPro.Services.Telegram
                 .ConfigureAwait(false);
         }
 
+        private static readonly (string Label, string Id)[] ClaudeModelChoices =
+        {
+            ("Sonnet", "sonnet"),
+            ("Opus", "opus"),
+            ("Haiku", "haiku"),
+            ("Default", "default")
+        };
+
         private async Task SendModelRootMenuAsync(
             string token,
             long chatId,
@@ -1154,24 +1161,17 @@ namespace GitDeployPro.Services.Telegram
             bool forceRefresh,
             CancellationToken cancellationToken)
         {
-            if (AgentFacade.GetActiveEngine() == AgentEngineKind.Codex)
+            if (AgentFacade.GetActiveEngine() == AgentEngineKind.Claude)
             {
-                var providerId = CodexProviderCatalog.Normalize(_config.LoadGlobalConfig().CodexProvider);
-                var provider = CodexProviderCatalog.Get(providerId);
-                var codexModels = CodexModelCatalog.GetModels(providerId);
-                var rows = new List<(string Text, string Data)[]>();
-                for (var i = 0; i < codexModels.Count; i += 1)
-                {
-                    var m = codexModels[i];
-                    var label = (m.IsFree ? "🆓 " : "💳 ") + TruncateButton(m.Label, 28);
-                    rows.Add(new[] { (label, CallbackModelPrefix + m.Id) });
-                }
+                var rows = ClaudeModelChoices
+                    .Select(m => new[] { (m.Label, CallbackModelPrefix + m.Id) })
+                    .ToArray();
 
                 await SendBotAsync(
                     token,
                     chatId,
-                    TelegramMarkup.Html(Loc.T("telegram.modelPickCodex", provider.Label, codexModels.Count)),
-                    TelegramMarkup.Inline(rows.ToArray()),
+                    TelegramMarkup.Html(Loc.T("telegram.modelPickClaude")),
+                    TelegramMarkup.Inline(rows),
                     cancellationToken,
                     active).ConfigureAwait(false);
                 return;
@@ -1243,7 +1243,7 @@ namespace GitDeployPro.Services.Telegram
             var active = ResolveInboundProjectPath(_config.LoadGlobalConfig());
             var engine = AgentFacade.GetActiveEngine();
             var cursorLabel = (engine == AgentEngineKind.Cursor ? "✅ " : "") + "Cursor";
-            var codexLabel = (engine == AgentEngineKind.Codex ? "✅ " : "") + "Codex";
+            var claudeLabel = (engine == AgentEngineKind.Claude ? "✅ " : "") + "Claude";
             await SendBotAsync(
                 token,
                 update.ChatId,
@@ -1252,7 +1252,7 @@ namespace GitDeployPro.Services.Telegram
                     new[]
                     {
                         (cursorLabel, CallbackEngineCursor),
-                        (codexLabel, CallbackEngineCodex)
+                        (claudeLabel, CallbackEngineClaude)
                     }),
                 cancellationToken,
                 active).ConfigureAwait(false);
@@ -1376,10 +1376,10 @@ namespace GitDeployPro.Services.Telegram
             }
 
             if (string.Equals(data, CallbackEngineCursor, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(data, CallbackEngineCodex, StringComparison.OrdinalIgnoreCase))
+                || string.Equals(data, CallbackEngineClaude, StringComparison.OrdinalIgnoreCase))
             {
-                var next = string.Equals(data, CallbackEngineCodex, StringComparison.OrdinalIgnoreCase)
-                    ? AgentEngineKind.Codex
+                var next = string.Equals(data, CallbackEngineClaude, StringComparison.OrdinalIgnoreCase)
+                    ? AgentEngineKind.Claude
                     : AgentEngineKind.Cursor;
                 AgentFacade.SwitchEngine(active, next);
                 var msg = Loc.T("telegram.engineSwitched", AgentFacade.DisplayName(next));

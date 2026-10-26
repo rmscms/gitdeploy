@@ -4,23 +4,24 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
-using System.Net.Http.Headers;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using GitDeployPro.Models;
 using GitDeployPro.Services.Localization;
-using Newtonsoft.Json.Linq;
 
 namespace GitDeployPro.Services.Telegram
 {
     /// <summary>
-    /// Runs Codex CLI (OpenRouter) turns with a per-project queue, mirroring replies to Telegram.
+    /// Runs Claude Code CLI (<c>claude -p</c>) turns with a per-project queue, mirroring replies to Telegram.
     /// </summary>
-    public sealed class CodexAgentBridge
+    public sealed class ClaudeAgentBridge : IAgentDriver
     {
-        public static CodexAgentBridge Instance { get; } = new();
+        public static ClaudeAgentBridge Instance { get; } = new();
+
+        public AgentEngineKind Kind => AgentEngineKind.Claude;
+
+        public string DisplayName => "Claude";
 
         private readonly ConcurrentDictionary<string, byte> _workers = new(StringComparer.OrdinalIgnoreCase);
         private readonly ConcurrentDictionary<string, ConcurrentQueue<PendingTurn>> _queues =
@@ -29,15 +30,15 @@ namespace GitDeployPro.Services.Telegram
             new(StringComparer.OrdinalIgnoreCase);
         private readonly TelegramChatStore _store = TelegramChatStore.Instance;
         private readonly ConfigurationService _config = new();
-        private readonly CodexExecRunner _runner = new();
+        private readonly ClaudeCliRunner _runner = new();
         private readonly object _pathCacheGate = new();
         private string? _cachedConfiguredPath;
-        private string? _cachedCodexPath;
+        private string? _cachedClaudePath;
         private DateTime _pathCacheUtc = DateTime.MinValue;
         private readonly object _telegramProgressGate = new();
         private DateTime _lastTelegramProgressUtc = DateTime.MinValue;
 
-        private CodexAgentBridge()
+        private ClaudeAgentBridge()
         {
         }
 
@@ -49,9 +50,9 @@ namespace GitDeployPro.Services.Telegram
             }
 
             var config = _config.LoadGlobalConfig();
-            if (!config.CodexAgentEnabled)
+            if (!config.ClaudeAgentEnabled)
             {
-                PostStatus(projectPath, Loc.T("codex.disabled"));
+                PostStatus(projectPath, Loc.T("claude.disabled"));
                 return;
             }
 
@@ -93,7 +94,7 @@ namespace GitDeployPro.Services.Telegram
                             }
                             catch (Exception ex)
                             {
-                                PostStatus(turn.ProjectPath, Loc.T("codex.failed", ex.Message));
+                                PostStatus(turn.ProjectPath, Loc.T("claude.failed", ex.Message));
                             }
                         }
 
@@ -118,13 +119,8 @@ namespace GitDeployPro.Services.Telegram
 
         public void PrewarmForProject(string projectPath)
         {
+            // One-shot CLI: nothing to keep warm. Just refresh the executable lookup.
             if (string.IsNullOrWhiteSpace(projectPath) || TelegramPaths.IsUnassigned(projectPath))
-            {
-                return;
-            }
-
-            var config = _config.LoadGlobalConfig();
-            if (!config.CodexAgentEnabled)
             {
                 return;
             }
@@ -133,19 +129,7 @@ namespace GitDeployPro.Services.Telegram
             {
                 try
                 {
-                    var exe = ResolveCodexExecutable(config.CodexCliPath);
-                    if (string.IsNullOrWhiteSpace(exe))
-                    {
-                        return;
-                    }
-
-                    var providerId = CodexProviderCatalog.Normalize(config.CodexProvider);
-                    var provider = CodexProviderCatalog.Get(providerId);
-                    var key = CodexConfigWriter.DecryptApiKey();
-                    if (!provider.RequiresApiKey || !string.IsNullOrWhiteSpace(key))
-                    {
-                        CodexConfigWriter.EnsureProviderConfig(providerId, config.CodexAgentModel);
-                    }
+                    ResolveClaudeExecutable(_config.LoadGlobalConfig().ClaudeCliPath);
                 }
                 catch
                 {
@@ -187,36 +171,28 @@ namespace GitDeployPro.Services.Telegram
         public void RestartProjectAgent(string projectPath, string? reason = null)
         {
             StopTurn(projectPath);
-            _store.ClearCodexSession(projectPath);
+            _store.ClearClaudeSession(projectPath);
             PostStatus(
                 projectPath,
                 string.IsNullOrWhiteSpace(reason)
-                    ? Loc.T("codex.restarted")
-                    : Loc.T("codex.restartedReason", reason));
+                    ? Loc.T("claude.restarted")
+                    : Loc.T("claude.restartedReason", reason));
             PrewarmForProject(projectPath);
         }
 
         public void SetModelAndRestart(string projectPath, string? modelId)
         {
-            var config = _config.LoadGlobalConfig();
-            var providerId = CodexProviderCatalog.Normalize(config.CodexProvider);
             var model = (modelId ?? string.Empty).Trim();
             if (string.Equals(model, "auto", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(model, "default", StringComparison.OrdinalIgnoreCase))
             {
-                model = CodexModelCatalog.DefaultModelFor(providerId);
+                model = string.Empty;
             }
 
-            _config.UpdateGlobalConfig(cfg => cfg.CodexAgentModel = model);
-            try
-            {
-                CodexConfigWriter.EnsureProviderConfig(providerId, model);
-            }
-            catch
-            {
-            }
-
-            RestartProjectAgent(projectPath, Loc.T("cursor.modelSet", model));
+            _config.UpdateGlobalConfig(cfg => cfg.ClaudeAgentModel = model);
+            RestartProjectAgent(
+                projectPath,
+                Loc.T("cursor.modelSet", string.IsNullOrWhiteSpace(model) ? "default" : model));
         }
 
         public CursorAgentStatusInfo GetAgentStatus(string projectPath)
@@ -224,37 +200,23 @@ namespace GitDeployPro.Services.Telegram
             var config = _config.LoadGlobalConfig();
             var key = TelegramPaths.ToProjectKey(projectPath);
             var queueDepth = _queues.TryGetValue(key, out var q) ? q.Count : 0;
-            var busy = _workers.ContainsKey(key);
-            var providerId = CodexProviderCatalog.Normalize(config.CodexProvider);
-            var model = string.IsNullOrWhiteSpace(config.CodexAgentModel)
-                ? CodexModelCatalog.DefaultModelFor(providerId)
-                : config.CodexAgentModel.Trim();
-            var session = _store.GetCodexSessionId(projectPath);
-            var sessionHint = string.IsNullOrWhiteSpace(session)
-                ? "none"
-                : TruncateId(session);
+            var session = _store.GetClaudeSessionId(projectPath);
 
             return new CursorAgentStatusInfo
             {
-                Enabled = config.CodexAgentEnabled,
-                DaemonAlive = !string.IsNullOrWhiteSpace(ResolveCodexExecutable(config.CodexCliPath)),
-                Model = model,
+                Enabled = config.ClaudeAgentEnabled,
+                DaemonAlive = !string.IsNullOrWhiteSpace(ResolveClaudeExecutable(config.ClaudeCliPath)),
+                Model = string.IsNullOrWhiteSpace(config.ClaudeAgentModel) ? "default" : config.ClaudeAgentModel.Trim(),
                 QueueDepth = queueDepth,
-                TurnBusy = busy,
+                TurnBusy = _workers.ContainsKey(key),
                 LastActivityUtc = null,
-                SessionHint = sessionHint
+                SessionHint = string.IsNullOrWhiteSpace(session) ? "none" : TruncateId(session)
             };
         }
 
         public void InvalidateAfterSettingsSave(string? projectPath = null)
         {
-            lock (_pathCacheGate)
-            {
-                _cachedConfiguredPath = null;
-                _cachedCodexPath = null;
-                _pathCacheUtc = DateTime.MinValue;
-            }
-
+            InvalidatePathCache();
             if (!string.IsNullOrWhiteSpace(projectPath))
             {
                 PrewarmForProject(projectPath);
@@ -283,22 +245,22 @@ namespace GitDeployPro.Services.Telegram
             lock (_pathCacheGate)
             {
                 _cachedConfiguredPath = null;
-                _cachedCodexPath = null;
+                _cachedClaudePath = null;
                 _pathCacheUtc = DateTime.MinValue;
             }
         }
 
-        public string? ResolveCodexExecutable(string? configuredPath = null)
+        public string? ResolveClaudeExecutable(string? configuredPath = null)
         {
             lock (_pathCacheGate)
             {
-                var cfg = (configuredPath ?? string.Empty).Trim();
+                var cfg = (configuredPath ?? string.Empty).Trim().Trim('"');
                 if (_pathCacheUtc > DateTime.UtcNow.AddMinutes(-5)
                     && string.Equals(_cachedConfiguredPath, cfg, StringComparison.OrdinalIgnoreCase)
-                    && !string.IsNullOrWhiteSpace(_cachedCodexPath)
-                    && File.Exists(_cachedCodexPath))
+                    && !string.IsNullOrWhiteSpace(_cachedClaudePath)
+                    && File.Exists(_cachedClaudePath))
                 {
-                    return _cachedCodexPath;
+                    return _cachedClaudePath;
                 }
 
                 string? found = null;
@@ -308,22 +270,18 @@ namespace GitDeployPro.Services.Telegram
                 }
                 else
                 {
-                    found = FindOnPath("codex.exe") ?? FindOnPath("codex");
-                    if (found == null)
-                    {
-                        var local = Path.Combine(
-                            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                            "npm",
-                            "codex.cmd");
-                        if (File.Exists(local))
-                        {
-                            found = local;
-                        }
-                    }
+                    var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                    var roaming = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                    found = FindOnPath("claude.exe")
+                            ?? FirstExisting(
+                                Path.Combine(home, ".local", "bin", "claude.exe"),
+                                Path.Combine(home, ".claude", "local", "claude.exe"))
+                            ?? FindOnPath("claude.cmd")
+                            ?? FirstExisting(Path.Combine(roaming, "npm", "claude.cmd"));
                 }
 
                 _cachedConfiguredPath = cfg;
-                _cachedCodexPath = found;
+                _cachedClaudePath = found;
                 _pathCacheUtc = DateTime.UtcNow;
                 return found;
             }
@@ -335,117 +293,102 @@ namespace GitDeployPro.Services.Telegram
             string? photoPath,
             CancellationToken cancellationToken)
         {
-            PostStatus(projectPath, Loc.T("codex.started"));
-            NotifyTelegramWorking(projectPath, Loc.T("codex.started"));
+            PostStatus(projectPath, Loc.T("claude.started"));
+            NotifyTelegramWorking(projectPath, Loc.T("claude.started"));
             var config = _config.LoadGlobalConfig();
-            var exe = ResolveCodexExecutable(config.CodexCliPath);
+            var exe = ResolveClaudeExecutable(config.ClaudeCliPath);
             if (string.IsNullOrWhiteSpace(exe))
             {
-                PostStatus(projectPath, Loc.T("codex.agentMissing"));
+                PostStatus(projectPath, Loc.T("claude.agentMissing"));
                 return;
             }
 
-            var providerId = CodexProviderCatalog.Normalize(config.CodexProvider);
-            var provider = CodexProviderCatalog.Get(providerId);
-            var storedKey = CodexConfigWriter.DecryptApiKey();
-            var apiKey = CodexConfigWriter.ResolveRuntimeApiKey(providerId, storedKey);
-            if (provider.RequiresApiKey && string.IsNullOrWhiteSpace(storedKey))
-            {
-                PostStatus(projectPath, Loc.T("codex.missingKey"));
-                return;
-            }
-
-            try
-            {
-                CodexConfigWriter.EnsureProviderConfig(providerId, config.CodexAgentModel);
-            }
-            catch (Exception ex)
-            {
-                PostStatus(projectPath, Loc.T("codex.tomlFailed", ex.Message));
-            }
-
-            var resume = _store.GetCodexSessionId(projectPath);
-            var prompt = BuildPrompt(projectPath, text, photoPath, !string.IsNullOrWhiteSpace(resume));
-            var model = string.IsNullOrWhiteSpace(config.CodexAgentModel)
-                ? CodexModelCatalog.DefaultModelFor(providerId)
-                : config.CodexAgentModel.Trim();
-
+            var resume = _store.GetClaudeSessionId(projectPath);
+            var model = (config.ClaudeAgentModel ?? string.Empty).Trim();
+            var timeout = config.GetClaudeAgentTurnTimeout();
             void OnProgress(string line) => PostProgress(projectPath, line);
 
             var run = await _runner.RunAsync(
                     exe,
                     projectPath,
-                    prompt,
+                    BuildPrompt(projectPath, text, photoPath, !string.IsNullOrWhiteSpace(resume)),
                     model,
-                    photoPath,
                     string.IsNullOrWhiteSpace(resume) ? null : resume,
-                    apiKey,
-                    providerId,
+                    config.ClaudePermissionMode,
+                    timeout,
                     OnProgress,
                     cancellationToken)
                 .ConfigureAwait(false);
 
-            // Stale / incompatible resume CLI args → drop session and retry fresh once.
+            // Stale session id (deleted ~/.claude jsonl, other machine) -> drop it and retry fresh once.
             if (run.ExitCode != 0
                 && !string.IsNullOrWhiteSpace(resume)
-                && LooksLikeResumeCliFailure(run.Output))
+                && LooksLikeResumeFailure(run.Output))
             {
-                _store.ClearCodexSession(projectPath);
-                PostStatus(projectPath, Loc.T("codex.resumeRetry"));
-                var freshPrompt = BuildPrompt(projectPath, text, photoPath, resumeSession: false);
+                _store.ClearClaudeSession(projectPath);
+                PostStatus(projectPath, Loc.T("claude.resumeRetry"));
                 run = await _runner.RunAsync(
                         exe,
                         projectPath,
-                        freshPrompt,
+                        BuildPrompt(projectPath, text, photoPath, resumeSession: false),
                         model,
-                        photoPath,
                         resumeSessionId: null,
-                        apiKey,
-                        providerId,
+                        config.ClaudePermissionMode,
+                        timeout,
                         OnProgress,
                         cancellationToken)
                     .ConfigureAwait(false);
             }
 
-            if (!string.IsNullOrWhiteSpace(run.SessionId))
+            if (!string.IsNullOrWhiteSpace(run.SessionId) && run.ExitCode == 0)
             {
-                _store.SetCodexSessionId(projectPath, run.SessionId);
+                _store.SetClaudeSessionId(projectPath, run.SessionId);
             }
 
-            var reply = string.IsNullOrWhiteSpace(run.Output)
-                ? Loc.T("codex.emptyReply")
-                : TelegramAgentReplyFormatter.Format(run.Output.Trim());
-            if (run.ExitCode != 0 && !reply.StartsWith("❌", StringComparison.Ordinal))
+            string reply;
+            if (run.ExitCode != 0 && LooksLikeAuthFailure(run.Output))
             {
-                if (LooksLikeRateLimit(reply))
-                {
-                    reply = "❌ " + Loc.T("codex.rateLimited");
-                }
-                else
+                reply = "❌ " + Loc.T("claude.notLoggedIn");
+            }
+            else if (string.IsNullOrWhiteSpace(run.Output))
+            {
+                reply = Loc.T("claude.emptyReply");
+            }
+            else
+            {
+                reply = TelegramAgentReplyFormatter.Format(run.Output.Trim());
+                if (run.ExitCode != 0 && !reply.StartsWith("❌", StringComparison.Ordinal))
                 {
                     reply = "❌ " + reply;
                 }
             }
 
+            if (run.Usage is { Available: true } usage)
+            {
+                _store.RecordCursorUsage(projectPath, usage);
+            }
+
             await PublishAgentReplyAsync(projectPath, reply, cancellationToken).ConfigureAwait(false);
         }
 
-        private static bool LooksLikeRateLimit(string? output)
+        private static bool LooksLikeResumeFailure(string? output)
         {
             var text = output ?? string.Empty;
-            return text.Contains("429", StringComparison.Ordinal)
-                   || text.Contains("Too Many Requests", StringComparison.OrdinalIgnoreCase)
-                   || text.Contains("exceeded retry limit", StringComparison.OrdinalIgnoreCase);
-        }
-
-        private static bool LooksLikeResumeCliFailure(string? output)
-        {
-            var text = output ?? string.Empty;
-            return text.Contains("unexpected argument", StringComparison.OrdinalIgnoreCase)
-                   || text.Contains("exec resume", StringComparison.OrdinalIgnoreCase)
+            return text.Contains("No conversation found", StringComparison.OrdinalIgnoreCase)
                    || text.Contains("session not found", StringComparison.OrdinalIgnoreCase)
                    || text.Contains("No such session", StringComparison.OrdinalIgnoreCase)
-                   || text.Contains("unknown session", StringComparison.OrdinalIgnoreCase);
+                   || text.Contains("Invalid session", StringComparison.OrdinalIgnoreCase)
+                   || text.Contains("not a valid session", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool LooksLikeAuthFailure(string? output)
+        {
+            var text = output ?? string.Empty;
+            return text.Contains("Invalid API key", StringComparison.OrdinalIgnoreCase)
+                   || text.Contains("Please run /login", StringComparison.OrdinalIgnoreCase)
+                   || text.Contains("not logged in", StringComparison.OrdinalIgnoreCase)
+                   || text.Contains("authentication_error", StringComparison.OrdinalIgnoreCase)
+                   || text.Contains("OAuth token has expired", StringComparison.OrdinalIgnoreCase);
         }
 
         private static string BuildPrompt(string projectPath, string text, string? photoPath, bool resumeSession)
@@ -456,7 +399,6 @@ namespace GitDeployPro.Services.Telegram
             var workspaceBlock = CursorWorkspaceRoots.BuildPromptContext(projectPath, resumeSession);
 
             var sb = new StringBuilder();
-
             if (!string.IsNullOrWhiteSpace(workspaceBlock))
             {
                 sb.AppendLine(workspaceBlock);
@@ -466,15 +408,9 @@ namespace GitDeployPro.Services.Telegram
             if (resumeSession)
             {
                 sb.AppendLine("Continue the same coding session. Do the new user request now. No greeting.");
-                if (!string.IsNullOrWhiteSpace(requestText))
-                {
-                    sb.AppendLine(requestText);
-                }
-                else
-                {
-                    sb.AppendLine("(Photo with no caption — inspect the image and continue the bug fix.)");
-                }
-
+                sb.AppendLine(string.IsNullOrWhiteSpace(requestText)
+                    ? "(Photo with no caption — inspect the image and continue the bug fix.)"
+                    : requestText);
                 if (hasPhoto)
                 {
                     sb.AppendLine($"Image file: {photoPath}");
@@ -484,14 +420,9 @@ namespace GitDeployPro.Services.Telegram
             }
 
             sb.AppendLine("CURRENT USER REQUEST — DO THIS NOW:");
-            if (!string.IsNullOrWhiteSpace(requestText))
-            {
-                sb.AppendLine(requestText);
-            }
-            else
-            {
-                sb.AppendLine("(User sent a photo with no caption. Inspect the image and fix/report the issue shown.)");
-            }
+            sb.AppendLine(string.IsNullOrWhiteSpace(requestText)
+                ? "(User sent a photo with no caption. Inspect the image and fix/report the issue shown.)"
+                : requestText);
 
             if (hasPhoto)
             {
@@ -501,7 +432,7 @@ namespace GitDeployPro.Services.Telegram
 
             sb.AppendLine();
             sb.AppendLine("Rules:");
-            sb.AppendLine("- You are the coding agent for this GitDeploy project chat (Codex CLI).");
+            sb.AppendLine("- You are the coding agent for this GitDeploy project chat (Claude Code).");
             sb.AppendLine("- Do NOT introduce yourself. Do NOT ask what to do. Do NOT say you are ready.");
             sb.AppendLine("- Investigate/fix quickly inside the listed workspace roots, then reply briefly with the result.");
             sb.AppendLine("- Telegram reply format (required when the answer has two parts):");
@@ -509,8 +440,7 @@ namespace GitDeployPro.Services.Telegram
             sb.AppendLine("  2) A separator line exactly: ────────");
             sb.AppendLine("  3) Work result only (what changed / what to test).");
             sb.AppendLine("  Do not mash mid-work narration into the result. Prefer result-only if short.");
-            sb.AppendLine("- Prefer reading/editing files under the Primary root with normal tools; do not ask the user for paths that are already listed above.");
-            sb.AppendLine("- You have full read/write access to the workspace for this turn (approvals/sandbox bypassed by GitDeploy). Edit files directly — do not claim sandbox blocked you.");
+            sb.AppendLine("- Prefer reading/editing files under the Primary root; do not ask the user for paths that are already listed above.");
             sb.AppendLine("- Reply in the same language the user used (Persian or English).");
             sb.AppendLine("- This reply is delivered on Telegram. Prefer clear spacing, emoji where helpful, and Telegram HTML for emphasis:");
             sb.AppendLine("  use <b>bold</b>, <i>italic</i>, <code>inline</code>, <pre>blocks</pre>. Avoid Markdown **stars**.");
@@ -556,7 +486,7 @@ namespace GitDeployPro.Services.Telegram
             return cts;
         }
 
-        private async Task PublishAgentReplyAsync(
+        private Task PublishAgentReplyAsync(
             string projectPath,
             string reply,
             CancellationToken cancellationToken)
@@ -567,7 +497,7 @@ namespace GitDeployPro.Services.Telegram
                 Status = TelegramMessageStatus.Sent,
                 Text = reply,
                 Utc = DateTime.UtcNow,
-                SenderName = "Codex"
+                SenderName = "Claude"
             };
 
             _store.Append(projectPath, message);
@@ -578,7 +508,7 @@ namespace GitDeployPro.Services.Telegram
             var chatId = _store.GetLastChatId();
             if (string.IsNullOrWhiteSpace(token) || chatId == 0)
             {
-                return;
+                return Task.CompletedTask;
             }
 
             try
@@ -603,7 +533,7 @@ namespace GitDeployPro.Services.Telegram
             {
             }
 
-            await Task.CompletedTask.ConfigureAwait(false);
+            return Task.CompletedTask;
         }
 
         private void PostProgress(string projectPath, string text)
@@ -619,11 +549,7 @@ namespace GitDeployPro.Services.Telegram
                 return;
             }
 
-            var isHeartbeat = clean.StartsWith("⏳", StringComparison.Ordinal)
-                              && (clean.Contains("Still working", StringComparison.OrdinalIgnoreCase)
-                                  || clean.Contains("هنوز", StringComparison.Ordinal)
-                                  || clean.Contains("در حال کار", StringComparison.Ordinal)
-                                  || clean.Contains("working", StringComparison.OrdinalIgnoreCase));
+            var isHeartbeat = clean.StartsWith("⏳", StringComparison.Ordinal);
 
             var quietTelegram = false;
             try
@@ -687,7 +613,7 @@ namespace GitDeployPro.Services.Telegram
                     Status = TelegramMessageStatus.Sent,
                     Text = text,
                     Utc = DateTime.UtcNow,
-                    SenderName = "Codex"
+                    SenderName = "Claude"
                 };
                 _store.Append(projectPath, msg);
                 TelegramPoller.Instance.RaiseMessage(projectPath, msg);
@@ -719,167 +645,77 @@ namespace GitDeployPro.Services.Telegram
         }
 
         /// <summary>
-        /// Verifies Codex binary + active provider (OpenRouter key / local Ollama / OpenAI / LM Studio).
+        /// Settings "Test": finds the binary and runs <c>claude --version</c>.
+        /// Login state is only known after the first real turn (or running <c>claude</c> once in a terminal).
         /// </summary>
-        public async Task<CodexConnectionTestResult> TestConnectionAsync(
-            string? plainApiKeyOverride = null,
+        public async Task<ClaudeConnectionTestResult> TestConnectionAsync(
+            string? configuredPath = null,
             CancellationToken cancellationToken = default)
         {
-            CodexInstallHelper.RefreshProcessPathFromSystem();
-            var config = _config.LoadGlobalConfig();
-            var providerId = CodexProviderCatalog.Normalize(config.CodexProvider);
-            var provider = CodexProviderCatalog.Get(providerId);
-            var exe = ResolveCodexExecutable(config.CodexCliPath);
+            InvalidatePathCache();
+            var exe = ResolveClaudeExecutable(configuredPath ?? _config.LoadGlobalConfig().ClaudeCliPath);
             if (string.IsNullOrWhiteSpace(exe))
             {
-                return new CodexConnectionTestResult
+                return new ClaudeConnectionTestResult
                 {
                     Ok = false,
-                    Message = Loc.T("codex.agentMissing")
-                };
-            }
-
-            var version = CodexInstallHelper.TryGetVersion(exe);
-            var apiKey = (plainApiKeyOverride ?? string.Empty).Trim();
-            if (string.IsNullOrWhiteSpace(apiKey))
-            {
-                apiKey = CodexConfigWriter.DecryptApiKey() ?? string.Empty;
-            }
-
-            if (provider.RequiresApiKey && string.IsNullOrWhiteSpace(apiKey))
-            {
-                return new CodexConnectionTestResult
-                {
-                    Ok = false,
-                    NeedsKey = true,
-                    AgentPath = exe,
-                    Version = version ?? string.Empty,
-                    Message = Loc.T("codex.help.testNeedKey")
+                    Message = Loc.T("claude.agentMissing")
                 };
             }
 
             try
             {
-                using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(12) };
-                HttpResponseMessage response;
-                if (provider.Id == CodexProviderCatalog.OpenRouter)
+                var psi = new ProcessStartInfo
                 {
-                    using var request = new HttpRequestMessage(HttpMethod.Get, "https://openrouter.ai/api/v1/key");
-                    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
-                    request.Headers.TryAddWithoutValidation("HTTP-Referer", "https://gitdeploy.pro");
-                    request.Headers.TryAddWithoutValidation("X-Title", "GitDeployPro");
-                    response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
-                }
-                else if (provider.Id == CodexProviderCatalog.Ollama)
+                    FileName = exe,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true,
+                    StandardOutputEncoding = Encoding.UTF8
+                };
+                psi.ArgumentList.Add("--version");
+
+                using var process = Process.Start(psi);
+                if (process == null)
                 {
-                    response = await client.GetAsync("http://127.0.0.1:11434/api/tags", cancellationToken)
-                        .ConfigureAwait(false);
-                }
-                else if (provider.Id == CodexProviderCatalog.LmStudio)
-                {
-                    response = await client.GetAsync("http://127.0.0.1:1234/v1/models", cancellationToken)
-                        .ConfigureAwait(false);
-                }
-                else
-                {
-                    using var request = new HttpRequestMessage(HttpMethod.Get, "https://api.openai.com/v1/models");
-                    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
-                    response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+                    return new ClaudeConnectionTestResult { Ok = false, AgentPath = exe, Message = Loc.T("claude.testFail", "start") };
                 }
 
-                using (response)
-                {
-                    var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-                    if (!response.IsSuccessStatusCode)
-                    {
-                        var detail = TruncateBody(body);
-                        return new CodexConnectionTestResult
-                        {
-                            Ok = false,
-                            NeedsKey = provider.RequiresApiKey && (int)response.StatusCode == 401,
-                            AgentPath = exe,
-                            Version = version ?? string.Empty,
-                            Message = Loc.T(
-                                "codex.help.testKeyFail",
-                                ((int)response.StatusCode).ToString(),
-                                string.IsNullOrWhiteSpace(detail) ? response.ReasonPhrase ?? "error" : detail)
-                        };
-                    }
+                using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                cts.CancelAfter(TimeSpan.FromSeconds(20));
+                var stdout = await process.StandardOutput.ReadToEndAsync(cts.Token).ConfigureAwait(false);
+                await process.WaitForExitAsync(cts.Token).ConfigureAwait(false);
+                var version = stdout.Trim();
 
-                    try
-                    {
-                        CodexConfigWriter.EnsureProviderConfig(providerId, config.CodexAgentModel);
-                    }
-                    catch
-                    {
-                    }
-
-                    var label = provider.Id == CodexProviderCatalog.OpenRouter
-                        ? TryReadOpenRouterKeyLabel(body)
-                        : provider.Label;
-                    return new CodexConnectionTestResult
+                return process.ExitCode == 0
+                    ? new ClaudeConnectionTestResult
                     {
                         Ok = true,
                         AgentPath = exe,
-                        Version = version ?? string.Empty,
-                        KeyLabel = label,
-                        Message = string.IsNullOrWhiteSpace(label)
-                            ? Loc.T("codex.help.testConnOk", exe, version ?? "?")
-                            : Loc.T("codex.help.testConnOkLabel", exe, version ?? "?", label)
+                        Version = version,
+                        Message = Loc.T("claude.testOk", exe, string.IsNullOrWhiteSpace(version) ? "?" : version)
+                    }
+                    : new ClaudeConnectionTestResult
+                    {
+                        Ok = false,
+                        AgentPath = exe,
+                        Version = version,
+                        Message = Loc.T("claude.testFail", "exit " + process.ExitCode)
                     };
-                }
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
-                throw;
+                return new ClaudeConnectionTestResult { Ok = false, AgentPath = exe, Message = Loc.T("claude.testFail", "timeout") };
             }
             catch (Exception ex)
             {
-                return new CodexConnectionTestResult
-                {
-                    Ok = false,
-                    AgentPath = exe,
-                    Version = version ?? string.Empty,
-                    Message = Loc.T("codex.help.testFail", ex.Message)
-                };
+                return new ClaudeConnectionTestResult { Ok = false, AgentPath = exe, Message = Loc.T("claude.testFail", ex.Message) };
             }
         }
 
-        private static string TryReadOpenRouterKeyLabel(string body)
-        {
-            try
-            {
-                var jo = JObject.Parse(body);
-                var data = jo["data"] as JObject ?? jo;
-                var label = data?["label"]?.ToString()?.Trim();
-                if (!string.IsNullOrWhiteSpace(label))
-                {
-                    return label!;
-                }
-
-                var limit = data?["limit_remaining"]?.ToString();
-                if (!string.IsNullOrWhiteSpace(limit))
-                {
-                    return "limit_remaining=" + limit;
-                }
-            }
-            catch
-            {
-            }
-
-            return string.Empty;
-        }
-
-        private static string TruncateBody(string body)
-        {
-            body = (body ?? string.Empty).Replace('\r', ' ').Replace('\n', ' ').Trim();
-            if (body.Length <= 160)
-            {
-                return body;
-            }
-
-            return body[..157] + "…";
-        }
+        private static string? FirstExisting(params string[] candidates)
+            => candidates.FirstOrDefault(File.Exists);
 
         private static string? FindOnPath(string fileName)
         {
@@ -909,13 +745,11 @@ namespace GitDeployPro.Services.Telegram
         }
     }
 
-    public sealed class CodexConnectionTestResult
+    public sealed class ClaudeConnectionTestResult
     {
         public bool Ok { get; init; }
-        public bool NeedsKey { get; init; }
         public string Message { get; init; } = "";
         public string AgentPath { get; init; } = "";
         public string Version { get; init; } = "";
-        public string KeyLabel { get; init; } = "";
     }
 }

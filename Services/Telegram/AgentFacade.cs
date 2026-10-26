@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using GitDeployPro.Services;
 
 namespace GitDeployPro.Services.Telegram
@@ -6,14 +7,24 @@ namespace GitDeployPro.Services.Telegram
     public enum AgentEngineKind
     {
         Cursor,
-        Codex
+        Claude
     }
 
     /// <summary>
-    /// Routes Telegram agent turns to Cursor or Codex based on GlobalConfig.AgentEngine.
+    /// Routes Telegram agent turns to the active <see cref="IAgentDriver"/> (GlobalConfig.AgentEngine).
+    /// To add another agent: implement IAgentDriver and register it in <see cref="Drivers"/>.
     /// </summary>
     public static class AgentFacade
     {
+        private static readonly IReadOnlyDictionary<AgentEngineKind, IAgentDriver> Drivers =
+            new Dictionary<AgentEngineKind, IAgentDriver>
+            {
+                [AgentEngineKind.Cursor] = CursorAgentBridge.Instance,
+                [AgentEngineKind.Claude] = ClaudeAgentBridge.Instance
+            };
+
+        private static IAgentDriver Active => Drivers[GetActiveEngine()];
+
         public static AgentEngineKind GetActiveEngine()
         {
             try
@@ -29,19 +40,19 @@ namespace GitDeployPro.Services.Telegram
 
         public static AgentEngineKind ParseEngine(string? raw)
         {
-            if (string.Equals(raw?.Trim(), "codex", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(raw?.Trim(), "claude", StringComparison.OrdinalIgnoreCase))
             {
-                return AgentEngineKind.Codex;
+                return AgentEngineKind.Claude;
             }
 
             return AgentEngineKind.Cursor;
         }
 
         public static string ToConfigValue(AgentEngineKind engine)
-            => engine == AgentEngineKind.Codex ? "codex" : "cursor";
+            => engine == AgentEngineKind.Claude ? "claude" : "cursor";
 
         public static string DisplayName(AgentEngineKind engine)
-            => engine == AgentEngineKind.Codex ? "Codex" : "Cursor";
+            => Drivers[engine].DisplayName;
 
         public static void SetActiveEngine(AgentEngineKind engine)
         {
@@ -52,76 +63,35 @@ namespace GitDeployPro.Services.Telegram
         }
 
         public static void EnqueueUserTurn(string projectPath, string text, string? photoPath)
-        {
-            if (GetActiveEngine() == AgentEngineKind.Codex)
-            {
-                CodexAgentBridge.Instance.EnqueueUserTurn(projectPath, text, photoPath);
-            }
-            else
-            {
-                CursorAgentBridge.Instance.EnqueueUserTurn(projectPath, text, photoPath);
-            }
-        }
+            => Active.EnqueueUserTurn(projectPath, text, photoPath);
 
         public static void PrewarmForProject(string projectPath)
-        {
-            if (GetActiveEngine() == AgentEngineKind.Codex)
-            {
-                CodexAgentBridge.Instance.PrewarmForProject(projectPath);
-            }
-            else
-            {
-                CursorAgentBridge.Instance.PrewarmForProject(projectPath);
-            }
-        }
+            => Active.PrewarmForProject(projectPath);
 
         public static bool CancelCurrentTurn(string projectPath)
         {
-            var a = CursorAgentBridge.Instance.CancelCurrentTurn(projectPath);
-            var b = CodexAgentBridge.Instance.CancelCurrentTurn(projectPath);
-            return a || b;
+            var any = false;
+            foreach (var driver in Drivers.Values)
+            {
+                any |= driver.CancelCurrentTurn(projectPath);
+            }
+
+            return any;
         }
 
         public static bool StopTurn(string projectPath)
-        {
-            if (GetActiveEngine() == AgentEngineKind.Codex)
-            {
-                return CodexAgentBridge.Instance.StopTurn(projectPath);
-            }
-
-            return CursorAgentBridge.Instance.StopTurn(projectPath);
-        }
+            => Active.StopTurn(projectPath);
 
         public static void RestartProjectAgent(string projectPath, string? reason = null)
-        {
-            if (GetActiveEngine() == AgentEngineKind.Codex)
-            {
-                CodexAgentBridge.Instance.RestartProjectAgent(projectPath, reason);
-            }
-            else
-            {
-                CursorAgentBridge.Instance.RestartProjectAgent(projectPath, reason);
-            }
-        }
+            => Active.RestartProjectAgent(projectPath, reason);
 
         public static void SetModelAndRestart(string projectPath, string? modelId)
-        {
-            if (GetActiveEngine() == AgentEngineKind.Codex)
-            {
-                CodexAgentBridge.Instance.SetModelAndRestart(projectPath, modelId);
-            }
-            else
-            {
-                CursorAgentBridge.Instance.SetModelAndRestart(projectPath, modelId);
-            }
-        }
+            => Active.SetModelAndRestart(projectPath, modelId);
 
         public static CursorAgentStatusInfo GetAgentStatus(string projectPath)
         {
-            var engine = GetActiveEngine();
-            var status = engine == AgentEngineKind.Codex
-                ? CodexAgentBridge.Instance.GetAgentStatus(projectPath)
-                : CursorAgentBridge.Instance.GetAgentStatus(projectPath);
+            var driver = Active;
+            var status = driver.GetAgentStatus(projectPath);
 
             return new CursorAgentStatusInfo
             {
@@ -131,7 +101,7 @@ namespace GitDeployPro.Services.Telegram
                 QueueDepth = status.QueueDepth,
                 TurnBusy = status.TurnBusy,
                 LastActivityUtc = status.LastActivityUtc,
-                SessionHint = DisplayName(engine) + " · " + status.SessionHint,
+                SessionHint = driver.DisplayName + " · " + status.SessionHint,
                 AgentMode = status.AgentMode,
                 LastUsage = status.LastUsage,
                 SessionUsage = status.SessionUsage
@@ -139,26 +109,33 @@ namespace GitDeployPro.Services.Telegram
         }
 
         /// <summary>
-        /// Switch engine: stop both queues for the project, save preference, prewarm the new one.
+        /// Switch engine: stop every driver's queue for the project, save preference, prewarm the new one.
         /// </summary>
         public static void SwitchEngine(string projectPath, AgentEngineKind engine)
         {
-            CursorAgentBridge.Instance.StopTurn(projectPath);
-            CodexAgentBridge.Instance.StopTurn(projectPath);
+            foreach (var driver in Drivers.Values)
+            {
+                driver.StopTurn(projectPath);
+            }
+
             SetActiveEngine(engine);
             PrewarmForProject(projectPath);
         }
 
         public static void InvalidateAfterSettingsSave(string? projectPath = null)
         {
-            CursorAgentBridge.Instance.InvalidateAfterSettingsSave(projectPath);
-            CodexAgentBridge.Instance.InvalidateAfterSettingsSave(projectPath);
+            foreach (var driver in Drivers.Values)
+            {
+                driver.InvalidateAfterSettingsSave(projectPath);
+            }
         }
 
         public static void Shutdown()
         {
-            CursorAgentBridge.Instance.Shutdown();
-            CodexAgentBridge.Instance.Shutdown();
+            foreach (var driver in Drivers.Values)
+            {
+                driver.Shutdown();
+            }
         }
     }
 }
