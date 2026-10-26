@@ -19,3 +19,10 @@ dist/
 build/
 .tmp_build/
 .cursor/plans/
+
+# build/publish scratch and local artifacts
+.tmp_*/
+.gitdeploy.session
+kit/**/bin/
+kit/**/obj/
+site/test/
