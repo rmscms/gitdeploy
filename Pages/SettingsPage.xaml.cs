@@ -2645,31 +2645,20 @@ namespace GitDeployPro.Pages
             }
         }
 
-        private async void ClaudeTestButton_Click(object sender, RoutedEventArgs e)
+        private void ClaudeHelpButton_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is System.Windows.Controls.Button button)
-            {
-                button.IsEnabled = false;
-            }
-
             try
             {
                 RefreshProcessPathFromSystem();
-                _configService.UpdateGlobalConfig(PersistClaudeFields);
-                var result = await GitDeployPro.Services.Telegram.ClaudeAgentBridge.Instance
-                    .TestConnectionAsync(ClaudeCliPathTextBox?.Text?.Trim());
-                SetClaudeStatus(result.Message, result.Ok ? "Status.Success" : "Status.Error");
+                var window = new ClaudeCliHelpWindow(ClaudeCliPathTextBox?.Text?.Trim())
+                {
+                    Owner = Window.GetWindow(this)
+                };
+                window.ShowDialog();
             }
             catch (Exception ex)
             {
-                SetClaudeStatus(Loc.T("claude.testFail", ex.Message), "Status.Error");
-            }
-            finally
-            {
-                if (sender is System.Windows.Controls.Button b)
-                {
-                    b.IsEnabled = true;
-                }
+                ModernMessageBox.Show(ex.Message, Loc.T("common.error"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 

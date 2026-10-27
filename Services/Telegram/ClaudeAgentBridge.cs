@@ -688,21 +688,38 @@ namespace GitDeployPro.Services.Telegram
                 await process.WaitForExitAsync(cts.Token).ConfigureAwait(false);
                 var version = stdout.Trim();
 
-                return process.ExitCode == 0
-                    ? new ClaudeConnectionTestResult
-                    {
-                        Ok = true,
-                        AgentPath = exe,
-                        Version = version,
-                        Message = Loc.T("claude.testOk", exe, string.IsNullOrWhiteSpace(version) ? "?" : version)
-                    }
-                    : new ClaudeConnectionTestResult
+                if (process.ExitCode != 0)
+                {
+                    return new ClaudeConnectionTestResult
                     {
                         Ok = false,
                         AgentPath = exe,
                         Version = version,
                         Message = Loc.T("claude.testFail", "exit " + process.ExitCode)
                     };
+                }
+
+                var loggedIn = await CheckLoggedInAsync(exe, cancellationToken).ConfigureAwait(false);
+                if (loggedIn == false)
+                {
+                    return new ClaudeConnectionTestResult
+                    {
+                        Ok = false,
+                        NeedsLogin = true,
+                        AgentPath = exe,
+                        Version = version,
+                        Message = Loc.T("claude.notLoggedIn")
+                    };
+                }
+
+                return new ClaudeConnectionTestResult
+                {
+                    Ok = true,
+                    AgentPath = exe,
+                    Version = version,
+                    Message = Loc.T("claude.testOk", exe, string.IsNullOrWhiteSpace(version) ? "?" : version)
+                             + (loggedIn == true ? Environment.NewLine + Loc.T("claude.loggedIn") : string.Empty)
+                };
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
@@ -711,6 +728,119 @@ namespace GitDeployPro.Services.Telegram
             catch (Exception ex)
             {
                 return new ClaudeConnectionTestResult { Ok = false, AgentPath = exe, Message = Loc.T("claude.testFail", ex.Message) };
+            }
+        }
+
+        /// <summary>
+        /// Opens a visible PowerShell that runs <c>claude auth login</c> (browser sign-in);
+        /// falls back to the interactive <c>claude</c> (then type /login) on older CLI versions.
+        /// </summary>
+        public void OpenLoginTerminal(string? configuredPath = null)
+        {
+            var exe = ResolveClaudeExecutable(configuredPath ?? _config.LoadGlobalConfig().ClaudeCliPath);
+            if (string.IsNullOrWhiteSpace(exe) || !File.Exists(exe))
+            {
+                throw new InvalidOperationException(Loc.T("claude.agentMissing"));
+            }
+
+            var exeLiteral = exe.Replace("'", "''");
+            var inner = string.Join("; ", new[]
+            {
+                "Write-Host '=== GitDeploy: Claude Code login ===' -ForegroundColor Cyan",
+                "Write-Host 'A browser window should open. Sign in with your Claude account.' -ForegroundColor Yellow",
+                "Write-Host ''",
+                $"& '{exeLiteral}' auth login",
+                "if ($LASTEXITCODE -ne 0) { Write-Host 'auth login not available - starting claude. Type /login inside it.' -ForegroundColor Yellow; & '" + exeLiteral + "' }",
+                "Write-Host ''",
+                "Write-Host '=== Login finished (or cancelled) ===' -ForegroundColor Green",
+                "Write-Host 'Close this window, then click Test in GitDeploy.' -ForegroundColor Yellow",
+                "Write-Host ''",
+                "pause"
+            });
+
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Arguments = "-NoExit -NoProfile -ExecutionPolicy Bypass -Command \"" + inner.Replace("\"", "\\\"") + "\"",
+                UseShellExecute = true,
+                WorkingDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
+            });
+        }
+
+        /// <summary>
+        /// Best-effort <c>claude auth status</c>: true = logged in, false = not logged in,
+        /// null = unknown (old CLI without the subcommand, timeout, ...).
+        /// </summary>
+        private static async Task<bool?> CheckLoggedInAsync(string exe, CancellationToken cancellationToken)
+        {
+            try
+            {
+                var psi = new ProcessStartInfo
+                {
+                    FileName = exe,
+                    UseShellExecute = false,
+                    RedirectStandardInput = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true,
+                    StandardOutputEncoding = Encoding.UTF8,
+                    StandardErrorEncoding = Encoding.UTF8
+                };
+                psi.ArgumentList.Add("auth");
+                psi.ArgumentList.Add("status");
+
+                using var process = Process.Start(psi);
+                if (process == null)
+                {
+                    return null;
+                }
+
+                process.StandardInput.Close();
+                using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                cts.CancelAfter(TimeSpan.FromSeconds(15));
+                var outTask = process.StandardOutput.ReadToEndAsync(cts.Token);
+                var errTask = process.StandardError.ReadToEndAsync(cts.Token);
+                try
+                {
+                    await process.WaitForExitAsync(cts.Token).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    try
+                    {
+                        process.Kill(entireProcessTree: true);
+                    }
+                    catch
+                    {
+                    }
+
+                    cancellationToken.ThrowIfCancellationRequested();
+                    return null;
+                }
+
+                var text = (await outTask.ConfigureAwait(false) + " " + await errTask.ConfigureAwait(false));
+                if (text.Contains("\"loggedIn\": false", StringComparison.OrdinalIgnoreCase)
+                    || text.Contains("\"loggedIn\":false", StringComparison.OrdinalIgnoreCase)
+                    || text.Contains("not logged in", StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+
+                if (text.Contains("\"loggedIn\": true", StringComparison.OrdinalIgnoreCase)
+                    || text.Contains("\"loggedIn\":true", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+
+                return null;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                return null;
             }
         }
 
@@ -748,6 +878,7 @@ namespace GitDeployPro.Services.Telegram
     public sealed class ClaudeConnectionTestResult
     {
         public bool Ok { get; init; }
+        public bool NeedsLogin { get; init; }
         public string Message { get; init; } = "";
         public string AgentPath { get; init; } = "";
         public string Version { get; init; } = "";

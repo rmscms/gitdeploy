@@ -1376,16 +1376,6 @@
                                                        Foreground="{StaticResource Text.Muted}" />
                                         </StackPanel>
                                     </StackPanel>
-                                    <Button HorizontalAlignment="Right"
-                                            VerticalAlignment="Center"
-                                            Style="{StaticResource App.IconButton}"
-                                            Width="32"
-                                            Height="32"
-                                            Padding="0"
-                                            ToolTip="Cursor CLI setup guide"
-                                            Click="CursorHelpButton_Click">
-                                        <ui:SymbolIcon Symbol="Info24" FontSize="16" Foreground="{StaticResource Accent.Primary}" />
-                                    </Button>
                                 </Grid>
                             </Expander.Header>
                             <StackPanel>
@@ -1453,6 +1443,13 @@
                                             Margin="8,0,0,0"
                                             Style="{StaticResource App.Button.Ghost}"
                                             Click="CursorSaveButton_Click" />
+                                    <Button Content="Login &amp; Test"
+                                            Height="32"
+                                            MinWidth="120"
+                                            Margin="8,0,0,0"
+                                            Style="{StaticResource App.Button.Ghost}"
+                                            Click="CursorHelpButton_Click"
+                                            ToolTip="Opens Cursor CLI login + connection test" />
                                 </StackPanel>
                                 <TextBlock x:Name="CursorStatusText"
                                            FontSize="11"
@@ -1803,13 +1800,13 @@
                                             Margin="0,0,8,8"
                                             Style="{StaticResource App.Button.Ghost}"
                                             Click="ClaudeSaveButton_Click" />
-                                    <Button Content="Test"
+                                    <Button Content="Login &amp; Test"
                                             Height="32"
-                                            MinWidth="90"
+                                            MinWidth="120"
                                             Margin="0,0,8,8"
                                             Style="{StaticResource App.Button.Ghost}"
-                                            Click="ClaudeTestButton_Click"
-                                            ToolTip="Runs claude --version" />
+                                            Click="ClaudeHelpButton_Click"
+                                            ToolTip="Opens Claude Code login + connection test" />
                                 </WrapPanel>
                                 <TextBlock x:Name="ClaudeStatusText" FontSize="11" Foreground="{StaticResource Text.Muted}" TextWrapping="Wrap" />
                             </StackPanel>

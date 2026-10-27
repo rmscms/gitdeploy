@@ -1,15 +1,14 @@
 {
-  "version": "2.5.58",
-  "fileName": "GitDeployPro-2.5.58.exe",
-  "downloadUrl": "versions/GitDeployPro-2.5.58.exe",
-  "sha256": "A700032AB59DEE3BE4D1D0390D8EEC143435CB425DDEADE0F62AEF29BFC8C9CD",
-  "releaseNotes": "Feature: Claude Code CLI agent for Telegram project chats (claude -p, stream-json, session resume, queue, Stop, timeout, token usage)\nFeature: Driver-based agent engines (IAgentDriver) — switch Cursor / Claude with /engine; Claude model picker (sonnet, opus, haiku)\nFeature: Settings → AI Agent → Claude Code section (install, detect, save, test, permission mode, turn timeout)\nFix: Removed the Codex / OpenRouter agent and its settings; old Codex engine config falls back to Cursor",
+  "version": "2.5.78",
+  "fileName": "GitDeployPro-2.5.78.exe",
+  "downloadUrl": "versions/GitDeployPro-2.5.78.exe",
+  "sha256": "7A4ABD04D7549D77D438CF599EB1B5B51E1A6033F728EFEB4E300CF037AFDB02",
+  "releaseNotes": "Feature: Claude Code Login & Test modal in Settings (browser sign-in via PowerShell, version + sign-in status check)\nFeature: Backup Scheduler redesigned — unified toolbar, compact schedule tools, cleaner stepper and footer bar, theme-token based\nFeature: Cursor CLI Login & Test is now a single button next to Save (info icon removed)",
   "changelog": [
-    "Feature: Claude Code CLI agent for Telegram project chats (claude -p, stream-json, session resume, queue, Stop, timeout, token usage)",
-    "Feature: Driver-based agent engines (IAgentDriver) — switch Cursor / Claude with /engine; Claude model picker (sonnet, opus, haiku)",
-    "Feature: Settings → AI Agent → Claude Code section (install, detect, save, test, permission mode, turn timeout)",
-    "Fix: Removed the Codex / OpenRouter agent and its settings; old Codex engine config falls back to Cursor"
+    "Feature: Claude Code Login & Test modal in Settings (browser sign-in via PowerShell, version + sign-in status check)",
+    "Feature: Backup Scheduler redesigned — unified toolbar, compact schedule tools, cleaner stepper and footer bar, theme-token based",
+    "Feature: Cursor CLI Login & Test is now a single button next to Save (info icon removed)"
   ],
   "mandatory": false,
-  "publishedUtc": "2026-10-26T14:22:00Z"
+  "publishedUtc": "2026-10-27T08:49:22Z"
 }
