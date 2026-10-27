@@ -23,6 +23,5 @@ build/
 # build/publish scratch and local artifacts
 .tmp_*/
 .gitdeploy.session
-kit/**/bin/
-kit/**/obj/
+kit/
 site/test/
