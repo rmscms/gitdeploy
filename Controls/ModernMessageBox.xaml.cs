@@ -33,6 +33,10 @@ namespace GitDeployPro.Controls
 
             TitleText.Text = title;
             MessageText.Text = message;
+            // theme: short confirm text is centred under the hero circle; long / multi-line text reads better left-aligned
+            MessageText.TextAlignment = (message ?? string.Empty).Length > 150 || (message ?? string.Empty).Contains((char)10)
+                ? TextAlignment.Left
+                : TextAlignment.Center;
             ApplyKind(image, title);
             ApplyButtons(buttons, primaryText, secondaryText, cancelText);
 
@@ -112,6 +116,7 @@ namespace GitDeployPro.Controls
                 AccentBar.Background = status;
                 KindLabel.Foreground = status;
                 DialogIcon.Foreground = status;
+                HeaderIcon.SetValue(System.Windows.Documents.TextElement.ForegroundProperty, status);
             }
 
             if (surface != null)
