@@ -1,4 +1,5 @@
-<Page x:Class="GitDeployPro.Pages.AboutPage"
+<Page
+        xmlns:loc="clr-namespace:GitDeployPro.Services.Localization" x:Class="GitDeployPro.Pages.AboutPage"
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       Title="About"
@@ -62,13 +63,13 @@
                                TextWrapping="Wrap" />
 
                     <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
-                        <Button x:Name="CheckForUpdatesButton"
+                        <Button ToolTip="{loc:T ui.tip.CheckForUpdatesButton}" x:Name="CheckForUpdatesButton"
                                 Content="Check for updates now"
                                 Height="34"
                                 MinWidth="180"
                                 Style="{StaticResource App.Button.Primary}"
                                 Click="CheckForUpdatesButton_Click" />
-                        <Button x:Name="OpenInstallFolderButton"
+                        <Button ToolTip="{loc:T ui.tip.OpenInstallFolderButton}" x:Name="OpenInstallFolderButton"
                                 Content="Open install folder"
                                 Height="34"
                                 Margin="8,0,0,0"

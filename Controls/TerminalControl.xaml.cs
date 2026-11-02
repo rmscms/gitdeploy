@@ -1,3 +1,4 @@
+using GitDeployPro.Services.Localization;
 using GitDeployPro.Models;
 using GitDeployPro.Services;
 using GitDeployPro.Services.Terminal;
@@ -1873,7 +1874,7 @@ namespace GitDeployPro.Controls
             _typingEnabled = true;
             if (TypeToggleButton != null)
             {
-                TypeToggleButton.ToolTip = "Focus/Type (Enabled)";
+                TypeToggleButton.ToolTip = Loc.T("deploy.tip.typeFocusOn");
             }
             if (TypingOverlay != null)
             {
@@ -1888,7 +1889,7 @@ namespace GitDeployPro.Controls
             _typingEnabled = false;
             if (TypeToggleButton != null)
             {
-                TypeToggleButton.ToolTip = "Focus/Type (Disabled)";
+                TypeToggleButton.ToolTip = Loc.T("deploy.tip.typeFocusOff");
             }
             if (TypingOverlay != null)
             {

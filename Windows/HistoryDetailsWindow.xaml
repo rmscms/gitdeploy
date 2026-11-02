@@ -1,4 +1,5 @@
-<Window x:Class="GitDeployPro.Windows.HistoryDetailsWindow"
+<Window
+        xmlns:loc="clr-namespace:GitDeployPro.Services.Localization" x:Class="GitDeployPro.Windows.HistoryDetailsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Deployment Details" Height="500" Width="700"
@@ -39,7 +40,7 @@
                               VerticalAlignment="Center"/>
                 </StackPanel>
 
-                <Button Grid.Column="1" Content="✕" 
+                <Button ToolTip="{loc:T ui.tip.Close}" Grid.Column="1" Content="✕" 
                         Width="30" Height="30" 
                         Background="Transparent" 
                         Foreground="{StaticResource Text.Muted}" 
@@ -103,7 +104,7 @@
 
             <!-- Footer Buttons -->
             <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,25,0,0">
-                <Button Content="Rollback to this version" 
+                <Button ToolTip="{loc:T ui.tip.Rollback}" Content="Rollback to this version" 
                         Height="40" 
                         Padding="20,0"
                         Style="{StaticResource App.Button.Danger}"
@@ -113,7 +114,7 @@
                         Margin="0,0,15,0"
                         Click="Rollback_Click"/>
 
-                <Button Content="Close" 
+                <Button ToolTip="{loc:T ui.tip.Close}" Content="Close" 
                         Height="40" 
                         Width="100"
                         Style="{StaticResource App.Button.Primary}"

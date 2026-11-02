@@ -129,8 +129,8 @@ namespace GitDeployPro.Services.Localization
                 return string.Empty;
             }
 
-            // Menus/labels always English; only tooltip tip keys follow selected language.
-            var packLanguage = IsTooltipKey(key) ? _language : English;
+            // Menus/labels stay English; every tooltip (".tip." key) is always Persian.
+            var packLanguage = IsTooltipKey(key) ? Persian : English;
             var text = Lookup(packLanguage, key) ?? Lookup(English, key) ?? key;
             if (args is { Length: > 0 })
             {

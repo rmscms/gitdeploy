@@ -1,3 +1,4 @@
+using GitDeployPro.Services.Localization;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -931,13 +932,13 @@ namespace GitDeployPro.Windows
                 PassRevealTextBox.Visibility = Visibility.Collapsed;
                 PassRevealTextBox.Text = PassBox.Password;
                 PassRevealButton.Content = "👁";
-                PassRevealButton.ToolTip = "Show password";
+                PassRevealButton.ToolTip = Loc.T("connection.tip.showPassword");
 
                 DbPassBox.Visibility = Visibility.Visible;
                 DbPassRevealTextBox.Visibility = Visibility.Collapsed;
                 DbPassRevealTextBox.Text = DbPassBox.Password;
                 DbPassRevealButton.Content = "👁";
-                DbPassRevealButton.ToolTip = "Show password";
+                DbPassRevealButton.ToolTip = Loc.T("connection.tip.showPassword");
             }
             finally
             {
@@ -957,7 +958,7 @@ namespace GitDeployPro.Windows
                     passwordBox.Visibility = Visibility.Collapsed;
                     revealTextBox.Visibility = Visibility.Visible;
                     revealButton.Content = "🙈";
-                    revealButton.ToolTip = "Hide password";
+                    revealButton.ToolTip = Loc.T("connection.tip.hidePassword");
                     revealTextBox.Focus();
                     revealTextBox.CaretIndex = revealTextBox.Text.Length;
                 }
@@ -967,7 +968,7 @@ namespace GitDeployPro.Windows
                     revealTextBox.Visibility = Visibility.Collapsed;
                     passwordBox.Visibility = Visibility.Visible;
                     revealButton.Content = "👁";
-                    revealButton.ToolTip = "Show password";
+                    revealButton.ToolTip = Loc.T("connection.tip.showPassword");
                     passwordBox.Focus();
                 }
             }

@@ -1,4 +1,5 @@
-<Page x:Class="GitDeployPro.Pages.DashboardPage"
+<Page
+        xmlns:loc="clr-namespace:GitDeployPro.Services.Localization" x:Class="GitDeployPro.Pages.DashboardPage"
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:behaviors="clr-namespace:GitDeployPro.Behaviors"
@@ -172,7 +173,7 @@
                        Margin="0,0,0,8" />
 
             <WrapPanel Margin="0,0,0,12">
-                <Button MinWidth="148"
+                <Button ToolTip="{loc:T ui.tip.QuickDeploy}" MinWidth="148"
                         Height="34"
                         Margin="0,0,8,8"
                         Style="{StaticResource App.Button.Toolbar}"
@@ -184,7 +185,7 @@
                         <TextBlock Text="Start Deploy" />
                     </StackPanel>
                 </Button>
-                <Button MinWidth="148"
+                <Button ToolTip="{loc:T ui.tip.RefreshGit}" MinWidth="148"
                         Height="34"
                         Margin="0,0,8,8"
                         Style="{StaticResource App.Button.Toolbar}"
@@ -194,7 +195,7 @@
                         <TextBlock Text="Refresh Git" />
                     </StackPanel>
                 </Button>
-                <Button MinWidth="148"
+                <Button ToolTip="{loc:T ui.tip.OpenLocalTerminal}" MinWidth="148"
                         Height="34"
                         Margin="0,0,8,8"
                         Style="{StaticResource App.Button.Toolbar}"
@@ -204,7 +205,7 @@
                         <TextBlock Text="Local Terminal" />
                     </StackPanel>
                 </Button>
-                <Button MinWidth="148"
+                <Button ToolTip="{loc:T ui.tip.RunSetupWizard}" MinWidth="148"
                         Height="34"
                         Margin="0,0,8,8"
                         Style="{StaticResource App.Button.Toolbar}"
@@ -214,7 +215,7 @@
                         <TextBlock Text="Run Setup" />
                     </StackPanel>
                 </Button>
-                <Button MinWidth="148"
+                <Button ToolTip="{loc:T ui.tip.OpenSettings}" MinWidth="148"
                         Height="34"
                         Margin="0,0,8,8"
                         Style="{StaticResource App.Button.Toolbar}"
@@ -373,14 +374,14 @@
                                                             Orientation="Horizontal"
                                                             Margin="0,8,0,0"
                                                             Visibility="Collapsed">
-                                                    <Button Content="🔄 Refresh"
+                                                    <Button ToolTip="{loc:T ui.tip.RetryFailedBackup}" Content="🔄 Refresh"
                                                             Padding="10,4"
                                                             Margin="0,0,6,0"
                                                             Style="{StaticResource App.Button.Primary}"
                                                             Foreground="{StaticResource Text.Primary}"
                                                             Click="RetryFailedBackup_Click"
                                                             Tag="{Binding}" />
-                                                    <Button Content="✏ Edit"
+                                                    <Button ToolTip="{loc:T ui.tip.EditFailedBackupSchedule}" Content="✏ Edit"
                                                             Padding="10,4"
                                                             Style="{StaticResource App.Button.Ghost}"
                                                             Foreground="{StaticResource Text.Secondary}"

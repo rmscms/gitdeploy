@@ -1,4 +1,5 @@
-<UserControl x:Class="GitDeployPro.Controls.TerminalSuggestionsSettingsPanel"
+<UserControl
+        xmlns:loc="clr-namespace:GitDeployPro.Services.Localization" x:Class="GitDeployPro.Controls.TerminalSuggestionsSettingsPanel"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -78,37 +79,37 @@
         </Grid>
 
         <WrapPanel Margin="0,0,0,10">
-            <Button Content="Add"
+            <Button ToolTip="{loc:T ui.tip.AddButton}" Content="Add"
                     Height="28"
                     Padding="12,0"
                     Margin="0,0,6,6"
                     Style="{StaticResource App.Button.Primary}"
                     Click="AddButton_Click" />
-            <Button Content="Edit"
+            <Button ToolTip="{loc:T ui.tip.EditButton}" Content="Edit"
                     Height="28"
                     Padding="12,0"
                     Margin="0,0,6,6"
                     Style="{StaticResource App.Button.Ghost}"
                     Click="EditButton_Click" />
-            <Button Content="Delete"
+            <Button ToolTip="{loc:T ui.tip.DeleteButton}" Content="Delete"
                     Height="28"
                     Padding="12,0"
                     Margin="0,0,6,6"
                     Style="{StaticResource App.Button.Ghost}"
                     Click="DeleteButton_Click" />
-            <Button Content="Duplicate"
+            <Button ToolTip="{loc:T ui.tip.DuplicateButton}" Content="Duplicate"
                     Height="28"
                     Padding="12,0"
                     Margin="0,0,6,6"
                     Style="{StaticResource App.Button.Ghost}"
                     Click="DuplicateButton_Click" />
-            <Button Content="Make global"
+            <Button ToolTip="{loc:T ui.tip.MakeGlobalButton}" Content="Make global"
                     Height="28"
                     Padding="12,0"
                     Margin="0,0,6,6"
                     Style="{StaticResource App.Button.Ghost}"
                     Click="MakeGlobalButton_Click" />
-            <Button Content="Restore built-in packs"
+            <Button ToolTip="{loc:T ui.tip.RestoreBuiltInPacksButton}" Content="Restore built-in packs"
                     Height="28"
                     Padding="12,0"
                     Margin="0,0,6,6"
@@ -217,7 +218,7 @@
                              Height="30"
                              IsReadOnly="True"
                              Margin="0,0,8,0" />
-                    <Button Grid.Column="1"
+                    <Button ToolTip="{loc:T ui.tip.ImportBrowseButton}" Grid.Column="1"
                             Content="Browse…"
                             Height="30"
                             Padding="12,0"
@@ -245,13 +246,13 @@
                           FontSize="12"
                           Margin="0,0,0,10" />
                 <WrapPanel>
-                    <Button Content="Import commands"
+                    <Button ToolTip="{loc:T ui.tip.ImportCommandsButton}" Content="Import commands"
                             Height="30"
                             Padding="14,0"
                             Margin="0,0,8,0"
                             Style="{StaticResource App.Button.Primary}"
                             Click="ImportCommandsButton_Click" />
-                    <Button Content="Open sample JSON"
+                    <Button ToolTip="{loc:T ui.tip.OpenSampleJsonButton}" Content="Open sample JSON"
                             Height="30"
                             Padding="12,0"
                             Style="{StaticResource App.Button.Ghost}"

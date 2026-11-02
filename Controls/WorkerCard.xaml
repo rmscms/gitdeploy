@@ -1,4 +1,5 @@
-<UserControl x:Class="GitDeployPro.Controls.WorkerCard"
+<UserControl
+        xmlns:loc="clr-namespace:GitDeployPro.Services.Localization" x:Class="GitDeployPro.Controls.WorkerCard"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:behaviors="clr-namespace:GitDeployPro.Behaviors"
@@ -73,23 +74,21 @@
                 <StackPanel Grid.Column="2"
                             Orientation="Horizontal"
                             VerticalAlignment="Top">
-                    <Button x:Name="PauseButton"
+                    <Button ToolTip="{loc:T ui.tip.PauseButton}" x:Name="PauseButton"
                             Width="28"
                             Height="28"
                             Margin="0,0,2,0"
                             Style="{StaticResource App.IconButton}"
-                            ToolTip="Pause / resume"
                             Click="PauseButton_Click">
                         <Path x:Name="PauseIcon"
                               behaviors:AppIcon.Kind="pause"
                               behaviors:AppIcon.Size="14"
                               TextElement.Foreground="{DynamicResource Text.Secondary}" />
                     </Button>
-                    <Button x:Name="CancelButton"
+                    <Button ToolTip="{loc:T ui.tip.CancelButton}" x:Name="CancelButton"
                             Width="28"
                             Height="28"
                             Style="{StaticResource App.IconButton}"
-                            ToolTip="Cancel"
                             Click="CancelButton_Click">
                         <Path behaviors:AppIcon.Kind="x"
                               behaviors:AppIcon.Size="14"

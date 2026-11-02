@@ -40,13 +40,13 @@
         <StackPanel Grid.Row="1"
                     Orientation="Horizontal"
                     Margin="0,0,0,8">
-            <Button Content="{loc:T deploy.remoteSelectAll}"
+            <Button ToolTip="{loc:T ui.tip.SelectAll}" Content="{loc:T deploy.remoteSelectAll}"
                     Style="{StaticResource App.Button.Ghost}"
                     Height="28"
                     Padding="10,0"
                     Margin="0,0,6,0"
                     Click="SelectAll_Click" />
-            <Button Content="{loc:T deploy.remoteDeselectAll}"
+            <Button ToolTip="{loc:T ui.tip.DeselectAll}" Content="{loc:T deploy.remoteDeselectAll}"
                     Style="{StaticResource App.Button.Ghost}"
                     Height="28"
                     Padding="10,0"
@@ -109,14 +109,14 @@
                     Orientation="Horizontal"
                     HorizontalAlignment="Right"
                     Margin="0,14,0,0">
-            <Button Content="{loc:T common.cancel}"
+            <Button ToolTip="{loc:T ui.tip.Cancel}" Content="{loc:T common.cancel}"
                     Style="{StaticResource App.Button.Ghost}"
                     Width="96"
                     Height="34"
                     Margin="0,0,8,0"
                     IsCancel="True"
                     Click="Cancel_Click" />
-            <Button Content="{loc:T deploy.sync.saveManifest}"
+            <Button ToolTip="{loc:T ui.tip.Save}" Content="{loc:T deploy.sync.saveManifest}"
                     Style="{StaticResource App.Button.Primary}"
                     Width="140"
                     Height="34"

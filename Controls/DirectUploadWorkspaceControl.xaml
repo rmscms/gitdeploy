@@ -164,7 +164,7 @@
                             <ColumnDefinition Width="8" />
                             <ColumnDefinition Width="1.6*" />
                         </Grid.ColumnDefinitions>
-                        <Button x:Name="StopButton"
+                        <Button ToolTip="{loc:T ui.tip.StopButton}" x:Name="StopButton"
                                 Grid.Column="0"
                                 Content="⛔ STOP"
                                 Height="38"
@@ -173,7 +173,7 @@
                                 Style="{StaticResource App.Button.Danger}"
                                 IsEnabled="False"
                                 Click="StopButton_Click" />
-                        <Button x:Name="StartUploadButton"
+                        <Button ToolTip="{loc:T ui.tip.StartUploadButton}" x:Name="StartUploadButton"
                                 Grid.Column="2"
                                 Content="🚀 START UPLOAD"
                                 Height="38"
@@ -221,7 +221,7 @@
                                 BorderBrush="{StaticResource Status.Success}"
                                 Background="{StaticResource Status.SuccessSurface}"
                                 Cursor="Hand"
-                                ToolTip="{loc:T deploy.selectAll}">
+                                ToolTip="{loc:T deploy.tip.selectAll}">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock x:Name="SelectionToggleIcon" Text="☑️" Foreground="{StaticResource Status.Success}" Margin="0,0,5,0" VerticalAlignment="Center" />
                                 <TextBlock x:Name="SelectionToggleLabel" Text="Select" Foreground="{StaticResource Status.Success}" VerticalAlignment="Center" FontWeight="SemiBold" FontSize="11" />
@@ -299,7 +299,7 @@
                                      VerticalContentAlignment="Center"
                                      TextChanged="LocalTreeSearchBox_TextChanged"
                                      PreviewKeyDown="LocalTreeSearchBox_PreviewKeyDown" />
-                            <Button x:Name="LocalTreeSearchClearButton"
+                            <Button ToolTip="{loc:T ui.tip.LocalTreeSearchClear}" x:Name="LocalTreeSearchClearButton"
                                     Grid.Column="1"
                                     Margin="6,0,0,0"
                                     Width="26"

@@ -1,4 +1,5 @@
-<Window x:Class="GitDeployPro.Windows.NewConnectionWindow"
+<Window
+        xmlns:loc="clr-namespace:GitDeployPro.Services.Localization" x:Class="GitDeployPro.Windows.NewConnectionWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="New Database Connection" 
@@ -24,7 +25,7 @@
                         <TextBlock Text="➕" FontSize="16" Margin="0,0,10,0"/>
                         <TextBlock Text="New Database Connection" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource Text.Primary}"/>
                     </StackPanel>
-                    <Button Content="✕" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0" 
+                    <Button ToolTip="{loc:T ui.tip.CloseButton}" Content="✕" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0" 
                             Width="30" Height="30" Style="{StaticResource App.IconButton.Close}"
                             Click="CloseButton_Click" Cursor="Hand"/>
                 </Grid>
@@ -66,8 +67,8 @@
             <!-- Footer -->
             <Border Grid.Row="2" Background="{StaticResource Surface.Card}" CornerRadius="0,0,10,10">
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,16,0">
-                    <Button Content="Cancel" Width="90" Height="34" Style="{StaticResource App.Button.Ghost}" Foreground="{StaticResource Text.Secondary}" Click="CancelButton_Click" Cursor="Hand" Margin="0,0,10,0"/>
-                    <Button x:Name="ConnectButton" Content="Connect" Width="100" Height="34" Style="{StaticResource App.Button.Primary}" Foreground="{StaticResource Text.Primary}" Click="ConnectButton_Click" Cursor="Hand" FontWeight="SemiBold"/>
+                    <Button ToolTip="{loc:T ui.tip.CancelButton}" Content="Cancel" Width="90" Height="34" Style="{StaticResource App.Button.Ghost}" Foreground="{StaticResource Text.Secondary}" Click="CancelButton_Click" Cursor="Hand" Margin="0,0,10,0"/>
+                    <Button ToolTip="{loc:T ui.tip.ConnectButton}" x:Name="ConnectButton" Content="Connect" Width="100" Height="34" Style="{StaticResource App.Button.Primary}" Foreground="{StaticResource Text.Primary}" Click="ConnectButton_Click" Cursor="Hand" FontWeight="SemiBold"/>
                 </StackPanel>
             </Border>
         </Grid>

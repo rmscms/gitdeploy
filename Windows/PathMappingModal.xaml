@@ -1,6 +1,7 @@
 <mah:MetroWindow x:Class="GitDeployPro.Windows.PathMappingModal"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:GitDeployPro.Services.Localization"
         xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
         Title="Path Mapping"
         Width="640"
@@ -121,16 +122,14 @@
                                                 Orientation="Horizontal"
                                                 HorizontalAlignment="Right"
                                                 VerticalAlignment="Center">
-                                        <Button Content="✎"
+                                        <Button ToolTip="{loc:T ui.tip.EditMapping}" Content="✎"
                                                 Style="{StaticResource Mapping.IconButton}"
                                                 Tag="{Binding}"
-                                                Click="EditMapping_Click"
-                                                ToolTip="Edit mapping" />
-                                        <Button Content="🗑"
+                                                Click="EditMapping_Click" />
+                                        <Button ToolTip="{loc:T ui.tip.DeleteMapping}" Content="🗑"
                                                 Style="{StaticResource Mapping.IconButton.Danger}"
                                                 Tag="{Binding}"
-                                                Click="DeleteMapping_Click"
-                                                ToolTip="Delete mapping" />
+                                                Click="DeleteMapping_Click" />
                                     </StackPanel>
                                 </Grid>
                             </DataTemplate>
@@ -202,14 +201,14 @@
                             Orientation="Horizontal"
                             HorizontalAlignment="Right"
                             Margin="0,12,0,0">
-                    <Button x:Name="SaveMappingButton"
+                    <Button ToolTip="{loc:T ui.tip.SaveMapping}" x:Name="SaveMappingButton"
                             Content="Save mapping"
                             Width="130"
                             Height="32"
                             Margin="0,0,8,0"
                             Style="{StaticResource App.Button.Primary}"
                             Click="SaveMapping_Click" />
-                    <Button Content="Cancel"
+                    <Button ToolTip="{loc:T ui.tip.CancelForm}" Content="Cancel"
                             Width="90"
                             Height="32"
                             Style="{StaticResource App.Button.Ghost}"
@@ -222,7 +221,7 @@
                     Orientation="Horizontal"
                     HorizontalAlignment="Right"
                     Margin="0,16,0,0">
-            <Button Content="Close"
+            <Button ToolTip="{loc:T ui.tip.Close}" Content="Close"
                     Width="90"
                     Height="32"
                     Style="{StaticResource App.Button.Ghost}"

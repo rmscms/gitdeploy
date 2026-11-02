@@ -1,4 +1,5 @@
-<Page x:Class="GitDeployPro.Pages.GitPage"
+<Page
+        xmlns:loc="clr-namespace:GitDeployPro.Services.Localization" x:Class="GitDeployPro.Pages.GitPage"
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:behaviors="clr-namespace:GitDeployPro.Behaviors"
@@ -28,13 +29,12 @@
                     </StackPanel>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <Button Content="🗖"
+                    <Button ToolTip="{loc:T ui.tip.DetachGitPage}" Content="🗖"
                             Style="{StaticResource DetachPageButtonStyle}"
                             Margin="0,0,8,0"
-                            ToolTip="Open in new window"
                             Click="DetachGitPage_Click"/>
 
-                    <Button x:Name="CloneRepoButton"
+                    <Button ToolTip="{loc:T ui.tip.CloneRepoButton}" x:Name="CloneRepoButton"
                             Height="40"
                             Padding="18,0"
                             Style="{StaticResource App.Button.Toolbar}"
@@ -61,7 +61,7 @@
                     </StackPanel>
 
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Button x:Name="PullButton"
+                        <Button ToolTip="{loc:T ui.tip.PullButton}" x:Name="PullButton"
                                 Content="⬇ Pull"
                                 Width="100"
                                 Height="40"
@@ -69,7 +69,7 @@
                                 Style="{StaticResource App.Button.Ghost}"
                                 Click="PullButton_Click" />
 
-                        <Button x:Name="PushButton"
+                        <Button ToolTip="{loc:T ui.tip.PushButton}" x:Name="PushButton"
                                 Content="⬆ Push"
                                 Width="100"
                                 Height="40"
@@ -106,7 +106,7 @@
                                  Foreground="{StaticResource Text.Primary}"
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"/>
 
-                        <Button x:Name="PushTagsButton"
+                        <Button ToolTip="{loc:T ui.tip.PushTagsButton}" x:Name="PushTagsButton"
                                 Grid.Row="2"
                                 Content="⬆ Push All Tags"
                                 Height="36"
@@ -134,7 +134,7 @@
                                  MinHeight="80"
                                  Margin="0,0,0,20"/>
 
-                        <Button x:Name="CreateTagButton"
+                        <Button ToolTip="{loc:T ui.tip.CreateTagButton}" x:Name="CreateTagButton"
                                 Content="Create &amp; Push Tag"
                                 Height="42"
                                 Style="{StaticResource App.Button.Success}"

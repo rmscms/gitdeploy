@@ -121,7 +121,7 @@
                     Orientation="Horizontal"
                     HorizontalAlignment="Right"
                     Margin="0,14,0,0">
-            <Button Content="{loc:T projectPicker.open}"
+            <Button ToolTip="{loc:T ui.tip.OpenButton}" Content="{loc:T projectPicker.open}"
                     Width="110"
                     Height="32"
                     Margin="0,0,10,0"
@@ -129,7 +129,7 @@
                     Foreground="{StaticResource Text.Primary}"
                     Click="OpenButton_Click"
                     IsDefault="True"/>
-            <Button Content="{loc:T projectPicker.cancel}"
+            <Button ToolTip="{loc:T ui.tip.CancelButton}" Content="{loc:T projectPicker.cancel}"
                     Width="90"
                     Height="32"
                     Style="{StaticResource App.Button.Ghost}"

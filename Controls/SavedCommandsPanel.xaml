@@ -1,4 +1,5 @@
-<UserControl x:Class="GitDeployPro.Controls.SavedCommandsPanel"
+<UserControl
+        xmlns:loc="clr-namespace:GitDeployPro.Services.Localization" x:Class="GitDeployPro.Controls.SavedCommandsPanel"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -148,27 +149,24 @@
                            VerticalAlignment="Center"
                            Margin="0,0,8,0" />
 
-                <Button DockPanel.Dock="Right"
+                <Button ToolTip="{loc:T ui.tip.Close}" DockPanel.Dock="Right"
                         Content="✕"
                         Style="{StaticResource SavedCmd.IconButton}"
                         Margin="4,0,0,0"
-                        ToolTip="Close"
                         Click="Close_Click" />
 
                 <StackPanel DockPanel.Dock="Right"
                             Orientation="Horizontal"
                             VerticalAlignment="Center">
-                    <ToggleButton x:Name="DockModeToggle"
+                    <ToggleButton ToolTip="{loc:T ui.tip.DockModeToggle}" x:Name="DockModeToggle"
                                   Content="Dock"
                                   Style="{StaticResource SavedCmd.ModeToggle}"
-                                  ToolTip="Open as a strip above the terminal"
                                   Checked="DockModeToggle_Checked"
                                   Unchecked="DockModeToggle_Unchecked" />
-                    <ToggleButton x:Name="FloatModeToggle"
+                    <ToggleButton ToolTip="{loc:T ui.tip.FloatModeToggle}" x:Name="FloatModeToggle"
                                   Content="Float"
                                   Style="{StaticResource SavedCmd.ModeToggle}"
                                   Margin="0"
-                                  ToolTip="Open as a helper window (terminal stays usable)"
                                   Checked="FloatModeToggle_Checked"
                                   Unchecked="FloatModeToggle_Unchecked" />
                 </StackPanel>
@@ -201,11 +199,10 @@
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
 
-                                    <Button Grid.Column="0"
+                                    <Button ToolTip="{loc:T ui.tip.Favorite}" Grid.Column="0"
                                             Content="★"
                                             Style="{StaticResource SavedCmd.FavButton}"
                                             Tag="{Binding Id}"
-                                            ToolTip="Remove from favorites"
                                             Foreground="{StaticResource Status.Warning}"
                                             Click="Favorite_Click" />
 
@@ -230,27 +227,23 @@
                                                ToolTip="{Binding Command}" />
 
                                     <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
-                                        <Button Content="▶"
+                                        <Button ToolTip="{loc:T ui.tip.RowRun}" Content="▶"
                                                 Style="{StaticResource SavedCmd.ActionIcon.Run}"
                                                 Tag="{Binding Id}"
-                                                Click="RowRun_Click"
-                                                ToolTip="Run in terminal (Enter)" />
-                                        <Button Content="⤵"
+                                                Click="RowRun_Click" />
+                                        <Button ToolTip="{loc:T ui.tip.RowInsert}" Content="⤵"
                                                 Style="{StaticResource SavedCmd.ActionIcon}"
                                                 Tag="{Binding Id}"
-                                                Click="RowInsert_Click"
-                                                ToolTip="Insert into terminal (no Enter)" />
-                                        <Button Content="✎"
+                                                Click="RowInsert_Click" />
+                                        <Button ToolTip="{loc:T ui.tip.RowEdit}" Content="✎"
                                                 Style="{StaticResource SavedCmd.ActionIcon}"
                                                 Tag="{Binding Id}"
-                                                Click="RowEdit_Click"
-                                                ToolTip="Edit command" />
-                                        <Button Content="🗑"
+                                                Click="RowEdit_Click" />
+                                        <Button ToolTip="{loc:T ui.tip.RowDelete}" Content="🗑"
                                                 Style="{StaticResource SavedCmd.ActionIcon.Danger}"
                                                 Tag="{Binding Id}"
                                                 Margin="0"
-                                                Click="RowDelete_Click"
-                                                ToolTip="Delete command" />
+                                                Click="RowDelete_Click" />
                                     </StackPanel>
                                 </Grid>
                             </DataTemplate>
@@ -286,27 +279,22 @@
                                   Margin="0,0,6,0"
                                   ToolTip="Other saved commands (not favorited)" />
                         <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                            <Button Content="★"
+                            <Button ToolTip="{loc:T ui.tip.MoreFavorite}" Content="★"
                                     Style="{StaticResource SavedCmd.FavButton}"
-                                    ToolTip="Add to favorites list"
                                     Click="MoreFavorite_Click" />
-                            <Button Content="▶"
+                            <Button ToolTip="{loc:T ui.tip.MoreRun}" Content="▶"
                                     Style="{StaticResource SavedCmd.ActionIcon.Run}"
-                                    Click="MoreRun_Click"
-                                    ToolTip="Run in terminal (Enter)" />
-                            <Button Content="⤵"
+                                    Click="MoreRun_Click" />
+                            <Button ToolTip="{loc:T ui.tip.MoreInsert}" Content="⤵"
                                     Style="{StaticResource SavedCmd.ActionIcon}"
-                                    Click="MoreInsert_Click"
-                                    ToolTip="Insert into terminal (no Enter)" />
-                            <Button Content="✎"
+                                    Click="MoreInsert_Click" />
+                            <Button ToolTip="{loc:T ui.tip.MoreEdit}" Content="✎"
                                     Style="{StaticResource SavedCmd.ActionIcon}"
-                                    Click="MoreEdit_Click"
-                                    ToolTip="Edit command" />
-                            <Button Content="🗑"
+                                    Click="MoreEdit_Click" />
+                            <Button ToolTip="{loc:T ui.tip.MoreDelete}" Content="🗑"
                                     Style="{StaticResource SavedCmd.ActionIcon.Danger}"
                                     Margin="0"
-                                    Click="MoreDelete_Click"
-                                    ToolTip="Delete selected" />
+                                    Click="MoreDelete_Click" />
                         </StackPanel>
                     </Grid>
                 </StackPanel>
@@ -330,26 +318,23 @@
                          Style="{StaticResource SavedCmd.SlimTextBox}"
                          ToolTip="Command to save / send" />
                 <StackPanel Grid.Column="2" Orientation="Horizontal">
-                    <Button x:Name="SaveButton"
+                    <Button ToolTip="{loc:T ui.tip.Save}" x:Name="SaveButton"
                             Content="Save"
                             Margin="0,0,4,0"
                             Style="{StaticResource SavedCmd.Button.Secondary}"
-                            Click="Save_Click"
-                            ToolTip="Save command preset" />
-                    <Button Content="▶"
+                            Click="Save_Click" />
+                    <Button ToolTip="{loc:T ui.tip.SendRun}" Content="▶"
                             Style="{StaticResource SavedCmd.ActionIcon.Run}"
                             Width="28"
                             Height="24"
                             Margin="0,0,2,0"
-                            Click="SendRun_Click"
-                            ToolTip="Run box text in terminal" />
-                    <Button Content="⤵"
+                            Click="SendRun_Click" />
+                    <Button ToolTip="{loc:T ui.tip.SendInsert}" Content="⤵"
                             Style="{StaticResource SavedCmd.ActionIcon}"
                             Width="28"
                             Height="24"
                             Margin="0"
-                            Click="SendInsert_Click"
-                            ToolTip="Insert box text (no Enter)" />
+                            Click="SendInsert_Click" />
                 </StackPanel>
             </Grid>
         </Grid>

@@ -1,4 +1,5 @@
-<Window x:Class="GitDeployPro.Windows.InitGitWindow"
+<Window
+        xmlns:loc="clr-namespace:GitDeployPro.Services.Localization" x:Class="GitDeployPro.Windows.InitGitWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Initialize Git Repository" Height="450" Width="600"
@@ -64,7 +65,7 @@
 
             <!-- Footer Buttons -->
             <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
-                <Button Content="Cancel" 
+                <Button ToolTip="{loc:T ui.tip.Close}" Content="Cancel" 
                         Height="40" 
                         Width="100" 
                         Margin="0,0,15,0"
@@ -73,7 +74,7 @@
                         Cursor="Hand"
                         Click="Close_Click"/>
 
-                <Button x:Name="InitButton"
+                <Button ToolTip="{loc:T ui.tip.Init}" x:Name="InitButton"
                         Content="🚀 Initialize &amp; Create" 
                         Height="40" 
                         Padding="20,0"

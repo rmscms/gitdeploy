@@ -359,7 +359,7 @@
                                             </StackPanel>
                                         </Button>
                                     </StackPanel>
-                                    <Button x:Name="ActionButton"
+                                    <Button ToolTip="{loc:T ui.tip.ActionButton}" x:Name="ActionButton"
                                             Content="🔍 COMPARE"
                                             MinWidth="176"
                                             Height="36"
@@ -368,7 +368,7 @@
                                             FontWeight="SemiBold"
                                             Style="{StaticResource App.Button.Primary}"
                                             Click="ActionButton_Click" />
-                                    <Button x:Name="DeployButton"
+                                    <Button ToolTip="{loc:T ui.tip.DeployButton}" x:Name="DeployButton"
                                             Content="🔄 SYNC"
                                             MinWidth="176"
                                             Height="36"
@@ -705,7 +705,7 @@
                     BorderBrush="{StaticResource Border.Subtle}"
                     BorderThickness="0,1,0,0"
                     Cursor="SizeNS"
-                    ToolTip="{loc:T deploy.resizeBottom}"
+                    ToolTip="{loc:T deploy.tip.resizeBottom}"
                     MouseLeftButtonDown="BottomDockResizeGrip_MouseLeftButtonDown"
                     MouseMove="BottomDockResizeGrip_MouseMove"
                     MouseLeftButtonUp="BottomDockResizeGrip_MouseLeftButtonUp"
@@ -778,7 +778,7 @@
                                                 FontWeight="SemiBold"
                                                 ToolTip="{loc:T deploy.tip.newLocalTerminal}"
                                                 Click="NewTerminalTabButton_Click" />
-                                        <Button x:Name="NewTerminalMenuButton"
+                                        <Button ToolTip="{loc:T ui.tip.NewTerminalMenuButton}" x:Name="NewTerminalMenuButton"
                                                 Style="{StaticResource DeployTerminalPickerChevronStyle}"
                                                 Click="NewTerminalMenuButton_Click">
                                             <Viewbox Width="9" Height="9" Stretch="Uniform">

@@ -127,14 +127,14 @@
                         Orientation="Horizontal"
                         HorizontalAlignment="Right"
                         Margin="0,18,0,0">
-                <Button x:Name="SecondaryButton"
+                <Button ToolTip="{loc:T ui.tip.SecondaryButton}" x:Name="SecondaryButton"
                         MinWidth="110"
                         Height="36"
                         Margin="0,0,8,0"
                         Style="{StaticResource App.Button.Ghost}"
                         Content="Later"
                         Click="SecondaryButton_Click" />
-                <Button x:Name="PrimaryButton"
+                <Button ToolTip="{loc:T ui.tip.PrimaryButton}" x:Name="PrimaryButton"
                         MinWidth="130"
                         Height="36"
                         Style="{StaticResource App.Button.Primary}"

@@ -1,4 +1,5 @@
-<Window x:Class="GitDeployPro.Windows.RollbackPreviewWindow"
+<Window
+        xmlns:loc="clr-namespace:GitDeployPro.Services.Localization" x:Class="GitDeployPro.Windows.RollbackPreviewWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:GitDeployPro.Controls"
@@ -47,7 +48,7 @@
                                    Margin="0,2,0,0" />
                     </StackPanel>
                 </StackPanel>
-                <Button Content="✕"
+                <Button ToolTip="{loc:T ui.tip.Cancel}" Content="✕"
                         Width="30"
                         Height="30"
                         HorizontalAlignment="Right"
@@ -74,23 +75,21 @@
                     </Grid.ColumnDefinitions>
 
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <Button x:Name="NewerCommitButton"
+                        <Button ToolTip="{loc:T ui.tip.NewerCommitButton}" x:Name="NewerCommitButton"
                                 Content="← Newer"
                                 Height="28"
                                 Padding="10,0"
                                 Margin="0,0,6,0"
                                 Style="{StaticResource App.Button.Ghost}"
                                 FontSize="11"
-                                Click="NewerCommitButton_Click"
-                                ToolTip="Go to a newer commit" />
-                        <Button x:Name="OlderCommitButton"
+                                Click="NewerCommitButton_Click" />
+                        <Button ToolTip="{loc:T ui.tip.OlderCommitButton}" x:Name="OlderCommitButton"
                                 Content="Older →"
                                 Height="28"
                                 Padding="10,0"
                                 Style="{StaticResource App.Button.Ghost}"
                                 FontSize="11"
-                                Click="OlderCommitButton_Click"
-                                ToolTip="Go further back in history" />
+                                Click="OlderCommitButton_Click" />
                     </StackPanel>
 
                     <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
@@ -236,7 +235,7 @@
                       Content="Also redeploy affected files to FTP after rollback" />
 
             <DockPanel Grid.Row="4" Margin="0,14,0,0" LastChildFill="False">
-                <Button DockPanel.Dock="Left"
+                <Button ToolTip="{loc:T ui.tip.RollbackFileButton}" DockPanel.Dock="Left"
                         x:Name="RollbackFileButton"
                         Content="↩ Rollback this file"
                         Height="36"
@@ -244,23 +243,21 @@
                         Style="{StaticResource App.Button.Ghost}"
                         FontWeight="SemiBold"
                         IsEnabled="False"
-                        ToolTip="Create a new commit that undoes only the selected file"
                         Click="RollbackFileButton_Click" />
 
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                    <Button Content="Cancel"
+                    <Button ToolTip="{loc:T ui.tip.Cancel}" Content="Cancel"
                             Height="36"
                             MinWidth="100"
                             Margin="0,0,10,0"
                             Style="{StaticResource App.Button.Ghost}"
                             Click="Cancel_Click" />
-                    <Button x:Name="ConfirmButton"
+                    <Button ToolTip="{loc:T ui.tip.RollbackCommitButton}" x:Name="ConfirmButton"
                             Content="↩ Rollback whole commit"
                             Height="36"
                             MinWidth="200"
                             Style="{StaticResource App.Button.Primary}"
                             FontWeight="Bold"
-                            ToolTip="git revert the selected commit, then push"
                             Click="RollbackCommitButton_Click" />
                 </StackPanel>
             </DockPanel>

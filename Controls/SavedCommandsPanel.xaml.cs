@@ -1,3 +1,4 @@
+using GitDeployPro.Services.Localization;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -423,7 +424,7 @@ namespace GitDeployPro.Controls
             if (SaveButton != null)
             {
                 SaveButton.Content = "Update";
-                SaveButton.ToolTip = "Update this command";
+                SaveButton.ToolTip = Loc.T("deploy.tip.updateCommand");
             }
 
             PresetCommandBox.Focus();
@@ -436,7 +437,7 @@ namespace GitDeployPro.Controls
             if (SaveButton != null)
             {
                 SaveButton.Content = "Save";
-                SaveButton.ToolTip = "Save command preset";
+                SaveButton.ToolTip = Loc.T("deploy.tip.saveCommandPreset");
             }
         }
 

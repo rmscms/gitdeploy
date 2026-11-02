@@ -3004,7 +3004,7 @@ namespace GitDeployPro.Controls
             {
                 SelectionToggleIcon.Text = "⬜";
                 SelectionToggleLabel.Text = Loc.T("deploy.clearSelection");
-                SelectionToggleButton.ToolTip = Loc.T("deploy.deselectAll");
+                SelectionToggleButton.ToolTip = Loc.T("deploy.tip.deselectAll");
 
                 var accent = TryFindResource("Status.Error") as System.Windows.Media.Brush
                              ?? System.Windows.Media.Brushes.OrangeRed;
@@ -3020,7 +3020,7 @@ namespace GitDeployPro.Controls
             {
                 SelectionToggleIcon.Text = "☑️";
                 SelectionToggleLabel.Text = Loc.T("deploy.selectAllShort");
-                SelectionToggleButton.ToolTip = Loc.T("deploy.selectAll");
+                SelectionToggleButton.ToolTip = Loc.T("deploy.tip.selectAll");
 
                 var accent = TryFindResource("Status.Success") as System.Windows.Media.Brush
                              ?? System.Windows.Media.Brushes.LightGreen;

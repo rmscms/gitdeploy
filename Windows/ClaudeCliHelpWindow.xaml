@@ -1,4 +1,5 @@
-<Window x:Class="GitDeployPro.Windows.ClaudeCliHelpWindow"
+<Window
+        xmlns:loc="clr-namespace:GitDeployPro.Services.Localization" x:Class="GitDeployPro.Windows.ClaudeCliHelpWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
@@ -78,25 +79,25 @@
                     Orientation="Horizontal"
                     HorizontalAlignment="Right"
                     Margin="0,12,0,0">
-            <Button x:Name="LoginButton"
+            <Button ToolTip="{loc:T ui.tip.LoginButton}" x:Name="LoginButton"
                     MinWidth="120"
                     Height="36"
                     Margin="0,0,8,0"
                     Style="{StaticResource App.Button.Primary}"
                     Click="LoginButton_Click" />
-            <Button x:Name="TestButton"
+            <Button ToolTip="{loc:T ui.tip.TestButton}" x:Name="TestButton"
                     MinWidth="100"
                     Height="36"
                     Margin="0,0,8,0"
                     Style="{StaticResource App.Button.Secondary}"
                     Click="TestButton_Click" />
-            <Button x:Name="DocsButton"
+            <Button ToolTip="{loc:T ui.tip.DocsButton}" x:Name="DocsButton"
                     MinWidth="90"
                     Height="36"
                     Margin="0,0,8,0"
                     Style="{StaticResource App.Button.Ghost}"
                     Click="DocsButton_Click" />
-            <Button x:Name="CloseButton"
+            <Button ToolTip="{loc:T ui.tip.CloseButton}" x:Name="CloseButton"
                     MinWidth="100"
                     Height="36"
                     Style="{StaticResource App.Button.Ghost}"

@@ -58,11 +58,11 @@
                     </ComboBox.Resources>
                 </ComboBox>
 
-                <Button Content="🔌 Quick Connect" Margin="10,0,0,0" Height="28" Padding="10,0"
+                <Button ToolTip="{loc:T ui.tip.QuickConnect}" Content="🔌 Quick Connect" Margin="10,0,0,0" Height="28" Padding="10,0"
                         Style="{StaticResource App.Button.Primary}" Foreground="{StaticResource Text.Primary}"
                         Click="QuickConnect_Click"/>
 
-                <Button Content="⚙️ Manage Profiles" Margin="10,0,0,0" Height="28" Padding="10,0"
+                <Button ToolTip="{loc:T ui.tip.ManageProfiles}" Content="⚙️ Manage Profiles" Margin="10,0,0,0" Height="28" Padding="10,0"
                         Style="{StaticResource App.Button.Ghost}" Foreground="{StaticResource Text.Secondary}"
                         Click="ManageProfiles_Click"/>
             </StackPanel>

@@ -60,7 +60,7 @@
                         Height="28"
                         Padding="10,0"
                         Click="RestartShell_Click"
-                        ToolTip="{loc:T terminal.projectLocalRestartTip}">
+                        ToolTip="{loc:T terminal.tip.projectLocalRestart}">
                     <StackPanel Orientation="Horizontal">
                         <ui:SymbolIcon Symbol="ArrowClockwise24" FontSize="14" Margin="0,0,6,0"
                                        Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />

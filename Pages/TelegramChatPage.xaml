@@ -191,13 +191,13 @@
                                     Padding="10,6"
                                     Style="{StaticResource App.Button.Secondary}"
                                     Click="ClearChatButton_Click"
-                                    ToolTip="{loc:T telegram.clearLocalTooltip}" />
+                                    ToolTip="{loc:T telegram.tip.clearLocal}" />
                             <Button x:Name="WipeTelegramButton"
                                     Content="{loc:T telegram.btnWipeTelegram}"
                                     Padding="10,6"
                                     Style="{StaticResource App.Button.Secondary}"
                                     Click="WipeTelegramButton_Click"
-                                    ToolTip="{loc:T telegram.wipeTelegramTooltip}" />
+                                    ToolTip="{loc:T telegram.tip.wipeTelegram}" />
                         </StackPanel>
                     </Grid>
                 </Border>
@@ -291,7 +291,7 @@
                         BorderBrush="{StaticResource Border.Subtle}"
                         BorderThickness="0,1,0,0">
                     <DockPanel>
-                        <Button DockPanel.Dock="Right"
+                        <Button ToolTip="{loc:T ui.tip.ClearPendingPhoto}" DockPanel.Dock="Right"
                                 Content="{loc:T telegram.clearPhoto}"
                                 Style="{StaticResource App.Button.Ghost}"
                                 Height="28"
@@ -318,7 +318,7 @@
                         <Button Style="{StaticResource App.IconButton}"
                                 Width="36"
                                 Height="36"
-                                ToolTip="{loc:T telegram.attach}"
+                                ToolTip="{loc:T telegram.tip.attach}"
                                 Click="AttachPhoto_Click">
                             <ui:SymbolIcon Symbol="Attach24" FontSize="16" Foreground="{StaticResource Text.Secondary}" />
                         </Button>
@@ -334,7 +334,7 @@
                                  mah:TextBoxHelper.Watermark="{loc:T telegram.composerHint}"
                                  PreviewKeyDown="ComposerBox_PreviewKeyDown"
                                  TextChanged="ComposerBox_TextChanged" />
-                        <Button Grid.Column="2"
+                        <Button ToolTip="{loc:T ui.tip.SendButton}" Grid.Column="2"
                                 Height="36"
                                 MinWidth="88"
                                 Style="{StaticResource App.Button.Primary}"

@@ -3015,7 +3015,7 @@ namespace GitDeployPro.Controls
             if (ToggleRemoteCheckboxModeButton != null)
             {
                 ToggleRemoteCheckboxModeButton.ToolTip = enabled
-                    ? Loc.T("deploy.remoteCheckboxMode.on")
+                    ? Loc.T("deploy.tip.remoteCheckboxModeOn")
                     : Loc.T("deploy.tip.remoteCheckboxMode");
                 var tokens = ThemeService.Instance.CurrentTokens;
                 var activeColor = tokens.GetColor(
@@ -3122,8 +3122,8 @@ namespace GitDeployPro.Controls
             var count = CountCheckedDownloadTargets();
             DownloadCheckedButton.IsEnabled = count > 0;
             DownloadCheckedButton.ToolTip = count > 0
-                ? $"{Loc.T("deploy.remoteDownloadChecked")} ({count})"
-                : Loc.T("deploy.remoteDownloadChecked");
+                ? $"{Loc.T("deploy.tip.remoteDownloadChecked")} ({count})"
+                : Loc.T("deploy.tip.remoteDownloadChecked");
         }
 
         private IReadOnlyList<AppContextMenuAction> BuildCheckedDownloadContextActions()

@@ -1,6 +1,7 @@
 <mah:MetroWindow x:Class="GitDeployPro.Windows.LocalItemPropertiesWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:GitDeployPro.Services.Localization"
         xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
         Title="Properties"
         Width="520"
@@ -86,13 +87,13 @@
         </Border>
 
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
-            <Button Content="Copy path"
+            <Button ToolTip="{loc:T ui.tip.CopyPath}" Content="Copy path"
                     Width="110"
                     Height="32"
                     Margin="0,0,8,0"
                     Style="{StaticResource App.Button.Ghost}"
                     Click="CopyPath_Click" />
-            <Button Content="Close"
+            <Button ToolTip="{loc:T ui.tip.Close}" Content="Close"
                     Width="90"
                     Height="32"
                     Style="{StaticResource App.Button.Primary}"

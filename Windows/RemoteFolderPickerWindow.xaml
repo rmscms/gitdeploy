@@ -1,6 +1,7 @@
 <mah:MetroWindow x:Class="GitDeployPro.Windows.RemoteFolderPickerWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:GitDeployPro.Services.Localization"
         xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
         Title="Move to..."
         Height="480"
@@ -85,7 +86,7 @@
                    Text="Selected: —"/>
 
         <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button x:Name="OkButton"
+            <Button ToolTip="{loc:T ui.tip.OkButton_Move}" x:Name="OkButton"
                     Content="Move Here"
                     Width="110"
                     Height="32"
@@ -98,7 +99,7 @@
                     IsEnabled="False"
                     Click="OkButton_Click"
                     IsDefault="True"/>
-            <Button Content="Cancel"
+            <Button ToolTip="{loc:T ui.tip.CancelButton}" Content="Cancel"
                     Width="90"
                     Height="32"
                     Style="{StaticResource App.Button.Ghost}"

@@ -1,6 +1,7 @@
 <mah:MetroWindow x:Class="GitDeployPro.Pages.BackupHistoryWindow"
                  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:GitDeployPro.Services.Localization"
                  xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
                  Title="Backup history"
                  Width="980"
@@ -27,7 +28,7 @@
                        FontWeight="SemiBold"
                        Foreground="{StaticResource Text.Primary}"
                        VerticalAlignment="Center"/>
-            <Button Content="🗑 Clear backup history"
+            <Button ToolTip="{loc:T ui.tip.ClearBackupHistory}" Content="🗑 Clear backup history"
                     DockPanel.Dock="Right"
                     HorizontalAlignment="Right"
                     Style="{StaticResource App.Button.Ghost}"
@@ -143,7 +144,7 @@
                 <DataGridTemplateColumn Header="Import" Width="110">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <Button Content="Import/Validate"
+                            <Button ToolTip="{loc:T ui.tip.ImportValidateFromHistory}" Content="Import/Validate"
                                     Padding="10,4"
                                     CommandParameter="{Binding}"
                                     Click="ImportValidateFromHistory_Click">

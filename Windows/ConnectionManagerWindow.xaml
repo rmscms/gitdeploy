@@ -178,14 +178,13 @@
                              Padding="10,0"
                              mah:TextBoxHelper.Watermark="Search by name, host, db..."
                              TextChanged="ConnectionSearchBox_TextChanged"/>
-                    <Button Grid.Column="1"
+                    <Button ToolTip="{loc:T ui.tip.ClearSearchButton}" Grid.Column="1"
                             x:Name="ClearSearchButton"
                             Content="✕"
                             Width="34"
                             Height="34"
                             Margin="8,0,0,0"
                             Style="{StaticResource App.IconButton}"
-                            ToolTip="Clear search"
                             Click="ClearSearchButton_Click"/>
                 </Grid>
 
@@ -374,16 +373,15 @@
 
                 <!-- Toolbar (Add/Remove) -->
                 <StackPanel Grid.Row="3" Orientation="Horizontal" Background="{StaticResource Surface.Shell}" Height="42" VerticalAlignment="Center" Margin="8,0,8,0">
-                    <Button x:Name="AddButton" Content="+" Style="{StaticResource SidebarIconActionButton}" Foreground="{StaticResource Text.Secondary}" Click="AddButton_Click" ToolTip="Add New Connection"/>
-                    <Button x:Name="DeleteButton" Content="−" Style="{StaticResource SidebarIconActionButton}" Foreground="{StaticResource Text.Secondary}" Click="DeleteButton_Click" ToolTip="Remove Connection"/>
-                    <Button Content="📥 Import Navicat"
+                    <Button ToolTip="{loc:T ui.tip.AddButton}" x:Name="AddButton" Content="+" Style="{StaticResource SidebarIconActionButton}" Foreground="{StaticResource Text.Secondary}" Click="AddButton_Click"/>
+                    <Button ToolTip="{loc:T ui.tip.DeleteButton}" x:Name="DeleteButton" Content="−" Style="{StaticResource SidebarIconActionButton}" Foreground="{StaticResource Text.Secondary}" Click="DeleteButton_Click"/>
+                    <Button ToolTip="{loc:T ui.tip.ImportNavicatButton}" Content="📥 Import Navicat"
                             Margin="8,0,0,0"
                             Padding="12,0"
                             Background="Transparent"
                             Foreground="{StaticResource Status.Success}"
                             BorderThickness="0"
                             Cursor="Hand"
-                            ToolTip="Import Navicat export (*.ncx / *.xml)"
                             Click="ImportNavicatButton_Click"/>
                 </StackPanel>
             </Grid>
@@ -508,11 +506,10 @@
                                                      Visibility="Collapsed"
                                                      TextChanged="PassRevealTextBox_TextChanged"/>
                                         </Grid>
-                                        <Button x:Name="PassRevealButton"
+                                        <Button ToolTip="{loc:T ui.tip.PassRevealButton}" x:Name="PassRevealButton"
                                                 Grid.Column="2"
                                                 Content="👁"
                                                 Style="{StaticResource PasswordRevealButtonStyle}"
-                                                ToolTip="Show/Hide password"
                                                 Click="PassRevealButton_Click"/>
                                     </Grid>
                                 </StackPanel>
@@ -520,7 +517,7 @@
 
                             <!-- Test Connection (under Authentication) -->
                             <StackPanel Margin="0,0,0,20">
-                                <Button x:Name="TestRemoteButton"
+                                <Button ToolTip="{loc:T ui.tip.TestButton_Conn}" x:Name="TestRemoteButton"
                                         Content="⚡ Test Connection"
                                         HorizontalAlignment="Left"
                                         Style="{StaticResource App.Button.Primary}"
@@ -550,7 +547,7 @@
                                 
                                 <Label Grid.Row="0" Content="Root Path:"/>
                                 <TextBox x:Name="RootPathBox" Grid.Row="0" Grid.Column="1"/>
-                                <Button Grid.Row="0" Grid.Column="2" Content="📁 Browse" Margin="10,0,0,0" 
+                                <Button ToolTip="{loc:T ui.tip.BrowseButton}" Grid.Row="0" Grid.Column="2" Content="📁 Browse" Margin="10,0,0,0" 
                                         Style="{StaticResource ModernButtonStyle}" Height="30" Padding="10,0"
                                         Click="BrowseButton_Click"/>
 
@@ -575,7 +572,7 @@
                                              MaxHeight="140"
                                              VerticalScrollBarVisibility="Auto"
                                              mah:TextBoxHelper.Watermark="cd /var/www/myproject"
-                                             ToolTip="{loc:T connection.sshStartupCommandTip}"/>
+                                             ToolTip="{loc:T connection.tip.sshStartupCommand}"/>
                                     <Button Grid.Column="2"
                                             Content="{loc:T connection.fillStartupFromRootPath}"
                                             Margin="10,0,0,0"
@@ -583,13 +580,13 @@
                                             Style="{StaticResource ModernButtonStyle}"
                                             Height="30"
                                             Padding="10,0"
-                                            ToolTip="{loc:T connection.fillStartupFromRootPathTip}"
+                                            ToolTip="{loc:T connection.tip.fillStartupFromRootPath}"
                                             Click="FillStartupFromRootPathButton_Click"/>
                                 </Grid>
                                 <CheckBox x:Name="RunSshStartupCommandCheck"
                                           Content="{loc:T connection.runSshStartupCommand}"
                                           IsChecked="True"
-                                          ToolTip="{loc:T connection.runSshStartupCommandTip}"/>
+                                          ToolTip="{loc:T connection.tip.runSshStartupCommand}"/>
                             </StackPanel>
 
                             <!-- Advanced Options -->
@@ -673,18 +670,17 @@
                                                      Visibility="Collapsed"
                                                      TextChanged="DbPassRevealTextBox_TextChanged"/>
                                         </Grid>
-                                        <Button x:Name="DbPassRevealButton"
+                                        <Button ToolTip="{loc:T ui.tip.DbPassRevealButton}" x:Name="DbPassRevealButton"
                                                 Grid.Column="2"
                                                 Content="👁"
                                                 Style="{StaticResource PasswordRevealButtonStyle}"
-                                                ToolTip="Show/Hide password"
                                                 Click="DbPassRevealButton_Click"/>
                                     </Grid>
                                 </StackPanel>
                             </GroupBox>
 
                             <StackPanel>
-                                <Button x:Name="TestDatabaseButton"
+                                <Button ToolTip="{loc:T ui.tip.TestDatabase}" x:Name="TestDatabaseButton"
                                         Content="🔌 Test Database Connection"
                                         HorizontalAlignment="Left"
                                         Style="{StaticResource ModernButtonStyle}"
@@ -738,13 +734,13 @@
                                 <TextBlock Text="Remote Path (e.g. /public_html)" Foreground="{StaticResource Text.Secondary}" FontSize="12"/>
                                 <TextBox x:Name="RemoteMappingTextBox" mah:TextBoxHelper.Watermark="/public_html"/>
                             </StackPanel>
-                            <Button Content="Save Mapping"
+                            <Button ToolTip="{loc:T ui.tip.SaveMappingButton}" Content="Save Mapping"
                                     Width="130"
                                     Margin="0,22,10,0"
                                     Style="{StaticResource ModernButtonStyle}"
                                     Background="{StaticResource Accent.Primary}"
                                     Click="SaveMappingButton_Click"/>
-                            <Button Content="Delete"
+                            <Button ToolTip="{loc:T ui.tip.DeleteMappingButton}" Content="Delete"
                                     Width="90"
                                     Margin="0,22,0,0"
                                     Style="{StaticResource ModernButtonStyle}"
@@ -758,10 +754,10 @@
             <!-- Footer Actions -->
             <Border Grid.Row="2" Background="{StaticResource Surface.Shell}" BorderThickness="0,1,0,0" BorderBrush="{StaticResource Border.Subtle}" Padding="20">
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                    <Button Content="Save Connection" Width="140" Height="35" Margin="0,0,15,0" 
+                    <Button ToolTip="{loc:T ui.tip.SaveButton}" Content="Save Connection" Width="140" Height="35" Margin="0,0,15,0" 
                             Style="{StaticResource App.Button.Primary}"
                             Click="SaveButton_Click"/>
-                    <Button Content="Cancel" Width="100" Height="35" 
+                    <Button ToolTip="{loc:T ui.tip.CancelButton}" Content="Cancel" Width="100" Height="35" 
                             Style="{StaticResource App.Button.Ghost}"
                             Click="CancelButton_Click"/>
                 </StackPanel>
@@ -792,7 +788,7 @@
                                Foreground="{StaticResource Text.Muted}"
                                TextAlignment="Center"
                                TextWrapping="Wrap"/>
-                    <Button Content="+ Create new connection"
+                    <Button ToolTip="{loc:T ui.tip.AddButton}" Content="+ Create new connection"
                             Margin="0,16,0,0"
                             HorizontalAlignment="Center"
                             Style="{StaticResource App.Button.Primary}"
@@ -842,7 +838,7 @@
                                TextAlignment="Center"
                                TextWrapping="Wrap"
                                Margin="0,0,0,14"/>
-                    <Button x:Name="RemoteTestOverlayCancelButton"
+                    <Button ToolTip="{loc:T ui.tip.CancelRemoteTestButton}" x:Name="RemoteTestOverlayCancelButton"
                             Content="Cancel Test"
                             Width="120"
                             Height="32"
@@ -894,7 +890,7 @@
                                TextAlignment="Center"
                                TextWrapping="Wrap"
                                Margin="0,0,0,14"/>
-                    <Button x:Name="DatabaseTestOverlayCancelButton"
+                    <Button ToolTip="{loc:T ui.tip.CancelDatabaseTestButton}" x:Name="DatabaseTestOverlayCancelButton"
                             Content="Cancel Test"
                             Width="120"
                             Height="32"

@@ -71,12 +71,12 @@
         <StackPanel Grid.Row="4"
                     Orientation="Horizontal"
                     Margin="0,12,0,0">
-            <Button Content="{loc:T telegram.workspace.add}"
+            <Button ToolTip="{loc:T ui.tip.ManageWorkspaceAdd}" Content="{loc:T telegram.workspace.add}"
                     Style="{StaticResource App.Button.Secondary}"
                     Padding="12,6"
                     Margin="0,0,8,0"
                     Click="AddButton_Click" />
-            <Button Content="{loc:T telegram.workspace.remove}"
+            <Button ToolTip="{loc:T ui.tip.ManageWorkspaceRemove}" Content="{loc:T telegram.workspace.remove}"
                     Style="{StaticResource App.Button.Ghost}"
                     Padding="12,6"
                     Click="RemoveButton_Click" />
@@ -86,14 +86,14 @@
                     Orientation="Horizontal"
                     HorizontalAlignment="Right"
                     Margin="0,16,0,0">
-            <Button Content="{loc:T telegram.workspace.save}"
+            <Button ToolTip="{loc:T ui.tip.SaveButton}" Content="{loc:T telegram.workspace.save}"
                     Style="{StaticResource App.Button.Primary}"
                     Width="100"
                     Height="32"
                     Margin="0,0,8,0"
                     Click="SaveButton_Click"
                     IsDefault="True" />
-            <Button Content="{loc:T telegram.workspace.cancel}"
+            <Button ToolTip="{loc:T ui.tip.CancelButton}" Content="{loc:T telegram.workspace.cancel}"
                     Style="{StaticResource App.Button.Ghost}"
                     Width="100"
                     Height="32"

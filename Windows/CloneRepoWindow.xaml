@@ -1,4 +1,5 @@
-<Window x:Class="GitDeployPro.Windows.CloneRepoWindow"
+<Window
+        xmlns:loc="clr-namespace:GitDeployPro.Services.Localization" x:Class="GitDeployPro.Windows.CloneRepoWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Clone Repository" Height="520" Width="640"
@@ -41,7 +42,7 @@
                                    Margin="0,4,0,0"/>
                     </StackPanel>
                 </StackPanel>
-                <Button Content="✕"
+                <Button ToolTip="{loc:T ui.tip.Close}" Content="✕"
                         Grid.Column="1"
                         Width="36"
                         Height="36"
@@ -147,7 +148,7 @@
                              Padding="10"
                              FontSize="13"
                              TextChanged="LocalPathTextBox_TextChanged"/>
-                    <Button Content="Use Default"
+                    <Button ToolTip="{loc:T ui.tip.UseDefaultPath}" Content="Use Default"
                             Grid.Column="1"
                             Height="40"
                             Margin="10,0,0,0"
@@ -156,7 +157,7 @@
                             Foreground="{StaticResource Text.Secondary}"
                             Cursor="Hand"
                             Click="UseDefaultPath_Click"/>
-                    <Button Content="Browse"
+                    <Button ToolTip="{loc:T ui.tip.BrowseLocalButton}" Content="Browse"
                             Grid.Column="2"
                             Height="40"
                             Margin="10,0,0,0"
@@ -174,7 +175,7 @@
 
             <!-- Footer Buttons -->
             <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
-                <Button Content="Cancel"
+                <Button ToolTip="{loc:T ui.tip.Close}" Content="Cancel"
                         Height="42"
                         Width="110"
                         Margin="0,0,15,0"
@@ -182,7 +183,7 @@
                         Foreground="{StaticResource Text.Secondary}"
                         Cursor="Hand"
                         Click="Close_Click"/>
-                <Button x:Name="CloneButton"
+                <Button ToolTip="{loc:T ui.tip.CloneButton}" x:Name="CloneButton"
                         Content="🚀 Clone Now"
                         Height="42"
                         Width="150"

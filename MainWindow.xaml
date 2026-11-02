@@ -218,7 +218,7 @@
                                     Click="NavMenuButton_Click"
                                     MouseEnter="NavMenuButton_MouseEnter"
                                     MouseLeave="NavMenuButton_MouseLeave"
-                                    ToolTip="{loc:T nav.menu}"
+                                    ToolTip="{loc:T nav.tip.menu}"
                                     ToolTipService.InitialShowDelay="400">
                                 <Path behaviors:AppIcon.Kind="menu" behaviors:AppIcon.Size="16" />
                             </Button>
@@ -269,7 +269,7 @@
                                     Margin="0,0,6,0"
                                     WindowChrome.IsHitTestVisibleInChrome="True"
                                     Click="OpenExplorer_Click"
-                                    ToolTip="{loc:T nav.openExplorer}">
+                                    ToolTip="{loc:T nav.tip.openExplorer}">
                                 <Path behaviors:AppIcon.Kind="folder-open" behaviors:AppIcon.Size="16" />
                             </Button>
                             <Button x:Name="HeaderLocalTerminalBtn"
@@ -323,7 +323,7 @@
                                     <DropShadowEffect BlurRadius="18" Opacity="0.4" Color="Black" ShadowDepth="4" />
                                 </Border.Effect>
                                 <StackPanel x:Name="NavMenuItemsPanel">
-                                    <Button x:Name="NavItemDeploy"
+                                    <Button ToolTip="{loc:T ui.tip.NavItemDeploy}" x:Name="NavItemDeploy"
                                             Style="{StaticResource NavPopupItemStyle}"
                                             Tag="deploy"
                                             Click="Deploy_Click">
@@ -332,7 +332,7 @@
                                             <TextBlock Text="{loc:T nav.deploy}" FontSize="12.5" VerticalAlignment="Center" />
                                         </StackPanel>
                                     </Button>
-                                    <Button x:Name="NavItemDashboard"
+                                    <Button ToolTip="{loc:T ui.tip.NavItemDashboard}" x:Name="NavItemDashboard"
                                             Style="{StaticResource NavPopupItemStyle}"
                                             Tag="dashboard"
                                             Click="Dashboard_Click">
@@ -341,7 +341,7 @@
                                             <TextBlock Text="{loc:T nav.dashboard}" FontSize="12.5" VerticalAlignment="Center" />
                                         </StackPanel>
                                     </Button>
-                                    <Button x:Name="NavItemDirectUpload"
+                                    <Button ToolTip="{loc:T ui.tip.NavItemDirectUpload}" x:Name="NavItemDirectUpload"
                                             Style="{StaticResource NavPopupItemStyle}"
                                             Tag="direct-upload"
                                             Click="DirectUpload_Click">
@@ -350,7 +350,7 @@
                                             <TextBlock Text="{loc:T nav.directUpload}" FontSize="12.5" VerticalAlignment="Center" />
                                         </StackPanel>
                                     </Button>
-                                    <Button x:Name="NavItemDatabase"
+                                    <Button ToolTip="{loc:T ui.tip.NavItemDatabase}" x:Name="NavItemDatabase"
                                             Style="{StaticResource NavPopupItemStyle}"
                                             Tag="database"
                                             Click="Database_Click">
@@ -359,7 +359,7 @@
                                             <TextBlock Text="{loc:T nav.database}" FontSize="12.5" VerticalAlignment="Center" />
                                         </StackPanel>
                                     </Button>
-                                    <Button x:Name="NavItemGit"
+                                    <Button ToolTip="{loc:T ui.tip.NavItemGit}" x:Name="NavItemGit"
                                             Style="{StaticResource NavPopupItemStyle}"
                                             Tag="git"
                                             Click="Git_Click">
@@ -368,7 +368,7 @@
                                             <TextBlock Text="{loc:T nav.gitHub}" FontSize="12.5" VerticalAlignment="Center" />
                                         </StackPanel>
                                     </Button>
-                                    <Button x:Name="NavItemBackup"
+                                    <Button ToolTip="{loc:T ui.tip.NavItemBackup}" x:Name="NavItemBackup"
                                             Style="{StaticResource NavPopupItemStyle}"
                                             Tag="backup-scheduler"
                                             Click="BackupScheduler_Click">
@@ -397,7 +397,7 @@
                                             </Border>
                                         </Grid>
                                     </Button>
-                                    <Button x:Name="NavItemHistory"
+                                    <Button ToolTip="{loc:T ui.tip.NavItemHistory}" x:Name="NavItemHistory"
                                             Style="{StaticResource NavPopupItemStyle}"
                                             Tag="history"
                                             Click="History_Click">
@@ -406,7 +406,7 @@
                                             <TextBlock Text="{loc:T nav.history}" FontSize="12.5" VerticalAlignment="Center" />
                                         </StackPanel>
                                     </Button>
-                                    <Button x:Name="NavItemTelegram"
+                                    <Button ToolTip="{loc:T ui.tip.NavItemTelegram}" x:Name="NavItemTelegram"
                                             Style="{StaticResource NavPopupItemStyle}"
                                             Tag="telegram"
                                             Click="Telegram_Click">
@@ -418,7 +418,7 @@
 
                                     <Separator Background="{StaticResource Border.Subtle}" Margin="4,6" Height="1" />
 
-                                    <Button x:Name="NavItemSettings"
+                                    <Button ToolTip="{loc:T ui.tip.NavItemSettings}" x:Name="NavItemSettings"
                                             Style="{StaticResource NavPopupItemStyle}"
                                             Tag="settings"
                                             Click="Settings_Click">
@@ -431,13 +431,13 @@
                                             Style="{StaticResource NavPopupItemStyle}"
                                             Tag="check-updates"
                                             Click="CheckForUpdates_Click"
-                                            ToolTip="{loc:T about.checkUpdates}">
+                                            ToolTip="{loc:T nav.tip.checkUpdatesMenu}">
                                         <StackPanel Orientation="Horizontal">
                                             <Path behaviors:AppIcon.Kind="refresh" behaviors:AppIcon.Size="15" Margin="0,0,8,0" Opacity="0.75" />
                                             <TextBlock Text="{loc:T about.checkUpdates}" FontSize="12.5" VerticalAlignment="Center" />
                                         </StackPanel>
                                     </Button>
-                                    <Button x:Name="NavItemAbout"
+                                    <Button ToolTip="{loc:T ui.tip.NavItemAbout}" x:Name="NavItemAbout"
                                             Style="{StaticResource NavPopupItemStyle}"
                                             Tag="about"
                                             Click="About_Click">
@@ -449,7 +449,7 @@
 
                                     <Separator Background="{StaticResource Border.Subtle}" Margin="4,6" Height="1" />
 
-                                    <Button x:Name="NavItemExit"
+                                    <Button ToolTip="{loc:T ui.tip.NavItemExit}" x:Name="NavItemExit"
                                             Style="{StaticResource NavPopupItemStyle}"
                                             Tag="exit"
                                             Click="Exit_Click">
@@ -486,7 +486,7 @@
                                     <DropShadowEffect BlurRadius="20" Opacity="0.35" Color="Black" ShadowDepth="4" />
                                 </Border.Effect>
                                 <StackPanel>
-                                    <Button Style="{StaticResource ProjectPopupActionButtonStyle}" Click="OpenProject_Click">
+                                    <Button ToolTip="{loc:T ui.tip.OpenProject}" Style="{StaticResource ProjectPopupActionButtonStyle}" Click="OpenProject_Click">
                                         <Grid MinWidth="260">
                                             <StackPanel Orientation="Horizontal">
                                             <Path behaviors:AppIcon.Kind="folder-open" behaviors:AppIcon.Size="16" Margin="0,0,10,0" TextElement.Foreground="{DynamicResource Accent.Primary}" />
@@ -503,7 +503,7 @@
                                     <ItemsControl x:Name="RecentProjectsList">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
-                                                <Button Style="{StaticResource ProjectPopupActionButtonStyle}"
+                                                <Button ToolTip="{loc:T ui.tip.RecentProject}" Style="{StaticResource ProjectPopupActionButtonStyle}"
                                                         Click="RecentProject_Click"
                                                         Tag="{Binding Path}">
                                                     <StackPanel Orientation="Horizontal">
@@ -532,7 +532,7 @@
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
-                                    <Button x:Name="MoreProjectsButton"
+                                    <Button ToolTip="{loc:T ui.tip.MoreProjectsButton}" x:Name="MoreProjectsButton"
                                             Style="{StaticResource ProjectPopupActionButtonStyle}"
                                             Click="MoreProjects_Click"
                                             Visibility="Collapsed"

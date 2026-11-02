@@ -1,6 +1,7 @@
 <mah:MetroWindow x:Class="GitDeployPro.Windows.SessionManagerWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:GitDeployPro.Services.Localization"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
@@ -59,15 +60,15 @@
 
                 <!-- Toolbar Buttons -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal">
-                    <Button Content="🔗" ToolTip="Link" Width="32" Height="32" Margin="2" Style="{StaticResource App.IconButton}" Click="LinkButton_Click"/>
-                    <Button Content="📎" ToolTip="Attach" Width="32" Height="32" Margin="2" Style="{StaticResource App.IconButton}"/>
-                    <Button Content="+" ToolTip="Add Folder" Width="32" Height="32" Margin="2" Style="{StaticResource App.IconButton}" Background="{StaticResource Status.Success}" BorderBrush="{StaticResource Status.Success}" Foreground="{StaticResource Text.Inverse}" Click="AddFolderButton_Click"/>
-                    <Button Content="–" ToolTip="Remove" Width="32" Height="32" Margin="2" Style="{StaticResource App.IconButton}" Background="{StaticResource Status.Error}" BorderBrush="{StaticResource Status.Error}" Foreground="{StaticResource Text.Primary}" Click="RemoveButton_Click"/>
-                    <Button Content="📁" ToolTip="New Folder" Width="32" Height="32" Margin="2" Style="{StaticResource App.IconButton}" Background="{StaticResource Accent.Secondary}" BorderBrush="{StaticResource Accent.Secondary}" Foreground="{StaticResource Text.Primary}" Click="NewFolderButton_Click"/>
-                    <Button Content="❌" ToolTip="Delete" Width="32" Height="32" Margin="2" Style="{StaticResource App.IconButton}" Background="{StaticResource Status.Error}" BorderBrush="{StaticResource Status.Error}" Foreground="{StaticResource Text.Primary}" Click="DeleteButton_Click"/>
-                    <Button Content="⚙️" ToolTip="Settings" Width="32" Height="32" Margin="2" Style="{StaticResource App.IconButton}"/>
-                    <Button Content="◀" ToolTip="Back" Width="32" Height="32" Margin="2" Style="{StaticResource App.IconButton}"/>
-                    <Button Content="▶" ToolTip="Forward" Width="32" Height="32" Margin="2" Style="{StaticResource App.IconButton}"/>
+                    <Button ToolTip="{loc:T ui.tip.LinkButton}" Content="🔗" Width="32" Height="32" Margin="2" Style="{StaticResource App.IconButton}" Click="LinkButton_Click"/>
+                    <Button Content="📎" ToolTip="{loc:T ui.tip.SessionAttach}" Width="32" Height="32" Margin="2" Style="{StaticResource App.IconButton}"/>
+                    <Button ToolTip="{loc:T ui.tip.AddFolderButton}" Content="+" Width="32" Height="32" Margin="2" Style="{StaticResource App.IconButton}" Background="{StaticResource Status.Success}" BorderBrush="{StaticResource Status.Success}" Foreground="{StaticResource Text.Inverse}" Click="AddFolderButton_Click"/>
+                    <Button ToolTip="{loc:T ui.tip.RemoveButton}" Content="–" Width="32" Height="32" Margin="2" Style="{StaticResource App.IconButton}" Background="{StaticResource Status.Error}" BorderBrush="{StaticResource Status.Error}" Foreground="{StaticResource Text.Primary}" Click="RemoveButton_Click"/>
+                    <Button ToolTip="{loc:T ui.tip.NewFolderButton}" Content="📁" Width="32" Height="32" Margin="2" Style="{StaticResource App.IconButton}" Background="{StaticResource Accent.Secondary}" BorderBrush="{StaticResource Accent.Secondary}" Foreground="{StaticResource Text.Primary}" Click="NewFolderButton_Click"/>
+                    <Button ToolTip="{loc:T ui.tip.DeleteButton}" Content="❌" Width="32" Height="32" Margin="2" Style="{StaticResource App.IconButton}" Background="{StaticResource Status.Error}" BorderBrush="{StaticResource Status.Error}" Foreground="{StaticResource Text.Primary}" Click="DeleteButton_Click"/>
+                    <Button Content="⚙️" ToolTip="{loc:T ui.tip.SessionSettings}" Width="32" Height="32" Margin="2" Style="{StaticResource App.IconButton}"/>
+                    <Button Content="◀" ToolTip="{loc:T ui.tip.SessionBack}" Width="32" Height="32" Margin="2" Style="{StaticResource App.IconButton}"/>
+                    <Button Content="▶" ToolTip="{loc:T ui.tip.SessionForward}" Width="32" Height="32" Margin="2" Style="{StaticResource App.IconButton}"/>
                 </StackPanel>
             </Grid>
         </Border>

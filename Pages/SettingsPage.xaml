@@ -42,7 +42,7 @@
                                 BorderThickness="{TemplateBinding BorderThickness}"
                                 CornerRadius="12">
                             <DockPanel>
-                                <ToggleButton x:Name="HeaderToggle"
+                                <ToggleButton ToolTip="{loc:T ui.tip.HeaderToggle}" x:Name="HeaderToggle"
                                               DockPanel.Dock="Top"
                                               IsChecked="{Binding IsExpanded, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
                                               Background="Transparent"
@@ -207,7 +207,7 @@
                                Margin="10,0,0,8" />
                     <TextBlock DockPanel.Dock="Bottom" Text="Ctrl+S to save  -  Ctrl+F to search" FontSize="10" Foreground="{DynamicResource Text.Muted}" Margin="10,10,0,0" TextWrapping="Wrap" />
                     <StackPanel>
-                        <Button x:Name="NavGeneralButton"
+                        <Button ToolTip="{loc:T ui.tip.SettingsNav}" x:Name="NavGeneralButton"
                                 Style="{StaticResource Settings.NavButton.Active}"
                                 Click="SettingsNav_Click"
                                 Tag="general">
@@ -217,7 +217,7 @@
                                 <TextBlock Grid.Column="1" Text="General" VerticalAlignment="Center" />
                             </Grid>
                         </Button>
-                        <Button x:Name="NavServerButton"
+                        <Button ToolTip="{loc:T ui.tip.SettingsNav}" x:Name="NavServerButton"
                                 Style="{StaticResource Settings.NavButton}"
                                 Click="SettingsNav_Click"
                                 Tag="server">
@@ -230,7 +230,7 @@
                                 </Border>
                             </Grid>
                         </Button>
-                        <Button x:Name="NavGitButton"
+                        <Button ToolTip="{loc:T ui.tip.SettingsNav}" x:Name="NavGitButton"
                                 Style="{StaticResource Settings.NavButton}"
                                 Click="SettingsNav_Click"
                                 Tag="git">
@@ -240,7 +240,7 @@
                                 <TextBlock Grid.Column="1" Text="Git" VerticalAlignment="Center" />
                             </Grid>
                         </Button>
-                        <Button x:Name="NavTerminalButton"
+                        <Button ToolTip="{loc:T ui.tip.SettingsNav}" x:Name="NavTerminalButton"
                                 Style="{StaticResource Settings.NavButton}"
                                 Click="SettingsNav_Click"
                                 Tag="terminal">
@@ -250,7 +250,7 @@
                                 <TextBlock Grid.Column="1" Text="Terminal" VerticalAlignment="Center" />
                             </Grid>
                         </Button>
-                        <Button x:Name="NavTelegramButton"
+                        <Button ToolTip="{loc:T ui.tip.SettingsNav}" x:Name="NavTelegramButton"
                                 Style="{StaticResource Settings.NavButton}"
                                 Click="SettingsNav_Click"
                                 Tag="telegram">
@@ -263,7 +263,7 @@
                                 </Border>
                             </Grid>
                         </Button>
-                        <Button x:Name="NavAiAgentButton"
+                        <Button ToolTip="{loc:T ui.tip.SettingsNav}" x:Name="NavAiAgentButton"
                                 Style="{StaticResource Settings.NavButton}"
                                 Click="SettingsNav_Click"
                                 Tag="ai-agent">
@@ -273,7 +273,7 @@
                                 <TextBlock Grid.Column="1" Text="AI agent" VerticalAlignment="Center" />
                             </Grid>
                         </Button>
-                        <Button x:Name="NavVpnButton"
+                        <Button ToolTip="{loc:T ui.tip.SettingsNav}" x:Name="NavVpnButton"
                                 Style="{StaticResource Settings.NavButton}"
                                 Click="SettingsNav_Click"
                                 Tag="vpn">
@@ -299,7 +299,7 @@
                     <Path behaviors:AppIcon.Kind="search" behaviors:AppIcon.Size="16" Margin="12,0,8,0" TextElement.Foreground="{DynamicResource Text.Muted}" />
                     <TextBlock Grid.Column="1" Text="Search settings in this section..." IsHitTestVisible="False" VerticalAlignment="Center" Margin="2,0,0,0" FontSize="13" Foreground="{DynamicResource Text.Muted}" x:Name="SettingsSearchPlaceholder" />
                     <TextBox x:Name="SettingsSearchBox" Grid.Column="1" BorderThickness="0" Background="Transparent" Foreground="{DynamicResource Text.Primary}" CaretBrush="{DynamicResource Text.Primary}" VerticalContentAlignment="Center" FontSize="13" TextChanged="SettingsSearchBox_TextChanged" />
-                    <Button x:Name="SettingsSearchClearButton" Grid.Column="2" Width="28" Height="28" Margin="0,0,6,0" Padding="0" Style="{StaticResource App.IconButton}" Visibility="Collapsed" Click="SettingsSearchClear_Click" ToolTip="Clear">
+                    <Button ToolTip="{loc:T ui.tip.SettingsSearchClearButton}" x:Name="SettingsSearchClearButton" Grid.Column="2" Width="28" Height="28" Margin="0,0,6,0" Padding="0" Style="{StaticResource App.IconButton}" Visibility="Collapsed" Click="SettingsSearchClear_Click">
                         <Path behaviors:AppIcon.Kind="x" behaviors:AppIcon.Size="14" TextElement.Foreground="{DynamicResource Text.Muted}" />
                     </Button>
                 </Grid>
@@ -329,7 +329,7 @@
                                                TextTrimming="CharacterEllipsis"
                                                Margin="0,2,0,0" />
                                 </StackPanel>
-                                <Button x:Name="BrowseLocalButton"
+                                <Button ToolTip="{loc:T ui.tip.BrowseLocalButton}" x:Name="BrowseLocalButton"
                                         Grid.Column="1"
                                         Content="Browse"
                                         Height="32"
@@ -381,7 +381,7 @@
                                           FontSize="12"
                                           VerticalAlignment="Center"
                                           Margin="0,0,12,0" />
-                                <Button Content="Add Now"
+                                <Button ToolTip="{loc:T ui.tip.AddGitIgnore}" Content="Add Now"
                                         Height="28"
                                         Padding="12,0"
                                         Style="{StaticResource App.Button.Ghost}"
@@ -544,7 +544,7 @@
                             <StackPanel>
                                 <TextBlock x:Name="UpdateVersionText" Text="Current version: -" Foreground="{StaticResource Text.Secondary}" FontSize="12" />
                                 <TextBlock x:Name="UpdateLastCheckText" Text="Last automatic check: never" Foreground="{StaticResource Text.Muted}" FontSize="11" Margin="0,4,0,0" TextWrapping="Wrap" />
-                                <Button x:Name="CheckForUpdatesButton"
+                                <Button ToolTip="{loc:T ui.tip.CheckForUpdatesButton}" x:Name="CheckForUpdatesButton"
                                         Content="Check for updates now"
                                         Height="32"
                                         Margin="0,10,0,0"
@@ -581,9 +581,9 @@
                                          Foreground="{StaticResource Text.Secondary}"
                                          FontFamily="{StaticResource FontFamily.Mono}" />
                                 <WrapPanel Margin="0,10,0,0">
-                                    <Button x:Name="RefreshStartupAuditButton" Content="Refresh" Height="30" Padding="12,0" Margin="0,0,8,8" Style="{StaticResource App.Button.Ghost}" Click="RefreshStartupAuditButton_Click" />
-                                    <Button x:Name="UseCurrentStartupButton" Content="Use this version" Height="30" Padding="12,0" Margin="0,0,8,8" Style="{StaticResource App.Button.Primary}" Click="UseCurrentStartupButton_Click" />
-                                    <Button x:Name="RemoveStartupEntriesButton" Content="Remove startup entries" Height="30" Padding="12,0" Margin="0,0,0,8" Style="{StaticResource App.Button.Ghost}" Click="RemoveStartupEntriesButton_Click" />
+                                    <Button ToolTip="{loc:T ui.tip.RefreshStartupAuditButton}" x:Name="RefreshStartupAuditButton" Content="Refresh" Height="30" Padding="12,0" Margin="0,0,8,8" Style="{StaticResource App.Button.Ghost}" Click="RefreshStartupAuditButton_Click" />
+                                    <Button ToolTip="{loc:T ui.tip.UseCurrentStartupButton}" x:Name="UseCurrentStartupButton" Content="Use this version" Height="30" Padding="12,0" Margin="0,0,8,8" Style="{StaticResource App.Button.Primary}" Click="UseCurrentStartupButton_Click" />
+                                    <Button ToolTip="{loc:T ui.tip.RemoveStartupEntriesButton}" x:Name="RemoveStartupEntriesButton" Content="Remove startup entries" Height="30" Padding="12,0" Margin="0,0,0,8" Style="{StaticResource App.Button.Ghost}" Click="RemoveStartupEntriesButton_Click" />
                                 </WrapPanel>
                             </StackPanel>
                         </Expander>
@@ -615,7 +615,7 @@
                                                TextWrapping="Wrap"
                                                Margin="0,0,0,10"
                                                Text="No project selected." />
-                                    <Button x:Name="RemoveProjectFromAppButton"
+                                    <Button ToolTip="{loc:T ui.tip.RemoveProjectFromAppButton}" x:Name="RemoveProjectFromAppButton"
                                             Content="Remove project from app"
                                             Height="32"
                                             HorizontalAlignment="Left"
@@ -822,7 +822,7 @@
                                             Style="{StaticResource App.Button.Ghost}"
                                             ToolTip="{loc:T deploy.tip.addFtpProfile}"
                                             Click="AddFtpProfileButton_Click" />
-                                    <Button x:Name="ManageConnectionsButton"
+                                    <Button ToolTip="{loc:T ui.tip.ManageConnectionsButton}" x:Name="ManageConnectionsButton"
                                             Grid.Column="2"
                                             Content="Manage profiles"
                                             Height="36"
@@ -882,13 +882,13 @@
                                              Margin="0,0,0,10"
                                              Style="{StaticResource App.InputPasswordBox}" />
                                 <StackPanel Orientation="Horizontal">
-                                    <Button Content="Export…"
+                                    <Button ToolTip="{loc:T ui.tip.ExportServerConfigButton}" Content="Export…"
                                             Height="34"
                                             Padding="14,0"
                                             Margin="0,0,8,0"
                                             Style="{StaticResource App.Button.Ghost}"
                                             Click="ExportServerConfigButton_Click" />
-                                    <Button Content="Import…"
+                                    <Button ToolTip="{loc:T ui.tip.ImportServerConfigButton}" Content="Import…"
                                             Height="34"
                                             Padding="14,0"
                                             Style="{StaticResource App.Button.Primary}"
@@ -930,7 +930,7 @@
                                 </StackPanel>
                             </Expander.Header>
                             <StackPanel>
-                                <Button x:Name="ReSetupButton"
+                                <Button ToolTip="{loc:T ui.tip.ReSetupButton}" x:Name="ReSetupButton"
                                         Content="Re-run setup wizard"
                                         Height="34"
                                         HorizontalAlignment="Left"
@@ -955,7 +955,7 @@
                                                    Margin="0,4,0,10" />
                                         <CheckBox x:Name="ResetGitInSettingsCheckBox" Content="Remove .git folder" Foreground="{StaticResource Text.Primary}" FontSize="12" Margin="0,0,0,6" />
                                         <CheckBox x:Name="ResetConfigInSettingsCheckBox" Content="Remove .gitdeploy.config" Foreground="{StaticResource Text.Primary}" FontSize="12" Margin="0,0,0,10" />
-                                        <Button x:Name="ResetAndRunSetupButton"
+                                        <Button ToolTip="{loc:T ui.tip.ResetAndRunSetupButton}" x:Name="ResetAndRunSetupButton"
                                                 Content="Reset and run wizard"
                                                 Height="34"
                                                 HorizontalAlignment="Left"
@@ -1004,14 +1004,14 @@
                                              Grid.Column="0"
                                              Style="{StaticResource App.InputTextBox}"
                                              VerticalAlignment="Center" />
-                                    <Button Grid.Column="1"
+                                    <Button ToolTip="{loc:T ui.tip.BrowseSshKeyButton}" Grid.Column="1"
                                             Content="Browse"
                                             Height="32"
                                             Padding="12,0"
                                             Margin="8,0,0,0"
                                             Style="{StaticResource App.Button.Ghost}"
                                             Click="BrowseSshKeyButton_Click" />
-                                    <Button Grid.Column="2"
+                                    <Button ToolTip="{loc:T ui.tip.TestSshKeyButton}" Grid.Column="2"
                                             Content="Test"
                                             Height="32"
                                             Padding="12,0"
@@ -1019,7 +1019,7 @@
                                             Style="{StaticResource App.Button.Ghost}"
                                             Click="TestSshKeyButton_Click" />
                                 </Grid>
-                                <Button Content="Open SSH key helper"
+                                <Button ToolTip="{loc:T ui.tip.OpenSshKeyHelperButton}" Content="Open SSH key helper"
                                         Height="30"
                                         HorizontalAlignment="Left"
                                         Padding="12,0"
@@ -1056,7 +1056,7 @@
                                         <ComboBox x:Name="DefaultTargetBranchComboBox" Height="36" Style="{StaticResource App.InputComboBox}" />
                                     </StackPanel>
                                 </Grid>
-                                <Button x:Name="RefreshBranchesButton"
+                                <Button ToolTip="{loc:T ui.tip.RefreshBranchesButton}" x:Name="RefreshBranchesButton"
                                         Content="Refresh branches"
                                         Height="30"
                                         HorizontalAlignment="Left"
@@ -1128,7 +1128,7 @@
                                                                FontSize="12"
                                                                Foreground="{StaticResource Log.Success}"
                                                                TextTrimming="CharacterEllipsis" />
-                                                    <Button Grid.Column="1"
+                                                    <Button ToolTip="{loc:T ui.tip.RemoveIgnorePattern}" Grid.Column="1"
                                                             Content="Remove"
                                                             Height="28"
                                                             MinWidth="78"
@@ -1203,7 +1203,7 @@
                                     <TextBox x:Name="VpnGuiPathTextBox"
                                              Style="{StaticResource App.InputTextBox}"
                                              mah:TextBoxHelper.Watermark="C:\Program Files\OpenVPN Connect\OpenVPNConnect.exe" />
-                                    <Button Grid.Column="1"
+                                    <Button ToolTip="{loc:T ui.tip.VpnDetectButton}" Grid.Column="1"
                                             Content="{loc:T vpn.detect}"
                                             Height="34"
                                             MinWidth="88"
@@ -1227,7 +1227,7 @@
                                             </DataTemplate>
                                         </ComboBox.ItemTemplate>
                                     </ComboBox>
-                                    <Button Grid.Column="1"
+                                    <Button ToolTip="{loc:T ui.tip.VpnRefreshProfilesButton}" Grid.Column="1"
                                             Content="{loc:T vpn.refreshProfiles}"
                                             Height="34"
                                             MinWidth="88"
@@ -1273,25 +1273,25 @@
                                          mah:TextBoxHelper.Watermark="optional e.g. 10.8.0.1" />
 
                                 <WrapPanel Margin="0,14,0,8">
-                                    <Button Content="{loc:T vpn.connect}"
+                                    <Button ToolTip="{loc:T ui.tip.VpnConnectButton}" Content="{loc:T vpn.connect}"
                                             Height="32"
                                             MinWidth="96"
                                             Margin="0,0,8,8"
                                             Style="{StaticResource App.Button.Primary}"
                                             Click="VpnConnectButton_Click" />
-                                    <Button Content="{loc:T vpn.disconnect}"
+                                    <Button ToolTip="{loc:T ui.tip.VpnDisconnectButton}" Content="{loc:T vpn.disconnect}"
                                             Height="32"
                                             MinWidth="96"
                                             Margin="0,0,8,8"
                                             Style="{StaticResource App.Button.Ghost}"
                                             Click="VpnDisconnectButton_Click" />
-                                    <Button Content="{loc:T vpn.reconnect}"
+                                    <Button ToolTip="{loc:T ui.tip.VpnReconnectButton}" Content="{loc:T vpn.reconnect}"
                                             Height="32"
                                             MinWidth="96"
                                             Margin="0,0,8,8"
                                             Style="{StaticResource App.Button.Ghost}"
                                             Click="VpnReconnectButton_Click" />
-                                    <Button Content="{loc:T vpn.save}"
+                                    <Button ToolTip="{loc:T ui.tip.VpnSaveButton}" Content="{loc:T vpn.save}"
                                             Height="32"
                                             MinWidth="96"
                                             Margin="0,0,0,8"
@@ -1351,12 +1351,12 @@
                                            TextWrapping="Wrap" />
 
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                                    <Button Content="Test connection"
+                                    <Button ToolTip="{loc:T ui.tip.TelegramTestButton}" Content="Test connection"
                                             Height="32"
                                             MinWidth="120"
                                             Style="{StaticResource App.Button.Ghost}"
                                             Click="TelegramTestButton_Click" />
-                                    <Button Content="Save Telegram"
+                                    <Button ToolTip="{loc:T ui.tip.TelegramSaveButton}" Content="Save Telegram"
                                             Height="32"
                                             MinWidth="120"
                                             Margin="8,0,0,0"
@@ -1483,32 +1483,30 @@
                                            TextWrapping="Wrap" />
 
                                 <StackPanel Orientation="Horizontal" Margin="0,14,0,10">
-                                    <Button x:Name="CursorInstallButton"
+                                    <Button ToolTip="{loc:T ui.tip.CursorInstallButton}" x:Name="CursorInstallButton"
                                             Content="Install CLI"
                                             Height="32"
                                             MinWidth="120"
                                             Style="{StaticResource App.Button.Primary}"
-                                            Click="CursorInstallButton_Click"
-                                            ToolTip="Runs: irm 'https://cursor.com/install?win32=true' | iex" />
-                                    <Button Content="Detect agent"
+                                            Click="CursorInstallButton_Click" />
+                                    <Button ToolTip="{loc:T ui.tip.CursorDetectButton}" Content="Detect agent"
                                             Height="32"
                                             MinWidth="120"
                                             Margin="8,0,0,0"
                                             Style="{StaticResource App.Button.Ghost}"
                                             Click="CursorDetectButton_Click" />
-                                    <Button Content="Save Cursor"
+                                    <Button ToolTip="{loc:T ui.tip.CursorSaveButton}" Content="Save Cursor"
                                             Height="32"
                                             MinWidth="120"
                                             Margin="8,0,0,0"
                                             Style="{StaticResource App.Button.Ghost}"
                                             Click="CursorSaveButton_Click" />
-                                    <Button Content="Login &amp; Test"
+                                    <Button ToolTip="{loc:T ui.tip.CursorHelpButton}" Content="Login &amp; Test"
                                             Height="32"
                                             MinWidth="120"
                                             Margin="8,0,0,0"
                                             Style="{StaticResource App.Button.Ghost}"
-                                            Click="CursorHelpButton_Click"
-                                            ToolTip="Opens Cursor CLI login + connection test" />
+                                            Click="CursorHelpButton_Click" />
                                 </StackPanel>
                                 <TextBlock x:Name="CursorStatusText"
                                            FontSize="11"
@@ -1538,25 +1536,23 @@
                                                    TextWrapping="Wrap"
                                                    Text="Safe frees backup DB + old agent CLI + UI caches. Never deletes live state.vscdb (chats). Also available in Telegram: /cursorcache" />
                                         <StackPanel Orientation="Horizontal">
-                                            <Button Content="Refresh"
+                                            <Button ToolTip="{loc:T ui.tip.CursorDiskRefresh}" Content="Refresh"
                                                     Height="32"
                                                     MinWidth="100"
                                                     Style="{StaticResource App.Button.Ghost}"
                                                     Click="CursorDiskRefresh_Click" />
-                                            <Button Content="Safe clear"
+                                            <Button ToolTip="{loc:T ui.tip.CursorDiskSafeClear}" Content="Safe clear"
                                                     Height="32"
                                                     MinWidth="120"
                                                     Margin="8,0,0,0"
                                                     Style="{StaticResource App.Button.Primary}"
-                                                    Click="CursorDiskSafeClear_Click"
-                                                    ToolTip="Deletes backup DB, old agent CLI builds, UI caches. Never deletes live state.vscdb." />
-                                            <Button Content="Aggressive"
+                                                    Click="CursorDiskSafeClear_Click" />
+                                            <Button ToolTip="{loc:T ui.tip.CursorDiskAggressiveClear}" Content="Aggressive"
                                                     Height="32"
                                                     MinWidth="110"
                                                     Margin="8,0,0,0"
                                                     Style="{StaticResource App.Button.Ghost}"
-                                                    Click="CursorDiskAggressiveClear_Click"
-                                                    ToolTip="Safe + snapshots + local edit History. Still keeps live chats DB." />
+                                                    Click="CursorDiskAggressiveClear_Click" />
                                         </StackPanel>
                                         <TextBlock x:Name="CursorDiskResultText"
                                                    Margin="0,8,0,0"
@@ -1653,20 +1649,19 @@
                                         </ListView>
 
                                         <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                                            <Button x:Name="CursorChatsRefreshBtn"
+                                            <Button ToolTip="{loc:T ui.tip.CursorChatsRefresh}" x:Name="CursorChatsRefreshBtn"
                                                     Content="Refresh chats"
                                                     Height="32"
                                                     MinWidth="110"
                                                     Style="{StaticResource App.Button.Ghost}"
                                                     Click="CursorChatsRefresh_Click" />
-                                            <Button x:Name="CursorChatsDeleteBtn"
+                                            <Button ToolTip="{loc:T ui.tip.CursorChatsDeleteOld}" x:Name="CursorChatsDeleteBtn"
                                                     Content="Delete old chats"
                                                     Height="32"
                                                     MinWidth="140"
                                                     Margin="8,0,0,0"
                                                     Style="{StaticResource App.Button.Primary}"
-                                                    Click="CursorChatsDeleteOld_Click"
-                                                    ToolTip="Deletes selected projects' chats older than the chosen age. Cursor must be closed. Backup first. Login/auth is never deleted." />
+                                                    Click="CursorChatsDeleteOld_Click" />
                                         </StackPanel>
                                         <ProgressBar x:Name="CursorChatsProgress"
                                                      Height="8"
@@ -1778,7 +1773,7 @@
                                                 </WrapPanel>
 
                                                 <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                                                    <Button x:Name="CursorAutoCleanRunNowBtn"
+                                                    <Button ToolTip="{loc:T ui.tip.CursorAutoCleanRunNow}" x:Name="CursorAutoCleanRunNowBtn"
                                                             Content="Run now"
                                                             Height="30"
                                                             MinWidth="90"
@@ -1842,32 +1837,30 @@
                                 <TextBlock Text="Max minutes per turn (5-180)" Margin="0,14,0,6" Style="{StaticResource App.MutedTextStyle}" FontSize="11" />
                                 <TextBox x:Name="ClaudeTurnTimeoutTextBox" Style="{StaticResource App.InputTextBox}" MaxWidth="120" HorizontalAlignment="Left" />
                                 <WrapPanel Orientation="Horizontal" Margin="0,16,0,10">
-                                    <Button Content="Install CLI"
+                                    <Button ToolTip="{loc:T ui.tip.ClaudeInstallButton}" Content="Install CLI"
                                             Height="32"
                                             MinWidth="110"
                                             Margin="0,0,8,8"
                                             Style="{StaticResource App.Button.Primary}"
-                                            Click="ClaudeInstallButton_Click"
-                                            ToolTip="Opens a terminal and runs npm install -g @anthropic-ai/claude-code" />
-                                    <Button Content="Detect Claude"
+                                            Click="ClaudeInstallButton_Click" />
+                                    <Button ToolTip="{loc:T ui.tip.ClaudeDetectButton}" Content="Detect Claude"
                                             Height="32"
                                             MinWidth="110"
                                             Margin="0,0,8,8"
                                             Style="{StaticResource App.Button.Ghost}"
                                             Click="ClaudeDetectButton_Click" />
-                                    <Button Content="Save Claude"
+                                    <Button ToolTip="{loc:T ui.tip.ClaudeSaveButton}" Content="Save Claude"
                                             Height="32"
                                             MinWidth="110"
                                             Margin="0,0,8,8"
                                             Style="{StaticResource App.Button.Ghost}"
                                             Click="ClaudeSaveButton_Click" />
-                                    <Button Content="Login &amp; Test"
+                                    <Button ToolTip="{loc:T ui.tip.ClaudeHelpButton}" Content="Login &amp; Test"
                                             Height="32"
                                             MinWidth="120"
                                             Margin="0,0,8,8"
                                             Style="{StaticResource App.Button.Ghost}"
-                                            Click="ClaudeHelpButton_Click"
-                                            ToolTip="Opens Claude Code login + connection test" />
+                                            Click="ClaudeHelpButton_Click" />
                                 </WrapPanel>
                                 <TextBlock x:Name="ClaudeStatusText" FontSize="11" Foreground="{StaticResource Text.Muted}" TextWrapping="Wrap" />
                             </StackPanel>
@@ -1903,7 +1896,7 @@
                                TextTrimming="CharacterEllipsis" />
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal">
-                    <Button x:Name="DiscardChangesButton"
+                    <Button ToolTip="{loc:T ui.tip.DiscardChanges}" x:Name="DiscardChangesButton"
                             Height="34"
                             MinWidth="100"
                             Margin="0,0,8,0"
@@ -1915,7 +1908,7 @@
                             <TextBlock Text="Discard" FontSize="13" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
-                    <Button x:Name="SaveSettingsButton"
+                    <Button ToolTip="{loc:T ui.tip.SaveSettings}" x:Name="SaveSettingsButton"
                             Height="34"
                             MinWidth="140"
                             Padding="14,0"
