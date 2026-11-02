@@ -500,10 +500,16 @@
                         <StackPanel Width="Auto">
                             <Border x:Name="Step1Panel" Style="{StaticResource WidgetCardStyle}" Padding="16">
                                 <StackPanel>
-                                    <TextBlock Text="Basics"
-                                               Style="{StaticResource App.SectionTitleTextStyle}"/>
-                                    <TextBlock Text="Name, connection profile, and remote database."
-                                               Style="{StaticResource App.CaptionTextStyle}"/>
+                                    <Grid Margin="0,0,0,14">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <Border Width="40" Height="40" CornerRadius="12" Background="{StaticResource Accent.Soft}" Margin="0,0,12,0" VerticalAlignment="Top">
+                                            <Path behaviors:AppIcon.Kind="database" behaviors:AppIcon.Size="20" HorizontalAlignment="Center" VerticalAlignment="Center" TextElement.Foreground="{DynamicResource Accent.Primary}"/>
+                                        </Border>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="Basics" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource Text.Primary}"/>
+                                            <TextBlock Text="Name, connection profile, and remote database." FontSize="12" Foreground="{StaticResource Text.Muted}" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                        </StackPanel>
+                                    </Grid>
                                     <Grid Margin="0,12,0,0">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
@@ -557,10 +563,16 @@
 
                             <Border x:Name="Step2Panel" Style="{StaticResource WidgetCardStyle}" Padding="16">
                                 <StackPanel>
-                                    <TextBlock Text="Local DB"
-                                               Style="{StaticResource App.SectionTitleTextStyle}"/>
-                                    <TextBlock Text="Optional: after backup, import into a temporary localhost database to verify recoverability."
-                                               Style="{StaticResource App.CaptionTextStyle}"/>
+                                    <Grid Margin="0,0,0,14">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <Border Width="40" Height="40" CornerRadius="12" Background="{StaticResource Accent.Soft}" Margin="0,0,12,0" VerticalAlignment="Top">
+                                            <Path behaviors:AppIcon.Kind="hard-drive" behaviors:AppIcon.Size="20" HorizontalAlignment="Center" VerticalAlignment="Center" TextElement.Foreground="{DynamicResource Accent.Primary}"/>
+                                        </Border>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="Local DB" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource Text.Primary}"/>
+                                            <TextBlock Text="Optional: after backup, import into a temporary localhost database to verify recoverability." FontSize="12" Foreground="{StaticResource Text.Muted}" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                        </StackPanel>
+                                    </Grid>
                                     <CheckBox Content="Enable localhost restore validation (warning-only if it fails)"
                                               Margin="0,10,0,0"
                                               Foreground="{StaticResource Text.Secondary}"
@@ -640,29 +652,36 @@
 
                             <Border x:Name="Step3Panel" Style="{StaticResource WidgetCardStyle}" Padding="16">
                                 <StackPanel>
-                                    <TextBlock Text="Strategy"
-                                               Style="{StaticResource App.SectionTitleTextStyle}"/>
-                                    <TextBlock Text="Timing, backup mode, output path, and retention."
-                                               Style="{StaticResource App.CaptionTextStyle}"/>
+                                    <Grid Margin="0,0,0,14">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <Border Width="40" Height="40" CornerRadius="12" Background="{StaticResource Accent.Soft}" Margin="0,0,12,0" VerticalAlignment="Top">
+                                            <Path behaviors:AppIcon.Kind="sliders" behaviors:AppIcon.Size="20" HorizontalAlignment="Center" VerticalAlignment="Center" TextElement.Foreground="{DynamicResource Accent.Primary}"/>
+                                        </Border>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="Strategy" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource Text.Primary}"/>
+                                            <TextBlock Text="Timing, backup mode, output path, and retention." FontSize="12" Foreground="{StaticResource Text.Muted}" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                        </StackPanel>
+                                    </Grid>
 
                                     <Border Style="{StaticResource WidgetCardStyle}" Margin="0,12,0,12">
                                         <StackPanel>
-                                            <TextBlock Text="Schedule timing"
-                                                       Foreground="{StaticResource Text.Muted}"
-                                                       FontSize="12"/>
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                                <Path behaviors:AppIcon.Kind="clock" behaviors:AppIcon.Size="15" Margin="0,0,8,0" VerticalAlignment="Center" TextElement.Foreground="{DynamicResource Accent.Primary}"/>
+                                                <TextBlock Text="Schedule timing" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource Text.Primary}" VerticalAlignment="Center"/>
+                                            </StackPanel>
                                             <Grid Margin="0,8,0,0">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*"/>
                                                     <ColumnDefinition Width="*"/>
                                                 </Grid.ColumnDefinitions>
                                                 <StackPanel Margin="0,0,20,0">
-                                                    <TextBlock Text="Frequency" Foreground="{StaticResource Text.Secondary}" FontSize="12"/>
+                                                    <TextBlock Text="Frequency" Foreground="{StaticResource Text.Secondary}" FontSize="12" FontWeight="SemiBold"/>
                                                     <ComboBox ItemsSource="{Binding FrequencyOptions}"
                                                               SelectedItem="{Binding SelectedSchedule.Frequency}"
                                                               Margin="0,6,0,0"/>
                                                 </StackPanel>
                                                 <StackPanel Grid.Column="1">
-                                                    <TextBlock Text="Run time" Foreground="{StaticResource Text.Secondary}" FontSize="12"/>
+                                                    <TextBlock Text="Run time" Foreground="{StaticResource Text.Secondary}" FontSize="12" FontWeight="SemiBold"/>
                                                     <mah:TimePicker SelectedDateTime="{Binding SelectedRunTime, Mode=TwoWay}"
                                                                     Margin="0,6,0,0"/>
                                                 </StackPanel>
@@ -672,7 +691,10 @@
 
                                     <Border x:Name="WeeklyPanelCard" Style="{StaticResource WidgetCardStyle}">
                                         <StackPanel>
-                                            <TextBlock Text="Days of week" Foreground="{StaticResource Text.Muted}" FontSize="12"/>
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                                <Path behaviors:AppIcon.Kind="calendar" behaviors:AppIcon.Size="15" Margin="0,0,8,0" VerticalAlignment="Center" TextElement.Foreground="{DynamicResource Accent.Primary}"/>
+                                                <TextBlock Text="Days of week" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource Text.Primary}" VerticalAlignment="Center"/>
+                                            </StackPanel>
                                             <ItemsControl ItemsSource="{Binding WeekdaySelections}" Margin="0,8,0,0">
                                                 <ItemsControl.ItemsPanel>
                                                     <ItemsPanelTemplate>
@@ -692,7 +714,10 @@
 
                                     <Border x:Name="MonthlyPanelCard" Style="{StaticResource WidgetCardStyle}">
                                         <StackPanel>
-                                            <TextBlock Text="Day of month" Foreground="{StaticResource Text.Muted}" FontSize="12"/>
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                                <Path behaviors:AppIcon.Kind="calendar" behaviors:AppIcon.Size="15" Margin="0,0,8,0" VerticalAlignment="Center" TextElement.Foreground="{DynamicResource Accent.Primary}"/>
+                                                <TextBlock Text="Day of month" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource Text.Primary}" VerticalAlignment="Center"/>
+                                            </StackPanel>
                                             <mah:NumericUpDown Minimum="1"
                                                                Maximum="31"
                                                                Value="{Binding SelectedSchedule.DayOfMonth}"
@@ -702,7 +727,10 @@
 
                                     <Border x:Name="CustomPanelCard" Style="{StaticResource WidgetCardStyle}">
                                         <StackPanel>
-                                            <TextBlock Text="Custom interval" Foreground="{StaticResource Text.Muted}" FontSize="12"/>
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                                <Path behaviors:AppIcon.Kind="refresh" behaviors:AppIcon.Size="15" Margin="0,0,8,0" VerticalAlignment="Center" TextElement.Foreground="{DynamicResource Accent.Primary}"/>
+                                                <TextBlock Text="Custom interval" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource Text.Primary}" VerticalAlignment="Center"/>
+                                            </StackPanel>
                                             <TextBlock Text="Use hour and minute inputs; value is converted to total minutes in background."
                                                        Foreground="{StaticResource Text.Secondary}"
                                                        FontSize="11"
@@ -749,7 +777,10 @@
 
                                     <Border Style="{StaticResource WidgetCardStyle}" Margin="0,0,0,12">
                                         <StackPanel>
-                                            <TextBlock Text="Backup strategy" Foreground="{StaticResource Text.Muted}" FontSize="12"/>
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                                <Path behaviors:AppIcon.Kind="database" behaviors:AppIcon.Size="15" Margin="0,0,8,0" VerticalAlignment="Center" TextElement.Foreground="{DynamicResource Accent.Primary}"/>
+                                                <TextBlock Text="Backup strategy" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource Text.Primary}" VerticalAlignment="Center"/>
+                                            </StackPanel>
                                             <TextBlock Text="Choose how backup should be produced."
                                                        Foreground="{StaticResource Text.Secondary}"
                                                        FontSize="11"
@@ -770,9 +801,10 @@
                                             Margin="0,0,0,12"
                                             Visibility="{Binding IsRemoteFileMode, Converter={StaticResource BoolToVisibility}}">
                                         <StackPanel>
-                                            <TextBlock Text="Remote file mode options"
-                                                       Foreground="{StaticResource Text.Muted}"
-                                                       FontSize="12"/>
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                                <Path behaviors:AppIcon.Kind="server" behaviors:AppIcon.Size="15" Margin="0,0,8,0" VerticalAlignment="Center" TextElement.Foreground="{DynamicResource Accent.Primary}"/>
+                                                <TextBlock Text="Remote file mode options" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource Text.Primary}" VerticalAlignment="Center"/>
+                                            </StackPanel>
                                             <Grid Margin="0,8,0,0">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*"/>
@@ -803,15 +835,18 @@
                                                                FontSize="11"
                                                                TextWrapping="Wrap"
                                                                Margin="0,6,0,0"/>
-                                                    <CheckBox Content="After verified download, safely delete ONLY generated remote artifact file"
+                                                    <CheckBox
                                                               Margin="0,8,0,0"
                                                               IsChecked="{Binding SelectedSchedule.DeleteRemoteArtifactAfterDownload, Mode=TwoWay}"
-                                                              Foreground="{StaticResource Text.Secondary}"/>
-                                                    <TextBlock Text="Safety mode: no wildcard, no directory delete, no recursive delete. Only exact artifact file path is allowed."
-                                                               Foreground="{StaticResource Status.Warning}"
-                                                               FontSize="11"
-                                                               TextWrapping="Wrap"
-                                                               Margin="0,6,0,0"/>
+                                                              Foreground="{StaticResource Text.Secondary}">
+                                                        <TextBlock Text="After verified download, safely delete ONLY the generated remote artifact file" TextWrapping="Wrap" Foreground="{StaticResource Text.Secondary}"/>
+                                                    </CheckBox>
+                                                    <Border Margin="0,10,0,0" Padding="10,8" CornerRadius="10" Background="{StaticResource Status.WarningSurface}" BorderBrush="#40E6B84D" BorderThickness="1">
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <Path behaviors:AppIcon.Kind="alert" behaviors:AppIcon.Size="15" Margin="0,2,8,0" VerticalAlignment="Top" TextElement.Foreground="{DynamicResource Status.Warning}"/>
+                                                            <TextBlock Text="Safety mode: no wildcard, no directory delete, no recursive delete. Only exact artifact file path is allowed." FontSize="11" Foreground="{StaticResource Text.Secondary}" TextWrapping="Wrap" MaxWidth="380"/>
+                                                        </StackPanel>
+                                                    </Border>
                                                 </StackPanel>
                                             </Grid>
                                         </StackPanel>
@@ -827,15 +862,22 @@
                                                 <TextBlock Text="Local output directory" Foreground="{StaticResource Text.Muted}" FontSize="12"/>
                                                 <DockPanel Margin="0,8,0,0">
                                                     <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
-                                                        <Button ToolTip="{loc:T ui.tip.BrowseOutput}" Content="Browse"
-                                                                Style="{StaticResource SecondaryPillButton}"
-                                                                Background="{StaticResource Surface.Input}"
-                                                                Margin="0,0,8,0"
-                                                                Click="BrowseOutput_Click"/>
-                                                        <Button ToolTip="{loc:T ui.tip.OpenOutputFolder}" Content="Open"
-                                                                Style="{StaticResource SecondaryPillButton}"
-                                                                Background="{StaticResource Status.Success}"
-                                                                Click="OpenOutputFolder_Click"/>
+                                                        <Button ToolTip="{loc:T ui.tip.BrowseOutput}"
+                                                                Style="{StaticResource App.Button.Compact}"
+                                                                Height="36" Margin="0,0,8,0" Click="BrowseOutput_Click">
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <Path behaviors:AppIcon.Kind="folder-open" behaviors:AppIcon.Size="15" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                                                <TextBlock Text="Browse" VerticalAlignment="Center"/>
+                                                            </StackPanel>
+                                                        </Button>
+                                                        <Button ToolTip="{loc:T ui.tip.OpenOutputFolder}"
+                                                                Style="{StaticResource App.Button.Compact}"
+                                                                Height="36" Click="OpenOutputFolder_Click">
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <Path behaviors:AppIcon.Kind="external" behaviors:AppIcon.Size="15" Margin="0,0,6,0" VerticalAlignment="Center" TextElement.Foreground="{DynamicResource Status.Success}"/>
+                                                                <TextBlock Text="Open" VerticalAlignment="Center"/>
+                                                            </StackPanel>
+                                                        </Button>
                                                     </StackPanel>
                                                     <TextBox Text="{Binding SelectedSchedule.OutputDirectory}" Margin="0,0,10,0"/>
                                                 </DockPanel>
@@ -876,11 +918,16 @@
 
                             <Border x:Name="Step4Panel" Style="{StaticResource WidgetCardStyle}" Padding="16">
                                 <StackPanel>
-                                    <TextBlock Text="VPN"
-                                               Style="{StaticResource App.SectionTitleTextStyle}"/>
-                                    <TextBlock Text="Optional OpenVPN for this schedule. GitDeploy connects before backup and disconnects after only if it opened the tunnel."
-                                               Style="{StaticResource App.CaptionTextStyle}"
-                                               TextWrapping="Wrap"/>
+                                    <Grid Margin="0,0,0,14">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <Border Width="40" Height="40" CornerRadius="12" Background="{StaticResource Accent.Soft}" Margin="0,0,12,0" VerticalAlignment="Top">
+                                            <Path behaviors:AppIcon.Kind="shield" behaviors:AppIcon.Size="20" HorizontalAlignment="Center" VerticalAlignment="Center" TextElement.Foreground="{DynamicResource Accent.Primary}"/>
+                                        </Border>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="VPN" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource Text.Primary}"/>
+                                            <TextBlock Text="Optional OpenVPN for this schedule. GitDeploy connects before backup and disconnects after only if it opened the tunnel." FontSize="12" Foreground="{StaticResource Text.Muted}" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                        </StackPanel>
+                                    </Grid>
                                     <CheckBox x:Name="BackupVpnRequiredCheck"
                                               Content="This backup requires VPN"
                                               Margin="0,14,0,0"
@@ -931,10 +978,16 @@
                                 <StackPanel>
                                     <DockPanel LastChildFill="False">
                                         <StackPanel DockPanel.Dock="Left">
-                                            <TextBlock Text="Readiness"
-                                                       Style="{StaticResource App.SectionTitleTextStyle}"/>
-                                            <TextBlock Text="Checks must pass before backup starts."
-                                                       Style="{StaticResource App.CaptionTextStyle}"/>
+                                            <Grid Margin="0,0,0,14">
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                                <Border Width="40" Height="40" CornerRadius="12" Background="{StaticResource Accent.Soft}" Margin="0,0,12,0" VerticalAlignment="Top">
+                                                    <Path behaviors:AppIcon.Kind="check-circle" behaviors:AppIcon.Size="20" HorizontalAlignment="Center" VerticalAlignment="Center" TextElement.Foreground="{DynamicResource Accent.Primary}"/>
+                                                </Border>
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                    <TextBlock Text="Readiness" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource Text.Primary}"/>
+                                                    <TextBlock Text="Checks must pass before backup starts." FontSize="12" Foreground="{StaticResource Text.Muted}" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                                </StackPanel>
+                                            </Grid>
                                         </StackPanel>
                                         <Button ToolTip="{loc:T ui.tip.RefreshReadiness}" Content="Re-check now"
                                                 Style="{StaticResource App.Button.Toolbar}"
@@ -985,10 +1038,16 @@
 
                             <Border x:Name="Step6Panel" Style="{StaticResource WidgetCardStyle}" Padding="16">
                                 <StackPanel>
-                                    <TextBlock Text="Confirm"
-                                               Style="{StaticResource App.SectionTitleTextStyle}"/>
-                                    <TextBlock Text="Review configuration, then run or pause."
-                                               Style="{StaticResource App.CaptionTextStyle}"/>
+                                    <Grid Margin="0,0,0,14">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <Border Width="40" Height="40" CornerRadius="12" Background="{StaticResource Accent.Soft}" Margin="0,0,12,0" VerticalAlignment="Top">
+                                            <Path behaviors:AppIcon.Kind="play" behaviors:AppIcon.Size="20" HorizontalAlignment="Center" VerticalAlignment="Center" TextElement.Foreground="{DynamicResource Accent.Primary}"/>
+                                        </Border>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="Confirm" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource Text.Primary}"/>
+                                            <TextBlock Text="Review configuration, then run or pause." FontSize="12" Foreground="{StaticResource Text.Muted}" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                        </StackPanel>
+                                    </Grid>
                                     <Border Background="{StaticResource Surface.Input}"
                                             CornerRadius="8"
                                             Padding="10"
