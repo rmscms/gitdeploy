@@ -1056,6 +1056,7 @@ namespace GitDeployPro
             ThemeService.Instance.ApplyTheme(theme.Id);
             _configService.SetAppThemeId(theme.Id);
             RebuildNavThemeSubmenu();
+            GitDeployPro.Services.Theme.ThemeSkinApplier.PromptRestartIfNeeded();
         }
 
         private void NavigateToPage(Page page, string route)

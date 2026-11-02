@@ -830,6 +830,7 @@ namespace GitDeployPro.Pages
             ThemeService.Instance.ApplyTheme(themeId);
             _configService.SetAppThemeId(themeId);
             RefreshThemePacksList();
+            ThemeSkinApplier.PromptRestartIfNeeded();
         }
 
         private void AppThemeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)

@@ -79,6 +79,7 @@ namespace GitDeployPro.Services.Theme
                 }
             }
 
+            ThemeSkinApplier.Validate(pack, result.Errors, result.Warnings);
             ThemeResourceApplier.Validate(pack, result.Errors, result.Warnings);
 
             ValidateMap(result, "deploy.shell", pack.Deploy?.Shell);

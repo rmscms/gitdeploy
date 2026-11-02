@@ -3,7 +3,8 @@
   "id": "midnight-blue",
   "displayName": "Midnight Blue",
   "basedOn": "dark",
-  "version": "2",
+  "version": "3",
+  "skin": "midnight-blue",
   "author": "GitDeployPro",
   "palette": {
     "Surface.Base": "#03060C",

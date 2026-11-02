@@ -1,0 +1,10 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!--
+        Midnight Blue skin. Loaded once at startup and merged AFTER Themes/Controls.xaml, so any key defined here
+        replaces the default one for every page/window that resolves it afterwards.
+        Rule: redefine a whole style FAMILY (e.g. App.Button.Base + Primary/Secondary/Ghost/Danger/Success), because
+        BasedOn inside Controls.xaml is already bound to the default styles.
+        Values come from subtell/public/gitDeployPro/assets/css/core.css (see Themes/Packs/THEME_PACK_GUIDE.md).
+    -->
+</ResourceDictionary>

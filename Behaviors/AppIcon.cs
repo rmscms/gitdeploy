@@ -55,8 +55,34 @@ namespace GitDeployPro.Behaviors
             path.SetBinding(Shape.StrokeProperty, new System.Windows.Data.Binding
             {
                 Path = new PropertyPath("(TextElement.Foreground)"),
-                RelativeSource = RelativeSource.Self
+                RelativeSource = RelativeSource.Self,
+                Converter = IconBrushConverter.Instance
             });
+        }
+
+        /// <summary>
+        /// Icons outside a Button/TextBlock inherit the framework default foreground (black), which is invisible on dark
+        /// themes. Treat that default as "not set" and fall back to the theme's secondary text colour.
+        /// </summary>
+        private sealed class IconBrushConverter : IValueConverter
+        {
+            public static readonly IconBrushConverter Instance = new();
+
+            public object? Convert(object? value, System.Type targetType, object? parameter, System.Globalization.CultureInfo culture)
+            {
+                if (value is SolidColorBrush solid
+                    && (ReferenceEquals(solid, System.Windows.SystemColors.ControlTextBrush)
+                        || ReferenceEquals(solid, System.Windows.Media.Brushes.Black)
+                        || solid.Color == System.Windows.SystemColors.ControlTextColor))
+                {
+                    return System.Windows.Application.Current?.TryFindResource("Text.Secondary") ?? value;
+                }
+
+                return value;
+            }
+
+            public object? ConvertBack(object? value, System.Type targetType, object? parameter, System.Globalization.CultureInfo culture)
+                => System.Windows.Data.Binding.DoNothing;
         }
     }
 }

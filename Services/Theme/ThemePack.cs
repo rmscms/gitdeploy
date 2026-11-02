@@ -23,6 +23,10 @@ namespace GitDeployPro.Services.Theme
         [JsonProperty("author")]
         public string? Author { get; set; }
 
+        /// <summary>Optional skin id: Themes/Skins/&lt;id&gt;/Skin.xaml (bundled) or %AppData%\GitDeployPro\Skins\&lt;id&gt;\Skin.xaml.</summary>
+        [JsonProperty("skin", NullValueHandling = NullValueHandling.Ignore)]
+        public string? Skin { get; set; }
+
         [JsonProperty("palette")]
         public Dictionary<string, string> Palette { get; set; } = new(System.StringComparer.OrdinalIgnoreCase);
 
