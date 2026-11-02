@@ -3,149 +3,153 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>GitDeploy Pro 2.0 — Desktop command center for deploy</title>
-  <meta name="description" content="GitDeploy Pro 2.0: Git, FTP/SFTP deploy, terminal, database, backups, Telegram agent, and VPN keep-alive in one Windows desktop hub." />
+  <title>GitDeploy Pro — One desktop hub for every deploy</title>
+  <meta name="description" content="GitDeploy Pro: Git, FTP/SFTP deploy, terminal, database, scheduled backups, Telegram control with Cursor or Claude Code agents, and VPN keep-alive — in one Windows desktop app." />
   <link rel="icon" type="image/x-icon" href="faveicon.ico" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="assets/landing.css" />
 </head>
-<body class="landing-2" data-page="home">
-  <div class="bg-stage" id="bgStage" aria-hidden="true"></div>
-  <div class="bg-noise" aria-hidden="true"></div>
-
-  <div class="shell">
-    <header class="topbar">
+<body class="landing-3" data-page="home">
+  <header class="topbar">
+    <div class="topbar-in">
       <a class="brand" href="./">
-        <img src="faveicon.ico" alt="" width="36" height="36" />
+        <img src="faveicon.ico" alt="" width="30" height="30" />
         <span>GitDeploy Pro</span>
       </a>
       <nav class="nav" aria-label="Primary">
-        <a href="#capabilities">Capabilities</a>
-        <a href="#workflow">Workflow</a>
+        <a href="#capabilities">Features</a>
         <a href="#screens">Screens</a>
-        <a href="#download">Download</a>
+        <a href="#workflow">Workflow</a>
+        <a href="#agents">AI agents</a>
         <a href="#docs">Docs</a>
         <a class="ghost" href="https://github.com/rmscms/gitdeploy" target="_blank" rel="noreferrer">GitHub</a>
+        <a class="cta" href="#download">Download</a>
       </nav>
-    </header>
+    </div>
+  </header>
 
-    <section class="hero" aria-label="Hero">
-      <div class="hero-copy">
-        <p class="brand-mark">GitDeploy Pro</p>
-        <h1>One desktop hub for every deploy you ship.</h1>
-        <p class="hero-lead">
-          Version 2.0 — Git sync, FTP/SFTP workspaces, terminals, databases, backups, Telegram + Cursor agent, and OpenVPN Connect keep-alive. Built for operators who live on Windows.
-        </p>
-        <div class="cta-row">
-          <a class="btn btn-primary" id="hero-download" href="#download">Download 2.0</a>
-          <a class="btn btn-secondary" href="pages/platform-overview.html">Explore platform</a>
-        </div>
+  <main class="shell">
+    <section class="hero wrap" aria-label="Hero">
+      <span class="pill"><i></i>Windows desktop · Midnight Blue UI</span>
+      <h1>One desktop hub for <em>every deploy</em> you ship.</h1>
+      <p class="hero-lead">
+        Git sync, FTP/SFTP workspaces, terminals, database tools, scheduled backups, VPN keep-alive and a Telegram bot driven by Cursor or Claude Code — built for operators who live on Windows.
+      </p>
+      <div class="cta-row">
+        <a class="btn btn-primary" id="hero-download" href="#download">
+          <svg viewBox="0 0 24 24"><path d="M12 3v12M6 11l6 6 6-6M4 21h16"/></svg>
+          Download for Windows
+        </a>
+        <a class="btn btn-secondary" href="#screens">See the app</a>
       </div>
-      <div class="hero-visual">
-        <div class="hero-frame">
-          <img src="images/dashboard.PNG" alt="GitDeploy Pro dashboard workspace" width="1600" height="900" />
-        </div>
+      <div class="hero-meta">
+        <span>Single EXE, no install needed</span>
+        <span>Auto-update built in</span>
+        <span>Persian tooltips on every button</span>
+      </div>
+
+      <div class="frame">
+        <div class="frame-bar"><i></i><i></i><i></i><span>GitDeploy Pro — Deploy</span></div>
+        <img src="images/app/deploy.png" alt="GitDeploy Pro deploy workspace" width="1600" height="1000" data-zoom="Deploy workspace" />
       </div>
     </section>
 
-    <section class="section" id="capabilities">
-      <p class="section-kicker">Capabilities</p>
+    <section class="section wrap" id="capabilities">
+      <p class="section-kicker">Features</p>
       <h2>Everything that used to live in five tools.</h2>
-      <p class="section-intro">Ship, inspect, recover, and talk to your stack without leaving the desk.</p>
+      <p class="section-intro">Ship, inspect, recover and talk to your stack without leaving the desk.</p>
       <div class="cap-grid">
         <article class="cap-item">
+          <div class="cap-ic"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M6 8.5v3a4 4 0 0 0 4 4h5.5"/></svg></div>
           <h3>Git + Deploy</h3>
-          <p>Branch compare, selective push, remote workspaces, and pop-out tabs for parallel environments.</p>
+          <p>Compare branches, review changed files, commit, push and deploy in one flow — with rollback one click away.</p>
         </article>
         <article class="cap-item">
-          <h3>FTP / SFTP rail</h3>
-          <p>Browse, edit, sync, and recover files with conflict-aware workflows against live servers.</p>
+          <div class="cap-ic"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div>
+          <h3>FTP / SFTP workspace</h3>
+          <p>Browse, edit, sync and recover remote files with path mapping and conflict-aware transfers.</p>
         </article>
         <article class="cap-item">
-          <h3>Terminal + SQL</h3>
-          <p>Session-ready shells and database tools for the incidents that never wait until morning.</p>
+          <div class="cap-ic"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></div>
+          <h3>Direct Upload</h3>
+          <p>Pick files or folders and push them straight to the server with parallel workers and crash recovery.</p>
         </article>
         <article class="cap-item">
-          <h3>Backup automation</h3>
-          <p>Scheduler, validation stages, and history-driven reruns when integrity matters.</p>
+          <div class="cap-ic"><svg viewBox="0 0 24 24"><path d="M4 17l6-6-6-6M12 19h8"/></svg></div>
+          <h3>Terminal</h3>
+          <p>Local and SSH sessions with saved command presets and suggestions, right next to your deploy.</p>
         </article>
         <article class="cap-item">
-          <h3>Telegram + Cursor</h3>
-          <p>Project chats bridged to Cursor agent — warm ACP, outbound queue, model switch, resilience.</p>
+          <div class="cap-ic"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg></div>
+          <h3>Database Studio</h3>
+          <p>Connect to MySQL / MariaDB, browse tables, run queries and import dumps without another client.</p>
         </article>
         <article class="cap-item">
-          <h3>VPN keep-alive</h3>
-          <p>OpenVPN Connect profiles with startup connect and auto-reconnect when the tunnel drops.</p>
+          <div class="cap-ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div>
+          <h3>Scheduled backups</h3>
+          <p>A guided 6-step wizard, optional OpenVPN per plan, localhost restore validation and a live run log.</p>
         </article>
       </div>
     </section>
 
-    <section class="section" id="workflow">
+    <section class="section wrap" id="screens">
+      <div class="center">
+        <p class="section-kicker">Screens</p>
+        <h2>Designed to be read at a glance.</h2>
+        <p class="section-intro">A dark, calm interface with real icons, clear status colors and consistent controls. Click any screenshot to enlarge.</p>
+      </div>
+      <div class="showcase-tabs" role="tablist">
+        <button class="tab" data-shot="deploy" type="button">Deploy</button>
+        <button class="tab" data-shot="direct-upload" type="button">Direct Upload</button>
+        <button class="tab active" data-shot="backup" type="button">Backups</button>
+        <button class="tab" data-shot="database" type="button">Database</button>
+        <button class="tab" data-shot="dashboard" type="button">Dashboard</button>
+        <button class="tab" data-shot="git" type="button">GitHub</button>
+        <button class="tab" data-shot="history" type="button">History</button>
+        <button class="tab" data-shot="settings" type="button">Settings</button>
+      </div>
+
+      <div class="shot" id="shot-deploy"><div class="frame" style="margin-top:0"><img src="images/app/deploy.png" alt="Deploy" loading="lazy" data-zoom="Deploy: compare, select, deploy" /></div><p class="shot-cap"><b>Deploy.</b> Branch chips with ahead/behind counters, a changed-files list with status badges, and the remote file tree beside it.</p></div>
+      <div class="shot" id="shot-direct-upload"><div class="frame" style="margin-top:0"><img src="images/app/direct-upload.png" alt="Direct Upload" loading="lazy" data-zoom="Direct Upload" /></div><p class="shot-cap"><b>Direct Upload.</b> Parallel workers, live progress and crash recovery for large uploads.</p></div>
+      <div class="shot active" id="shot-backup"><div class="frame" style="margin-top:0"><img src="images/app/backup.png" alt="Backup scheduler" loading="lazy" data-zoom="Backup scheduler" /></div><p class="shot-cap"><b>Backups.</b> A step-by-step wizard, a timeline of next runs and a live log while a backup is running.</p></div>
+      <div class="shot" id="shot-database"><div class="frame" style="margin-top:0"><img src="images/app/database.png" alt="Database Studio" loading="lazy" data-zoom="Database Studio" /></div><p class="shot-cap"><b>Database Studio.</b> Query editor, results grid with colored status values, and process list.</p></div>
+      <div class="shot" id="shot-dashboard"><div class="frame" style="margin-top:0"><img src="images/app/dashboard.png" alt="Dashboard" loading="lazy" data-zoom="Dashboard" /></div><p class="shot-cap"><b>Dashboard.</b> Project status, quick actions and recent backup activity in one place.</p></div>
+      <div class="shot" id="shot-git"><div class="frame" style="margin-top:0"><img src="images/app/git.png" alt="GitHub" loading="lazy" data-zoom="GitHub integration" /></div><p class="shot-cap"><b>GitHub.</b> Clone, pull, push and tag from a single page.</p></div>
+      <div class="shot" id="shot-history"><div class="frame" style="margin-top:0"><img src="images/app/history.png" alt="History" loading="lazy" data-zoom="Commit history" /></div><p class="shot-cap"><b>History.</b> Search commits by file path and roll back with a preview.</p></div>
+      <div class="shot" id="shot-settings"><div class="frame" style="margin-top:0"><img src="images/app/settings.png" alt="Settings" loading="lazy" data-zoom="Settings" /></div><p class="shot-cap"><b>Settings.</b> Searchable sections, an unsaved-changes bar and a one-click Save.</p></div>
+    </section>
+
+    <section class="section wrap" id="workflow">
       <p class="section-kicker">Workflow</p>
       <h2>From commit to live path.</h2>
       <p class="section-intro">A straight operator loop — no dashboard clutter, no ceremony.</p>
       <div class="flow">
-        <div class="flow-step">
-          <span>01</span>
-          <strong>Connect</strong>
-          <p>Project path, server profile, optional VPN keep-alive.</p>
-        </div>
-        <div class="flow-step">
-          <span>02</span>
-          <strong>Compare</strong>
-          <p>See local vs remote, stage what actually changed.</p>
-        </div>
-        <div class="flow-step">
-          <span>03</span>
-          <strong>Ship</strong>
-          <p>Deploy selected files, watch progress, verify on the rail.</p>
-        </div>
-        <div class="flow-step">
-          <span>04</span>
-          <strong>Stay up</strong>
-          <p>Backups, agent chat, and reconnect when the network blinks.</p>
-        </div>
+        <div class="flow-step"><span>1</span><strong>Connect</strong><p>Project path, server profile and optional VPN keep-alive.</p></div>
+        <div class="flow-step"><span>2</span><strong>Compare</strong><p>See local vs remote and stage exactly what changed.</p></div>
+        <div class="flow-step"><span>3</span><strong>Ship</strong><p>Deploy the selected files, watch progress, verify on the remote tree.</p></div>
+        <div class="flow-step"><span>4</span><strong>Stay up</strong><p>Scheduled backups, agent chat and auto-reconnect when the network blinks.</p></div>
       </div>
     </section>
 
-    <section class="section" id="screens">
-      <p class="section-kicker">Screens</p>
-      <h2>Product, not mockup fiction.</h2>
-      <p class="section-intro">Real surfaces from the Windows build. Click to enlarge.</p>
-      <div class="screen-grid">
-        <figure class="screen" data-full="images/dashboard.PNG" data-caption="Dashboard">
-          <img src="images/dashboard.PNG" alt="Dashboard" loading="lazy" />
-          <figcaption>Dashboard</figcaption>
-        </figure>
-        <figure class="screen" data-full="images/deploy.PNG" data-caption="Deploy workspace">
-          <img src="images/deploy.PNG" alt="Deploy" loading="lazy" />
-          <figcaption>Deploy workspace</figcaption>
-        </figure>
-        <figure class="screen" data-full="images/direct-upload.PNG" data-caption="Direct upload">
-          <img src="images/direct-upload.PNG" alt="Direct upload" loading="lazy" />
-          <figcaption>Direct upload</figcaption>
-        </figure>
-        <figure class="screen" data-full="images/terminal.PNG" data-caption="Terminal">
-          <img src="images/terminal.PNG" alt="Terminal" loading="lazy" />
-          <figcaption>Terminal</figcaption>
-        </figure>
-        <figure class="screen" data-full="images/database.PNG" data-caption="Database">
-          <img src="images/database.PNG" alt="Database" loading="lazy" />
-          <figcaption>Database</figcaption>
-        </figure>
-        <figure class="screen" data-full="images/github-section.PNG" data-caption="Git settings">
-          <img src="images/github-section.PNG" alt="Git" loading="lazy" />
-          <figcaption>Git settings</figcaption>
-        </figure>
+    <section class="section wrap" id="agents">
+      <div class="agents">
+        <div>
+          <p class="section-kicker">AI agents</p>
+          <h3>Run your project from Telegram.</h3>
+          <p>Send a message from your phone and an AI coding agent works inside your project folder — with a per-project queue, Stop button, model picker and session resume.</p>
+          <ul>
+            <li>Choose <b>Cursor</b> or <b>Claude Code</b> as the engine, switch any time with /engine</li>
+            <li>Login &amp; test dialogs inside Settings, no terminal juggling</li>
+            <li>Terminal presets and SSH sessions available from the chat</li>
+          </ul>
+        </div>
+        <div class="agents-img"><img src="images/app/telegram.png" alt="Telegram chat page" loading="lazy" data-zoom="Telegram chat" /></div>
       </div>
     </section>
 
-    <section class="section" id="download">
+    <section class="section wrap" id="download">
       <p class="section-kicker">Download</p>
-      <h2>Get GitDeploy Pro 2.0</h2>
-      <p class="section-intro">Self-contained Windows x64. Auto-update reads the same feed as this page.</p>
+      <h2>Get GitDeploy Pro</h2>
+      <p class="section-intro">Self-contained Windows x64 executable. The in-app updater reads the same feed as this page.</p>
       <div class="download-band">
         <div class="download-panel">
           <p id="download-blurb">Loading latest release…</p>
@@ -153,7 +157,7 @@
           <p id="download-meta"></p>
         </div>
         <div class="changelog-panel" id="changelog">
-          <h2 class="section-kicker" style="margin:0 0 0.75rem;font-size:0.72rem;">What's new</h2>
+          <h2 class="section-kicker" style="margin:0 0 .75rem;font-size:.72rem;">What's new</h2>
           <h3 id="latest-changelog-title">Latest</h3>
           <small id="latest-changelog-date">Loading…</small>
           <ul id="latest-changelog-list">
@@ -163,43 +167,25 @@
       </div>
     </section>
 
-    <section class="section" id="docs">
+    <section class="section wrap" id="docs">
       <p class="section-kicker">Docs</p>
       <h2>Operator pages</h2>
-      <p class="section-intro">Deep dives when you need more than a landing.</p>
+      <p class="section-intro">Deep dives when you need more than a landing page.</p>
       <div class="portal-grid">
-        <a class="portal-link" href="pages/platform-overview.html">
-          <h3>Platform overview</h3>
-          <p>Architecture map and navigation for the full product.</p>
-        </a>
-        <a class="portal-link" href="pages/deploy-workflows.html">
-          <h3>Deploy workflows</h3>
-          <p>Compare-select-deploy and remote editor patterns.</p>
-        </a>
-        <a class="portal-link" href="pages/backup-automation.html">
-          <h3>Backup automation</h3>
-          <p>Scheduler lifecycle and integrity sampling.</p>
-        </a>
-        <a class="portal-link" href="pages/terminal-database-suite.html">
-          <h3>Terminal + database</h3>
-          <p>Incident-friendly shell and SQL workflows.</p>
-        </a>
-        <a class="portal-link" href="pages/release-and-distribution.html">
-          <h3>Release &amp; distribution</h3>
-          <p>Packaging and artifact guidance.</p>
-        </a>
-        <a class="portal-link" href="pages/faq-and-troubleshooting.html">
-          <h3>FAQ</h3>
-          <p>Common runtime issues and escalation checklist.</p>
-        </a>
+        <a class="portal-link" href="pages/platform-overview.html"><h3>Platform overview</h3><p>Architecture map and navigation for the full product.</p></a>
+        <a class="portal-link" href="pages/deploy-workflows.html"><h3>Deploy workflows</h3><p>Compare-select-deploy and remote editor patterns.</p></a>
+        <a class="portal-link" href="pages/backup-automation.html"><h3>Backup automation</h3><p>Scheduler lifecycle and integrity sampling.</p></a>
+        <a class="portal-link" href="pages/terminal-database-suite.html"><h3>Terminal + database</h3><p>Incident-friendly shell and SQL workflows.</p></a>
+        <a class="portal-link" href="pages/release-and-distribution.html"><h3>Release &amp; distribution</h3><p>Packaging and artifact guidance.</p></a>
+        <a class="portal-link" href="pages/faq-and-troubleshooting.html"><h3>FAQ</h3><p>Common runtime issues and the escalation checklist.</p></a>
       </div>
     </section>
 
     <footer class="footer">
-      <span>GitDeploy Pro 2.0 · Windows desktop</span>
+      <span>GitDeploy Pro · Windows desktop app</span>
       <span><a href="https://github.com/rmscms/gitdeploy" target="_blank" rel="noreferrer">github.com/rmscms/gitdeploy</a></span>
     </footer>
-  </div>
+  </main>
 
   <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Screenshot">
     <button class="lightbox-close" id="lightboxClose" type="button" aria-label="Close">&times;</button>

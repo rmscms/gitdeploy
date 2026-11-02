@@ -1,14 +1,17 @@
 {
-  "version": "2.5.78",
-  "fileName": "GitDeployPro-2.5.78.exe",
-  "downloadUrl": "versions/GitDeployPro-2.5.78.exe",
-  "sha256": "7A4ABD04D7549D77D438CF599EB1B5B51E1A6033F728EFEB4E300CF037AFDB02",
-  "releaseNotes": "Feature: Claude Code Login & Test modal in Settings (browser sign-in via PowerShell, version + sign-in status check)\nFeature: Backup Scheduler redesigned — unified toolbar, compact schedule tools, cleaner stepper and footer bar, theme-token based\nFeature: Cursor CLI Login & Test is now a single button next to Save (info icon removed)",
+  "version": "2.6.19",
+  "fileName": "GitDeployPro-2.6.19.exe",
+  "downloadUrl": "versions/GitDeployPro-2.6.19.exe",
+  "sha256": "73096B065546B725D25CD584DF47E3C50D0ED3B7B94C7E9393C5615F06085031",
+  "releaseNotes": "Feature: Midnight Blue UI across the whole app — new buttons, tabs, inputs, checkboxes, trees, scrollbars, modals and status badges, plus stroke icons everywhere\nFeature: Every button now has a Persian tooltip that explains what it does\nFeature: Backup Scheduler wizard redesigned — icon step headers, titled sections, Next-runs timeline, clearer warnings and themed inputs\nFeature: Deploy, Direct Upload and Remote/FTP panels restyled (branch chips with ahead/behind counters, file rows with type icons and badges, mapping banner, size column)\nSite: New website with real screenshots of the app\nFix: Theme manager removed — the app now has one fixed, consistent look",
   "changelog": [
-    "Feature: Claude Code Login & Test modal in Settings (browser sign-in via PowerShell, version + sign-in status check)",
-    "Feature: Backup Scheduler redesigned — unified toolbar, compact schedule tools, cleaner stepper and footer bar, theme-token based",
-    "Feature: Cursor CLI Login & Test is now a single button next to Save (info icon removed)"
+    "Feature: Midnight Blue UI across the whole app — new buttons, tabs, inputs, checkboxes, trees, scrollbars, modals and status badges, plus stroke icons everywhere",
+    "Feature: Every button now has a Persian tooltip that explains what it does",
+    "Feature: Backup Scheduler wizard redesigned — icon step headers, titled sections, Next-runs timeline, clearer warnings and themed inputs",
+    "Feature: Deploy, Direct Upload and Remote/FTP panels restyled (branch chips with ahead/behind counters, file rows with type icons and badges, mapping banner, size column)",
+    "Site: New website with real screenshots of the app",
+    "Fix: Theme manager removed — the app now has one fixed, consistent look"
   ],
   "mandatory": false,
-  "publishedUtc": "2026-10-27T08:49:22Z"
+  "publishedUtc": "2026-11-02T08:31:54Z"
 }
