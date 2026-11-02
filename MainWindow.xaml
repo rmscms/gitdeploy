@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+        xmlns:behaviors="clr-namespace:GitDeployPro.Behaviors"
         xmlns:loc="clr-namespace:GitDeployPro.Services.Localization"
         Title="GitDeploy Pro"
         Height="650"
@@ -124,6 +125,7 @@
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Foreground" Value="{DynamicResource Text.Primary}" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -148,12 +150,42 @@
     <Border x:Name="ShellRootBorder"
             Margin="10"
             CornerRadius="16"
-            Background="{StaticResource Surface.Base}"
-            BorderBrush="{StaticResource Border.Subtle}"
+            Background="{DynamicResource Surface.Base}"
+            BorderBrush="{DynamicResource Border.Subtle}"
             BorderThickness="1"
             SnapsToDevicePixels="True">
         <Grid>
-            <Grid x:Name="ShellRootGrid" Background="{StaticResource Surface.Base}">
+            <Border CornerRadius="15" BorderThickness="1" BorderBrush="{DynamicResource Shell.Glow}" IsHitTestVisible="False" Panel.ZIndex="10" />
+            <Grid x:Name="ShellRootGrid">
+                <Grid.Background>
+                    <DrawingBrush Stretch="Fill">
+                        <DrawingBrush.Drawing>
+                            <DrawingGroup>
+                                <GeometryDrawing Brush="{DynamicResource Surface.Base}">
+                                    <GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,1,1" /></GeometryDrawing.Geometry>
+                                </GeometryDrawing>
+                                <GeometryDrawing>
+                                    <GeometryDrawing.Brush>
+                                        <RadialGradientBrush Center="0.1,0" GradientOrigin="0.1,0" RadiusX="0.6" RadiusY="0.6">
+                                            <GradientStop Color="{DynamicResource Color.Shell.AmbientA}" Offset="0" />
+                                            <GradientStop Color="Transparent" Offset="1" />
+                                        </RadialGradientBrush>
+                                    </GeometryDrawing.Brush>
+                                    <GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,1,1" /></GeometryDrawing.Geometry>
+                                </GeometryDrawing>
+                                <GeometryDrawing>
+                                    <GeometryDrawing.Brush>
+                                        <RadialGradientBrush Center="0.95,1" GradientOrigin="0.95,1" RadiusX="0.6" RadiusY="0.6">
+                                            <GradientStop Color="{DynamicResource Color.Shell.AmbientB}" Offset="0" />
+                                            <GradientStop Color="Transparent" Offset="1" />
+                                        </RadialGradientBrush>
+                                    </GeometryDrawing.Brush>
+                                    <GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,1,1" /></GeometryDrawing.Geometry>
+                                </GeometryDrawing>
+                            </DrawingGroup>
+                        </DrawingBrush.Drawing>
+                    </DrawingBrush>
+                </Grid.Background>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="48" />
                     <RowDefinition Height="*" />
@@ -188,11 +220,7 @@
                                     MouseLeave="NavMenuButton_MouseLeave"
                                     ToolTip="{loc:T nav.menu}"
                                     ToolTipService.InitialShowDelay="400">
-                                <TextBlock Text="☰"
-                                           FontSize="15"
-                                           HorizontalAlignment="Center"
-                                           VerticalAlignment="Center"
-                                           ToolTip="{loc:T nav.menu}" />
+                                <Path behaviors:AppIcon.Kind="menu" behaviors:AppIcon.Size="16" />
                             </Button>
 
                             <Button x:Name="ProjectSelectorBtn"
@@ -224,11 +252,7 @@
                                                FontWeight="SemiBold"
                                                Foreground="{StaticResource Text.Primary}"
                                                VerticalAlignment="Center" />
-                                    <TextBlock Text="▼"
-                                               FontSize="10"
-                                               VerticalAlignment="Center"
-                                               Margin="8,2,0,0"
-                                               Foreground="{StaticResource Text.Muted}" />
+                                    <Path behaviors:AppIcon.Kind="chevron-down" behaviors:AppIcon.Size="12" Margin="8,2,0,0" TextElement.Foreground="{DynamicResource Text.Muted}" />
                                 </StackPanel>
                             </Button>
 
@@ -238,10 +262,7 @@
                                     WindowChrome.IsHitTestVisibleInChrome="True"
                                     Click="Deploy_Click"
                                     ToolTip="{loc:T nav.tip.deploy}">
-                                <ui:SymbolIcon Symbol="Rocket24"
-                                               Filled="False"
-                                               FontSize="16"
-                                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                <Path behaviors:AppIcon.Kind="rocket" behaviors:AppIcon.Size="16" />
                             </Button>
                             <Button x:Name="OpenExplorerBtn"
                                     Style="{StaticResource HeaderNavIconButtonStyle}"
@@ -249,10 +270,7 @@
                                     WindowChrome.IsHitTestVisibleInChrome="True"
                                     Click="OpenExplorer_Click"
                                     ToolTip="{loc:T nav.openExplorer}">
-                                <ui:SymbolIcon Symbol="Folder24"
-                                               Filled="False"
-                                               FontSize="16"
-                                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                <Path behaviors:AppIcon.Kind="folder-open" behaviors:AppIcon.Size="16" />
                             </Button>
                             <Button x:Name="HeaderLocalTerminalBtn"
                                     Style="{StaticResource HeaderNavIconButtonStyle}"
@@ -260,40 +278,28 @@
                                     WindowChrome.IsHitTestVisibleInChrome="True"
                                     Click="HeaderLocalTerminal_Click"
                                     ToolTip="{loc:T nav.tip.localTerminal}">
-                                <ui:SymbolIcon Symbol="WindowConsole20"
-                                               Filled="False"
-                                               FontSize="16"
-                                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                <Path behaviors:AppIcon.Kind="terminal" behaviors:AppIcon.Size="16" />
                             </Button>
                             <Button x:Name="HeaderSettingsBtn"
                                     Style="{StaticResource HeaderNavIconButtonStyle}"
                                     WindowChrome.IsHitTestVisibleInChrome="True"
                                     Click="Settings_Click"
                                     ToolTip="{loc:T nav.tip.settings}">
-                                <ui:SymbolIcon Symbol="Settings24"
-                                               Filled="False"
-                                               FontSize="16"
-                                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                <Path behaviors:AppIcon.Kind="settings" behaviors:AppIcon.Size="16" />
                             </Button>
                             <Button x:Name="HeaderDatabaseBtn"
                                     Style="{StaticResource HeaderNavIconButtonStyle}"
                                     WindowChrome.IsHitTestVisibleInChrome="True"
                                     Click="Database_Click"
                                     ToolTip="{loc:T nav.tip.databaseBackup}">
-                                <ui:SymbolIcon Symbol="Database24"
-                                               Filled="False"
-                                               FontSize="16"
-                                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                <Path behaviors:AppIcon.Kind="database" behaviors:AppIcon.Size="16" />
                             </Button>
                             <Button x:Name="HeaderCheckUpdatesBtn"
                                     Style="{StaticResource HeaderNavIconButtonStyle}"
                                     WindowChrome.IsHitTestVisibleInChrome="True"
                                     Click="CheckForUpdates_Click"
                                     ToolTip="{loc:T nav.tip.checkUpdates}">
-                                <ui:SymbolIcon Symbol="ArrowSync24"
-                                               Filled="False"
-                                               FontSize="16"
-                                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                <Path behaviors:AppIcon.Kind="refresh" behaviors:AppIcon.Size="16" />
                             </Button>
                         </StackPanel>
 
@@ -321,8 +327,8 @@
                                             Tag="deploy"
                                             Click="Deploy_Click">
                                         <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="🚀" FontSize="13" Width="22" Margin="0,0,8,0" Foreground="{StaticResource Text.Muted}" />
-                                            <TextBlock Text="{loc:T nav.deploy}" FontSize="12.5" Foreground="{StaticResource Text.Primary}" VerticalAlignment="Center" />
+                                            <Path behaviors:AppIcon.Kind="rocket" behaviors:AppIcon.Size="15" Margin="0,0,8,0" Opacity="0.75" />
+                                            <TextBlock Text="{loc:T nav.deploy}" FontSize="12.5" VerticalAlignment="Center" />
                                         </StackPanel>
                                     </Button>
                                     <Button x:Name="NavItemDashboard"
@@ -330,8 +336,8 @@
                                             Tag="dashboard"
                                             Click="Dashboard_Click">
                                         <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="📊" FontSize="13" Width="22" Margin="0,0,8,0" Foreground="{StaticResource Text.Muted}" />
-                                            <TextBlock Text="{loc:T nav.dashboard}" FontSize="12.5" Foreground="{StaticResource Text.Primary}" VerticalAlignment="Center" />
+                                            <Path behaviors:AppIcon.Kind="activity" behaviors:AppIcon.Size="15" Margin="0,0,8,0" Opacity="0.75" />
+                                            <TextBlock Text="{loc:T nav.dashboard}" FontSize="12.5" VerticalAlignment="Center" />
                                         </StackPanel>
                                     </Button>
                                     <Button x:Name="NavItemDirectUpload"
@@ -339,8 +345,8 @@
                                             Tag="direct-upload"
                                             Click="DirectUpload_Click">
                                         <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="📤" FontSize="13" Width="22" Margin="0,0,8,0" Foreground="{StaticResource Text.Muted}" />
-                                            <TextBlock Text="{loc:T nav.directUpload}" FontSize="12.5" Foreground="{StaticResource Text.Primary}" VerticalAlignment="Center" />
+                                            <Path behaviors:AppIcon.Kind="upload" behaviors:AppIcon.Size="15" Margin="0,0,8,0" Opacity="0.75" />
+                                            <TextBlock Text="{loc:T nav.directUpload}" FontSize="12.5" VerticalAlignment="Center" />
                                         </StackPanel>
                                     </Button>
                                     <Button x:Name="NavItemDatabase"
@@ -348,8 +354,8 @@
                                             Tag="database"
                                             Click="Database_Click">
                                         <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="🛢️" FontSize="13" Width="22" Margin="0,0,8,0" Foreground="{StaticResource Text.Muted}" />
-                                            <TextBlock Text="{loc:T nav.database}" FontSize="12.5" Foreground="{StaticResource Text.Primary}" VerticalAlignment="Center" />
+                                            <Path behaviors:AppIcon.Kind="database" behaviors:AppIcon.Size="15" Margin="0,0,8,0" Opacity="0.75" />
+                                            <TextBlock Text="{loc:T nav.database}" FontSize="12.5" VerticalAlignment="Center" />
                                         </StackPanel>
                                     </Button>
                                     <Button x:Name="NavItemGit"
@@ -357,8 +363,8 @@
                                             Tag="git"
                                             Click="Git_Click">
                                         <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="🐱" FontSize="13" Width="22" Margin="0,0,8,0" Foreground="{StaticResource Text.Muted}" />
-                                            <TextBlock Text="{loc:T nav.gitHub}" FontSize="12.5" Foreground="{StaticResource Text.Primary}" VerticalAlignment="Center" />
+                                            <Path behaviors:AppIcon.Kind="git-branch" behaviors:AppIcon.Size="15" Margin="0,0,8,0" Opacity="0.75" />
+                                            <TextBlock Text="{loc:T nav.gitHub}" FontSize="12.5" VerticalAlignment="Center" />
                                         </StackPanel>
                                     </Button>
                                     <Button x:Name="NavItemBackup"
@@ -371,10 +377,9 @@
                                                 <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
                                             <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="🗓️" FontSize="13" Width="22" Margin="0,0,8,0" Foreground="{StaticResource Text.Muted}" />
+                                                <Path behaviors:AppIcon.Kind="calendar" behaviors:AppIcon.Size="15" Margin="0,0,8,0" Opacity="0.75" />
                                                 <TextBlock Text="{loc:T nav.backupPlans}"
                                                            FontSize="12.5"
-                                                           Foreground="{StaticResource Text.Primary}"
                                                            VerticalAlignment="Center" />
                                             </StackPanel>
                                             <Border Grid.Column="1"
@@ -396,8 +401,8 @@
                                             Tag="history"
                                             Click="History_Click">
                                         <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="📜" FontSize="13" Width="22" Margin="0,0,8,0" Foreground="{StaticResource Text.Muted}" />
-                                            <TextBlock Text="{loc:T nav.history}" FontSize="12.5" Foreground="{StaticResource Text.Primary}" VerticalAlignment="Center" />
+                                            <Path behaviors:AppIcon.Kind="history" behaviors:AppIcon.Size="15" Margin="0,0,8,0" Opacity="0.75" />
+                                            <TextBlock Text="{loc:T nav.history}" FontSize="12.5" VerticalAlignment="Center" />
                                         </StackPanel>
                                     </Button>
                                     <Button x:Name="NavItemTelegram"
@@ -405,8 +410,8 @@
                                             Tag="telegram"
                                             Click="Telegram_Click">
                                         <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="💬" FontSize="13" Width="22" Margin="0,0,8,0" Foreground="{StaticResource Text.Muted}" />
-                                            <TextBlock Text="{loc:T nav.telegram}" FontSize="12.5" Foreground="{StaticResource Text.Primary}" VerticalAlignment="Center" />
+                                            <Path behaviors:AppIcon.Kind="chat" behaviors:AppIcon.Size="15" Margin="0,0,8,0" Opacity="0.75" />
+                                            <TextBlock Text="{loc:T nav.telegram}" FontSize="12.5" VerticalAlignment="Center" />
                                         </StackPanel>
                                     </Button>
 
@@ -417,8 +422,8 @@
                                             Tag="settings"
                                             Click="Settings_Click">
                                         <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="⚙️" FontSize="13" Width="22" Margin="0,0,8,0" Foreground="{StaticResource Text.Muted}" />
-                                            <TextBlock Text="{loc:T nav.settings}" FontSize="12.5" Foreground="{StaticResource Text.Primary}" VerticalAlignment="Center" />
+                                            <Path behaviors:AppIcon.Kind="settings" behaviors:AppIcon.Size="15" Margin="0,0,8,0" Opacity="0.75" />
+                                            <TextBlock Text="{loc:T nav.settings}" FontSize="12.5" VerticalAlignment="Center" />
                                         </StackPanel>
                                     </Button>
                                     <Button x:Name="NavItemTheme"
@@ -430,8 +435,8 @@
                                                 <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
                                             <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="🎨" FontSize="13" Width="22" Margin="0,0,8,0" Foreground="{StaticResource Text.Muted}" />
-                                                <TextBlock Text="{loc:T nav.theme}" FontSize="12.5" Foreground="{StaticResource Text.Primary}" VerticalAlignment="Center" />
+                                                <Path behaviors:AppIcon.Kind="palette" behaviors:AppIcon.Size="15" Margin="0,0,8,0" Opacity="0.75" />
+                                                <TextBlock Text="{loc:T nav.theme}" FontSize="12.5" VerticalAlignment="Center" />
                                             </StackPanel>
                                             <TextBlock x:Name="NavThemeChevron"
                                                        Grid.Column="1"
@@ -451,8 +456,8 @@
                                             Click="CheckForUpdates_Click"
                                             ToolTip="{loc:T about.checkUpdates}">
                                         <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="🔄" FontSize="13" Width="22" Margin="0,0,8,0" Foreground="{StaticResource Text.Muted}" />
-                                            <TextBlock Text="{loc:T about.checkUpdates}" FontSize="12.5" Foreground="{StaticResource Text.Primary}" VerticalAlignment="Center" />
+                                            <Path behaviors:AppIcon.Kind="refresh" behaviors:AppIcon.Size="15" Margin="0,0,8,0" Opacity="0.75" />
+                                            <TextBlock Text="{loc:T about.checkUpdates}" FontSize="12.5" VerticalAlignment="Center" />
                                         </StackPanel>
                                     </Button>
                                     <Button x:Name="NavItemAbout"
@@ -460,8 +465,8 @@
                                             Tag="about"
                                             Click="About_Click">
                                         <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="ℹ️" FontSize="13" Width="22" Margin="0,0,8,0" Foreground="{StaticResource Text.Muted}" />
-                                            <TextBlock Text="{loc:T nav.about}" FontSize="12.5" Foreground="{StaticResource Text.Primary}" VerticalAlignment="Center" />
+                                            <Path behaviors:AppIcon.Kind="info" behaviors:AppIcon.Size="15" Margin="0,0,8,0" Opacity="0.75" />
+                                            <TextBlock Text="{loc:T nav.about}" FontSize="12.5" VerticalAlignment="Center" />
                                         </StackPanel>
                                     </Button>
 
@@ -472,8 +477,8 @@
                                             Tag="exit"
                                             Click="Exit_Click">
                                         <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="⏻" FontSize="13" Width="22" Margin="0,0,8,0" Foreground="{StaticResource Status.Error}" />
-                                            <TextBlock Text="{loc:T common.exit}" FontSize="12.5" Foreground="{StaticResource Status.Error}" VerticalAlignment="Center" />
+                                            <Path behaviors:AppIcon.Kind="power" behaviors:AppIcon.Size="15" Margin="0,0,8,0" TextElement.Foreground="{DynamicResource Status.Error}" />
+                                            <TextBlock Text="{loc:T common.exit}" FontSize="12.5" Foreground="{DynamicResource Status.Error}" VerticalAlignment="Center" />
                                         </StackPanel>
                                     </Button>
 
@@ -505,10 +510,13 @@
                                 </Border.Effect>
                                 <StackPanel>
                                     <Button Style="{StaticResource ProjectPopupActionButtonStyle}" Click="OpenProject_Click">
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="📂" FontSize="14" Margin="0,0,10,0" Foreground="{StaticResource Accent.Primary}" />
+                                        <Grid MinWidth="260">
+                                            <StackPanel Orientation="Horizontal">
+                                            <Path behaviors:AppIcon.Kind="folder-open" behaviors:AppIcon.Size="16" Margin="0,0,10,0" TextElement.Foreground="{DynamicResource Accent.Primary}" />
                                             <TextBlock Text="Open project..." FontSize="13" Foreground="{StaticResource Text.Primary}" />
                                         </StackPanel>
+                                            <TextBlock Text="Ctrl+O" FontSize="11" HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="{DynamicResource Text.Muted}" />
+                                        </Grid>
                                     </Button>
                                     <Separator Background="{StaticResource Border.Subtle}" Margin="2,6" />
                                     <TextBlock Text="Recent Projects"
@@ -553,7 +561,7 @@
                                             Visibility="Collapsed"
                                             Margin="0,4,0,0">
                                         <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="🔍" FontSize="14" Margin="0,0,10,0" Foreground="{StaticResource Accent.Primary}" />
+                                            <Path behaviors:AppIcon.Kind="search" behaviors:AppIcon.Size="16" Margin="0,0,10,0" TextElement.Foreground="{DynamicResource Accent.Primary}" />
                                             <TextBlock x:Name="MoreProjectsButtonText"
                                                        Text="More / Search…"
                                                        FontSize="13"
@@ -571,17 +579,17 @@
                             <Button Style="{StaticResource TitlebarControlButtonStyle}"
                                     Click="Minimize_Click"
                                     ToolTip="{loc:T window.tip.minimize}">
-                                <TextBlock Text="─" ToolTip="{loc:T window.tip.minimize}" />
+                                <Path behaviors:AppIcon.Kind="minus" behaviors:AppIcon.Size="14" />
                             </Button>
                             <Button Style="{StaticResource TitlebarControlButtonStyle}"
                                     Click="Maximize_Click"
                                     ToolTip="{loc:T window.tip.maximize}">
-                                <TextBlock Text="☐" ToolTip="{loc:T window.tip.maximize}" />
+                                <Path behaviors:AppIcon.Kind="square" behaviors:AppIcon.Size="13" />
                             </Button>
                             <Button Style="{StaticResource TitlebarCloseButtonStyle}"
                                     Click="Close_Click"
                                     ToolTip="{loc:T window.tip.close}">
-                                <TextBlock Text="✕" ToolTip="{loc:T window.tip.close}" />
+                                <Path behaviors:AppIcon.Kind="x" behaviors:AppIcon.Size="14" />
                             </Button>
                         </StackPanel>
                     </Grid>

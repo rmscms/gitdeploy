@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using GitDeployPro.Services;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace GitDeployPro.Services.Theme
 {
@@ -54,6 +55,11 @@ namespace GitDeployPro.Services.Theme
                     if (!File.Exists(dest))
                     {
                         File.Copy(file, dest, overwrite: false);
+                    }
+                    else if (BundledPackIsNewer(file, dest))
+                    {
+                        // Shipped pack got a higher "version": refresh the seeded copy (user-made packs have other file names).
+                        File.Copy(file, dest, overwrite: true);
                     }
                 }
 
@@ -227,11 +233,66 @@ namespace GitDeployPro.Services.Theme
             return pack;
         }
 
-        public ThemePack MergeWithDefaults(ThemePack pack)
+        private static bool BundledPackIsNewer(string bundledPath, string destPath)
         {
-            var defaults = string.Equals(pack.BasedOn, "dark", StringComparison.OrdinalIgnoreCase)
-                ? ThemeTokenCatalog.CreateDarkPack()
-                : ThemeTokenCatalog.CreateDefaultPack();
+            try
+            {
+                static int Ver(string p)
+                {
+                    var token = JObject.Parse(File.ReadAllText(p)).Value<string>("version");
+                    return int.TryParse(token, out var v) ? v : 0;
+                }
+
+                return Ver(bundledPath) > Ver(destPath);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Resolves the pack a theme inherits from. "default" / "dark" are built in; any other id is looked up
+        /// among the registered themes so a pack can extend another custom pack (chain depth is capped).
+        /// </summary>
+        private ThemePack ResolveBase(string? basedOn, int depth)
+        {
+            if (string.Equals(basedOn, ThemeService.DarkThemeId, StringComparison.OrdinalIgnoreCase))
+            {
+                return ThemeTokenCatalog.CreateDarkPack();
+            }
+
+            if (!string.IsNullOrWhiteSpace(basedOn)
+                && !string.Equals(basedOn, ThemeService.DefaultThemeId, StringComparison.OrdinalIgnoreCase)
+                && depth < 5)
+            {
+                var parent = ThemeService.Instance.FindTheme(basedOn);
+                ThemePack? parentPack = parent?.Pack;
+                if (parentPack == null && parent != null && !string.IsNullOrWhiteSpace(parent.PackPath) && File.Exists(parent.PackPath))
+                {
+                    parentPack = LoadPackFromFile(parent.PackPath);
+                }
+
+                if (parentPack != null)
+                {
+                    var clone = JsonConvert.DeserializeObject<ThemePack>(JsonConvert.SerializeObject(parentPack));
+                    if (clone != null)
+                    {
+                        return MergeWithDefaults(clone, depth + 1);
+                    }
+                }
+            }
+
+            return ThemeTokenCatalog.CreateDefaultPack();
+        }
+
+        public ThemePack MergeWithDefaults(ThemePack pack) => MergeWithDefaults(pack, 0);
+
+        private ThemePack MergeWithDefaults(ThemePack pack, int depth)
+        {
+            var defaults = ResolveBase(pack.BasedOn, depth);
+            pack.Metrics = MergeDict(pack.Metrics, defaults.Metrics ?? new Dictionary<string, string>());
+            pack.Icons = MergeDict(pack.Icons, defaults.Icons ?? new Dictionary<string, string>());
 
             foreach (var key in ThemeTokenCatalog.RequiredPaletteKeys)
             {

@@ -156,6 +156,7 @@ namespace GitDeployPro.Services.Theme
             pack = ThemePackStore.Instance.MergeWithDefaults(pack);
 
             ApplyPalette(pack);
+            ThemeResourceApplier.Apply(pack);
             CurrentTokens = DeployThemeTokens.Resolve(pack, ResolvePaletteColor);
             PushTokenToPalette(
                 "Tree.SearchMatchBackground",

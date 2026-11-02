@@ -1,0 +1,12 @@
+{
+  "id": "daylight",
+  "displayName": "Daylight",
+  "version": "1",
+  "mode": "light",
+  "basedOn": "default",
+  "hue": 215,
+  "tint": 0.35,
+  "accent": "#2F6FED",
+  "accent2": "#7B61FF",
+  "glow": false
+}

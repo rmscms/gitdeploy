@@ -592,8 +592,10 @@ namespace GitDeployPro
             }
 
             // Distinct from popup Surface.Raised background so the active row is visible.
-            var activeBrush = System.Windows.Application.Current?.TryFindResource("State.Hover") as System.Windows.Media.Brush
+            var activeBrush = System.Windows.Application.Current?.TryFindResource("Accent.Soft") as System.Windows.Media.Brush
+                ?? System.Windows.Application.Current?.TryFindResource("State.Hover") as System.Windows.Media.Brush
                 ?? new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#35373B"));
+            var activeText = System.Windows.Application.Current?.TryFindResource("Accent.Primary") as System.Windows.Media.Brush;
             var transparent = System.Windows.Media.Brushes.Transparent;
 
             foreach (var child in NavMenuItemsPanel.Children)
@@ -605,6 +607,14 @@ namespace GitDeployPro
 
                 var isActive = string.Equals(route, _currentRoute, StringComparison.OrdinalIgnoreCase);
                 button.Background = isActive ? activeBrush : transparent;
+                if (isActive && activeText != null)
+                {
+                    button.Foreground = activeText;
+                }
+                else
+                {
+                    button.ClearValue(System.Windows.Controls.Control.ForegroundProperty);
+                }
             }
         }
 

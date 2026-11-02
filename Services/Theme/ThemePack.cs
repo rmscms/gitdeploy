@@ -28,6 +28,14 @@ namespace GitDeployPro.Services.Theme
 
         [JsonProperty("deploy")]
         public ThemePackDeploySection Deploy { get; set; } = new();
+
+        /// <summary>Optional shape tokens: Radius.Card, Radius.Input, Radius.Button, Spacing.PageMargin, FontSize.Body ...</summary>
+        [JsonProperty("metrics", NullValueHandling = NullValueHandling.Ignore)]
+        public Dictionary<string, string> Metrics { get; set; } = new(System.StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>Optional icon overrides: icon name (see Themes/Icons.xaml) -> WPF path data (24x24 grid, stroke icons).</summary>
+        [JsonProperty("icons", NullValueHandling = NullValueHandling.Ignore)]
+        public Dictionary<string, string> Icons { get; set; } = new(System.StringComparer.OrdinalIgnoreCase);
     }
 
     public sealed class ThemePackDeploySection

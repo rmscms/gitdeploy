@@ -55,7 +55,195 @@ namespace GitDeployPro.Pages
             LocalizationService.Instance.LanguageChanged += (_, _) => RefreshLanguageUiTexts();
             Unloaded += SettingsPage_Unloaded;
             ShowSettingsSection("general");
+            HookDirtyTracking();
             LoadSettings();
+        }
+
+        // ---- Dirty tracking / search / shortcuts ----
+        private bool _isDirty;
+
+        private void HookDirtyTracking()
+        {
+            AddHandler(System.Windows.Controls.Primitives.TextBoxBase.TextChangedEvent, new TextChangedEventHandler(DirtyTextChanged));
+            AddHandler(System.Windows.Controls.Primitives.ToggleButton.CheckedEvent, new RoutedEventHandler(DirtyToggleChanged));
+            AddHandler(System.Windows.Controls.Primitives.ToggleButton.UncheckedEvent, new RoutedEventHandler(DirtyToggleChanged));
+            AddHandler(System.Windows.Controls.Primitives.Selector.SelectionChangedEvent, new SelectionChangedEventHandler(DirtySelectionChanged));
+            PreviewKeyDown += SettingsPage_PreviewKeyDown;
+        }
+
+        private void DirtyTextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (e.OriginalSource is System.Windows.Controls.TextBox tb && tb != SettingsSearchBox && tb.IsKeyboardFocused)
+            {
+                MarkDirty();
+            }
+        }
+
+        private void DirtyToggleChanged(object sender, RoutedEventArgs e)
+        {
+            if (e.OriginalSource is System.Windows.Controls.CheckBox or System.Windows.Controls.RadioButton)
+            {
+                var fe = (FrameworkElement)e.OriginalSource;
+                if (fe.IsMouseOver || fe.IsKeyboardFocusWithin)
+                {
+                    MarkDirty();
+                }
+            }
+        }
+
+        private void DirtySelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (e.OriginalSource is System.Windows.Controls.ComboBox cb && (cb.IsMouseOver || cb.IsKeyboardFocusWithin || cb.IsDropDownOpen))
+            {
+                MarkDirty();
+            }
+        }
+
+        private void MarkDirty() => SetDirty(true);
+
+        private void SetDirty(bool dirty)
+        {
+            _isDirty = dirty;
+            if (DirtyDot == null || DirtyStatusText == null)
+            {
+                return;
+            }
+
+            DirtyDot.SetResourceReference(System.Windows.Shapes.Shape.FillProperty, dirty ? "Status.Warning" : "Status.Success");
+            DirtyStatusText.Text = dirty ? "Unsaved changes" : "All changes saved";
+        }
+
+        private void DiscardChanges_Click(object sender, RoutedEventArgs e)
+        {
+            LoadSettings();
+            SetDirty(false);
+        }
+
+        private void SettingsPage_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if ((System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Control) == 0)
+            {
+                return;
+            }
+
+            if (e.Key == System.Windows.Input.Key.S)
+            {
+                e.Handled = true;
+                SaveSettings_Click(this, new RoutedEventArgs());
+            }
+            else if (e.Key == System.Windows.Input.Key.F && SettingsSearchBox != null)
+            {
+                e.Handled = true;
+                SettingsSearchBox.Focus();
+                SettingsSearchBox.SelectAll();
+            }
+        }
+
+        private void SettingsSearchBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            var text = SettingsSearchBox.Text ?? string.Empty;
+            SettingsSearchPlaceholder.Visibility = text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+            SettingsSearchClearButton.Visibility = text.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
+            ApplySettingsFilter(text);
+        }
+
+        private void SettingsSearchClear_Click(object sender, RoutedEventArgs e)
+        {
+            SettingsSearchBox.Text = string.Empty;
+            SettingsSearchBox.Focus();
+        }
+
+        private IEnumerable<StackPanel> AllSettingsPanels()
+        {
+            foreach (var p in new[] { SettingsPanelGeneral, SettingsPanelServer, SettingsPanelGit, SettingsPanelTerminal, SettingsPanelTelegram, SettingsPanelAiAgent, SettingsPanelVpn, SettingsPanelThemes })
+            {
+                if (p != null)
+                {
+                    yield return p;
+                }
+            }
+        }
+
+        private static void CollectHeaderText(DependencyObject node, StringBuilder sb)
+        {
+            if (node is System.Windows.Controls.TextBlock tb)
+            {
+                sb.Append(tb.Text).Append(' ');
+            }
+
+            foreach (var child in LogicalTreeHelper.GetChildren(node))
+            {
+                if (child is DependencyObject d)
+                {
+                    CollectHeaderText(d, sb);
+                }
+            }
+        }
+
+        private void ApplySettingsFilter(string query)
+        {
+            query = (query ?? string.Empty).Trim();
+            foreach (var panel in AllSettingsPanels())
+            {
+                foreach (var expander in panel.Children.OfType<Expander>())
+                {
+                    if (query.Length == 0)
+                    {
+                        expander.Visibility = Visibility.Visible;
+                        continue;
+                    }
+
+                    var sb = new StringBuilder();
+                    if (expander.Header is DependencyObject header)
+                    {
+                        CollectHeaderText(header, sb);
+                    }
+                    else if (expander.Header != null)
+                    {
+                        sb.Append(expander.Header);
+                    }
+
+                    var match = sb.ToString().IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0;
+                    expander.Visibility = match ? Visibility.Visible : Visibility.Collapsed;
+                    if (match)
+                    {
+                        expander.IsExpanded = true;
+                    }
+                }
+            }
+        }
+
+        private void UpdateNavBadges()
+        {
+            try
+            {
+                if (NavServerBadge != null)
+                {
+                    var count = _remoteFtpProfiles?.Count ?? 0;
+                    NavServerBadge.Visibility = count > 0 ? Visibility.Visible : Visibility.Collapsed;
+                    NavServerBadgeText.Text = count.ToString();
+                }
+
+                if (NavTelegramBadge != null && TelegramEnabledCheckBox != null)
+                {
+                    var on = TelegramEnabledCheckBox.IsChecked == true;
+                    NavTelegramBadge.Visibility = Visibility.Visible;
+                    NavTelegramBadgeText.Text = on ? "On" : "Off";
+                    NavTelegramBadgeText.SetResourceReference(System.Windows.Controls.TextBlock.ForegroundProperty, on ? "Status.Success" : "Text.Muted");
+                }
+
+                if (NavThemesBadge != null)
+                {
+                    var id = ThemeService.Instance.CurrentThemeId;
+                    var name = ThemeService.Instance.Themes.FirstOrDefault(t => string.Equals(t.Id, id, StringComparison.OrdinalIgnoreCase))?.DisplayName;
+                    NavThemesBadge.Visibility = string.IsNullOrWhiteSpace(name) ? Visibility.Collapsed : Visibility.Visible;
+                    NavThemesBadgeText.Text = name ?? string.Empty;
+                }
+            }
+            catch
+            {
+                // badges are cosmetic
+            }
         }
 
         private void SettingsPage_Unloaded(object sender, RoutedEventArgs e)
@@ -127,6 +315,13 @@ namespace GitDeployPro.Pages
             SetNavActive(NavAiAgentButton, section == "ai-agent");
             SetNavActive(NavVpnButton, section == "vpn");
             SetNavActive(NavThemesButton, section == "themes");
+
+            if (SettingsSearchBox != null && SettingsSearchBox.Text.Length > 0)
+            {
+                SettingsSearchBox.Text = string.Empty;
+            }
+
+            UpdateNavBadges();
 
             if (SettingsSectionSubtitle != null)
             {
@@ -229,6 +424,8 @@ namespace GitDeployPro.Pages
                 // Heavy / section-scoped work: defer so opening Settings stays responsive.
                 await Dispatcher.Yield(DispatcherPriority.Background);
                 RefreshStartupAudit();
+                UpdateNavBadges();
+                SetDirty(false);
                 // Theme packs / terminal dictionaries load when those nav sections open.
             }
             catch (Exception ex)
@@ -1634,6 +1831,8 @@ namespace GitDeployPro.Pages
                     }
                 }
 
+                SetDirty(false);
+                UpdateNavBadges();
                 ModernMessageBox.Show("Settings saved successfully!", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)

@@ -82,10 +82,55 @@ Chat UI keys in `palette` (Telegram page): `Chat.BubbleIn`, `Chat.BubbleOut`, `C
 - Palette ref: `@Status.Success`
 - Terminal selection may use `rgba(...)`
 
+## Extended pack features (v2)
+
+### New palette tokens
+| Key | Purpose |
+|-----|---------|
+| `Accent.Soft` | Translucent accent fill (icon tiles, active nav row, state badges) |
+| `Accent.Glow` | Border/halo colour of the active or running card |
+| `Shell.Glow` | Hairline glow on the window frame (`#00000000` = off) |
+| `Shell.AmbientA` / `Shell.AmbientB` | Two soft radial background lights (transparent = off) |
+
+### `basedOn` chain
+`basedOn` may be `default`, `dark` **or the id of any other pack** (custom or shipped, up to 5 levels). Missing tokens are inherited.
+
+### `metrics` (optional)
+Shape tokens applied at startup, before windows load: `Radius.*` (CornerRadius, 1 or 4 numbers), `Spacing.*` (Thickness, 1/2/4 numbers), `FontSize.*` (number).
+```json
+"metrics": { "Radius.Card": "16", "Spacing.PageMargin": "24" }
+```
+
+### `icons` (optional)
+Replace any icon by name (see `Themes/Icons.xaml`; 24x24 stroke icons). Value = WPF path data.
+```json
+"icons": { "rocket": "M5 15c-1.5 1.3-2 5-2 5s3.7-.5 5-2 ..." }
+```
+In XAML: `<Path behaviors:AppIcon.Kind="rocket" behaviors:AppIcon.Size="16" TextElement.Foreground="{DynamicResource Accent.Primary}"/>`
+(`System.Windows.Shapes.Path` has no `Foreground`; colour comes from `TextElement.Foreground`, inherited from a parent Button/TextBlock.)
+
+### Shipped pack updates
+A bundled pack with a higher `version` than the seeded copy in `%AppData%\GitDeployPro\Themes` replaces it on startup. User-made packs keep their own file names and are never touched.
+
+### Theme Builder (CLI)
+`Themes/Builder/theme-builder.mjs` generates a full pack from a few lines of JSON (hue, tint, accent, mode, overrides) and reports contrast problems:
+```
+node Themes/Builder/theme-builder.mjs Themes/Builder/specs/ocean-teal.json   # -> Themes/Builder/out/
+node Themes/Builder/theme-builder.mjs --all
+node Themes/Builder/theme-builder.mjs Themes/Builder/specs/x.json --install  # copy into Themes/Packs (ships with the app)
+node Themes/Builder/theme-builder.mjs --tokens                               # palette tokens (read from ThemeTokenCatalog.cs)
+node Themes/Builder/theme-builder.mjs --check Themes/Packs/MyTheme.json
+```
+Specs live in `Themes/Builder/specs` (examples: midnight-blue, ocean-teal, ember-red, daylight). Icons: edit `Themes/Builder/icons.json`, then run `node Themes/Builder/gen-icons.mjs` to regenerate `Themes/Icons.xaml`.
+
+### Reusable controls
+`Controls/WorkerCard` (live job row: Running / Paused / Queued / Done / Failed) and the styles `App.ProgressBar`, `App.Chip`, `App.CardStyle.Glow`.
+
 ## Built-in themes
 
 - **Default** — slate look (app default until the user changes it)
 - **Dark** — full-black look
+- **Midnight Blue** — blue-tinted black with the app accent (default for new installs; shipped pack `MidnightBlue.json`)
 
 Built-ins cannot be deleted. Export them from Settings → Themes for a complete editable template.
 

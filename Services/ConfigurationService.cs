@@ -94,7 +94,7 @@ namespace GitDeployPro.Services
             /// <summary>
             /// App-wide theme id (default | dark | custom pack ids). Persists across pages and restarts.
             /// </summary>
-            public string AppThemeId { get; set; } = "dark";
+            public string AppThemeId { get; set; } = "midnight-blue";
 
             /// <summary>
             /// UI language code: <c>en</c> (default) or <c>fa</c>.

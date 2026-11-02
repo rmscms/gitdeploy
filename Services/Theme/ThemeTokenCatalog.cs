@@ -19,7 +19,8 @@ namespace GitDeployPro.Services.Theme
             "Shadow.Color", "Log.Success",
             "Tree.SearchMatchBackground", "Tree.SearchMatchForeground",
             "Chat.BubbleIn", "Chat.BubbleOut", "Chat.BubbleInText", "Chat.BubbleOutText",
-            "Chat.Composer", "Chat.Unread", "Chat.ThreadHover"
+            "Chat.Composer", "Chat.Unread", "Chat.ThreadHover",
+            "Accent.Soft", "Accent.Glow", "Shell.Glow", "Shell.AmbientA", "Shell.AmbientB"
         };
 
         public static readonly string[] FileTypeKeys =
@@ -92,7 +93,12 @@ namespace GitDeployPro.Services.Theme
             ["Chat.BubbleOutText"] = "#F4F7FF",
             ["Chat.Composer"] = "#202733",
             ["Chat.Unread"] = "#5C8DFF",
-            ["Chat.ThreadHover"] = "#1FFFFFFF"
+            ["Chat.ThreadHover"] = "#1FFFFFFF",
+            ["Accent.Soft"] = "#245C8DFF",
+            ["Accent.Glow"] = "#605C8DFF",
+            ["Shell.Glow"] = "#00000000",
+            ["Shell.AmbientA"] = "#00000000",
+            ["Shell.AmbientB"] = "#00000000"
         };
 
         public static Dictionary<string, string> BuildDarkPalette() => new(System.StringComparer.OrdinalIgnoreCase)
@@ -134,7 +140,12 @@ namespace GitDeployPro.Services.Theme
             ["Chat.BubbleOutText"] = "#FFFFFF",
             ["Chat.Composer"] = "#0D0D0D",
             ["Chat.Unread"] = "#4C8DFF",
-            ["Chat.ThreadHover"] = "#14FFFFFF"
+            ["Chat.ThreadHover"] = "#14FFFFFF",
+            ["Accent.Soft"] = "#244C8DFF",
+            ["Accent.Glow"] = "#594C8DFF",
+            ["Shell.Glow"] = "#00000000",
+            ["Shell.AmbientA"] = "#00000000",
+            ["Shell.AmbientB"] = "#00000000"
         };
 
         private static void FillDeployDefaults(ThemePack pack, bool isDark)

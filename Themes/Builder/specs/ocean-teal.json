@@ -1,0 +1,14 @@
+{
+  "id": "ocean-teal",
+  "displayName": "Ocean Teal",
+  "version": "1",
+  "mode": "dark",
+  "hue": 190,
+  "tint": 0.55,
+  "accent": "#2DD4BF",
+  "accent2": "#38BDF8",
+  "glow": true,
+  "metrics": {
+    "Radius.Card": "14"
+  }
+}

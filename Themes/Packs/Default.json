@@ -42,7 +42,12 @@
     "Chat.BubbleOutText": "#F4F7FF",
     "Chat.Composer": "#202733",
     "Chat.Unread": "#5C8DFF",
-    "Chat.ThreadHover": "#1FFFFFFF"
+    "Chat.ThreadHover": "#1FFFFFFF",
+    "Accent.Soft": "#245C8DFF",
+    "Accent.Glow": "#605C8DFF",
+    "Shell.Glow": "#00000000",
+    "Shell.AmbientA": "#00000000",
+    "Shell.AmbientB": "#00000000"
   },
   "deploy": {
     "shell": {

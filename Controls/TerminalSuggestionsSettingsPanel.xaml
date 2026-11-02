@@ -8,22 +8,22 @@
              d:DesignWidth="720">
     <UserControl.Resources>
         <Style x:Key="ScopeBadge.Global" TargetType="Border">
-            <Setter Property="Background" Value="#224C8DFF" />
-            <Setter Property="BorderBrush" Value="{StaticResource Accent.Primary}" />
+            <Setter Property="Background" Value="{DynamicResource Accent.Soft}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Accent.Primary}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="4" />
             <Setter Property="Padding" Value="6,2" />
         </Style>
         <Style x:Key="ScopeBadge.Current" TargetType="Border">
-            <Setter Property="Background" Value="#225CFFB0" />
-            <Setter Property="BorderBrush" Value="{StaticResource Status.Success}" />
+            <Setter Property="Background" Value="{DynamicResource Status.SuccessSurface}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Status.Success}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="4" />
             <Setter Property="Padding" Value="6,2" />
         </Style>
         <Style x:Key="ScopeBadge.Other" TargetType="Border">
-            <Setter Property="Background" Value="{StaticResource Surface.Raised}" />
-            <Setter Property="BorderBrush" Value="{StaticResource Border.Subtle}" />
+            <Setter Property="Background" Value="{DynamicResource Surface.Raised}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Border.Subtle}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="4" />
             <Setter Property="Padding" Value="6,2" />
@@ -33,13 +33,13 @@
     <StackPanel>
         <TextBlock x:Name="CurrentProjectText"
                    Text="Current project: (none)"
-                   Foreground="{StaticResource Text.Muted}"
+                   Foreground="{DynamicResource Text.Muted}"
                    FontSize="11"
                    Margin="0,0,0,10" />
 
         <CheckBox x:Name="AutocompleteEnabledCheckBox"
                   Content="Enable terminal autocomplete (ghost text + Tab)"
-                  Foreground="{StaticResource Text.Secondary}"
+                  Foreground="{DynamicResource Text.Secondary}"
                   FontSize="12"
                   Margin="0,0,0,6"
                   Checked="AutocompleteEnabledCheckBox_Changed"
@@ -47,14 +47,14 @@
 
         <CheckBox x:Name="DictionaryModeCheckBox"
                   Content="Dictionary mode — highlight unknown commands (red while typing)"
-                  Foreground="{StaticResource Text.Secondary}"
+                  Foreground="{DynamicResource Text.Secondary}"
                   FontSize="12"
                   Margin="0,0,0,10"
                   Checked="DictionaryModeCheckBox_Changed"
                   Unchecked="DictionaryModeCheckBox_Changed" />
 
         <TextBlock Text="Tab accept · ↑↓ cycle · → accept"
-                   Foreground="{StaticResource Text.Muted}"
+                   Foreground="{DynamicResource Text.Muted}"
                    FontSize="10"
                    Margin="0,0,0,12" />
 
@@ -116,8 +116,8 @@
                     Click="RestoreBuiltInPacksButton_Click" />
         </WrapPanel>
 
-        <Border Background="{StaticResource Surface.Raised}"
-                BorderBrush="{StaticResource Border.Subtle}"
+        <Border Background="{DynamicResource Surface.Raised}"
+                BorderBrush="{DynamicResource Border.Subtle}"
                 BorderThickness="1"
                 CornerRadius="8"
                 MinHeight="220"
@@ -143,19 +143,19 @@
                                     </Border>
                                     <DataTemplate.Triggers>
                                         <DataTrigger Binding="{Binding IsGlobalScope}" Value="True">
-                                            <Setter TargetName="ScopeBadge" Property="Background" Value="#224C8DFF" />
-                                            <Setter TargetName="ScopeBadge" Property="BorderBrush" Value="{StaticResource Accent.Primary}" />
-                                            <Setter TargetName="ScopeText" Property="Foreground" Value="{StaticResource Accent.Primary}" />
+                                            <Setter TargetName="ScopeBadge" Property="Background" Value="{DynamicResource Accent.Soft}" />
+                                            <Setter TargetName="ScopeBadge" Property="BorderBrush" Value="{DynamicResource Accent.Primary}" />
+                                            <Setter TargetName="ScopeText" Property="Foreground" Value="{DynamicResource Accent.Primary}" />
                                         </DataTrigger>
                                         <DataTrigger Binding="{Binding IsCurrentProjectScope}" Value="True">
-                                            <Setter TargetName="ScopeBadge" Property="Background" Value="#225CFFB0" />
-                                            <Setter TargetName="ScopeBadge" Property="BorderBrush" Value="{StaticResource Status.Success}" />
-                                            <Setter TargetName="ScopeText" Property="Foreground" Value="{StaticResource Status.Success}" />
+                                            <Setter TargetName="ScopeBadge" Property="Background" Value="{DynamicResource Status.SuccessSurface}" />
+                                            <Setter TargetName="ScopeBadge" Property="BorderBrush" Value="{DynamicResource Status.Success}" />
+                                            <Setter TargetName="ScopeText" Property="Foreground" Value="{DynamicResource Status.Success}" />
                                         </DataTrigger>
                                         <DataTrigger Binding="{Binding IsOtherProjectScope}" Value="True">
-                                            <Setter TargetName="ScopeBadge" Property="Background" Value="{StaticResource Surface.Raised}" />
-                                            <Setter TargetName="ScopeBadge" Property="BorderBrush" Value="{StaticResource Border.Subtle}" />
-                                            <Setter TargetName="ScopeText" Property="Foreground" Value="{StaticResource Text.Muted}" />
+                                            <Setter TargetName="ScopeBadge" Property="Background" Value="{DynamicResource Surface.Raised}" />
+                                            <Setter TargetName="ScopeBadge" Property="BorderBrush" Value="{DynamicResource Border.Subtle}" />
+                                            <Setter TargetName="ScopeText" Property="Foreground" Value="{DynamicResource Text.Muted}" />
                                         </DataTrigger>
                                     </DataTemplate.Triggers>
                                 </DataTemplate>
@@ -177,8 +177,8 @@
             </ListView>
         </Border>
 
-        <Border Background="{StaticResource Surface.Raised}"
-                BorderBrush="{StaticResource Border.Subtle}"
+        <Border Background="{DynamicResource Surface.Raised}"
+                BorderBrush="{DynamicResource Border.Subtle}"
                 BorderThickness="1"
                 CornerRadius="8"
                 Margin="0,12,0,0"
@@ -189,12 +189,12 @@
                            FontSize="13"
                            Margin="0,0,0,10" />
                 <TextBlock Text="Bulk-import commands from a JSON file (supports thousands of entries)."
-                           Foreground="{StaticResource Text.Muted}"
+                           Foreground="{DynamicResource Text.Muted}"
                            FontSize="11"
                            TextWrapping="Wrap"
                            Margin="0,0,0,10" />
                 <TextBlock Text="Category name"
-                           Foreground="{StaticResource Text.Muted}"
+                           Foreground="{DynamicResource Text.Muted}"
                            FontSize="11"
                            Margin="0,0,0,4" />
                 <TextBox x:Name="ImportCategoryTextBox"
@@ -203,7 +203,7 @@
                          Margin="0,0,0,10"
                          ToolTip="Required — e.g. Linux, Docker, Git" />
                 <TextBlock Text="JSON file"
-                           Foreground="{StaticResource Text.Muted}"
+                           Foreground="{DynamicResource Text.Muted}"
                            FontSize="11"
                            Margin="0,0,0,4" />
                 <Grid Margin="0,0,0,10">
@@ -225,7 +225,7 @@
                             Click="ImportBrowseButton_Click" />
                 </Grid>
                 <TextBlock Text="Import scope"
-                           Foreground="{StaticResource Text.Muted}"
+                           Foreground="{DynamicResource Text.Muted}"
                            FontSize="11"
                            Margin="0,0,0,4" />
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
@@ -233,15 +233,15 @@
                                  Content="Global"
                                  IsChecked="True"
                                  Margin="0,0,16,0"
-                                 Foreground="{StaticResource Text.Secondary}" />
+                                 Foreground="{DynamicResource Text.Secondary}" />
                     <RadioButton x:Name="ImportProjectScopeRadio"
                                  Content="This project"
-                                 Foreground="{StaticResource Text.Secondary}" />
+                                 Foreground="{DynamicResource Text.Secondary}" />
                 </StackPanel>
                 <CheckBox x:Name="ImportSkipDuplicatesCheckBox"
                           Content="Skip duplicate commands (same command + scope)"
                           IsChecked="True"
-                          Foreground="{StaticResource Text.Secondary}"
+                          Foreground="{DynamicResource Text.Secondary}"
                           FontSize="12"
                           Margin="0,0,0,10" />
                 <WrapPanel>
@@ -262,7 +262,7 @@
 
         <TextBlock x:Name="StatusText"
                    Text=""
-                   Foreground="{StaticResource Text.Muted}"
+                   Foreground="{DynamicResource Text.Muted}"
                    FontSize="11"
                    Margin="0,8,0,0"
                    TextWrapping="Wrap" />

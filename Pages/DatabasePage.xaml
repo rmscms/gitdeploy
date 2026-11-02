@@ -1,6 +1,7 @@
 <Page x:Class="GitDeployPro.Pages.DatabasePage"
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:behaviors="clr-namespace:GitDeployPro.Behaviors"
       xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
       xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -36,7 +37,7 @@
                         <StackPanel Grid.Column="0" Orientation="Horizontal">
                             <Button x:Name="NewConnectionButton" Height="34" Padding="14,0" Style="{StaticResource App.Button.Primary}" Foreground="{StaticResource Text.Primary}" Click="NewConnectionButton_Click" Cursor="Hand">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="➕" FontSize="12" Margin="0,0,6,0"/>
+                                    <Path behaviors:AppIcon.Kind="plus" behaviors:AppIcon.Size="14" Margin="0,0,6,0" VerticalAlignment="Center"/>
                                     <TextBlock Text="New Connection" FontWeight="SemiBold"/>
                                 </StackPanel>
                             </Button>
@@ -45,7 +46,7 @@
 
                             <Button x:Name="SavedConnectionsButton" Height="34" Padding="14,0" Style="{StaticResource App.Button.Ghost}" Foreground="{StaticResource Text.Secondary}" Click="SavedConnectionsButton_Click" Cursor="Hand" Margin="0,0,8,0">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="📁" FontSize="12" Margin="0,0,6,0"/>
+                                    <Path behaviors:AppIcon.Kind="folder" behaviors:AppIcon.Size="14" Margin="0,0,6,0" VerticalAlignment="Center"/>
                                     <TextBlock Text="Saved"/>
                                     <TextBlock x:Name="SavedCountBadge" Text=" (0)" Foreground="{StaticResource Text.Muted}"/>
                                 </StackPanel>
@@ -53,7 +54,7 @@
 
                             <Button x:Name="LocalhostButton" Height="34" Padding="14,0" Style="{StaticResource App.Button.Success}" Foreground="{StaticResource Text.Inverse}" Click="LocalhostButton_Click" Cursor="Hand" ToolTip="Quick connect to localhost MySQL">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="🏠" FontSize="12" Margin="0,0,6,0"/>
+                                    <Path behaviors:AppIcon.Kind="home" behaviors:AppIcon.Size="14" Margin="0,0,6,0" VerticalAlignment="Center"/>
                                     <TextBlock Text="Localhost"/>
                                 </StackPanel>
                             </Button>
@@ -71,14 +72,14 @@
                         <!-- Right Actions -->
                         <StackPanel Grid.Column="2" Orientation="Horizontal">
                             <Button x:Name="RefreshButton" Height="34" Padding="12,0" Style="{StaticResource App.Button.Ghost}" Foreground="{StaticResource Text.Secondary}" Click="RefreshSchemaButton_Click" IsEnabled="False" Cursor="Hand" ToolTip="Refresh Schema">
-                                <TextBlock Text="🔄" FontSize="14"/>
+                                <Path behaviors:AppIcon.Kind="refresh" behaviors:AppIcon.Size="15" VerticalAlignment="Center"/>
                             </Button>
                             <Button x:Name="SettingsButton" Height="34" Padding="12,0" Style="{StaticResource App.Button.Ghost}" Foreground="{StaticResource Text.Secondary}" Click="OpenConnectionManager_Click" Cursor="Hand" Margin="8,0,0,0" ToolTip="Connection Manager">
-                                <TextBlock Text="⚙️" FontSize="14"/>
+                                <Path behaviors:AppIcon.Kind="settings" behaviors:AppIcon.Size="15" VerticalAlignment="Center"/>
                             </Button>
                             <Button x:Name="DisconnectButton" Height="34" Padding="14,0" Style="{StaticResource App.Button.Danger}" Foreground="{StaticResource Text.Primary}" Click="DisconnectButton_Click" IsEnabled="False" Cursor="Hand" Margin="8,0,0,0">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="⏏" FontSize="12" Margin="0,0,6,0"/>
+                                    <Path behaviors:AppIcon.Kind="power" behaviors:AppIcon.Size="14" Margin="0,0,6,0" VerticalAlignment="Center"/>
                                     <TextBlock Text="Disconnect"/>
                                 </StackPanel>
                             </Button>
@@ -108,14 +109,14 @@
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
 
-                        <TextBlock Text="🛢️ Database:" Grid.Column="0" Foreground="{StaticResource Text.Muted}" FontSize="13" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0"><Path behaviors:AppIcon.Kind="database" behaviors:AppIcon.Size="14" Margin="0,0,6,0" VerticalAlignment="Center" TextElement.Foreground="{DynamicResource Accent.Primary}"/><TextBlock Text="Database:" Foreground="{StaticResource Text.Muted}" FontSize="13" VerticalAlignment="Center"/></StackPanel>
                         <ComboBox x:Name="DatabaseSelector"
                                   Grid.Column="1"
                                   Height="32"
                                   Style="{StaticResource App.InputComboBox}"
                                   SelectionChanged="DatabaseSelector_SelectionChanged"/>
 
-                        <TextBlock Text="📋 Table:" Grid.Column="3" Foreground="{StaticResource Text.Muted}" FontSize="13" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0"><Path behaviors:AppIcon.Kind="table" behaviors:AppIcon.Size="14" Margin="0,0,6,0" VerticalAlignment="Center" TextElement.Foreground="{DynamicResource Accent.Primary}"/><TextBlock Text="Table:" Foreground="{StaticResource Text.Muted}" FontSize="13" VerticalAlignment="Center"/></StackPanel>
                         <Grid Grid.Column="4">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
@@ -177,7 +178,7 @@
             <!-- Disconnected State -->
             <Grid x:Name="DisconnectedState" Visibility="Visible" Background="{StaticResource Surface.Base}">
                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Width="500">
-                    <TextBlock Text="🗄️" FontSize="64" HorizontalAlignment="Center" Margin="0,0,0,20"/>
+                    <Border Width="96" Height="96" CornerRadius="24" Background="{DynamicResource Accent.Soft}" HorizontalAlignment="Center" Margin="0,0,0,20"><Path behaviors:AppIcon.Kind="database" behaviors:AppIcon.Size="44" HorizontalAlignment="Center" VerticalAlignment="Center" TextElement.Foreground="{DynamicResource Accent.Primary}"/></Border>
                     <TextBlock Text="Database Studio" FontSize="28" FontWeight="SemiBold" Foreground="{StaticResource Text.Primary}" HorizontalAlignment="Center" Margin="0,0,0,12"/>
                     <TextBlock Text="Connect to MySQL/MariaDB databases, browse tables, run queries and manage your data with ease." Foreground="{StaticResource Text.Muted}" TextWrapping="Wrap" TextAlignment="Center" FontSize="14" LineHeight="22"/>
                     
@@ -187,21 +188,21 @@
                             
                             <Button Height="44" Style="{StaticResource App.Button.Primary}" Foreground="{StaticResource Text.Primary}" Click="LocalhostButton_Click" Cursor="Hand" Margin="0,0,0,10">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="🏠" FontSize="16" Margin="0,0,10,0"/>
+                                    <Path behaviors:AppIcon.Kind="home" behaviors:AppIcon.Size="16" Margin="0,0,10,0" VerticalAlignment="Center"/>
                                     <TextBlock Text="Connect to Localhost (127.0.0.1)" FontSize="14"/>
                                 </StackPanel>
                             </Button>
                             
                             <Button Height="44" Style="{StaticResource App.Button.Ghost}" Foreground="{StaticResource Text.Secondary}" Click="NewConnectionButton_Click" Cursor="Hand" Margin="0,0,0,10">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="➕" FontSize="16" Margin="0,0,10,0"/>
+                                    <Path behaviors:AppIcon.Kind="plus" behaviors:AppIcon.Size="16" Margin="0,0,10,0" VerticalAlignment="Center"/>
                                     <TextBlock Text="New Custom Connection" FontSize="14"/>
                                 </StackPanel>
                             </Button>
                             
                             <Button Height="44" Style="{StaticResource App.Button.Ghost}" Foreground="{StaticResource Text.Secondary}" Click="SavedConnectionsButton_Click" Cursor="Hand">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="📁" FontSize="16" Margin="0,0,10,0"/>
+                                    <Path behaviors:AppIcon.Kind="folder" behaviors:AppIcon.Size="16" Margin="0,0,10,0" VerticalAlignment="Center"/>
                                     <TextBlock Text="Open Saved Connection" FontSize="14"/>
                                 </StackPanel>
                             </Button>
@@ -260,7 +261,7 @@
                             FontWeight="SemiBold"
                             Cursor="Hand">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="▶" Margin="0,0,8,0"/>
+                            <Path behaviors:AppIcon.Kind="play" behaviors:AppIcon.Size="14" Margin="0,0,8,0" VerticalAlignment="Center"/>
                             <TextBlock Text="Run Query"/>
                         </StackPanel>
                     </Button>
@@ -476,7 +477,7 @@
                     Visibility="Collapsed"
                     Panel.ZIndex="100">
                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <TextBlock Text="⏳" FontSize="48" HorizontalAlignment="Center"/>
+                    <Path behaviors:AppIcon.Kind="spinner" behaviors:AppIcon.Size="48" HorizontalAlignment="Center" TextElement.Foreground="{DynamicResource Accent.Primary}"/>
                     <TextBlock x:Name="LoadingText" Text="Connecting..." Foreground="{StaticResource Text.Primary}" FontSize="18" FontWeight="SemiBold" Margin="0,12,0,0"/>
                 </StackPanel>
             </Border>

@@ -3,6 +3,7 @@
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                  xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
                  xmlns:models="clr-namespace:GitDeployPro.Models"
+                 xmlns:ctl="clr-namespace:GitDeployPro.Controls"
                  Title="Active Backups"
                  Width="900"
                  Height="560"
@@ -10,7 +11,10 @@
                  BorderThickness="0"
                  WindowStartupLocation="CenterOwner"
                  Background="{StaticResource Surface.Base}"
-                 Foreground="{StaticResource Text.Primary}">
+                 Foreground="{DynamicResource Text.Primary}">
+    <mah:MetroWindow.Resources>
+        <ctl:BackupTaskStateConverter x:Key="BackupStateConv"/>
+    </mah:MetroWindow.Resources>
     <Grid Margin="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -22,48 +26,31 @@
                    FontSize="20"
                    FontWeight="SemiBold"
                    Margin="0,0,0,8"/>
-        <ListView Grid.Row="1"
-                  ItemsSource="{Binding ActiveTasks}"
-                  Style="{StaticResource App.ListView.Host}"
-                  Foreground="{StaticResource Text.Primary}">
-            <ListView.View>
-                <GridView>
-                    <GridViewColumn Header="Schedule" Width="160" DisplayMemberBinding="{Binding ScheduleName}"/>
-                    <GridViewColumn Header="Database" Width="130" DisplayMemberBinding="{Binding DatabaseName}"/>
-                    <GridViewColumn Header="Mode" Width="90" DisplayMemberBinding="{Binding Mode}"/>
-                    <GridViewColumn Header="Started" Width="120" DisplayMemberBinding="{Binding StartedLocal, StringFormat={}{0:T}}"/>
-                    <GridViewColumn Header="Stage" Width="200" DisplayMemberBinding="{Binding Stage}"/>
-                    <GridViewColumn Header="Progress" Width="150">
-                        <GridViewColumn.CellTemplate>
-                            <DataTemplate>
-                                <StackPanel>
-                                    <ProgressBar Minimum="0"
-                                                 Maximum="100"
-                                                 Value="{Binding Percent}"
-                                                 Height="8"/>
-                                    <TextBlock Text="{Binding ProgressSummary}" FontSize="11"/>
-                                    <TextBlock Text="{Binding CurrentTableProgress}" FontSize="10" Foreground="#B0B0B0"/>
-                                </StackPanel>
-                            </DataTemplate>
-                        </GridViewColumn.CellTemplate>
-                    </GridViewColumn>
-                    <GridViewColumn Header="Current table" Width="150" DisplayMemberBinding="{Binding CurrentTable}"/>
-                    <GridViewColumn Header="Row progress" Width="160" DisplayMemberBinding="{Binding CurrentTableProgress}"/>
-                    <GridViewColumn Header="Actions" Width="90">
-                        <GridViewColumn.CellTemplate>
-                            <DataTemplate>
-                                <Button Content="Stop"
-                                        Padding="10,4"
-                                        Style="{StaticResource App.Button.Danger}"
-                                        Foreground="{StaticResource Text.Primary}"
-                                        IsEnabled="{Binding IsCancelable}"
-                                        Click="StopTask_Click"/>
-                            </DataTemplate>
-                        </GridViewColumn.CellTemplate>
-                    </GridViewColumn>
-                </GridView>
-            </ListView.View>
-        </ListView>
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding ActiveTasks}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <DockPanel Margin="0,0,0,8" LastChildFill="True">
+                            <Button DockPanel.Dock="Right"
+                                    Content="Stop"
+                                    Margin="8,0,0,0"
+                                    Padding="12,4"
+                                    VerticalAlignment="Center"
+                                    Style="{StaticResource App.Button.Danger}"
+                                    IsEnabled="{Binding IsCancelable}"
+                                    Click="StopTask_Click"/>
+                            <ctl:WorkerCard Title="{Binding ScheduleName}"
+                                            Description="{Binding Stage}"
+                                            StatsText="{Binding ProgressSummary}"
+                                            IconKind="database"
+                                            ShowControls="False"
+                                            State="{Binding State, Converter={StaticResource BackupStateConv}}"
+                                            Progress="{Binding Percent}"/>
+                        </DockPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
 
         <TextBlock Grid.Row="2"
                    Text="Recent activity"
@@ -74,7 +61,7 @@
         <ListView Grid.Row="3"
                   ItemsSource="{Binding RecentTasks}"
                   Style="{StaticResource App.ListView.Host}"
-                  Foreground="{StaticResource Text.Primary}">
+                  Foreground="{DynamicResource Text.Primary}">
             <ListView.View>
                 <GridView>
                     <GridViewColumn Header="When" Width="130" DisplayMemberBinding="{Binding FinishedLocal, StringFormat={}{0:G}}"/>
@@ -86,13 +73,13 @@
                                 <TextBlock Text="{Binding Message}">
                                     <TextBlock.Style>
                                         <Style TargetType="TextBlock">
-                                            <Setter Property="Foreground" Value="{StaticResource Log.Success}"/>
+                                            <Setter Property="Foreground" Value="{DynamicResource Log.Success}"/>
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding State}" Value="{x:Static models:BackupTaskState.Failed}">
-                                                    <Setter Property="Foreground" Value="{StaticResource Status.Error}"/>
+                                                    <Setter Property="Foreground" Value="{DynamicResource Status.Error}"/>
                                                 </DataTrigger>
                                                 <DataTrigger Binding="{Binding State}" Value="{x:Static models:BackupTaskState.Cancelled}">
-                                                    <Setter Property="Foreground" Value="{StaticResource Status.Warning}"/>
+                                                    <Setter Property="Foreground" Value="{DynamicResource Status.Warning}"/>
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>

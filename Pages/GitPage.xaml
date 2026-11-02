@@ -1,6 +1,7 @@
 <Page x:Class="GitDeployPro.Pages.GitPage"
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:behaviors="clr-namespace:GitDeployPro.Behaviors"
       Title="Git &amp; GitHub Integration"
       Background="{StaticResource Surface.Base}">
     <ScrollViewer VerticalScrollBarVisibility="Auto"
@@ -19,7 +20,7 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <StackPanel Orientation="Horizontal" Grid.Column="0">
-                    <TextBlock Text="🐱" FontSize="40" VerticalAlignment="Center" Margin="0,0,15,0" Foreground="{StaticResource Text.Primary}"/>
+                    <Border Width="48" Height="48" CornerRadius="12" Background="{DynamicResource Accent.Soft}" Margin="0,0,15,0" VerticalAlignment="Center"><Path behaviors:AppIcon.Kind="git-branch" behaviors:AppIcon.Size="22" HorizontalAlignment="Center" VerticalAlignment="Center" TextElement.Foreground="{DynamicResource Accent.Primary}"/></Border>
                     <StackPanel>
                         <TextBlock Text="GitHub Integration" Style="{StaticResource App.PageTitleTextStyle}" />
                         <TextBlock Text="Repository sync, pull, push and release tags in one panel."
@@ -39,14 +40,14 @@
                             Style="{StaticResource App.Button.Toolbar}"
                             Click="CloneRepoButton_Click">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="🔗" FontSize="16" Margin="0,0,10,0" Foreground="{StaticResource Status.Info}"/>
+                            <Path behaviors:AppIcon.Kind="link" behaviors:AppIcon.Size="16" Margin="0,0,10,0" VerticalAlignment="Center" TextElement.Foreground="{DynamicResource Status.Info}"/>
                             <TextBlock Text="Clone / Connect" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
                 </StackPanel>
             </Grid>
 
-            <Border Grid.Row="1" Style="{StaticResource App.CardStyle}" Margin="0,0,0,20">
+            <Border Grid.Row="1" Style="{StaticResource App.CardStyle.Glow}" Margin="0,0,0,20">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
@@ -94,7 +95,7 @@
                         </Grid.RowDefinitions>
 
                         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,15">
-                            <TextBlock Text="🏷️" FontSize="20" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <Path behaviors:AppIcon.Kind="tag" behaviors:AppIcon.Size="20" Margin="0,0,10,0" VerticalAlignment="Center" TextElement.Foreground="{DynamicResource Accent.Primary}"/>
                             <TextBlock Text="Tags" Style="{StaticResource App.SectionTitleTextStyle}" VerticalAlignment="Center"/>
                         </StackPanel>
 
@@ -118,7 +119,7 @@
                 <Border Grid.Column="2" Style="{StaticResource App.CardStyle}">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
-                            <TextBlock Text="➕" FontSize="20" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <Path behaviors:AppIcon.Kind="plus" behaviors:AppIcon.Size="20" Margin="0,0,10,0" VerticalAlignment="Center" TextElement.Foreground="{DynamicResource Accent.Primary}"/>
                             <TextBlock Text="Create New Tag" Style="{StaticResource App.SectionTitleTextStyle}" VerticalAlignment="Center"/>
                         </StackPanel>
 

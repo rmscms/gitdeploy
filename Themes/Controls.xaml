@@ -1037,4 +1037,56 @@
         <Setter Property="Padding" Value="12,0" />
         <Setter Property="FontSize" Value="13" />
     </Style>
+
+    <!-- ===== Midnight Blue additions (token-driven; every theme pack restyles these) ===== -->
+    <Style x:Key="App.CardStyle.Glow" TargetType="Border" BasedOn="{StaticResource App.CardStyle}">
+        <Setter Property="BorderBrush" Value="{DynamicResource Accent.Glow}" />
+    </Style>
+
+    <!-- Thin rounded progress bar. Tag = Running (default) | Paused | Done | Failed recolours the fill. -->
+    <Style x:Key="App.ProgressBar" TargetType="ProgressBar">
+        <Setter Property="Height" Value="6" />
+        <Setter Property="Minimum" Value="0" />
+        <Setter Property="Maximum" Value="100" />
+        <Setter Property="Background" Value="{DynamicResource Surface.Input}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Border.Subtle}" />
+        <Setter Property="Foreground" Value="{DynamicResource Accent.Primary}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ProgressBar">
+                    <Grid>
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4" />
+                        <Border x:Name="PART_Track" Margin="1">
+                            <Border x:Name="PART_Indicator"
+                                    HorizontalAlignment="Left"
+                                    Background="{TemplateBinding Foreground}"
+                                    CornerRadius="3" />
+                        </Border>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="Tag" Value="Paused">
+                <Setter Property="Foreground" Value="{DynamicResource Status.Warning}" />
+            </Trigger>
+            <Trigger Property="Tag" Value="Done">
+                <Setter Property="Foreground" Value="{DynamicResource Status.Success}" />
+            </Trigger>
+            <Trigger Property="Tag" Value="Failed">
+                <Setter Property="Foreground" Value="{DynamicResource Status.Error}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- Small status chip (badge). Set Background/Foreground from Status.* tokens. -->
+    <Style x:Key="App.Chip" TargetType="Border">
+        <Setter Property="Padding" Value="8,2" />
+        <Setter Property="CornerRadius" Value="5" />
+        <Setter Property="Background" Value="{DynamicResource Accent.Soft}" />
+    </Style>
 </ResourceDictionary>

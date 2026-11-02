@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:behaviors="clr-namespace:GitDeployPro.Behaviors"
         xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
         mc:Ignorable="d"
         Title="Database Process Monitor"
@@ -10,7 +11,7 @@
         Width="960"
         WindowStartupLocation="CenterOwner"
         Background="{StaticResource Surface.Base}"
-        Foreground="{StaticResource Text.Primary}">
+        Foreground="{DynamicResource Text.Primary}">
 
     <Grid Margin="16">
         <Grid.RowDefinitions>
@@ -21,15 +22,15 @@
 
         <!-- Connection controls -->
         <Border Grid.Row="0"
-                Background="{StaticResource Surface.Card}"
+                Background="{DynamicResource Surface.Card}"
                 CornerRadius="8"
                 Padding="14"
-                BorderBrush="{StaticResource Border.Subtle}"
+                BorderBrush="{DynamicResource Border.Subtle}"
                 BorderThickness="1">
             <StackPanel>
                 <TextBlock Text="Select a database connection"
                            FontSize="13"
-                           Foreground="{StaticResource Text.Muted}"
+                           Foreground="{DynamicResource Text.Muted}"
                            Margin="0,0,0,8"/>
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -48,14 +49,17 @@
 
                     <Button x:Name="ReloadConnectionsButton"
                             Grid.Column="1"
-                            Content="🔄"
                             Width="36"
                             Height="32"
                             Margin="8,0,0,0"
                             ToolTip="Reload saved connections"
                             Click="ReloadConnectionsButton_Click"
                             Style="{StaticResource App.Button.Ghost}"
-                            Foreground="{StaticResource Text.Secondary}"/>
+                            Foreground="{DynamicResource Text.Secondary}">
+                        <Path behaviors:AppIcon.Kind="refresh"
+                              behaviors:AppIcon.Size="16"
+                              TextElement.Foreground="{DynamicResource Text.Secondary}"/>
+                    </Button>
 
                     <Button x:Name="ConnectButton"
                             Grid.Column="2"
@@ -64,7 +68,7 @@
                             Margin="8,0,0,0"
                             Padding="18,0"
                             Style="{StaticResource App.Button.Primary}"
-                            Foreground="{StaticResource Text.Primary}"
+                            Foreground="{DynamicResource Text.Primary}"
                             Click="ConnectButton_Click"/>
 
                     <Button x:Name="RefreshButton"
@@ -74,7 +78,7 @@
                             Margin="8,0,0,0"
                             Padding="18,0"
                             Style="{StaticResource App.Button.Toolbar}"
-                            Foreground="{StaticResource Text.Secondary}"
+                            Foreground="{DynamicResource Text.Secondary}"
                             Click="RefreshButton_Click"/>
 
                     <StackPanel Grid.Column="4"
@@ -82,7 +86,7 @@
                                 Margin="12,0,0,0"
                                 VerticalAlignment="Center">
                         <TextBlock Text="Auto-refresh:"
-                                   Foreground="{StaticResource Text.Muted}"
+                                   Foreground="{DynamicResource Text.Muted}"
                                    Margin="0,0,6,0"
                                    VerticalAlignment="Center"/>
                         <ComboBox x:Name="IntervalCombo"
@@ -103,9 +107,9 @@
         <!-- Process list -->
         <Border Grid.Row="1"
                 Margin="0,16,0,16"
-                Background="{StaticResource Surface.Shell}"
+                Background="{DynamicResource Surface.Shell}"
                 CornerRadius="10"
-                BorderBrush="{StaticResource Border.Subtle}"
+                BorderBrush="{DynamicResource Border.Subtle}"
                 BorderThickness="1">
             <DataGrid x:Name="ProcessGrid"
                       Style="{StaticResource App.DataGrid}"
@@ -128,13 +132,13 @@
         <!-- Status -->
         <StackPanel Grid.Row="2" Orientation="Horizontal" VerticalAlignment="Center">
             <ProgressBar x:Name="BusyBar"
+                         Style="{StaticResource App.ProgressBar}"
                          Width="180"
-                         Height="6"
                          Visibility="Collapsed"
                          IsIndeterminate="True"/>
             <TextBlock x:Name="StatusText"
                        Margin="12,0,0,0"
-                       Foreground="{StaticResource Text.Secondary}"
+                       Foreground="{DynamicResource Text.Secondary}"
                        VerticalAlignment="Center"
                        Text="Choose a connection to get started."/>
         </StackPanel>

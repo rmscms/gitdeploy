@@ -4,33 +4,34 @@
       xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
       xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
       xmlns:controls="clr-namespace:GitDeployPro.Controls"
+      xmlns:behaviors="clr-namespace:GitDeployPro.Behaviors"
       xmlns:loc="clr-namespace:GitDeployPro.Services.Localization"
       Title="SettingsPage"
-      Background="{StaticResource Surface.Base}"
-      Foreground="{StaticResource Text.Primary}">
+      Background="{DynamicResource Surface.Base}"
+      Foreground="{DynamicResource Text.Primary}">
     <Page.Resources>
         <Style x:Key="Settings.NavButton" TargetType="Button" BasedOn="{StaticResource App.SidebarNavButton}">
             <Setter Property="Height" Value="38" />
             <Setter Property="Margin" Value="0,2" />
             <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Foreground" Value="{StaticResource Text.Secondary}" />
+            <Setter Property="Foreground" Value="{DynamicResource Text.Secondary}" />
             <Setter Property="FontSize" Value="13" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Padding" Value="12,0" />
         </Style>
         <Style x:Key="Settings.NavButton.Active" TargetType="Button" BasedOn="{StaticResource Settings.NavButton}">
-            <Setter Property="Background" Value="{StaticResource Surface.Raised}" />
-            <Setter Property="Foreground" Value="{StaticResource Text.Primary}" />
-            <Setter Property="BorderBrush" Value="{StaticResource Accent.Primary}" />
+            <Setter Property="Background" Value="{DynamicResource Accent.Soft}" />
+            <Setter Property="Foreground" Value="{DynamicResource Accent.Primary}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Accent.Primary}" />
             <Setter Property="BorderThickness" Value="3,0,0,0" />
             <Setter Property="FontWeight" Value="SemiBold" />
         </Style>
         <Style x:Key="Settings.Expander" TargetType="Expander">
-            <Setter Property="Foreground" Value="{StaticResource Text.Primary}" />
-            <Setter Property="Background" Value="{StaticResource Surface.Card}" />
-            <Setter Property="BorderBrush" Value="{StaticResource Border.Subtle}" />
+            <Setter Property="Foreground" Value="{DynamicResource Text.Primary}" />
+            <Setter Property="Background" Value="{DynamicResource Surface.Card}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Border.Subtle}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Margin" Value="0,0,0,8" />
+            <Setter Property="Margin" Value="0,0,0,12" />
             <Setter Property="IsExpanded" Value="True" />
             <Setter Property="Template">
                 <Setter.Value>
@@ -39,7 +40,7 @@
                                 Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="10">
+                                CornerRadius="12">
                             <DockPanel>
                                 <ToggleButton x:Name="HeaderToggle"
                                               DockPanel.Dock="Top"
@@ -57,14 +58,14 @@
                                                     <ControlTemplate TargetType="ToggleButton">
                                                         <Border x:Name="HeaderBg"
                                                                 Background="{TemplateBinding Background}"
-                                                                CornerRadius="10,10,0,0"
+                                                                CornerRadius="12,12,0,0"
                                                                 Padding="{TemplateBinding Padding}">
                                                             <ContentPresenter HorizontalAlignment="Stretch"
                                                                               VerticalAlignment="Center" />
                                                         </Border>
                                                         <ControlTemplate.Triggers>
                                                             <Trigger Property="IsMouseOver" Value="True">
-                                                                <Setter TargetName="HeaderBg" Property="Background" Value="{StaticResource Surface.Raised}" />
+                                                                <Setter TargetName="HeaderBg" Property="Background" Value="{DynamicResource Surface.Raised}" />
                                                             </Trigger>
                                                         </ControlTemplate.Triggers>
                                                     </ControlTemplate>
@@ -83,14 +84,14 @@
                                                 Width="28"
                                                 Height="28"
                                                 CornerRadius="14"
-                                                Background="{StaticResource Surface.Raised}"
-                                                BorderBrush="{StaticResource Border.Subtle}"
+                                                Background="{DynamicResource Surface.Raised}"
+                                                BorderBrush="{DynamicResource Border.Subtle}"
                                                 BorderThickness="1"
                                                 Margin="12,0,0,0"
                                                 VerticalAlignment="Center">
                                             <Path x:Name="ChevronPath"
                                                   Data="M 0,0 L 5,5 L 10,0"
-                                                  Stroke="{StaticResource Text.Secondary}"
+                                                  Stroke="{DynamicResource Text.Secondary}"
                                                   StrokeThickness="1.8"
                                                   StrokeStartLineCap="Round"
                                                   StrokeEndLineCap="Round"
@@ -117,8 +118,8 @@
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsExpanded" Value="True">
                                 <Setter TargetName="ExpandSite" Property="Visibility" Value="Visible" />
-                                <Setter TargetName="ChevronPath" Property="Stroke" Value="{StaticResource Accent.Primary}" />
-                                <Setter TargetName="ChevronHost" Property="BorderBrush" Value="{StaticResource Accent.Primary}" />
+                                <Setter TargetName="ChevronPath" Property="Stroke" Value="{DynamicResource Accent.Primary}" />
+                                <Setter TargetName="ChevronHost" Property="BorderBrush" Value="{DynamicResource Accent.Primary}" />
                                 <Setter TargetName="ChevronPath" Property="RenderTransform">
                                     <Setter.Value>
                                         <RotateTransform Angle="180" />
@@ -126,9 +127,9 @@
                                 </Setter>
                             </Trigger>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="CardBorder" Property="BorderBrush" Value="{StaticResource Border.Strong}" />
-                                <Setter TargetName="ChevronHost" Property="BorderBrush" Value="{StaticResource Accent.Primary}" />
-                                <Setter TargetName="ChevronPath" Property="Stroke" Value="{StaticResource Accent.Primary}" />
+                                <Setter TargetName="CardBorder" Property="BorderBrush" Value="{DynamicResource Border.Strong}" />
+                                <Setter TargetName="ChevronHost" Property="BorderBrush" Value="{DynamicResource Accent.Primary}" />
+                                <Setter TargetName="ChevronPath" Property="Stroke" Value="{DynamicResource Accent.Primary}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -136,13 +137,13 @@
             </Setter>
         </Style>
         <Style x:Key="Settings.ToolbarCard" TargetType="Border">
-            <Setter Property="Background" Value="{StaticResource Surface.Card}" />
-            <Setter Property="BorderBrush" Value="{StaticResource Border.Subtle}" />
+            <Setter Property="Background" Value="{DynamicResource Surface.Card}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Border.Subtle}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="8" />
             <Setter Property="Padding" Value="12,10" />
             <Setter Property="Margin" Value="0,0,0,8" />
-            <Setter Property="TextElement.Foreground" Value="{StaticResource Text.Primary}" />
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource Text.Primary}" />
         </Style>
     </Page.Resources>
 
@@ -167,11 +168,7 @@
                         BorderBrush="{StaticResource Border.Subtle}"
                         BorderThickness="1"
                         Margin="0,0,10,0">
-                    <ui:SymbolIcon Symbol="Settings24"
-                                   FontSize="16"
-                                   Foreground="{StaticResource Accent.Primary}"
-                                   HorizontalAlignment="Center"
-                                   VerticalAlignment="Center" />
+                    <Path behaviors:AppIcon.Kind="settings" behaviors:AppIcon.Size="18" TextElement.Foreground="{DynamicResource Accent.Primary}" />
                 </Border>
                 <StackPanel VerticalAlignment="Center">
                     <TextBlock Text="Settings"
@@ -208,86 +205,119 @@
                                FontWeight="Bold"
                                Foreground="{StaticResource Text.Muted}"
                                Margin="10,0,0,8" />
+                    <TextBlock DockPanel.Dock="Bottom" Text="Ctrl+S to save  -  Ctrl+F to search" FontSize="10" Foreground="{DynamicResource Text.Muted}" Margin="10,10,0,0" TextWrapping="Wrap" />
                     <StackPanel>
                         <Button x:Name="NavGeneralButton"
                                 Style="{StaticResource Settings.NavButton.Active}"
                                 Click="SettingsNav_Click"
                                 Tag="general">
-                            <StackPanel Orientation="Horizontal">
-                                <ui:SymbolIcon Symbol="Folder24" FontSize="15" Margin="0,0,10,0" VerticalAlignment="Center" />
-                                <TextBlock Text="General" VerticalAlignment="Center" />
-                            </StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                <Path behaviors:AppIcon.Kind="folder-open" behaviors:AppIcon.Size="16" Margin="0,0,10,0" TextElement.Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                <TextBlock Grid.Column="1" Text="General" VerticalAlignment="Center" />
+                            </Grid>
                         </Button>
                         <Button x:Name="NavServerButton"
                                 Style="{StaticResource Settings.NavButton}"
                                 Click="SettingsNav_Click"
                                 Tag="server">
-                            <StackPanel Orientation="Horizontal">
-                                <ui:SymbolIcon Symbol="Cloud24" FontSize="15" Margin="0,0,10,0" VerticalAlignment="Center" />
-                                <TextBlock Text="Server" VerticalAlignment="Center" />
-                            </StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                <Path behaviors:AppIcon.Kind="cloud" behaviors:AppIcon.Size="16" Margin="0,0,10,0" TextElement.Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                <TextBlock Grid.Column="1" Text="Server" VerticalAlignment="Center" />
+                                <Border x:Name="NavServerBadge" Grid.Column="2" Visibility="Collapsed" CornerRadius="8" Padding="6,1" Margin="6,0,0,0" Background="{DynamicResource Surface.Raised}" VerticalAlignment="Center">
+                                    <TextBlock x:Name="NavServerBadgeText" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource Text.Secondary}" MaxWidth="60" TextTrimming="CharacterEllipsis" />
+                                </Border>
+                            </Grid>
                         </Button>
                         <Button x:Name="NavGitButton"
                                 Style="{StaticResource Settings.NavButton}"
                                 Click="SettingsNav_Click"
                                 Tag="git">
-                            <StackPanel Orientation="Horizontal">
-                                <ui:SymbolIcon Symbol="BranchFork24" FontSize="15" Margin="0,0,10,0" VerticalAlignment="Center" />
-                                <TextBlock Text="Git" VerticalAlignment="Center" />
-                            </StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                <Path behaviors:AppIcon.Kind="git-branch" behaviors:AppIcon.Size="16" Margin="0,0,10,0" TextElement.Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                <TextBlock Grid.Column="1" Text="Git" VerticalAlignment="Center" />
+                            </Grid>
                         </Button>
                         <Button x:Name="NavTerminalButton"
                                 Style="{StaticResource Settings.NavButton}"
                                 Click="SettingsNav_Click"
                                 Tag="terminal">
-                            <StackPanel Orientation="Horizontal">
-                                <ui:SymbolIcon Symbol="KeyCommand24" FontSize="15" Margin="0,0,10,0" VerticalAlignment="Center" />
-                                <TextBlock Text="Terminal" VerticalAlignment="Center" />
-                            </StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                <Path behaviors:AppIcon.Kind="terminal" behaviors:AppIcon.Size="16" Margin="0,0,10,0" TextElement.Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                <TextBlock Grid.Column="1" Text="Terminal" VerticalAlignment="Center" />
+                            </Grid>
                         </Button>
                         <Button x:Name="NavTelegramButton"
                                 Style="{StaticResource Settings.NavButton}"
                                 Click="SettingsNav_Click"
                                 Tag="telegram">
-                            <StackPanel Orientation="Horizontal">
-                                <ui:SymbolIcon Symbol="Chat24" FontSize="15" Margin="0,0,10,0" VerticalAlignment="Center" />
-                                <TextBlock Text="Telegram" VerticalAlignment="Center" />
-                            </StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                <Path behaviors:AppIcon.Kind="chat" behaviors:AppIcon.Size="16" Margin="0,0,10,0" TextElement.Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                <TextBlock Grid.Column="1" Text="Telegram" VerticalAlignment="Center" />
+                                <Border x:Name="NavTelegramBadge" Grid.Column="2" Visibility="Collapsed" CornerRadius="8" Padding="6,1" Margin="6,0,0,0" Background="{DynamicResource Surface.Raised}" VerticalAlignment="Center">
+                                    <TextBlock x:Name="NavTelegramBadgeText" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource Text.Secondary}" MaxWidth="60" TextTrimming="CharacterEllipsis" />
+                                </Border>
+                            </Grid>
                         </Button>
                         <Button x:Name="NavAiAgentButton"
                                 Style="{StaticResource Settings.NavButton}"
                                 Click="SettingsNav_Click"
                                 Tag="ai-agent">
-                            <StackPanel Orientation="Horizontal">
-                                <ui:SymbolIcon Symbol="Bot24" FontSize="15" Margin="0,0,10,0" VerticalAlignment="Center" />
-                                <TextBlock Text="AI agent" VerticalAlignment="Center" />
-                            </StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                <Path behaviors:AppIcon.Kind="cpu" behaviors:AppIcon.Size="16" Margin="0,0,10,0" TextElement.Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                <TextBlock Grid.Column="1" Text="AI agent" VerticalAlignment="Center" />
+                            </Grid>
                         </Button>
                         <Button x:Name="NavVpnButton"
                                 Style="{StaticResource Settings.NavButton}"
                                 Click="SettingsNav_Click"
                                 Tag="vpn">
-                            <StackPanel Orientation="Horizontal">
-                                <ui:SymbolIcon Symbol="Globe24" FontSize="15" Margin="0,0,10,0" VerticalAlignment="Center" />
-                                <TextBlock Text="{loc:T vpn.nav}" VerticalAlignment="Center" />
-                            </StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                <Path behaviors:AppIcon.Kind="globe" behaviors:AppIcon.Size="16" Margin="0,0,10,0" TextElement.Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                <TextBlock Grid.Column="1" Text="{loc:T vpn.nav}" VerticalAlignment="Center" />
+                            </Grid>
                         </Button>
                         <Button x:Name="NavThemesButton"
                                 Style="{StaticResource Settings.NavButton}"
                                 Click="SettingsNav_Click"
                                 Tag="themes">
-                            <StackPanel Orientation="Horizontal">
-                                <ui:SymbolIcon Symbol="PaintBrush24" FontSize="15" Margin="0,0,10,0" VerticalAlignment="Center" />
-                                <TextBlock Text="Themes" VerticalAlignment="Center" />
-                            </StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                <Path behaviors:AppIcon.Kind="palette" behaviors:AppIcon.Size="16" Margin="0,0,10,0" TextElement.Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                <TextBlock Grid.Column="1" Text="Themes" VerticalAlignment="Center" />
+                                <Border x:Name="NavThemesBadge" Grid.Column="2" Visibility="Collapsed" CornerRadius="8" Padding="6,1" Margin="6,0,0,0" Background="{DynamicResource Surface.Raised}" VerticalAlignment="Center">
+                                    <TextBlock x:Name="NavThemesBadgeText" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource Text.Secondary}" MaxWidth="60" TextTrimming="CharacterEllipsis" />
+                                </Border>
+                            </Grid>
                         </Button>
                     </StackPanel>
                 </DockPanel>
             </Border>
 
             <!-- Content -->
-            <ScrollViewer Grid.Column="1"
-                          VerticalScrollBarVisibility="Auto"
+            <DockPanel Grid.Column="1">
+            <Border DockPanel.Dock="Top" Background="{DynamicResource Surface.Input}" BorderBrush="{DynamicResource Border.Subtle}" BorderThickness="1" CornerRadius="10" Margin="0,0,0,8" Height="38">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Path behaviors:AppIcon.Kind="search" behaviors:AppIcon.Size="16" Margin="12,0,8,0" TextElement.Foreground="{DynamicResource Text.Muted}" />
+                    <TextBlock Grid.Column="1" Text="Search settings in this section..." IsHitTestVisible="False" VerticalAlignment="Center" Margin="2,0,0,0" FontSize="13" Foreground="{DynamicResource Text.Muted}" x:Name="SettingsSearchPlaceholder" />
+                    <TextBox x:Name="SettingsSearchBox" Grid.Column="1" BorderThickness="0" Background="Transparent" Foreground="{DynamicResource Text.Primary}" CaretBrush="{DynamicResource Text.Primary}" VerticalContentAlignment="Center" FontSize="13" TextChanged="SettingsSearchBox_TextChanged" />
+                    <Button x:Name="SettingsSearchClearButton" Grid.Column="2" Width="28" Height="28" Margin="0,0,6,0" Padding="0" Style="{StaticResource App.IconButton}" Visibility="Collapsed" Click="SettingsSearchClear_Click" ToolTip="Clear">
+                        <Path behaviors:AppIcon.Kind="x" behaviors:AppIcon.Size="14" TextElement.Foreground="{DynamicResource Text.Muted}" />
+                    </Button>
+                </Grid>
+            </Border>
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
                           HorizontalScrollBarVisibility="Disabled"
                           Background="{StaticResource Surface.Base}"
                           Padding="2,0,2,16">
@@ -325,7 +355,9 @@
                         <Expander Style="{StaticResource Settings.Expander}" IsExpanded="True">
                             <Expander.Header>
                                 <StackPanel Orientation="Horizontal">
-                                    <ui:SymbolIcon Symbol="FolderOpen24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Accent.Primary}" VerticalAlignment="Center" />
+                                    <Border Width="30" Height="30" CornerRadius="8" Background="{DynamicResource Accent.Soft}" Margin="0,0,10,0" VerticalAlignment="Center">
+                                        <Path behaviors:AppIcon.Kind="folder-open" behaviors:AppIcon.Size="16" TextElement.Foreground="{DynamicResource Accent.Primary}" />
+                                    </Border>
                                     <StackPanel>
                                         <TextBlock Text="Local project" FontWeight="SemiBold" FontSize="13" />
                                         <TextBlock Text="Select the folder GitDeploy Pro manages"
@@ -343,7 +375,9 @@
                         <Expander Style="{StaticResource Settings.Expander}" IsExpanded="True">
                             <Expander.Header>
                                 <StackPanel Orientation="Horizontal">
-                                    <ui:SymbolIcon Symbol="Wrench24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Text.Secondary}" VerticalAlignment="Center" />
+                                    <Border Width="30" Height="30" CornerRadius="8" Background="{DynamicResource Accent.Soft}" Margin="0,0,10,0" VerticalAlignment="Center">
+                                        <Path behaviors:AppIcon.Kind="sliders" behaviors:AppIcon.Size="16" TextElement.Foreground="{DynamicResource Text.Secondary}" />
+                                    </Border>
                                     <StackPanel>
                                         <TextBlock Text="Configuration file" FontWeight="SemiBold" FontSize="13" />
                                         <TextBlock Text="Git ignore helper for project metadata"
@@ -371,7 +405,9 @@
                         <Expander Style="{StaticResource Settings.Expander}" IsExpanded="True">
                             <Expander.Header>
                                 <StackPanel Orientation="Horizontal">
-                                    <ui:SymbolIcon Symbol="Apps24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Accent.Primary}" VerticalAlignment="Center" />
+                                    <Border Width="30" Height="30" CornerRadius="8" Background="{DynamicResource Accent.Soft}" Margin="0,0,10,0" VerticalAlignment="Center">
+                                        <Path behaviors:AppIcon.Kind="layers" behaviors:AppIcon.Size="16" TextElement.Foreground="{DynamicResource Accent.Primary}" />
+                                    </Border>
                                     <StackPanel>
                                         <TextBlock x:Name="ProjectKindSectionTitle"
                                                    Text="Project type"
@@ -405,7 +441,9 @@
                         <Expander Style="{StaticResource Settings.Expander}" IsExpanded="True">
                             <Expander.Header>
                                 <StackPanel Orientation="Horizontal">
-                                    <ui:SymbolIcon Symbol="Globe24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Accent.Primary}" VerticalAlignment="Center" />
+                                    <Border Width="30" Height="30" CornerRadius="8" Background="{DynamicResource Accent.Soft}" Margin="0,0,10,0" VerticalAlignment="Center">
+                                        <Path behaviors:AppIcon.Kind="globe" behaviors:AppIcon.Size="16" TextElement.Foreground="{DynamicResource Accent.Primary}" />
+                                    </Border>
                                     <StackPanel>
                                         <TextBlock x:Name="LanguageSectionTitle"
                                                    Text="Language"
@@ -447,7 +485,9 @@
                         <Expander Style="{StaticResource Settings.Expander}" IsExpanded="True">
                             <Expander.Header>
                                 <StackPanel Orientation="Horizontal">
-                                    <ui:SymbolIcon Symbol="DocumentText24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Accent.Primary}" VerticalAlignment="Center" />
+                                    <Border Width="30" Height="30" CornerRadius="8" Background="{DynamicResource Accent.Soft}" Margin="0,0,10,0" VerticalAlignment="Center">
+                                        <Path behaviors:AppIcon.Kind="file-text" behaviors:AppIcon.Size="16" TextElement.Foreground="{DynamicResource Accent.Primary}" />
+                                    </Border>
                                     <StackPanel>
                                         <TextBlock x:Name="EditorPrefTitle"
                                                    Text="Editor"
@@ -481,7 +521,9 @@
                         <Expander Style="{StaticResource Settings.Expander}" IsExpanded="False">
                             <Expander.Header>
                                 <StackPanel Orientation="Horizontal">
-                                    <ui:SymbolIcon Symbol="Desktop24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Text.Secondary}" VerticalAlignment="Center" />
+                                    <Border Width="30" Height="30" CornerRadius="8" Background="{DynamicResource Accent.Soft}" Margin="0,0,10,0" VerticalAlignment="Center">
+                                        <Path behaviors:AppIcon.Kind="monitor" behaviors:AppIcon.Size="16" TextElement.Foreground="{DynamicResource Text.Secondary}" />
+                                    </Border>
                                     <TextBlock Text="Startup &amp; tray" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Expander.Header>
@@ -506,7 +548,9 @@
                         <Expander Style="{StaticResource Settings.Expander}" IsExpanded="False">
                             <Expander.Header>
                                 <StackPanel Orientation="Horizontal">
-                                    <ui:SymbolIcon Symbol="ArrowUpload24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Text.Secondary}" VerticalAlignment="Center" />
+                                    <Border Width="30" Height="30" CornerRadius="8" Background="{DynamicResource Accent.Soft}" Margin="0,0,10,0" VerticalAlignment="Center">
+                                        <Path behaviors:AppIcon.Kind="upload" behaviors:AppIcon.Size="16" TextElement.Foreground="{DynamicResource Text.Secondary}" />
+                                    </Border>
                                     <TextBlock Text="Software updates" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Expander.Header>
@@ -527,7 +571,9 @@
                         <Expander Style="{StaticResource Settings.Expander}" IsExpanded="False">
                             <Expander.Header>
                                 <StackPanel Orientation="Horizontal">
-                                    <ui:SymbolIcon Symbol="Settings24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Text.Secondary}" VerticalAlignment="Center" />
+                                    <Border Width="30" Height="30" CornerRadius="8" Background="{DynamicResource Accent.Soft}" Margin="0,0,10,0" VerticalAlignment="Center">
+                                        <Path behaviors:AppIcon.Kind="settings" behaviors:AppIcon.Size="16" TextElement.Foreground="{DynamicResource Text.Secondary}" />
+                                    </Border>
                                     <TextBlock Text="Windows startup audit" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Expander.Header>
@@ -558,7 +604,9 @@
                         <Expander Style="{StaticResource Settings.Expander}" IsExpanded="False">
                             <Expander.Header>
                                 <StackPanel Orientation="Horizontal">
-                                    <ui:SymbolIcon Symbol="Warning24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Status.Error}" VerticalAlignment="Center" />
+                                    <Border Width="30" Height="30" CornerRadius="8" Background="{DynamicResource Accent.Soft}" Margin="0,0,10,0" VerticalAlignment="Center">
+                                        <Path behaviors:AppIcon.Kind="alert" behaviors:AppIcon.Size="16" TextElement.Foreground="{DynamicResource Status.Error}" />
+                                    </Border>
                                     <TextBlock Text="Danger zone" FontWeight="SemiBold" FontSize="13" Foreground="{StaticResource Status.Error}" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Expander.Header>
@@ -670,7 +718,9 @@
                         <Border Style="{StaticResource Settings.ToolbarCard}">
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                                    <ui:SymbolIcon Symbol="Cloud24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Accent.Primary}" VerticalAlignment="Center" />
+                                    <Border Width="30" Height="30" CornerRadius="8" Background="{DynamicResource Accent.Soft}" Margin="0,0,10,0" VerticalAlignment="Center">
+                                        <Path behaviors:AppIcon.Kind="cloud" behaviors:AppIcon.Size="16" TextElement.Foreground="{DynamicResource Accent.Primary}" />
+                                    </Border>
                                     <TextBlock Text="Connection profile" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" />
                                 </StackPanel>
                                 <TextBlock Text="Assign one or more FTP/SFTP profiles. The default is used by Commit and Sync."
@@ -800,7 +850,9 @@
                         <Border Style="{StaticResource Settings.ToolbarCard}">
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                                    <ui:SymbolIcon Symbol="KeyCommand24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Status.Info}" VerticalAlignment="Center" />
+                                    <Border Width="30" Height="30" CornerRadius="8" Background="{DynamicResource Accent.Soft}" Margin="0,0,10,0" VerticalAlignment="Center">
+                                        <Path behaviors:AppIcon.Kind="key" behaviors:AppIcon.Size="16" TextElement.Foreground="{DynamicResource Status.Info}" />
+                                    </Border>
                                     <TextBlock Text="Default SSH (Deploy + Telegram)"
                                                FontWeight="SemiBold"
                                                FontSize="13"
@@ -823,7 +875,9 @@
                         <Border Style="{StaticResource Settings.ToolbarCard}">
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                                    <ui:SymbolIcon Symbol="ShieldLock24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Accent.Primary}" VerticalAlignment="Center" />
+                                    <Border Width="30" Height="30" CornerRadius="8" Background="{DynamicResource Accent.Soft}" Margin="0,0,10,0" VerticalAlignment="Center">
+                                        <Path behaviors:AppIcon.Kind="shield" behaviors:AppIcon.Size="16" TextElement.Foreground="{DynamicResource Accent.Primary}" />
+                                    </Border>
                                     <TextBlock Text="Server config backup"
                                                FontWeight="SemiBold"
                                                FontSize="13"
@@ -882,7 +936,9 @@
                         <Expander Style="{StaticResource Settings.Expander}" IsExpanded="False">
                             <Expander.Header>
                                 <StackPanel Orientation="Horizontal">
-                                    <ui:SymbolIcon Symbol="Wrench24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Text.Secondary}" VerticalAlignment="Center" />
+                                    <Border Width="30" Height="30" CornerRadius="8" Background="{DynamicResource Accent.Soft}" Margin="0,0,10,0" VerticalAlignment="Center">
+                                        <Path behaviors:AppIcon.Kind="sliders" behaviors:AppIcon.Size="16" TextElement.Foreground="{DynamicResource Text.Secondary}" />
+                                    </Border>
                                     <TextBlock Text="Setup wizard &amp; recovery" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Expander.Header>
@@ -930,7 +986,9 @@
                         <Expander Style="{StaticResource Settings.Expander}" IsExpanded="True">
                             <Expander.Header>
                                 <StackPanel Orientation="Horizontal">
-                                    <ui:SymbolIcon Symbol="BranchFork24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Accent.Primary}" VerticalAlignment="Center" />
+                                    <Border Width="30" Height="30" CornerRadius="8" Background="{DynamicResource Accent.Soft}" Margin="0,0,10,0" VerticalAlignment="Center">
+                                        <Path behaviors:AppIcon.Kind="git-branch" behaviors:AppIcon.Size="16" TextElement.Foreground="{DynamicResource Accent.Primary}" />
+                                    </Border>
                                     <StackPanel>
                                         <TextBlock Text="Git configuration" FontWeight="SemiBold" FontSize="13" />
                                         <TextBlock Text="Remote, branches, and deploy automation"
@@ -986,7 +1044,9 @@
                                         Margin="0,0,0,10"
                                         Visibility="Collapsed">
                                     <StackPanel Orientation="Horizontal">
-                                        <ui:SymbolIcon Symbol="Cloud24" FontSize="14" Margin="0,0,8,0" Foreground="{StaticResource Status.Warning}" VerticalAlignment="Center" />
+                                        <Border Width="30" Height="30" CornerRadius="8" Background="{DynamicResource Accent.Soft}" Margin="0,0,10,0" VerticalAlignment="Center">
+                                            <Path behaviors:AppIcon.Kind="cloud" behaviors:AppIcon.Size="16" TextElement.Foreground="{DynamicResource Status.Warning}" />
+                                        </Border>
                                         <TextBlock x:Name="GitPushStatusText"
                                                    Text="Pending push"
                                                    FontSize="12"
@@ -1048,7 +1108,9 @@
                         <Expander Style="{StaticResource Settings.Expander}" IsExpanded="True">
                             <Expander.Header>
                                 <StackPanel Orientation="Horizontal">
-                                    <ui:SymbolIcon Symbol="DismissCircle24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Text.Secondary}" VerticalAlignment="Center" />
+                                    <Border Width="30" Height="30" CornerRadius="8" Background="{DynamicResource Accent.Soft}" Margin="0,0,10,0" VerticalAlignment="Center">
+                                        <Path behaviors:AppIcon.Kind="x-circle" behaviors:AppIcon.Size="16" TextElement.Foreground="{DynamicResource Text.Secondary}" />
+                                    </Border>
                                     <StackPanel>
                                         <TextBlock Text="Ignored files" FontWeight="SemiBold" FontSize="13" />
                                         <TextBlock Text="This project's .gitignore only — Add/Remove from Direct Upload stays in sync"
@@ -1116,7 +1178,9 @@
                         <Expander Style="{StaticResource Settings.Expander}" IsExpanded="True">
                             <Expander.Header>
                                 <StackPanel Orientation="Horizontal">
-                                    <ui:SymbolIcon Symbol="Globe24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Accent.Primary}" VerticalAlignment="Center" />
+                                    <Border Width="30" Height="30" CornerRadius="8" Background="{DynamicResource Accent.Soft}" Margin="0,0,10,0" VerticalAlignment="Center">
+                                        <Path behaviors:AppIcon.Kind="globe" behaviors:AppIcon.Size="16" TextElement.Foreground="{DynamicResource Accent.Primary}" />
+                                    </Border>
                                     <StackPanel>
                                         <TextBlock Text="{loc:T vpn.title}" FontWeight="SemiBold" FontSize="13" />
                                         <TextBlock Text="{loc:T vpn.subtitle}"
@@ -1261,7 +1325,9 @@
                         <Expander Style="{StaticResource Settings.Expander}" IsExpanded="True">
                             <Expander.Header>
                                 <StackPanel Orientation="Horizontal">
-                                    <ui:SymbolIcon Symbol="Chat24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Accent.Primary}" VerticalAlignment="Center" />
+                                    <Border Width="30" Height="30" CornerRadius="8" Background="{DynamicResource Accent.Soft}" Margin="0,0,10,0" VerticalAlignment="Center">
+                                        <Path behaviors:AppIcon.Kind="chat" behaviors:AppIcon.Size="16" TextElement.Foreground="{DynamicResource Accent.Primary}" />
+                                    </Border>
                                     <StackPanel>
                                         <TextBlock Text="Telegram bot" FontWeight="SemiBold" FontSize="13" />
                                         <TextBlock Text="Long-poll while GitDeploy is running. Each project is a separate chat."
@@ -1320,7 +1386,9 @@
                         <Expander Style="{StaticResource Settings.Expander}" IsExpanded="True" Margin="0,12,0,0">
                             <Expander.Header>
                                 <StackPanel Orientation="Horizontal">
-                                    <ui:SymbolIcon Symbol="KeyCommand24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Accent.Primary}" VerticalAlignment="Center" />
+                                    <Border Width="30" Height="30" CornerRadius="8" Background="{DynamicResource Accent.Soft}" Margin="0,0,10,0" VerticalAlignment="Center">
+                                        <Path behaviors:AppIcon.Kind="key" behaviors:AppIcon.Size="16" TextElement.Foreground="{DynamicResource Accent.Primary}" />
+                                    </Border>
                                     <StackPanel>
                                         <TextBlock Text="Telegram terminal presets" FontWeight="SemiBold" FontSize="13" />
                                         <TextBlock Text="Project-scoped inline buttons (trusted commands with &amp;&amp;, sudo, restart)."
@@ -1338,7 +1406,9 @@
                         <Expander Style="{StaticResource Settings.Expander}" IsExpanded="True">
                             <Expander.Header>
                                 <StackPanel Orientation="Horizontal">
-                                    <ui:SymbolIcon Symbol="Bot24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Accent.Primary}" VerticalAlignment="Center" />
+                                    <Border Width="30" Height="30" CornerRadius="8" Background="{DynamicResource Accent.Soft}" Margin="0,0,10,0" VerticalAlignment="Center">
+                                        <Path behaviors:AppIcon.Kind="cpu" behaviors:AppIcon.Size="16" TextElement.Foreground="{DynamicResource Accent.Primary}" />
+                                    </Border>
                                     <StackPanel>
                                         <TextBlock x:Name="AgentEngineSectionTitle" Text="Default engine" FontWeight="SemiBold" FontSize="13" />
                                         <TextBlock x:Name="AgentEngineSectionHint" Text="Telegram /engine can override this anytime." FontSize="10" Foreground="{StaticResource Text.Muted}" />
@@ -1368,7 +1438,9 @@
                             <Expander.Header>
                                 <Grid>
                                     <StackPanel Orientation="Horizontal">
-                                        <ui:SymbolIcon Symbol="Code24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Accent.Primary}" VerticalAlignment="Center" />
+                                        <Border Width="30" Height="30" CornerRadius="8" Background="{DynamicResource Accent.Soft}" Margin="0,0,10,0" VerticalAlignment="Center">
+                                            <Path behaviors:AppIcon.Kind="code" behaviors:AppIcon.Size="16" TextElement.Foreground="{DynamicResource Accent.Primary}" />
+                                        </Border>
                                         <StackPanel VerticalAlignment="Center">
                                             <TextBlock Text="Cursor agent" FontWeight="SemiBold" FontSize="13" />
                                             <TextBlock Text="Forward real chat messages to Cursor CLI (agent -p --force --trust)."
@@ -1743,7 +1815,9 @@
                         <Expander Style="{StaticResource Settings.Expander}" IsExpanded="True" Margin="0,12,0,0">
                             <Expander.Header>
                                 <StackPanel Orientation="Horizontal">
-                                    <ui:SymbolIcon Symbol="Bot24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Accent.Primary}" VerticalAlignment="Center" />
+                                    <Border Width="30" Height="30" CornerRadius="8" Background="{DynamicResource Accent.Soft}" Margin="0,0,10,0" VerticalAlignment="Center">
+                                        <Path behaviors:AppIcon.Kind="cpu" behaviors:AppIcon.Size="16" TextElement.Foreground="{DynamicResource Accent.Primary}" />
+                                    </Border>
                                     <StackPanel VerticalAlignment="Center">
                                         <TextBlock Text="Claude Code agent" FontWeight="SemiBold" FontSize="13" />
                                         <TextBlock Text="Forward real chat messages to Claude Code CLI (claude -p, stream-json)."
@@ -1817,7 +1891,9 @@
                         <Expander Style="{StaticResource Settings.Expander}" IsExpanded="True">
                             <Expander.Header>
                                 <StackPanel Orientation="Horizontal">
-                                    <ui:SymbolIcon Symbol="PaintBrush24" FontSize="15" Margin="0,0,8,0" Foreground="{StaticResource Accent.Primary}" VerticalAlignment="Center" />
+                                    <Border Width="30" Height="30" CornerRadius="8" Background="{DynamicResource Accent.Soft}" Margin="0,0,10,0" VerticalAlignment="Center">
+                                        <Path behaviors:AppIcon.Kind="palette" behaviors:AppIcon.Size="16" TextElement.Foreground="{DynamicResource Accent.Primary}" />
+                                    </Border>
                                     <StackPanel>
                                         <TextBlock Text="App theme" FontWeight="SemiBold" FontSize="13" />
                                         <TextBlock Text="Applies across the whole app and persists after restart"
@@ -1928,44 +2004,57 @@
                     </StackPanel>
                 </Grid>
             </ScrollViewer>
+            </DockPanel>
         </Grid>
 
-        <!-- Compact Deploy-style save footer -->
+        <!-- Sticky action bar -->
         <Border Grid.Row="2"
-                Background="{StaticResource Surface.Shell}"
-                BorderBrush="{StaticResource Border.Subtle}"
+                Background="{DynamicResource Surface.Shell}"
+                BorderBrush="{DynamicResource Border.Subtle}"
                 BorderThickness="1"
-                CornerRadius="8"
-                Padding="12,8"
+                CornerRadius="10"
+                Padding="14,8"
                 Margin="0,8,0,0">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Text="Changes apply to the current project and global preferences."
-                           Foreground="{StaticResource Text.Muted}"
-                           FontSize="11"
-                           VerticalAlignment="Center"
-                           TextWrapping="Wrap"
-                           Margin="0,0,12,0" />
-                <Button Grid.Column="1"
-                        Height="34"
-                        MinWidth="140"
-                        Padding="14,0"
-                        Style="{StaticResource App.Button.Primary}"
-                        Click="SaveSettings_Click">
-                    <StackPanel Orientation="Horizontal">
-                        <ui:SymbolIcon Symbol="Save24"
-                                       FontSize="14"
-                                       Margin="0,0,8,0"
-                                       VerticalAlignment="Center" />
-                        <TextBlock Text="Save settings"
-                                   FontSize="13"
-                                   FontWeight="SemiBold"
-                                   VerticalAlignment="Center" />
-                    </StackPanel>
-                </Button>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Ellipse x:Name="DirtyDot" Width="8" Height="8" Fill="{DynamicResource Status.Success}" Margin="0,0,8,0" VerticalAlignment="Center" />
+                    <TextBlock x:Name="DirtyStatusText" Text="All changes saved" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource Text.Secondary}" VerticalAlignment="Center" />
+                    <TextBlock Text="Changes apply to the current project and global preferences."
+                               Foreground="{DynamicResource Text.Muted}"
+                               FontSize="11"
+                               Margin="14,0,0,0"
+                               VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button x:Name="DiscardChangesButton"
+                            Height="34"
+                            MinWidth="100"
+                            Margin="0,0,8,0"
+                            Padding="14,0"
+                            Style="{StaticResource App.Button.Ghost}"
+                            Click="DiscardChanges_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <Path behaviors:AppIcon.Kind="undo" behaviors:AppIcon.Size="14" Margin="0,0,8,0" TextElement.Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                            <TextBlock Text="Discard" FontSize="13" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="SaveSettingsButton"
+                            Height="34"
+                            MinWidth="140"
+                            Padding="14,0"
+                            Style="{StaticResource App.Button.Primary}"
+                            Click="SaveSettings_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <Path behaviors:AppIcon.Kind="save" behaviors:AppIcon.Size="14" Margin="0,0,8,0" TextElement.Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                            <TextBlock Text="Save settings" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
             </Grid>
         </Border>
     </Grid>

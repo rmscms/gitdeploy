@@ -151,12 +151,9 @@
                                        FontSize="11"
                                        TextTrimming="CharacterEllipsis"
                                        Margin="16,4,0,0" />
-                            <ProgressBar x:Name="UploadProgressBar"
+                            <ProgressBar Style="{StaticResource App.ProgressBar}" x:Name="UploadProgressBar"
                                          Grid.Row="2"
-                                         Height="8"
                                          Margin="0,8,0,0"
-                                         Background="{StaticResource Surface.Input}"
-                                         Foreground="{StaticResource Accent.Primary}"
                                          Value="0" />
                         </Grid>
                     </Border>

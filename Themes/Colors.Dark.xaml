@@ -80,6 +80,11 @@
     <Color x:Key="Color.Chat.Composer">#0D0D0D</Color>
     <Color x:Key="Color.Chat.Unread">#4C8DFF</Color>
     <Color x:Key="Color.Chat.ThreadHover">#14FFFFFF</Color>
+    <Color x:Key="Color.Accent.Soft">#244C8DFF</Color>
+    <Color x:Key="Color.Accent.Glow">#594C8DFF</Color>
+    <Color x:Key="Color.Shell.Glow">#00000000</Color>
+    <Color x:Key="Color.Shell.AmbientA">#00000000</Color>
+    <Color x:Key="Color.Shell.AmbientB">#00000000</Color>
     <SolidColorBrush x:Key="Chat.BubbleIn" Color="{StaticResource Color.Chat.BubbleIn}" />
     <SolidColorBrush x:Key="Chat.BubbleOut" Color="{StaticResource Color.Chat.BubbleOut}" />
     <SolidColorBrush x:Key="Chat.BubbleInText" Color="{StaticResource Color.Chat.BubbleInText}" />
@@ -87,4 +92,9 @@
     <SolidColorBrush x:Key="Chat.Composer" Color="{StaticResource Color.Chat.Composer}" />
     <SolidColorBrush x:Key="Chat.Unread" Color="{StaticResource Color.Chat.Unread}" />
     <SolidColorBrush x:Key="Chat.ThreadHover" Color="{StaticResource Color.Chat.ThreadHover}" />
+    <SolidColorBrush x:Key="Accent.Soft" Color="{StaticResource Color.Accent.Soft}" />
+    <SolidColorBrush x:Key="Accent.Glow" Color="{StaticResource Color.Accent.Glow}" />
+    <SolidColorBrush x:Key="Shell.Glow" Color="{StaticResource Color.Shell.Glow}" />
+    <SolidColorBrush x:Key="Shell.AmbientA" Color="{StaticResource Color.Shell.AmbientA}" />
+    <SolidColorBrush x:Key="Shell.AmbientB" Color="{StaticResource Color.Shell.AmbientB}" />
 </ResourceDictionary>
