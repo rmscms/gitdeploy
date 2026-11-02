@@ -4543,7 +4543,7 @@ namespace GitDeployPro.Controls
             {
                 ConnectionToggleButton.IsEnabled = !_isBusy && (connected || _currentProfile != null || ConnectionComboBox.SelectedItem != null);
                 ConnectionToggleButton.Opacity = 1.0;
-                ConnectionToggleButton.Content = connected ? "✕" : "⚡";
+                ConnectionToggleButton.Content = GitDeployPro.Behaviors.AppIcon.Create(connected ? "x" : "power", 15);
                 ConnectionToggleButton.ToolTip = connected
                     ? Loc.T("deploy.tip.disconnect")
                     : Loc.T("deploy.tip.connect");
@@ -4670,7 +4670,7 @@ namespace GitDeployPro.Controls
             }
 
             var hasDirtyChanges = _editSession?.IsDirty == true;
-            SaveUploadButton.Content = "⬆";
+            SaveUploadButton.Content = GitDeployPro.Behaviors.AppIcon.Create("upload", 15);
             ApplyToolbarActionState(SaveUploadButton, hasDirtyChanges);
             ApplyToolbarActionState(RevertButton, hasDirtyChanges);
         }

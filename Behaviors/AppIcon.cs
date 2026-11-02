@@ -22,6 +22,15 @@ namespace GitDeployPro.Behaviors
 
         public static string? GetKind(DependencyObject d) => (string?)d.GetValue(KindProperty);
         public static void SetKind(DependencyObject d, string? value) => d.SetValue(KindProperty, value);
+        /// <summary>Creates a ready-to-use stroke icon (for code-behind: <c>button.Content = AppIcon.Create("power", 15)</c>).</summary>
+        public static WpfPath Create(string kind, double size = 16)
+        {
+            var path = new WpfPath();
+            SetKind(path, kind);
+            SetSize(path, size);
+            return path;
+        }
+
         public static double GetSize(DependencyObject d) => (double)d.GetValue(SizeProperty);
         public static void SetSize(DependencyObject d, double value) => d.SetValue(SizeProperty, value);
 

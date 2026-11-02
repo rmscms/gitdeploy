@@ -128,73 +128,67 @@
                             VerticalAlignment="Center">
                     <Button x:Name="ChangeDefaultFtpButton"
                             Style="{StaticResource FtpToolbarIconButtonStyle}"
-                            Content="★"
                             ToolTip="{loc:T deploy.tip.changeFtpDefault}"
-                            Click="ChangeDefaultFtpButton_Click" />
+                            Click="ChangeDefaultFtpButton_Click">
+                        <Path behaviors:AppIcon.Kind="star" behaviors:AppIcon.Size="15" />
+                    </Button>
                     <Button x:Name="EditConnectionButton"
                             Style="{StaticResource FtpToolbarIconButtonStyle}"
                             ToolTip="{loc:T deploy.tip.editConnections}"
                             Click="EditConnectionButton_Click">
-                        <Border Width="16"
-                                Height="16"
-                                BorderBrush="{StaticResource Border.Strong}"
-                                BorderThickness="1"
-                                CornerRadius="3"
-                                Background="Transparent"
-                                SnapsToDevicePixels="True">
-                            <StackPanel Orientation="Horizontal"
-                                        HorizontalAlignment="Center"
-                                        VerticalAlignment="Center">
-                                <Ellipse Width="2.5" Height="2.5" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                                <Ellipse Width="2.5" Height="2.5" Margin="2,0,0,0" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                                <Ellipse Width="2.5" Height="2.5" Margin="2,0,0,0" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                            </StackPanel>
-                        </Border>
+                        <Path behaviors:AppIcon.Kind="more" behaviors:AppIcon.Size="15" />
                     </Button>
                     <Button x:Name="RefreshButton"
                             Style="{StaticResource FtpToolbarIconButtonStyle}"
-                            Content="↻"
                             ToolTip="{loc:T deploy.tip.refreshRemote}"
-                            Click="RefreshButton_Click" />
+                            Click="RefreshButton_Click">
+                        <Path behaviors:AppIcon.Kind="refresh" behaviors:AppIcon.Size="15" />
+                    </Button>
                     <Button x:Name="ToggleRemoteCheckboxModeButton"
                             Style="{StaticResource FtpToolbarIconButtonStyle}"
-                            Content="☑"
                             Margin="4,0,0,0"
                             ToolTip="{loc:T deploy.tip.remoteCheckboxMode}"
-                            Click="ToggleRemoteCheckboxModeButton_Click" />
+                            Click="ToggleRemoteCheckboxModeButton_Click">
+                        <Path behaviors:AppIcon.Kind="check-circle" behaviors:AppIcon.Size="15" />
+                    </Button>
                     <Button x:Name="RemoteSelectAllButton"
                             Style="{StaticResource FtpToolbarIconButtonStyle}"
-                            Content="☑️"
                             Margin="2,0,0,0"
                             Visibility="Collapsed"
                             ToolTip="{loc:T deploy.remoteSelectAll}"
-                            Click="RemoteSelectAllButton_Click" />
+                            Click="RemoteSelectAllButton_Click">
+                        <Path behaviors:AppIcon.Kind="check" behaviors:AppIcon.Size="15" />
+                    </Button>
                     <Button x:Name="RemoteDeselectAllButton"
                             Style="{StaticResource FtpToolbarIconButtonStyle}"
-                            Content="⬜"
                             Margin="2,0,0,0"
                             Visibility="Collapsed"
                             ToolTip="{loc:T deploy.remoteDeselectAll}"
-                            Click="RemoteDeselectAllButton_Click" />
+                            Click="RemoteDeselectAllButton_Click">
+                        <Path behaviors:AppIcon.Kind="square" behaviors:AppIcon.Size="15" />
+                    </Button>
                     <Button x:Name="DownloadCheckedButton"
                             Style="{StaticResource FtpToolbarIconButtonStyle}"
-                            Content="⬇"
                             Margin="2,0,0,0"
                             Visibility="Collapsed"
                             ToolTip="{loc:T deploy.remoteDownloadChecked}"
-                            Click="DownloadCheckedButton_Click" />
+                            Click="DownloadCheckedButton_Click">
+                        <Path behaviors:AppIcon.Kind="download" behaviors:AppIcon.Size="15" />
+                    </Button>
                     <Button x:Name="SyncManifestButton"
                             Style="{StaticResource FtpToolbarIconButtonStyle}"
-                            Content="⟳"
                             Margin="4,0,0,0"
                             ToolTip="{loc:T deploy.tip.sync}"
-                            Click="SyncManifestButton_Click" />
+                            Click="SyncManifestButton_Click">
+                        <Path behaviors:AppIcon.Kind="arrow-up-down" behaviors:AppIcon.Size="15" />
+                    </Button>
                     <Button x:Name="ConnectionToggleButton"
                             Style="{StaticResource FtpToolbarIconButtonStyle}"
-                            Content="⚡"
                             Margin="0"
                             ToolTip="{loc:T deploy.tip.connect}"
-                            Click="ConnectionToggleButton_Click" />
+                            Click="ConnectionToggleButton_Click">
+                        <Path behaviors:AppIcon.Kind="power" behaviors:AppIcon.Size="15" />
+                    </Button>
                 </StackPanel>
 
                 <ComboBox x:Name="ConnectionComboBox"
