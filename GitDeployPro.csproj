@@ -38,6 +38,7 @@
     <EmbeddedResource Include="Resources\TerminalHost.html" />
     <EmbeddedResource Include="Resources\Localization\en.json" />
     <EmbeddedResource Include="Resources\Localization\fa.json" />
+    <EmbeddedResource Include="Themes\AppTheme.json" LogicalName="GitDeployPro.AppTheme.json" />
   </ItemGroup>
 
   <ItemGroup>
