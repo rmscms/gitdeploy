@@ -42,6 +42,7 @@ namespace GitDeployPro
             }
 
             LocalizationService.Instance.InitializeFromConfig();
+            GitDeployPro.Behaviors.EmojiIconizer.Register();
 
             base.OnStartup(e);
             LocalizationService.Instance.ApplyFlowDirection();
