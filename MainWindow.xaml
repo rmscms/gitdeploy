@@ -426,30 +426,6 @@
                                             <TextBlock Text="{loc:T nav.settings}" FontSize="12.5" VerticalAlignment="Center" />
                                         </StackPanel>
                                     </Button>
-                                    <Button x:Name="NavItemTheme"
-                                            Style="{StaticResource NavPopupItemStyle}"
-                                            Click="NavItemTheme_Click">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="Auto" />
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel Orientation="Horizontal">
-                                                <Path behaviors:AppIcon.Kind="palette" behaviors:AppIcon.Size="15" Margin="0,0,8,0" Opacity="0.75" />
-                                                <TextBlock Text="{loc:T nav.theme}" FontSize="12.5" VerticalAlignment="Center" />
-                                            </StackPanel>
-                                            <TextBlock x:Name="NavThemeChevron"
-                                                       Grid.Column="1"
-                                                       Text="▸"
-                                                       FontSize="11"
-                                                       Foreground="{StaticResource Text.Muted}"
-                                                       VerticalAlignment="Center"
-                                                       Margin="8,0,0,0" />
-                                        </Grid>
-                                    </Button>
-                                    <StackPanel x:Name="NavThemeItemsPanel"
-                                                Visibility="Collapsed"
-                                                Margin="12,0,0,2" />
                                     <Button x:Name="NavItemCheckUpdates"
                                             Style="{StaticResource NavPopupItemStyle}"
                                             Tag="check-updates"

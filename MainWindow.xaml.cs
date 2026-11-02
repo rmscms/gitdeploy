@@ -575,13 +575,11 @@ namespace GitDeployPro
 
         private void NavMenuPopup_Opened(object sender, EventArgs e)
         {
-            CollapseNavThemeSubmenu();
             HighlightActiveNavRoute();
         }
 
         private void NavMenuPopup_Closed(object sender, EventArgs e)
         {
-            CollapseNavThemeSubmenu();
         }
 
         private void HighlightActiveNavRoute()
@@ -963,100 +961,6 @@ namespace GitDeployPro
             {
                 HeaderCheckUpdatesBtn.IsEnabled = enabled;
             }
-        }
-
-        private void NavItemTheme_Click(object sender, RoutedEventArgs e)
-        {
-            if (NavThemeItemsPanel == null)
-            {
-                return;
-            }
-
-            if (NavThemeItemsPanel.Visibility == Visibility.Visible)
-            {
-                CollapseNavThemeSubmenu();
-                return;
-            }
-
-            RebuildNavThemeSubmenu();
-            NavThemeItemsPanel.Visibility = Visibility.Visible;
-            if (NavThemeChevron != null)
-            {
-                NavThemeChevron.Text = "▾";
-            }
-        }
-
-        private void CollapseNavThemeSubmenu()
-        {
-            if (NavThemeItemsPanel != null)
-            {
-                NavThemeItemsPanel.Visibility = Visibility.Collapsed;
-                NavThemeItemsPanel.Children.Clear();
-            }
-
-            if (NavThemeChevron != null)
-            {
-                NavThemeChevron.Text = "▸";
-            }
-        }
-
-        private void RebuildNavThemeSubmenu()
-        {
-            if (NavThemeItemsPanel == null)
-            {
-                return;
-            }
-
-            ThemeService.Instance.Initialize();
-            NavThemeItemsPanel.Children.Clear();
-
-            var currentId = ThemeService.Instance.CurrentThemeId;
-            var itemStyle = TryFindResource("NavPopupItemStyle") as Style;
-            foreach (var theme in ThemeService.Instance.Themes)
-            {
-                var isActive = string.Equals(theme.Id, currentId, StringComparison.OrdinalIgnoreCase);
-                var button = new Button
-                {
-                    Style = itemStyle,
-                    Tag = theme,
-                    HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch,
-                    ToolTip = theme.DisplayName
-                };
-
-                var row = new StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal };
-                row.Children.Add(new TextBlock
-                {
-                    Text = isActive ? "✓" : " ",
-                    FontSize = 12,
-                    Width = 18,
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Foreground = TryFindResource("Text.Primary") as System.Windows.Media.Brush
-                });
-                row.Children.Add(new TextBlock
-                {
-                    Text = theme.DisplayName,
-                    FontSize = 12.5,
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Foreground = TryFindResource("Text.Primary") as System.Windows.Media.Brush
-                });
-                button.Content = row;
-                button.Click += NavThemeItem_Click;
-                NavThemeItemsPanel.Children.Add(button);
-            }
-        }
-
-        private void NavThemeItem_Click(object sender, RoutedEventArgs e)
-        {
-            if (sender is not Button button || button.Tag is not AppThemeInfo theme
-                || string.IsNullOrWhiteSpace(theme.Id))
-            {
-                return;
-            }
-
-            ThemeService.Instance.ApplyTheme(theme.Id);
-            _configService.SetAppThemeId(theme.Id);
-            RebuildNavThemeSubmenu();
-            GitDeployPro.Services.Theme.ThemeSkinApplier.PromptRestartIfNeeded();
         }
 
         private void NavigateToPage(Page page, string route)

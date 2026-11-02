@@ -30,16 +30,7 @@ namespace GitDeployPro
             PerformanceSampler.Instance.Mark("app", "lifecycle", "startup-begin");
             ConfigureUnhandledExceptions();
             // Unfreeze palette brushes BEFORE StartupUri windows resolve StaticResource.
-            ThemeService.Instance.Initialize();
-            try
-            {
-                var savedThemeId = new ConfigurationService().ResolveAppThemeId();
-                ThemeService.Instance.ApplyTheme(savedThemeId);
-            }
-            catch
-            {
-                ThemeService.Instance.ApplyTheme(ThemeService.DarkThemeId);
-            }
+            ThemeService.Instance.ApplyAppTheme();
 
             LocalizationService.Instance.InitializeFromConfig();
             GitDeployPro.Behaviors.EmojiIconizer.Register();

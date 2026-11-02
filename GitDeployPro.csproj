@@ -41,8 +41,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="Themes\Packs\*.json" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="Themes\Packs\*.md" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Resources\TerminalSuggestionsImport.sample.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 

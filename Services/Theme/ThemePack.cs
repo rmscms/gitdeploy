@@ -23,23 +23,12 @@ namespace GitDeployPro.Services.Theme
         [JsonProperty("author")]
         public string? Author { get; set; }
 
-        /// <summary>Optional skin id: Themes/Skins/&lt;id&gt;/Skin.xaml (bundled) or %AppData%\GitDeployPro\Skins\&lt;id&gt;\Skin.xaml.</summary>
-        [JsonProperty("skin", NullValueHandling = NullValueHandling.Ignore)]
-        public string? Skin { get; set; }
-
         [JsonProperty("palette")]
         public Dictionary<string, string> Palette { get; set; } = new(System.StringComparer.OrdinalIgnoreCase);
 
         [JsonProperty("deploy")]
         public ThemePackDeploySection Deploy { get; set; } = new();
 
-        /// <summary>Optional shape tokens: Radius.Card, Radius.Input, Radius.Button, Spacing.PageMargin, FontSize.Body ...</summary>
-        [JsonProperty("metrics", NullValueHandling = NullValueHandling.Ignore)]
-        public Dictionary<string, string> Metrics { get; set; } = new(System.StringComparer.OrdinalIgnoreCase);
-
-        /// <summary>Optional icon overrides: icon name (see Themes/Icons.xaml) -> WPF path data (24x24 grid, stroke icons).</summary>
-        [JsonProperty("icons", NullValueHandling = NullValueHandling.Ignore)]
-        public Dictionary<string, string> Icons { get; set; } = new(System.StringComparer.OrdinalIgnoreCase);
     }
 
     public sealed class ThemePackDeploySection

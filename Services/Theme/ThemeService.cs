@@ -10,13 +10,12 @@ using WpfBindingOperations = System.Windows.Data.BindingOperations;
 namespace GitDeployPro.Services.Theme
 {
     /// <summary>
-    /// Extensible Deploy theme registry: built-in packs + imported JSON packs.
-    /// Live palette brushes stay unfrozen via Color bindings.
+    /// The app has ONE fixed look (Midnight Blue, Themes/AppTheme.json). This service installs its palette into the
+    /// live palette brushes at startup and exposes the Deploy tokens (terminal, tree, diff, ...) to code-behind.
     /// </summary>
     public sealed class ThemeService
     {
-        public const string DefaultThemeId = "default";
-        public const string DarkThemeId = "dark";
+        public const string AppThemeId = "midnight-blue";
 
         private static readonly Lazy<ThemeService> LazyInstance = new(() => new ThemeService());
         public static ThemeService Instance => LazyInstance.Value;
@@ -39,7 +38,6 @@ namespace GitDeployPro.Services.Theme
             }
         }
 
-        private readonly List<AppThemeInfo> _themes = new();
         private readonly Dictionary<string, MutableColor> _colorHolders = new(StringComparer.Ordinal);
         private readonly Dictionary<string, System.Windows.Media.Color> _paletteColors = new(StringComparer.OrdinalIgnoreCase);
         private bool _initialized;
@@ -48,59 +46,14 @@ namespace GitDeployPro.Services.Theme
         {
         }
 
-        public IReadOnlyList<AppThemeInfo> Themes => _themes;
-
-        public string CurrentThemeId { get; private set; } = DarkThemeId;
+        public string CurrentThemeId { get; private set; } = AppThemeId;
 
         public ThemePack? CurrentPack { get; private set; }
 
         public DeployThemeTokens CurrentTokens { get; private set; } =
-            DeployThemeTokens.Resolve(ThemeTokenCatalog.CreateDefaultPack(), _ => null);
+            DeployThemeTokens.Resolve(ThemeTokenCatalog.CreateDarkPack(), _ => null);
 
         public event EventHandler? ThemeChanged;
-        public event EventHandler? ThemesChanged;
-
-        public void RegisterTheme(AppThemeInfo theme, bool replaceExisting = false)
-        {
-            if (theme == null || string.IsNullOrWhiteSpace(theme.Id))
-            {
-                throw new ArgumentException("Theme id is required.", nameof(theme));
-            }
-
-            var existing = _themes.FindIndex(t =>
-                string.Equals(t.Id, theme.Id, StringComparison.OrdinalIgnoreCase));
-            if (existing >= 0)
-            {
-                if (!replaceExisting)
-                {
-                    throw new InvalidOperationException($"Theme '{theme.Id}' is already registered.");
-                }
-
-                _themes[existing] = theme;
-            }
-            else
-            {
-                _themes.Add(theme);
-            }
-
-            ThemesChanged?.Invoke(this, EventArgs.Empty);
-        }
-
-        public void UnregisterTheme(string themeId)
-        {
-            if (string.Equals(themeId, DefaultThemeId, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(themeId, DarkThemeId, StringComparison.OrdinalIgnoreCase))
-            {
-                return;
-            }
-
-            var removed = _themes.RemoveAll(t =>
-                string.Equals(t.Id, themeId, StringComparison.OrdinalIgnoreCase));
-            if (removed > 0)
-            {
-                ThemesChanged?.Invoke(this, EventArgs.Empty);
-            }
-        }
 
         public void Initialize()
         {
@@ -110,54 +63,17 @@ namespace GitDeployPro.Services.Theme
             }
 
             InstallLivePaletteBrushes();
-            RegisterBuiltIns();
-            ThemePackStore.Instance.EnsureSeeded();
-            ReloadCustomThemes();
-            CurrentTokens = DeployThemeTokens.Resolve(
-                ThemeTokenCatalog.CreateDefaultPack(),
-                ResolvePaletteColor);
+            CurrentTokens = DeployThemeTokens.Resolve(LoadAppPack(), ResolvePaletteColor);
             _initialized = true;
-            CurrentThemeId = DarkThemeId;
         }
 
-        public void ReloadCustomThemes()
-        {
-            _themes.RemoveAll(t => t.Source == ThemeSourceKind.JsonPack);
-            foreach (var custom in ThemePackStore.Instance.LoadCustomThemes())
-            {
-                if (_themes.Any(t => string.Equals(t.Id, custom.Id, StringComparison.OrdinalIgnoreCase)))
-                {
-                    custom.Id = custom.Id + "-" + Guid.NewGuid().ToString("N")[..6];
-                }
-
-                _themes.Add(custom);
-            }
-
-            ThemesChanged?.Invoke(this, EventArgs.Empty);
-        }
-
-        public AppThemeInfo? FindTheme(string? themeId)
-        {
-            if (string.IsNullOrWhiteSpace(themeId))
-            {
-                return null;
-            }
-
-            return _themes.FirstOrDefault(t =>
-                string.Equals(t.Id, themeId, StringComparison.OrdinalIgnoreCase));
-        }
-
-        public void ApplyTheme(string? themeId)
+        /// <summary>Installs the fixed Midnight Blue palette + Deploy tokens (call once at startup).</summary>
+        public void ApplyAppTheme()
         {
             Initialize();
 
-            var theme = FindTheme(themeId) ?? FindTheme(DarkThemeId) ?? _themes[0];
-            var pack = ResolvePack(theme);
-            pack = ThemePackStore.Instance.MergeWithDefaults(pack);
-
+            var pack = LoadAppPack();
             ApplyPalette(pack);
-            ThemeResourceApplier.Apply(pack);
-            ThemeSkinApplier.Apply(pack);
             CurrentTokens = DeployThemeTokens.Resolve(pack, ResolvePaletteColor);
             PushTokenToPalette(
                 "Tree.SearchMatchBackground",
@@ -168,39 +84,31 @@ namespace GitDeployPro.Services.Theme
                 "tree.searchMatchForeground",
                 System.Windows.Media.Color.FromRgb(0x10, 0x13, 0x1A));
             CurrentPack = pack;
-            CurrentThemeId = theme.Id;
+            CurrentThemeId = AppThemeId;
             ThemeChanged?.Invoke(this, EventArgs.Empty);
         }
 
-        public AppThemeInfo ImportThemeFile(string path)
+        private static ThemePack LoadAppPack()
         {
-            Initialize();
-            var info = ThemePackStore.Instance.ImportFromFile(path);
-            RegisterTheme(info, replaceExisting: true);
-            return info;
-        }
-
-        public void DeleteCustomTheme(string themeId)
-        {
-            var theme = FindTheme(themeId);
-            if (theme == null || theme.IsBuiltIn)
+            try
             {
-                throw new InvalidOperationException("Only custom themes can be deleted.");
+                using var stream = typeof(ThemeService).Assembly.GetManifestResourceStream("GitDeployPro.AppTheme.json");
+                if (stream != null)
+                {
+                    using var reader = new System.IO.StreamReader(stream);
+                    var pack = Newtonsoft.Json.JsonConvert.DeserializeObject<ThemePack>(reader.ReadToEnd());
+                    if (pack != null)
+                    {
+                        return pack;
+                    }
+                }
+            }
+            catch
+            {
+                // fall through to the built-in dark seed
             }
 
-            ThemePackStore.Instance.DeleteCustomTheme(theme.Id, theme.PackPath);
-            UnregisterTheme(theme.Id);
-            if (string.Equals(CurrentThemeId, themeId, StringComparison.OrdinalIgnoreCase))
-            {
-                ApplyTheme(DefaultThemeId);
-            }
-        }
-
-        public ThemePack GetExportPack(string? themeId)
-        {
-            Initialize();
-            var theme = FindTheme(themeId) ?? FindTheme(DarkThemeId) ?? _themes[0];
-            return ThemePackStore.Instance.MergeWithDefaults(ResolvePack(theme));
+            return ThemeTokenCatalog.CreateDarkPack();
         }
 
         public System.Windows.Media.Color GetTokenColor(string path, System.Windows.Media.Color fallback)
@@ -211,55 +119,6 @@ namespace GitDeployPro.Services.Theme
 
         public string GetTokenHex(string path, string fallback)
             => CurrentTokens.GetHex(path, fallback);
-
-        private void RegisterBuiltIns()
-        {
-            _themes.Clear();
-            _themes.Add(new AppThemeInfo
-            {
-                Id = DefaultThemeId,
-                DisplayName = "Default",
-                Source = ThemeSourceKind.BuiltInPack,
-                Pack = ThemeTokenCatalog.CreateDefaultPack(),
-                ResourceUri = new Uri("pack://application:,,,/Themes/Colors.xaml")
-            });
-            _themes.Add(new AppThemeInfo
-            {
-                Id = DarkThemeId,
-                DisplayName = "Dark",
-                Source = ThemeSourceKind.BuiltInPack,
-                Pack = ThemeTokenCatalog.CreateDarkPack(),
-                ResourceUri = new Uri("pack://application:,,,/Themes/Colors.Dark.xaml")
-            });
-        }
-
-        private ThemePack ResolvePack(AppThemeInfo theme)
-        {
-            if (theme.Pack != null)
-            {
-                return ClonePack(theme.Pack);
-            }
-
-            if (!string.IsNullOrWhiteSpace(theme.PackPath) && System.IO.File.Exists(theme.PackPath))
-            {
-                var loaded = ThemePackStore.Instance.LoadPackFromFile(theme.PackPath);
-                theme.Pack = loaded;
-                return ClonePack(loaded);
-            }
-
-            if (string.Equals(theme.Id, DarkThemeId, StringComparison.OrdinalIgnoreCase))
-            {
-                return ThemeTokenCatalog.CreateDarkPack();
-            }
-
-            return ThemeTokenCatalog.CreateDefaultPack();
-        }
-
-        private static ThemePack ClonePack(ThemePack pack)
-        {
-            var json = Newtonsoft.Json.JsonConvert.SerializeObject(pack);
-            return Newtonsoft.Json.JsonConvert.DeserializeObject<ThemePack>(json) ?? ThemeTokenCatalog.CreateDefaultPack();
-        }
 
         private void ApplyPalette(ThemePack pack)
         {
