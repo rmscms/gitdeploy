@@ -1,0 +1,2 @@
+/* page: process-monitor-window */
+.pmon{display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:16px;height:100%;min-height:0}.pmon .conn{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.pmon .conn .select{flex:1;min-width:200px}.pmon .gw{background:var(--surface-shell);border:1px solid var(--border-subtle);border-radius:10px;min-height:0}.pmon td.info{max-width:420px;overflow:hidden;text-overflow:ellipsis;font-family:var(--font-mono);font-size:12px}.pmon .slow{color:var(--warning);font-weight:700}

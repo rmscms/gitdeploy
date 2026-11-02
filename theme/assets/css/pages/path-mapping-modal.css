@@ -1,0 +1,2 @@
+/* page: path-mapping-modal */
+.pm-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 72px;gap:8px;align-items:center;min-height:28px;padding:1px 4px;font-size:12px}.pm-row.pm-h{font-size:11px;font-weight:600;color:var(--text-muted)}.pm-row:not(.pm-h):hover{background:var(--surface-hover);border-radius:6px}

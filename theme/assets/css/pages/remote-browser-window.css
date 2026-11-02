@@ -1,0 +1,2 @@
+/* page: remote-browser-window */
+.rb{display:flex;flex-direction:column;gap:10px;height:100%;min-height:0}.rb .lst{flex:1;min-height:0;overflow:auto;background:var(--surface-shell);border:1px solid var(--border-subtle);border-radius:10px}.rb .list-item{padding:9px 14px;font-size:14px}.rb .list-item .ic{width:18px;height:18px}.rb .list-item .fo{color:var(--warning)}

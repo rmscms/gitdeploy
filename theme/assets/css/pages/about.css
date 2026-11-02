@@ -1,0 +1,2 @@
+/* page: about */
+.ab-grid{display:grid;grid-template-columns:minmax(0,560px) minmax(0,1fr);gap:14px;align-items:start}@media(max-width:1199.98px){.ab-grid{grid-template-columns:minmax(0,1fr)}}.ab-logo{width:56px;height:56px;border-radius:15px;display:grid;place-items:center;font-size:26px;font-weight:800;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 8px 28px -8px var(--accent-glow);flex:none}.ab-card .mono{font-size:12px}

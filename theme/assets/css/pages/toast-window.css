@@ -1,0 +1,18 @@
+/* page: toast-window */
+.tw{min-height:100vh;padding:28px;background:radial-gradient(900px 500px at 30% 0,rgba(76,141,255,.12),transparent 60%),#000}
+.tw h1{font-size:22px}.tw .sub{color:var(--text-muted);margin:4px 0 20px;max-width:760px}
+.tw-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,320px));gap:18px 24px;margin-bottom:28px}
+.gdt{width:320px;min-height:88px;border-radius:12px;background:var(--surface-card);border:1px solid var(--border-subtle);padding:18px;box-shadow:0 0 16px rgba(0,0,0,.4);cursor:pointer}
+.gdt:hover{border-color:var(--border-strong)}
+.gdt-t{font-size:16px;font-weight:600;color:var(--text-primary)}.gdt-m{margin-top:8px;color:var(--text-secondary);word-wrap:break-word}
+.gdt-cap{font-size:11px;color:var(--text-muted);margin:6px 2px 0;font-family:var(--font-mono)}
+.tw-stage{position:relative;height:340px;border:1px solid var(--border-strong);border-radius:14px;overflow:hidden;background:var(--surface-base);max-width:1000px}
+.tw-stage .mini{position:absolute;inset:0;display:grid;grid-template-rows:34px 1fr}
+.tw-stage .mini .tb{background:var(--surface-shell);border-bottom:1px solid var(--border-subtle);display:flex;align-items:center;gap:8px;padding:0 12px;color:var(--text-muted);font-size:12px}
+.tw-stage .mini .ct{padding:18px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px;align-content:start}
+.tw-stage .mini .ct i{display:block;height:70px;border-radius:12px;background:var(--surface-card);border:1px solid var(--border-subtle)}
+.tw-stack{position:absolute;right:20px;bottom:20px;width:320px;display:flex;flex-direction:column;gap:10px;pointer-events:none}
+.tw-stack .gdt{pointer-events:auto;box-shadow:0 0 16px rgba(0,0,0,.6);animation:tin .22s ease-out both;position:relative;overflow:hidden}
+.tw-stack .gdt.out{animation:tout .18s ease-in both}
+.tw-stack .gdt .life{position:absolute;left:0;bottom:0;height:2px;width:100%;background:var(--accent);transform-origin:left;animation:tbar 4s linear forwards}
+.tw-ctl{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}

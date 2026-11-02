@@ -1,0 +1,16 @@
+/* page: transfer-monitor-panel */
+
+.tm{background:var(--surface-card);border:1px solid var(--border-subtle);border-radius:8px;padding:10px 12px;box-shadow:0 0 16px rgba(0,0,0,.45);width:min(400px,100%);}
+.tm-head{margin-top:6px;font-size:11px;color:var(--info)}
+.tm-pct{margin-top:4px;font-size:11px;font-weight:600;color:var(--accent)}
+.tm-sec{margin:10px 0 4px;font-size:12px;font-weight:600}
+.tm-log{margin-top:8px;max-height:140px;font-size:10px;line-height:1.5;padding:8px 10px;background:var(--surface-input)}
+.slot{display:grid;grid-template-columns:32px 74px minmax(0,1fr);gap:0 4px;align-items:center;font-size:11px;margin-bottom:4px}
+.slot-id{font-weight:600;color:var(--accent)}
+.slot-st{color:var(--info)} .slot-st.error{color:var(--error)} .slot-st.done{color:var(--success)} .slot-st.waiting{color:var(--text-muted)}
+.slot-st.badge{height:18px;width:max-content;font-size:10px}
+.slot.big{grid-template-columns:40px 88px minmax(0,1fr) 78px;font-size:12px;padding:5px 0;border-bottom:1px solid var(--border-subtle);margin:0;row-gap:4px}
+.slot.big:last-child{border-bottom:0}
+.slot.big .slot-pg{grid-column:2 / -1;height:4px}
+.slot.big .slot-sp{text-align:right;font-size:11px}
+.tmg{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,440px));gap:20px;align-items:start}.tmg .tm{width:100%}

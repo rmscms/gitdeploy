@@ -1,0 +1,2 @@
+/* page: remote-permissions-window */
+.pg{display:grid;grid-template-columns:90px repeat(3,1fr);row-gap:0;align-items:center}.pg .h{text-align:center;font-weight:600;font-size:12px;color:var(--text-muted);margin-bottom:8px}.pg .pm-l{font-size:11px;font-weight:600;color:var(--text-secondary);height:36px;display:flex;align-items:center}.pg .pm-c{display:grid;place-items:center;height:36px}.pg .check{min-height:0}

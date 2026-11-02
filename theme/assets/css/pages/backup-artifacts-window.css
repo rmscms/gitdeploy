@@ -1,0 +1,9 @@
+/* page: backup-artifacts-window */
+
+.bk-note{padding:8px 10px;border-radius:6px;font-size:11px;background:var(--success-surface);color:var(--success);margin-top:8px;overflow-wrap:anywhere}
+.bk-note.err{background:var(--error-surface);color:var(--error)}.bk-note.info{background:var(--info-surface);color:var(--info)}.bk-note.warn{background:var(--warning-surface);color:var(--warning)}
+.bk-widget{background:linear-gradient(135deg,var(--surface-card),var(--surface-raised));border:1px solid var(--border-subtle);border-radius:var(--r-card);padding:16px;margin-bottom:14px}
+.bk-widget.in{background:var(--surface-input);margin:12px 0}.bk-widget h4{font-size:var(--fs-section);font-weight:600}.bk-widget .cap{color:var(--text-muted);font-size:12px;margin-top:2px}
+.bk-widget .sub{font-size:12px;color:var(--text-muted);font-weight:600;margin-bottom:8px}
+.ck-ico{width:16px;height:16px}
+

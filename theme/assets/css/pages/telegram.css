@@ -1,0 +1,32 @@
+/* page: telegram */
+
+.tg{display:grid;grid-template-columns:clamp(220px,24vw,300px) minmax(0,1fr);gap:8px;padding:8px;height:100%;min-height:0}
+.tgcol{background:var(--surface-shell);border:1px solid var(--border-subtle);border-radius:10px;min-height:0;min-width:0;display:grid;overflow:hidden}
+.tgside{grid-template-rows:auto auto minmax(0,1fr) auto} .tgmain{grid-template-rows:minmax(0,1fr)}
+.tgsh{padding:14px 14px 8px} .tgsh h2{font-size:16px;font-weight:600} .tgsh p{margin:4px 0 0;font-size:11px;color:var(--text-muted)}
+.tgsearch{padding:0 12px 10px}
+.tglist{overflow:auto;padding:0 6px 8px;min-height:0}
+.thread{align-items:flex-start;padding:8px;cursor:pointer;margin-bottom:2px} .thread .grow{align-self:center}
+.tav{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:600;font-size:14px;flex:none}
+.tn1{font-weight:600;font-size:13px} .wsb{background:var(--info-surface);color:var(--info);font-size:9px;font-weight:600;border-radius:6px;padding:1px 5px;flex:none}
+.tmeta{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:none} .thread .unread{font-size:10px;font-weight:600;min-width:18px}
+.tgbridge{padding:8px;border-top:1px solid var(--border-subtle)}
+.tgpanes{min-height:0;display:grid}
+.tgp-pane{display:none;flex-direction:column;min-height:0} .tgp-pane.active{display:flex}
+.tgh{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 14px;border-bottom:1px solid var(--border-subtle);flex:none}
+.tgt{font-size:15px;font-weight:600} .tgs{font-size:11px;color:var(--text-muted);margin-top:3px} .tgs.err{color:var(--error)} .tgs.ok{color:var(--text-secondary)}
+.tgh .btn{padding:6px 10px;height:32px}
+.tgm{flex:1;overflow:auto;padding:12px 16px;display:flex;flex-direction:column;gap:8px;min-height:0;background:radial-gradient(600px 300px at 80% 0,rgba(76,141,255,.05),transparent 70%)}
+.tgm .bubble{max-width:min(460px,82%);font-size:13px;overflow-wrap:anywhere;padding:9px 12px;flex:none} .tgm .bubble small{opacity:.75;font-size:10px;margin-top:6px}
+.tgm .bubble.in small{text-align:right}
+.tgphoto{position:relative;width:min(260px,100%);height:150px;border-radius:8px;margin-bottom:8px;background:linear-gradient(135deg,#0d1a30,#1b2d52 60%,#26407a);border:1px solid rgba(255,255,255,.08);overflow:hidden;cursor:pointer}
+.tgphoto i{position:absolute;left:12px;right:12px;height:12px;border-radius:3px;background:rgba(255,255,255,.14)} .tgphoto i:nth-child(1){top:16px;width:40%} .tgphoto i:nth-child(2){top:40px;height:46px;right:30%;background:rgba(76,141,255,.45)} .tgphoto i:nth-child(3){top:96px;width:60%;background:rgba(255,92,106,.4)}
+.tgphoto span{position:absolute;left:8px;bottom:6px;font:10px var(--font-mono);color:rgba(255,255,255,.7)}
+.tgpend{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 14px;background:var(--surface-raised);border-top:1px solid var(--border-subtle);flex:none} .tgpend[hidden]{display:none}
+.tgc{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:end;padding:10px;border-top:1px solid var(--border-subtle);background:var(--chat-composer);flex:none}
+.tgc .btn.icon{width:36px;height:36px} .tgc .tgbox{min-height:36px;max-height:90px;padding:8px 12px;resize:none;overflow:auto;height:36px} .tgc .btn.primary{height:36px}
+.tgwork{padding:8px 14px 10px;flex:none}
+.tgban{margin:10px 14px 0;flex:none}
+.typing{display:inline-flex;gap:3px;padding:4px 2px} .typing i{width:5px;height:5px;border-radius:50%;background:var(--text-muted);animation:pulse 1s infinite} .typing i:nth-child(2){animation-delay:.2s} .typing i:nth-child(3){animation-delay:.4s}
+@media (max-width:1099.98px){.tgh .bl{display:none}}
+

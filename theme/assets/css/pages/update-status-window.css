@@ -1,0 +1,2 @@
+/* page: update-status-window */
+.us-ico{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;font-size:22px;font-weight:600;background:var(--success-surface);color:var(--accent);flex:none}.us-sw{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;padding:8px;border:1px dashed var(--border-strong);border-radius:10px}.us-sw .eyebrow{width:100%}

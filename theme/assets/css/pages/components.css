@@ -1,0 +1,24 @@
+/* page: components */
+
+.cg{max-width:1500px;margin:0 auto}
+.cg-nav{position:sticky;top:-14px;z-index:5;display:flex;flex-wrap:wrap;gap:6px;padding:8px 0 12px;background:linear-gradient(var(--surface-base) 80%,transparent)}
+.cg-sec{margin-bottom:34px;scroll-margin-top:60px}
+.cg-demo{margin-bottom:14px;display:flex;flex-direction:column;gap:8px}
+.sw{display:flex;gap:10px;align-items:center;padding:8px;border:1px solid var(--border-subtle);border-radius:10px;background:var(--surface-card)}
+.sw-c{width:44px;height:44px;border-radius:8px;border:1px solid var(--border-strong);flex:none}
+.sw-t{display:flex;flex-direction:column;min-width:0}.sw-t b{font-size:12px}.sw-t small{color:var(--text-muted);font-size:10.5px;overflow:hidden;text-overflow:ellipsis}
+.cg .box{border:1px solid var(--border-subtle);border-radius:10px;overflow:hidden;background:var(--surface-card);min-width:0}
+.cg .vtabs{display:grid;grid-template-columns:180px minmax(0,1fr);gap:16px}
+.cg .tip-wrap{position:relative;display:inline-block}
+.cg .tip-wrap .tip{position:absolute;left:50%;bottom:calc(100% + 6px);transform:translateX(-50%);opacity:0;pointer-events:none;transition:.12s;white-space:nowrap;z-index:3}
+.cg .tip-wrap:hover .tip{opacity:1}
+.cg .tip-static{position:static}
+.cg .skeleton{background:linear-gradient(90deg,var(--border-subtle) 25%,var(--border-strong) 50%,var(--border-subtle) 75%);background-size:200% 100%}
+.cg .spec{font-family:var(--font-mono);font-size:11px;color:var(--text-muted)}
+.cg .menu-demo{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start}
+.cg .ctx-zone{padding:26px;border:1px dashed var(--border-strong);border-radius:10px;color:var(--text-muted);min-width:260px;text-align:center}
+.cg .pad-demo{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.cg .shape{display:grid;place-items:center;background:var(--surface-card);border:1px solid var(--border-strong);color:var(--text-muted);font-size:10px;font-family:var(--font-mono)}
+@media (max-width:1099.98px){.cg .vtabs{grid-template-columns:1fr}}
+.sbadge-solid{display:inline-flex;align-items:center;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;color:var(--text-inverse);flex:none}
+.sbadge-solid.ok{background:var(--success)}.sbadge-solid.warn{background:var(--warning)}.sbadge-solid.err{background:var(--error)}

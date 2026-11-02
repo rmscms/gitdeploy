@@ -1,0 +1,9 @@
+/* page: local-file-editor-control */
+
+.ed{display:grid;grid-template-rows:auto auto minmax(0,1fr);height:100%;min-height:0;padding:8px;background:var(--surface-card)}
+.ed-head{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.ed-status{font-size:11px;margin-bottom:8px}
+.ed .code{min-height:0;background:var(--surface-input);font-size:13px;align-content:start}
+.ed .code pre{outline:none;min-height:100%}
+.ed .btn[disabled]{opacity:.35}
+.ed{border-radius:0}
