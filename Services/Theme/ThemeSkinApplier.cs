@@ -63,23 +63,60 @@ namespace GitDeployPro.Services.Theme
                 return;
             }
 
+            ResourceDictionary? dictionary = null;
             try
             {
-                var dictionary = LoadSkin(requested);
+                var userFile = Path.Combine(UserSkinsRoot, requested, "Skin.xaml");
+                if (File.Exists(userFile))
+                {
+                    using var stream = File.OpenRead(userFile);
+                    dictionary = XamlReader.Load(stream) as ResourceDictionary;
+                    if (dictionary != null)
+                    {
+                        // Merged LAST: lookups walk merged dictionaries from the end, so skin keys win over Controls.xaml.
+                        app.Resources.MergedDictionaries.Add(dictionary);
+                    }
+                }
+                else if (SkinExists(requested))
+                {
+                    // Add first, then set Source: StaticResource references inside the skin resolve against the app chain.
+                    dictionary = new ResourceDictionary();
+                    app.Resources.MergedDictionaries.Add(dictionary);
+                    dictionary.Source = BundledUri(requested);
+                }
+
                 if (dictionary == null)
                 {
+                    WriteLog($"skin '{requested}': not found, default skin kept.");
                     return;
                 }
 
-                // Merged LAST: lookups walk merged dictionaries from the end, so skin keys win over Controls.xaml.
-                app.Resources.MergedDictionaries.Add(dictionary);
                 AppliedSkinId = requested;
+                WriteLog($"skin '{requested}': applied ({dictionary.Count} keys).");
             }
             catch (Exception ex)
             {
                 // A broken skin must never stop the app from starting: fall back to the default skin.
-                Debug.WriteLine("Skin '" + requested + "' failed to load: " + ex.Message);
+                if (dictionary != null)
+                {
+                    app.Resources.MergedDictionaries.Remove(dictionary);
+                }
+
                 AppliedSkinId = null;
+                WriteLog($"skin '{requested}': FAILED -> {ex}");
+            }
+        }
+
+        private static void WriteLog(string line)
+        {
+            try
+            {
+                var dir = Path.GetDirectoryName(UserSkinsRoot)!;
+                Directory.CreateDirectory(dir);
+                File.AppendAllText(Path.Combine(dir, "skin.log"), $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} {line}{Environment.NewLine}");
+            }
+            catch
+            {
             }
         }
 
@@ -164,17 +201,5 @@ namespace GitDeployPro.Services.Theme
 
         private static Uri BundledUri(string id)
             => new($"pack://application:,,,/Themes/Skins/{id}/Skin.xaml", UriKind.Absolute);
-
-        private static ResourceDictionary? LoadSkin(string id)
-        {
-            var userFile = Path.Combine(UserSkinsRoot, id, "Skin.xaml");
-            if (File.Exists(userFile))
-            {
-                using var stream = File.OpenRead(userFile);
-                return XamlReader.Load(stream) as ResourceDictionary;
-            }
-
-            return SkinExists(id) ? new ResourceDictionary { Source = BundledUri(id) } : null;
-        }
     }
 }
