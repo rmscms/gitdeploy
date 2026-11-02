@@ -561,6 +561,68 @@ out += `
             </Setter.Value>
         </Setter>
     </Style>
+
+    <!-- ============ list/grid headers + MahApps inputs (they fell back to white/grey default chrome) ============ -->
+
+    <!-- core.css table.dg th: 34px, raised bg, strong bottom border, 11px muted bold labels -->
+    <Style TargetType="GridViewColumnHeader">
+        <Setter Property="Foreground" Value="{StaticResource Text.Muted}" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="HorizontalContentAlignment" Value="Left" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="GridViewColumnHeader">
+                    <Grid SnapsToDevicePixels="True">
+                        <Border Background="{StaticResource Surface.Raised}" BorderBrush="{StaticResource Border.Strong}"
+                                BorderThickness="0,0,0,1" Height="34" Padding="12,0">
+                            <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              RecognizesAccessKey="True" TextElement.Foreground="{TemplateBinding Foreground}" />
+                        </Border>
+                        <Thumb x:Name="PART_HeaderGripper" HorizontalAlignment="Right" Width="6" Margin="0,0,-3,0" Background="Transparent" Cursor="SizeWE">
+                            <Thumb.Template>
+                                <ControlTemplate TargetType="Thumb">
+                                    <Border Background="Transparent">
+                                        <Rectangle Width="1" Margin="0,8" Fill="{StaticResource Border.Subtle}" HorizontalAlignment="Center" />
+                                    </Border>
+                                </ControlTemplate>
+                            </Thumb.Template>
+                        </Thumb>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- core.css .input: 36px, input bg, subtle border, radius 8 -->
+    <Style TargetType="mah:NumericUpDown" BasedOn="{StaticResource {x:Type mah:NumericUpDown}}">
+        <Setter Property="Height" Value="36" />
+        <Setter Property="Background" Value="{StaticResource Surface.Input}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Border.Subtle}" />
+        <Setter Property="Foreground" Value="{StaticResource Text.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Body}" />
+        <Setter Property="mah:ControlsHelper.CornerRadius" Value="{StaticResource Radius.Input}" />
+        <Setter Property="mah:ControlsHelper.MouseOverBorderBrush" Value="{StaticResource Border.Strong}" />
+        <Setter Property="mah:ControlsHelper.FocusBorderBrush" Value="{StaticResource Accent.Primary}" />
+        <Setter Property="mah:TextBoxHelper.ButtonContentTemplate" Value="{x:Null}" />
+    </Style>
+    <Style TargetType="mah:TimePicker" BasedOn="{StaticResource {x:Type mah:TimePicker}}">
+        <Setter Property="Height" Value="36" />
+        <Setter Property="Background" Value="{StaticResource Surface.Input}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Border.Subtle}" />
+        <Setter Property="Foreground" Value="{StaticResource Text.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Body}" />
+        <Setter Property="mah:ControlsHelper.CornerRadius" Value="{StaticResource Radius.Input}" />
+        <Setter Property="mah:ControlsHelper.MouseOverBorderBrush" Value="{StaticResource Border.Strong}" />
+        <Setter Property="mah:ControlsHelper.FocusBorderBrush" Value="{StaticResource Accent.Primary}" />
+    </Style>
+    <Style TargetType="mah:DateTimePicker" BasedOn="{StaticResource {x:Type mah:DateTimePicker}}">
+        <Setter Property="Height" Value="36" />
+        <Setter Property="Background" Value="{StaticResource Surface.Input}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Border.Subtle}" />
+        <Setter Property="Foreground" Value="{StaticResource Text.Primary}" />
+        <Setter Property="mah:ControlsHelper.CornerRadius" Value="{StaticResource Radius.Input}" />
+    </Style>
 </ResourceDictionary>
 `;
 

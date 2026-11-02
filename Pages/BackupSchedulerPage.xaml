@@ -929,7 +929,7 @@
 
                             <Border x:Name="Step5Panel" Style="{StaticResource WidgetCardStyle}" Padding="16">
                                 <StackPanel>
-                                    <DockPanel>
+                                    <DockPanel LastChildFill="False">
                                         <StackPanel DockPanel.Dock="Left">
                                             <TextBlock Text="Readiness"
                                                        Style="{StaticResource App.SectionTitleTextStyle}"/>
