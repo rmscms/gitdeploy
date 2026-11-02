@@ -1964,6 +1964,15 @@ namespace GitDeployPro.Pages
             }
 
             BranchSummaryText.Text = $"{source} → {target}";
+            if (BranchSourceChipText != null)
+            {
+                BranchSourceChipText.Text = source;
+            }
+
+            if (BranchTargetChipText != null)
+            {
+                BranchTargetChipText.Text = target;
+            }
         }
 
         private void ApplyLeftDockLayout(bool resetWidth = true)
@@ -2876,6 +2885,16 @@ namespace GitDeployPro.Pages
 
         private void UpdatePushBadgeUi()
         {
+            if (BranchBehindBadge != null && BranchAheadBadge != null && BranchBehindBadgeText != null && BranchAheadBadgeText != null)
+            {
+                var behind = _branchStatus != null && _branchStatus.HasRemote ? _branchStatus.BehindCount : 0;
+                var ahead = _branchStatus != null && _branchStatus.HasRemote ? _branchStatus.AheadCount : 0;
+                BranchBehindBadge.Visibility = behind > 0 ? Visibility.Visible : Visibility.Collapsed;
+                BranchBehindBadgeText.Text = "↓" + behind;
+                BranchAheadBadge.Visibility = ahead > 0 ? Visibility.Visible : Visibility.Collapsed;
+                BranchAheadBadgeText.Text = "↑" + ahead;
+            }
+
             if (DeployPushBadge == null || DeployPushBadgeText == null) return;
 
             if (_branchStatus != null && _branchStatus.HasRemote && _branchStatus.AheadCount > 0)
