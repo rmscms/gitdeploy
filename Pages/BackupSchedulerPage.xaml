@@ -13,8 +13,34 @@
             <GradientStop Color="{StaticResource Color.Surface.Card}" Offset="0"/>
             <GradientStop Color="{StaticResource Color.Surface.Raised}" Offset="1"/>
         </LinearGradientBrush>
+        <!-- theme/backup.html .bk-listbox .list-item: transparent rows, radius 10, selected = accent border + soft fill -->
+        <Style x:Key="BackupScheduleItemStyle" TargetType="ListBoxItem">
+            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Foreground" Value="{StaticResource Text.Secondary}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Row" Padding="{TemplateBinding Padding}" CornerRadius="10" BorderThickness="1"
+                                Background="Transparent" BorderBrush="Transparent">
+                            <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Row" Property="Background" Value="{StaticResource State.Hover}"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Row" Property="Background" Value="{StaticResource Accent.Soft}"/>
+                                <Setter TargetName="Row" Property="BorderBrush" Value="{StaticResource Accent.Primary}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <Style x:Key="WidgetCardStyle" TargetType="Border" BasedOn="{StaticResource App.CardStyle}">
-            <Setter Property="Background" Value="{DynamicResource Surface.Card}"/>
+            <Setter Property="Background" Value="{DynamicResource Surface.Raised}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource Border.Subtle}"/>
             <Setter Property="CornerRadius" Value="{StaticResource Radius.Card}"/>
             <Setter Property="Padding" Value="{StaticResource Spacing.CardPaddingDense}"/>
@@ -197,7 +223,7 @@
                 <StackPanel VerticalAlignment="Center">
                     <TextBlock Text="Backup Scheduler" Style="{StaticResource App.PageTitleTextStyle}"/>
                     <TextBlock Text="Short wizard, optional OpenVPN per plan, and import/export between machines."
-                               Style="{StaticResource App.PageSubtitleTextStyle}"/>
+                               Style="{StaticResource App.PageSubtitleTextStyle}" TextWrapping="Wrap" MaxWidth="440"/>
                 </StackPanel>
             </StackPanel>
             <Border Grid.Column="1"
@@ -307,6 +333,7 @@
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
                     <Grid Margin="0,0,0,10">
                         <Grid.ColumnDefinitions>
@@ -315,8 +342,8 @@
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Orientation="Horizontal">
                             <TextBlock Text="Schedules" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{StaticResource Text.Primary}"/>
-                            <Border Background="{StaticResource Surface.Input}" CornerRadius="6" Padding="6,2" Margin="10,0,0,0">
-                                <TextBlock Text="{Binding Schedules.Count}" Foreground="{StaticResource Status.Success}" FontWeight="Bold"/>
+                            <Border Background="{StaticResource Surface.Input}" CornerRadius="6" Padding="8,0" Height="22" MinWidth="24" VerticalAlignment="Center" Margin="10,0,0,0">
+                                <TextBlock Text="{Binding Schedules.Count}" Foreground="{StaticResource Status.Success}" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </Border>
                         </StackPanel>
                         <Border Grid.Column="1"
@@ -348,7 +375,7 @@
                              ItemsSource="{Binding Schedules}"
                              SelectedItem="{Binding SelectedSchedule, Mode=TwoWay}"
                              Style="{StaticResource App.ListBox.Host}"
-                             ItemContainerStyle="{StaticResource App.ListBoxItem.Card}">
+                             ItemContainerStyle="{StaticResource BackupScheduleItemStyle}">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
                                 <Grid>
@@ -399,6 +426,48 @@
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
+                    <!-- theme/backup.html .bk-left: "Next runs" timeline card -->
+                    <Border Grid.Row="2"
+                            Margin="0,12,0,0"
+                            Padding="14,12"
+                            Background="{StaticResource Surface.Raised}"
+                            BorderBrush="{StaticResource Border.Subtle}"
+                            BorderThickness="1"
+                            CornerRadius="{StaticResource Radius.Card}">
+                        <StackPanel>
+                            <Grid Margin="0,0,0,8">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path behaviors:AppIcon.Kind="clock" behaviors:AppIcon.Size="16" Margin="0,0,8,0" VerticalAlignment="Center" TextElement.Foreground="{DynamicResource Accent.Primary}"/>
+                                    <TextBlock Text="Next runs" FontWeight="SemiBold" FontSize="14" Foreground="{StaticResource Text.Primary}" VerticalAlignment="Center"/>
+                                </StackPanel>
+                                <Border HorizontalAlignment="Right" Background="{StaticResource Accent.Soft}" CornerRadius="5" Padding="7,1">
+                                    <TextBlock Text="timeline" FontSize="11" FontWeight="Bold" Foreground="{StaticResource Accent.Primary}"/>
+                                </Border>
+                            </Grid>
+                            <ItemsControl ItemsSource="{Binding Schedules}" MaxHeight="150">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,0,0,7">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Ellipse x:Name="Dot" Width="10" Height="10" StrokeThickness="2" Stroke="{StaticResource Border.Strong}" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding Name}" Foreground="{StaticResource Text.Primary}" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding NextRunLocal, StringFormat={}{0:g}}" Foreground="{StaticResource Text.Muted}" FontFamily="{StaticResource FontFamily.Mono}" FontSize="11" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                                        </Grid>
+                                        <DataTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding Enabled}" Value="True">
+                                                <Setter TargetName="Dot" Property="Stroke" Value="{StaticResource Status.Info}"/>
+                                                <Setter TargetName="Dot" Property="Fill" Value="{StaticResource Accent.Primary}"/>
+                                            </DataTrigger>
+                                        </DataTemplate.Triggers>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
                 </Grid>
             </Border>
 
