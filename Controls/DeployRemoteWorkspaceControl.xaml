@@ -113,7 +113,7 @@
                 Background="{StaticResource Surface.Shell}"
                 BorderBrush="{StaticResource Border.Subtle}"
                 BorderThickness="0,0,0,1"
-                Padding="6,4"
+                Padding="10,8"
                 Margin="0">
             <Grid>
                 <Grid.RowDefinitions>
@@ -232,7 +232,7 @@
                            x:Name="StatusTextBlock"
                            Margin="2,4,0,0"
                            Foreground="{StaticResource Text.Muted}"
-                           FontSize="10.5"
+                           FontSize="11"
                            Text="Remote workspace is idle." />
             </Grid>
         </Border>
@@ -241,7 +241,7 @@
               Grid.Row="1">
             <Border x:Name="RemoteBrowserPanel"
                     Style="{StaticResource App.CardStyle}"
-                    Padding="6"
+                    Padding="10"
                     Visibility="Visible">
                 <Grid>
                     <Grid.RowDefinitions>
@@ -253,22 +253,26 @@
 
                     <StackPanel Margin="0,0,0,6">
                         <TextBlock Text="Remote files"
-                                   FontSize="12"
+                                   FontSize="14"
                                    FontWeight="SemiBold"
                                    Foreground="{StaticResource Text.Primary}" />
                         <Border x:Name="MappingBanner"
-                                Margin="0,6,0,0"
-                                Padding="8,6"
-                                CornerRadius="6"
-                                Background="{StaticResource Surface.Input}"
-                                BorderBrush="{StaticResource Border.Subtle}"
+                                Margin="0,8,0,0"
+                                Padding="10,8"
+                                CornerRadius="10"
+                                Background="{StaticResource Status.InfoSurface}"
+                                BorderBrush="{StaticResource Accent.Soft}"
                                 BorderThickness="1"
                                 Visibility="Collapsed">
-                            <TextBlock x:Name="MappingBannerText"
-                                       TextWrapping="Wrap"
-                                       FontSize="12"
-                                       Foreground="{StaticResource Status.Info}"
-                                       Text="Path mapping is active for this connection." />
+                            <StackPanel Orientation="Horizontal">
+                                <Path behaviors:AppIcon.Kind="link" behaviors:AppIcon.Size="15" Margin="0,2,8,0" VerticalAlignment="Top" TextElement.Foreground="{DynamicResource Status.Info}" />
+                                <TextBlock x:Name="MappingBannerText"
+                                           TextWrapping="Wrap"
+                                           MaxWidth="320"
+                                           FontSize="12"
+                                           Foreground="{StaticResource Text.Primary}"
+                                           Text="Path mapping is active for this connection." />
+                            </StackPanel>
                         </Border>
                     </StackPanel>
 
@@ -349,12 +353,13 @@
                             </TreeView.ItemContainerStyle>
                             <TreeView.ItemTemplate>
                                 <HierarchicalDataTemplate ItemsSource="{Binding Children}">
-                                    <Grid Margin="0,1,0,1" HorizontalAlignment="Stretch">
+                                    <Grid Margin="0,2,0,2" HorizontalAlignment="Stretch">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
 
                                         <CheckBox Grid.Column="0"
@@ -368,17 +373,18 @@
                                                    Text="{Binding IconGlyph}"
                                                    Margin="0,0,6,0"
                                                    VerticalAlignment="Center"
-                                                   FontSize="13"
+                                                   FontSize="15"
                                                    Foreground="{Binding IconColor}" />
 
                                         <Border Grid.Column="2"
                                                 MinWidth="32"
                                                 Margin="0,0,8,0"
-                                                CornerRadius="4"
+                                                CornerRadius="5"
                                                 Background="{Binding BadgeBackground}"
                                                 BorderBrush="{Binding BadgeBorder}"
                                                 BorderThickness="1"
-                                                Padding="5,1"
+                                                Padding="5,0"
+                                                Height="18"
                                                 VerticalAlignment="Center">
                                             <Border.Style>
                                                 <Style TargetType="Border">
@@ -392,7 +398,8 @@
                                             </Border.Style>
                                             <TextBlock Text="{Binding BadgeText}"
                                                        Foreground="{Binding BadgeForeground}"
-                                                       FontSize="9"
+                                                       FontFamily="{StaticResource FontFamily.Mono}"
+                                                       FontSize="10"
                                                        FontWeight="SemiBold"
                                                        HorizontalAlignment="Center"
                                                        VerticalAlignment="Center" />
@@ -402,13 +409,31 @@
                                                    VerticalAlignment="Center"
                                                    Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TreeViewItem}}"
                                                    TextTrimming="CharacterEllipsis"
-                                                   FontSize="12">
+                                                   FontSize="13">
                                             <Run Text="{Binding NamePrefix, Mode=OneWay}" />
                                             <Run Text="{Binding NameMatch, Mode=OneWay}"
                                                  Background="{DynamicResource Tree.SearchMatchBackground}"
                                                  Foreground="{DynamicResource Tree.SearchMatchForeground}"
                                                  FontWeight="SemiBold" />
                                             <Run Text="{Binding NameSuffix, Mode=OneWay}" />
+                                        </TextBlock>
+
+                                        <TextBlock Grid.Column="4"
+                                                   Text="{Binding SizeLabel}"
+                                                   Margin="12,0,6,0"
+                                                   VerticalAlignment="Center"
+                                                   FontFamily="{StaticResource FontFamily.Mono}"
+                                                   FontSize="11"
+                                                   Foreground="{StaticResource Text.Muted}">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsDirectory}" Value="True">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
                                         </TextBlock>
                                     </Grid>
                                 </HierarchicalDataTemplate>
