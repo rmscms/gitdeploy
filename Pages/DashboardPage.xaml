@@ -120,7 +120,7 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
-                <Border Grid.Column="0" Style="{StaticResource App.CardStyle}" Padding="12">
+                <Border Grid.Column="0" Style="{StaticResource App.CardStyle}" Background="{StaticResource Surface.Input}" Padding="14">
                     <StackPanel>
                         <TextBlock Text="Changed Files"
                                    Style="{StaticResource App.CaptionTextStyle}"
@@ -128,14 +128,14 @@
                                    Margin="0,0,0,4" />
                         <TextBlock x:Name="ChangedFilesCount"
                                    Text="-"
-                                   FontSize="26"
+                                   FontSize="30"
                                    FontWeight="Bold"
                                    HorizontalAlignment="Center"
                                    Foreground="{StaticResource Accent.Primary}" />
                     </StackPanel>
                 </Border>
 
-                <Border Grid.Column="2" Style="{StaticResource App.CardStyle}" Padding="12">
+                <Border Grid.Column="2" Style="{StaticResource App.CardStyle}" Background="{StaticResource Surface.Input}" Padding="14">
                     <StackPanel>
                         <TextBlock Text="Total Commits"
                                    Style="{StaticResource App.CaptionTextStyle}"
@@ -143,14 +143,14 @@
                                    Margin="0,0,0,4" />
                         <TextBlock x:Name="CommitsCount"
                                    Text="-"
-                                   FontSize="26"
+                                   FontSize="30"
                                    FontWeight="Bold"
                                    HorizontalAlignment="Center"
                                    Foreground="{StaticResource Status.Success}" />
                     </StackPanel>
                 </Border>
 
-                <Border Grid.Column="4" Style="{StaticResource App.CardStyle}" Padding="12">
+                <Border Grid.Column="4" Style="{StaticResource App.CardStyle}" Background="{StaticResource Surface.Input}" Padding="14">
                     <StackPanel>
                         <TextBlock Text="Last Deploy"
                                    Style="{StaticResource App.CaptionTextStyle}"

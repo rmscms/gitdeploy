@@ -20,8 +20,10 @@ const variants = {
                hbg: R('Accent.PrimaryHover'), hbd: R('Accent.PrimaryHover'), hfg: R('Skin.OnAccent'), pbg: R('Accent.Primary'), glow: true },
   Secondary: { bg: R('Accent.Secondary'), bd: R('Accent.Secondary'), fg: R('Skin.OnAccent'),
                hbg: R('Accent.SecondaryHover'), hbd: R('Accent.SecondaryHover'), hfg: R('Skin.OnAccent'), pbg: R('Accent.Secondary') },
-  Ghost:     { bg: 'Transparent', bd: 'Transparent', fg: R('Text.Secondary'),
+  GhostFlat: { bg: 'Transparent', bd: 'Transparent', fg: R('Text.Secondary'),
                hbg: R('State.Hover'), hbd: 'Transparent', hfg: R('Text.Primary'), pbg: R('State.Pressed') },
+  Ghost:     { bg: 'Transparent', bd: R('Border.Subtle'), fg: R('Text.Secondary'),
+               hbg: R('State.Hover'), hbd: R('Border.Strong'), hfg: R('Text.Primary'), pbg: R('State.Pressed') },
   Success:   { bg: R('Status.Success'), bd: R('Status.Success'), fg: R('Skin.OnSuccess'),
                hbg: R('Status.Success'), hbd: R('Status.Success'), hfg: R('Skin.OnSuccess'), pbg: R('Status.Success'), brighten: true },
   Danger:    { bg: 'Transparent', bd: R('Status.Error'), fg: R('Status.Error'), bdOpacity: 0.45,
@@ -35,6 +37,7 @@ const sizes = {
   Normal:  { h: 36, minW: 72, pad: '14,0', fs: '{StaticResource FontSize.Body}' },
   Compact: { h: 28, minW: 0,  pad: '10,0', fs: '12' },
   Toolbar: { h: 30, minW: 0,  pad: '10,0', fs: '{StaticResource FontSize.Body}' },
+  ToolbarBtn: { h: 34, minW: 90, pad: '12,0', fs: '{StaticResource FontSize.Body}' },
   Icon:    { h: 32, minW: 32, pad: '0',    fs: '{StaticResource FontSize.Body}', w: 32 },
 };
 
@@ -145,9 +148,9 @@ out += buttonStyle('App.Button.Success', 'App.Button.Base', 'Success', 'Normal')
 out += buttonStyle('App.Button.Danger', 'App.Button.Base', 'Danger', 'Normal');
 out += buttonStyle('App.Button.Danger.Solid', 'App.Button.Base', 'DangerSolid', 'Normal');
 out += buttonStyle('App.Button.Compact', 'App.Button.Base', 'Base', 'Compact');
-out += buttonStyle('App.Button.Toolbar', 'App.Button.Base', 'Ghost', 'Toolbar');
+out += buttonStyle('App.Button.Toolbar', 'App.Button.Base', 'Base', 'ToolbarBtn');
 out += buttonStyle('App.Button.Pill', 'App.Button.Base', 'Base', 'Compact', '', '{StaticResource Radius.Chip}');
-out += buttonStyle('App.IconButton', 'App.Button.Ghost', 'Ghost', 'Icon');
+out += buttonStyle('App.IconButton', 'App.Button.Ghost', 'GhostFlat', 'Icon');
 out += `
     <Style x:Key="App.IconButton.Close" TargetType="Button" BasedOn="{StaticResource App.IconButton}">
         <Setter Property="Width" Value="30" />
@@ -221,6 +224,28 @@ out += `
         <Setter Property="mah:ControlsHelper.FocusBorderBrush" Value="{StaticResource Accent.Primary}" />
     </Style>
     <Style TargetType="TextBox" BasedOn="{StaticResource App.InputTextBox}" />
+
+    <!-- core.css .badge.success/.warning/.error/.info: status surface + 25% status border, radius 5 -->
+    <Style x:Key="App.StatusBadge.Success" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource Status.SuccessSurface}" />
+        <Setter Property="BorderBrush"><Setter.Value><SolidColorBrush Color="#403DDC84" /></Setter.Value></Setter>
+        <Setter Property="BorderThickness" Value="1" /><Setter Property="CornerRadius" Value="5" /><Setter Property="Padding" Value="8,3" />
+    </Style>
+    <Style x:Key="App.StatusBadge.Warning" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource Status.WarningSurface}" />
+        <Setter Property="BorderBrush"><Setter.Value><SolidColorBrush Color="#40E6B84D" /></Setter.Value></Setter>
+        <Setter Property="BorderThickness" Value="1" /><Setter Property="CornerRadius" Value="5" /><Setter Property="Padding" Value="8,3" />
+    </Style>
+    <Style x:Key="App.StatusBadge.Error" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource Status.ErrorSurface}" />
+        <Setter Property="BorderBrush"><Setter.Value><SolidColorBrush Color="#40FF5C6A" /></Setter.Value></Setter>
+        <Setter Property="BorderThickness" Value="1" /><Setter Property="CornerRadius" Value="5" /><Setter Property="Padding" Value="8,3" />
+    </Style>
+    <Style x:Key="App.StatusBadge.Info" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource Status.InfoSurface}" />
+        <Setter Property="BorderBrush"><Setter.Value><SolidColorBrush Color="#405BB8FF" /></Setter.Value></Setter>
+        <Setter Property="BorderThickness" Value="1" /><Setter Property="CornerRadius" Value="5" /><Setter Property="Padding" Value="8,3" />
+    </Style>
 
     <!-- core.css .check input: 16px box, border-strong, radius 4, accent fill + white tick when checked -->
     <Style x:Key="App.CheckBox" TargetType="CheckBox">

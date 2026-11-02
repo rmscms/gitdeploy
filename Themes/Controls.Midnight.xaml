@@ -182,7 +182,7 @@
         <Setter Property="Padding" Value="14,0" />
         <Setter Property="Foreground" Value="{StaticResource Text.Secondary}" />
         <Setter Property="Background" Value="Transparent" />
-        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="{StaticResource Border.Subtle}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="FocusVisualStyle" Value="{StaticResource Skin.FocusVisual}" />
@@ -206,7 +206,7 @@
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="Bd" Property="Background" Value="{StaticResource State.Hover}" />
-                            <Setter TargetName="Bd" Property="BorderBrush" Value="Transparent" />
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Border.Strong}" />
                             <Setter Property="Foreground" Value="{StaticResource Text.Primary}" />
                             
                         </Trigger>
@@ -420,12 +420,12 @@
         <Setter Property="FontFamily" Value="{StaticResource FontFamily.App}" />
         <Setter Property="FontSize" Value="{StaticResource FontSize.Body}" />
         <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="Height" Value="30" />
-        <Setter Property="MinWidth" Value="0" />
-        <Setter Property="Padding" Value="10,0" />
-        <Setter Property="Foreground" Value="{StaticResource Text.Secondary}" />
-        <Setter Property="Background" Value="Transparent" />
-        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="Height" Value="34" />
+        <Setter Property="MinWidth" Value="90" />
+        <Setter Property="Padding" Value="12,0" />
+        <Setter Property="Foreground" Value="{StaticResource Text.Primary}" />
+        <Setter Property="Background" Value="{StaticResource Surface.Input}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Border.Subtle}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="FocusVisualStyle" Value="{StaticResource Skin.FocusVisual}" />
@@ -448,8 +448,8 @@
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource State.Hover}" />
-                            <Setter TargetName="Bd" Property="BorderBrush" Value="Transparent" />
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource Surface.Raised}" />
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Border.Strong}" />
                             <Setter Property="Foreground" Value="{StaticResource Text.Primary}" />
                             
                         </Trigger>
@@ -633,6 +633,28 @@
         <Setter Property="mah:ControlsHelper.FocusBorderBrush" Value="{StaticResource Accent.Primary}" />
     </Style>
     <Style TargetType="TextBox" BasedOn="{StaticResource App.InputTextBox}" />
+
+    <!-- core.css .badge.success/.warning/.error/.info: status surface + 25% status border, radius 5 -->
+    <Style x:Key="App.StatusBadge.Success" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource Status.SuccessSurface}" />
+        <Setter Property="BorderBrush"><Setter.Value><SolidColorBrush Color="#403DDC84" /></Setter.Value></Setter>
+        <Setter Property="BorderThickness" Value="1" /><Setter Property="CornerRadius" Value="5" /><Setter Property="Padding" Value="8,3" />
+    </Style>
+    <Style x:Key="App.StatusBadge.Warning" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource Status.WarningSurface}" />
+        <Setter Property="BorderBrush"><Setter.Value><SolidColorBrush Color="#40E6B84D" /></Setter.Value></Setter>
+        <Setter Property="BorderThickness" Value="1" /><Setter Property="CornerRadius" Value="5" /><Setter Property="Padding" Value="8,3" />
+    </Style>
+    <Style x:Key="App.StatusBadge.Error" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource Status.ErrorSurface}" />
+        <Setter Property="BorderBrush"><Setter.Value><SolidColorBrush Color="#40FF5C6A" /></Setter.Value></Setter>
+        <Setter Property="BorderThickness" Value="1" /><Setter Property="CornerRadius" Value="5" /><Setter Property="Padding" Value="8,3" />
+    </Style>
+    <Style x:Key="App.StatusBadge.Info" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource Status.InfoSurface}" />
+        <Setter Property="BorderBrush"><Setter.Value><SolidColorBrush Color="#405BB8FF" /></Setter.Value></Setter>
+        <Setter Property="BorderThickness" Value="1" /><Setter Property="CornerRadius" Value="5" /><Setter Property="Padding" Value="8,3" />
+    </Style>
 
     <!-- core.css .check input: 16px box, border-strong, radius 4, accent fill + white tick when checked -->
     <Style x:Key="App.CheckBox" TargetType="CheckBox">
