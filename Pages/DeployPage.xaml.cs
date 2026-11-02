@@ -2760,7 +2760,7 @@ namespace GitDeployPro.Pages
             if (uncommittedCount > 0)
             {
                 // Primary action: review list first, then one-click send
-                SetActionButton("commit", "📝 COMMIT && REVIEW", "Accent.Secondary", true);
+                SetActionButton("commit", "📝 COMMIT && REVIEW", "Accent.Primary", true);
                 string pendingText = uncommittedCount >= 0 ? uncommittedCount.ToString() : "some";
                 StatusText.Text = SkipReviewCheckBox?.IsChecked == true
                     ? $"You have {pendingText} pending file(s). Skip review is on — Deploy → Commit + Push runs immediately."
@@ -2828,7 +2828,7 @@ namespace GitDeployPro.Pages
                     SetActionButton(
                         "pullDeploy",
                         Loc.T("deploy.pullDeployButton", behind),
-                        "Accent.Secondary",
+                        "Accent.Primary",
                         true);
                     StatusText.Text = Loc.T("deploy.pullDeployHint", behind);
                     StatusText.Foreground = GetThemeBrush("Status.Warning", System.Windows.Media.Brushes.Orange);
@@ -3094,6 +3094,10 @@ namespace GitDeployPro.Pages
             ActionButton.Tag = tag;
             ActionButton.Background = ResolveBrush(colorResourceOrHex, "#444444");
             ActionButton.IsEnabled = isEnabled;
+
+            // core.css: accent fills carry white text; warning/success fills (COMPARE, SYNCED) carry dark text.
+            var darkText = colorResourceOrHex.StartsWith("Status.", StringComparison.OrdinalIgnoreCase);
+            ActionButton.Foreground = ResolveBrush(darkText ? "Text.Inverse" : "Skin.OnAccent", darkText ? "#020510" : "#FFFFFF");
 
             var isCommitAction = string.Equals(tag, "commit", StringComparison.OrdinalIgnoreCase);
             if (SkipReviewCheckBox != null)

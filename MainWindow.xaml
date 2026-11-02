@@ -295,6 +295,7 @@
                                 <Path behaviors:AppIcon.Kind="database" behaviors:AppIcon.Size="16" />
                             </Button>
                             <Button x:Name="HeaderCheckUpdatesBtn"
+                                    Visibility="Collapsed"
                                     Style="{StaticResource HeaderNavIconButtonStyle}"
                                     WindowChrome.IsHitTestVisibleInChrome="True"
                                     Click="CheckForUpdates_Click"
@@ -552,6 +553,35 @@
                                     Orientation="Horizontal"
                                     HorizontalAlignment="Right"
                                     WindowChrome.IsHitTestVisibleInChrome="True">
+                            <Button x:Name="HeaderUpdatePill"
+                                    Click="CheckForUpdates_Click"
+                                    Margin="0,0,10,0"
+                                    VerticalAlignment="Center"
+                                    Cursor="Hand"
+                                    ToolTip="{loc:T nav.tip.checkUpdates}">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="Pill"
+                                                Height="26"
+                                                Padding="10,0"
+                                                CornerRadius="13"
+                                                BorderThickness="1"
+                                                BorderBrush="{StaticResource Accent.Soft}"
+                                                Background="{StaticResource Accent.Soft}">
+                                            <ContentPresenter VerticalAlignment="Center" />
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Pill" Property="BorderBrush" Value="{StaticResource Accent.Primary}" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Path behaviors:AppIcon.Kind="refresh" behaviors:AppIcon.Size="13" Margin="0,0,6,0" TextElement.Foreground="{DynamicResource Accent.Primary}" />
+                                    <TextBlock x:Name="HeaderUpdatePillText" Text="v" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Accent.Primary}" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
                             <Button Style="{StaticResource TitlebarControlButtonStyle}"
                                     Click="Minimize_Click"
                                     ToolTip="{loc:T window.tip.minimize}">

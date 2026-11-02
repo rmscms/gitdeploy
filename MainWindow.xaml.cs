@@ -51,6 +51,13 @@ namespace GitDeployPro
         {
             using var startupScope = PerformanceSampler.Instance.BeginScope("navigation", "main-window-startup");
             InitializeComponent();
+            try
+            {
+                HeaderUpdatePillText.Text = "v" + new GitDeployPro.Services.Update.AppUpdateService().GetCurrentVersion();
+            }
+            catch
+            {
+            }
             _configService = new ConfigurationService();
             if (ContentFrame != null)
             {
@@ -584,6 +591,33 @@ namespace GitDeployPro
 
         private void HighlightActiveNavRoute()
         {
+
+            // Title-bar nav icons: the active page gets the accent-soft chip (theme: .tb-icon.on).
+            var activeSoft = System.Windows.Application.Current?.TryFindResource("Accent.Soft") as System.Windows.Media.Brush;
+            var activeAccent = System.Windows.Application.Current?.TryFindResource("Accent.Primary") as System.Windows.Media.Brush;
+            void MarkHeader(Button? b, bool on)
+            {
+                if (b == null)
+                {
+                    return;
+                }
+
+                if (on && activeSoft != null && activeAccent != null)
+                {
+                    b.Background = activeSoft;
+                    b.Foreground = activeAccent;
+                }
+                else
+                {
+                    b.ClearValue(System.Windows.Controls.Control.BackgroundProperty);
+                    b.ClearValue(System.Windows.Controls.Control.ForegroundProperty);
+                }
+            }
+
+            MarkHeader(HeaderDeployBtn, string.Equals(_currentRoute, "deploy", StringComparison.OrdinalIgnoreCase));
+            MarkHeader(HeaderSettingsBtn, string.Equals(_currentRoute, "settings", StringComparison.OrdinalIgnoreCase));
+            MarkHeader(HeaderDatabaseBtn, string.Equals(_currentRoute, "database", StringComparison.OrdinalIgnoreCase));
+
             if (NavMenuItemsPanel == null)
             {
                 return;
