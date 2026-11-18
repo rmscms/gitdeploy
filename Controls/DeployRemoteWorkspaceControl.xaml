@@ -272,6 +272,18 @@
                                            FontSize="12"
                                            Foreground="{StaticResource Text.Primary}"
                                            Text="Path mapping is active for this connection." />
+                                <Button x:Name="EndTempMapButton"
+                                        Content="End"
+                                        Height="24"
+                                        MinWidth="48"
+                                        Padding="10,0"
+                                        Margin="10,0,0,0"
+                                        FontSize="11"
+                                        VerticalAlignment="Center"
+                                        Style="{StaticResource App.Button.Primary}"
+                                        ToolTip="End the temporary mapping (nothing was saved)"
+                                        Visibility="Collapsed"
+                                        Click="EndTempMap_Click" />
                             </StackPanel>
                         </Border>
                     </StackPanel>

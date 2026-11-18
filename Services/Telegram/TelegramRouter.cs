@@ -2833,7 +2833,7 @@ namespace GitDeployPro.Services.Telegram
                 body += "\n" + where;
             }
 
-            return "<pre><code class=\"language-shell\">" + TelegramMarkup.Html(body) + "</code></pre>";
+            return "<pre>" + TelegramMarkup.Html(body) + "</pre>";
         }
 
         private static string TrimTerminalOutput(string output)

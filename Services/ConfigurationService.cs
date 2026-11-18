@@ -258,6 +258,55 @@ namespace GitDeployPro.Services
 
             /// <summary>Optional host/IP to ping as VPN health probe.</summary>
             public string VpnHealthProbeHost { get; set; } = "";
+
+            /// <summary>When true, the SIM modem data-usage monitor polls the modem and raises alerts.</summary>
+            public bool ModemEnabled { get; set; }
+
+            /// <summary>Modem driver id (see ModemDriverFactory), e.g. HuaweiHiLink.</summary>
+            public string ModemDriver { get; set; } = "HuaweiHiLink";
+
+            /// <summary>Modem admin base URL, e.g. http://192.168.8.1</summary>
+            public string ModemBaseUrl { get; set; } = "http://192.168.8.1";
+
+            public string ModemUsername { get; set; } = "admin";
+
+            /// <summary>Modem admin password, stored via DPAPI.</summary>
+            public string ModemPassword { get; set; } = "";
+
+            /// <summary>Plan size in GB (0 = use the limit configured in the modem, if any).</summary>
+            public double ModemPlanGb { get; set; }
+
+            /// <summary>Seconds between polls (clamped 15–3600).</summary>
+            public int ModemPollSeconds { get; set; } = 60;
+
+            /// <summary>Comma-separated usage percentages that raise an alert once per cycle.</summary>
+            public string ModemAlertThresholds { get; set; } = "70,80,90,100";
+
+            public bool ModemAlertTelegram { get; set; } = true;
+
+            public bool ModemAlertToast { get; set; } = true;
+
+            /// <summary>Count upload in usage (most operators bill both directions).</summary>
+            public bool ModemCountUpload { get; set; } = true;
+
+            /// <summary>Cycle key + highest threshold already alerted (so each alert fires once per cycle).</summary>
+            public string ModemLastAlertCycle { get; set; } = "";
+
+            public int ModemLastAlertPercent { get; set; }
+
+            /// <summary>Read the modem inbox (needs the modem password) and alert on operator usage SMS.</summary>
+            public bool ModemReadSms { get; set; } = true;
+
+            /// <summary>Modem counter value (bytes) at the last "reset": usage shown = counter − baseline (same cycle only).</summary>
+            public long ModemBaselineBytes { get; set; }
+
+            public string ModemBaselineCycle { get; set; } = "";
+
+            /// <summary>Date of the newest SMS already processed (ISO 8601).</summary>
+            public string ModemSmsLastDate { get; set; } = "";
+
+            /// <summary>Package activations already added to the plan (date|GB|days) so each counts once.</summary>
+            public List<string> ModemAppliedPackages { get; set; } = new();
         }
 
         public class RecentProjectEntry

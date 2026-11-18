@@ -18,6 +18,19 @@ namespace GitDeployPro.Services.Remote
         /// </summary>
         public static IReadOnlyList<PathMapping> GetActiveMappings(ConnectionProfile? profile)
         {
+            // A temporary (session-only) mapping replaces the saved ones while it is active.
+            var temp = TemporaryMappingService.GetFor(profile);
+            if (temp != null)
+            {
+                return new[] { temp };
+            }
+
+            return GetStoredMappings(profile);
+        }
+
+        /// <summary>Saved mappings only (never the temporary session mapping).</summary>
+        public static IReadOnlyList<PathMapping> GetStoredMappings(ConnectionProfile? profile)
+        {
             if (profile?.PathMappings == null)
             {
                 return Array.Empty<PathMapping>();
@@ -156,7 +169,7 @@ namespace GitDeployPro.Services.Remote
                     relativeUnderMapping = relativeUnderMapping[prefix.Length..];
                 }
 
-                var mappedRemote = CombineRemotePaths(profileBase, item.Mapping.RemotePath);
+                var mappedRemote = ResolveMappingRemote(profileBase, item.Mapping);
                 remoteFullPath = string.IsNullOrEmpty(relativeUnderMapping)
                     ? mappedRemote.TrimEnd('/')
                     : CombineRemotePaths(mappedRemote, relativeUnderMapping);
@@ -168,7 +181,7 @@ namespace GitDeployPro.Services.Remote
             if (rootMapping != null)
             {
                 matchedMapping = rootMapping.Mapping;
-                var mappedRemote = CombineRemotePaths(profileBase, rootMapping.Mapping.RemotePath);
+                var mappedRemote = ResolveMappingRemote(profileBase, rootMapping.Mapping);
                 remoteFullPath = string.IsNullOrEmpty(relativeUnderMapping)
                     ? mappedRemote.TrimEnd('/')
                     : CombineRemotePaths(mappedRemote, relativeUnderMapping);
@@ -275,6 +288,37 @@ namespace GitDeployPro.Services.Remote
             return string.IsNullOrWhiteSpace(absolute) ? "/" : NormalizeRemoteBase(absolute);
         }
 
+        /// <summary>True when the input is a full server path outside <paramref name="profileRemotePath"/>.</summary>
+        public static bool MappingRemoteIsAbsolute(string? input, string? profileRemotePath)
+        {
+            var trimmed = (input ?? string.Empty).Trim().Replace("\\", "/");
+            if (!trimmed.StartsWith('/'))
+            {
+                return false;
+            }
+
+            var profileRoot = NormalizeRemoteBase(profileRemotePath).TrimEnd('/');
+            if (string.IsNullOrWhiteSpace(profileRoot))
+            {
+                return false;
+            }
+
+            var absolute = NormalizeRemoteBase(trimmed).TrimEnd('/');
+            return !string.Equals(absolute, profileRoot, StringComparison.OrdinalIgnoreCase)
+                   && !absolute.StartsWith(profileRoot + "/", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>Full remote folder a mapping points to (honours <see cref="PathMapping.RemoteIsAbsolute"/>).</summary>
+        public static string ResolveMappingRemote(string baseRemote, PathMapping mapping)
+        {
+            if (mapping.RemoteIsAbsolute && !string.IsNullOrWhiteSpace(mapping.RemotePath))
+            {
+                return NormalizeRemoteBase(mapping.RemotePath).TrimEnd('/');
+            }
+
+            return CombineRemotePaths(baseRemote, mapping.RemotePath);
+        }
+
         public static string BuildRemoteRoot(ConnectionProfile profile)
         {
             var mapping = GetPrimaryMapping(profile);
@@ -284,7 +328,7 @@ namespace GitDeployPro.Services.Remote
                 return EnsureTrailingSlash(baseRemote);
             }
 
-            return EnsureTrailingSlash(CombineRemotePaths(baseRemote, mapping.RemotePath));
+            return EnsureTrailingSlash(ResolveMappingRemote(baseRemote, mapping));
         }
 
         public static string NormalizeRemoteBase(string? path)
@@ -473,7 +517,7 @@ namespace GitDeployPro.Services.Remote
                 .Select(pm => new
                 {
                     Mapping = pm,
-                    MappedRemoteFull = CombineRemotePaths(profileBase, pm.RemotePath).TrimEnd('/'),
+                    MappedRemoteFull = ResolveMappingRemote(profileBase, pm).TrimEnd('/'),
                     RemoteSegment = GetRemoteMappingSegment(profile.RemotePath, pm.RemotePath),
                     IsRoot = IsRootRemoteMapping(profile.RemotePath, pm.RemotePath)
                 })

@@ -26,6 +26,38 @@
             <Setter Property="BorderThickness" Value="3,0,0,0" />
             <Setter Property="FontWeight" Value="SemiBold" />
         </Style>
+        <Style x:Key="Settings.Tab" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource Text.Secondary}" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0,0,0,2" />
+            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="Margin" Value="0,0,2,0" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}" CornerRadius="6,6,0,0">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource State.Hover}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="Settings.Tab.Active" TargetType="Button" BasedOn="{StaticResource Settings.Tab}">
+            <Setter Property="Foreground" Value="{DynamicResource Accent.Primary}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Accent.Primary}" />
+            <Setter Property="Background" Value="{DynamicResource Accent.Soft}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
         <Style x:Key="Settings.Expander" TargetType="Expander">
             <Setter Property="Foreground" Value="{DynamicResource Text.Primary}" />
             <Setter Property="Background" Value="{DynamicResource Surface.Card}" />
@@ -281,6 +313,16 @@
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                                 <Path behaviors:AppIcon.Kind="globe" behaviors:AppIcon.Size="16" Margin="0,0,10,0" TextElement.Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                                 <TextBlock Grid.Column="1" Text="{loc:T vpn.nav}" VerticalAlignment="Center" />
+                            </Grid>
+                        </Button>
+                        <Button ToolTip="{loc:T ui.tip.SettingsNav}" x:Name="NavModemButton"
+                                Style="{StaticResource Settings.NavButton}"
+                                Click="SettingsNav_Click"
+                                Tag="modem">
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                <Path behaviors:AppIcon.Kind="wifi" behaviors:AppIcon.Size="16" Margin="0,0,10,0" TextElement.Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                <TextBlock Grid.Column="1" Text="{loc:T modem.nav}" VerticalAlignment="Center" />
                             </Grid>
                         </Button>
                     </StackPanel>
@@ -1303,6 +1345,135 @@
                                            Foreground="{StaticResource Text.Muted}"
                                            TextWrapping="Wrap"
                                            Text="{loc:T vpn.statusIdle}" />
+                            </StackPanel>
+                        </Expander>
+
+                    </StackPanel>
+
+                    <!-- SIM modem data usage -->
+                    <StackPanel x:Name="SettingsPanelModem" Visibility="Collapsed">
+                        <Expander Style="{StaticResource Settings.Expander}" IsExpanded="True">
+                            <Expander.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <Border Width="30" Height="30" CornerRadius="8" Background="{DynamicResource Accent.Soft}" Margin="0,0,10,0" VerticalAlignment="Center">
+                                        <Path behaviors:AppIcon.Kind="wifi" behaviors:AppIcon.Size="16" TextElement.Foreground="{DynamicResource Accent.Primary}" />
+                                    </Border>
+                                    <StackPanel>
+                                        <TextBlock Text="{loc:T modem.title}" FontWeight="SemiBold" FontSize="13" />
+                                        <TextBlock Text="{loc:T modem.subtitle}"
+                                                   FontSize="10"
+                                                   Foreground="{StaticResource Text.Muted}" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Expander.Header>
+                            <StackPanel>
+                                <CheckBox x:Name="ModemEnabledCheckBox"
+                                          Content="{loc:T modem.enabled}"
+                                          Foreground="{StaticResource Text.Secondary}"
+                                          FontSize="12"
+                                          Margin="0,0,0,10" />
+
+                                <TextBlock Text="{loc:T modem.driver}" Margin="0,0,0,6" Style="{StaticResource App.MutedTextStyle}" FontSize="11" />
+                                <ComboBox x:Name="ModemDriverCombo"
+                                          Height="34"
+                                          DisplayMemberPath="DisplayName"
+                                          SelectedValuePath="DriverId" />
+
+                                <TextBlock Text="{loc:T modem.url}" Margin="0,12,0,6" Style="{StaticResource App.MutedTextStyle}" FontSize="11" />
+                                <TextBox x:Name="ModemUrlTextBox"
+                                         Style="{StaticResource App.InputTextBox}"
+                                         mah:TextBoxHelper.Watermark="http://192.168.8.1" />
+
+                                <Grid Margin="0,12,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Margin="0,0,6,0">
+                                        <TextBlock Text="{loc:T modem.username}" Margin="0,0,0,6" Style="{StaticResource App.MutedTextStyle}" FontSize="11" />
+                                        <TextBox x:Name="ModemUserTextBox" Style="{StaticResource App.InputTextBox}" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Margin="6,0,0,0">
+                                        <TextBlock Text="{loc:T modem.password}" Margin="0,0,0,6" Style="{StaticResource App.MutedTextStyle}" FontSize="11" />
+                                        <PasswordBox x:Name="ModemPasswordBox" Height="34" />
+                                    </StackPanel>
+                                </Grid>
+                                <TextBlock Text="{loc:T modem.passwordHint}"
+                                           Margin="0,6,0,0"
+                                           FontSize="11"
+                                           Foreground="{StaticResource Text.Muted}"
+                                           TextWrapping="Wrap" />
+
+                                <Grid Margin="0,12,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Margin="0,0,6,0">
+                                        <TextBlock Text="{loc:T modem.planGb}" Margin="0,0,0,6" Style="{StaticResource App.MutedTextStyle}" FontSize="11" />
+                                        <TextBox x:Name="ModemPlanTextBox"
+                                                 Style="{StaticResource App.InputTextBox}"
+                                                 mah:TextBoxHelper.Watermark="e.g. 300" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Margin="6,0,0,0">
+                                        <TextBlock Text="{loc:T modem.pollSeconds}" Margin="0,0,0,6" Style="{StaticResource App.MutedTextStyle}" FontSize="11" />
+                                        <TextBox x:Name="ModemPollTextBox"
+                                                 Style="{StaticResource App.InputTextBox}"
+                                                 Text="60" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <TextBlock Text="{loc:T modem.thresholds}" Margin="0,12,0,6" Style="{StaticResource App.MutedTextStyle}" FontSize="11" />
+                                <TextBox x:Name="ModemThresholdsTextBox"
+                                         Style="{StaticResource App.InputTextBox}"
+                                         mah:TextBoxHelper.Watermark="70,80,90,100" />
+
+                                <CheckBox x:Name="ModemAlertTelegramCheckBox"
+                                          Content="{loc:T modem.alertTelegram}"
+                                          Foreground="{StaticResource Text.Secondary}"
+                                          FontSize="12"
+                                          Margin="0,12,0,0" />
+                                <CheckBox x:Name="ModemAlertToastCheckBox"
+                                          Content="{loc:T modem.alertToast}"
+                                          Foreground="{StaticResource Text.Secondary}"
+                                          FontSize="12"
+                                          Margin="0,8,0,0" />
+                                <CheckBox x:Name="ModemCountUploadCheckBox"
+                                          Content="{loc:T modem.countUpload}"
+                                          Foreground="{StaticResource Text.Secondary}"
+                                          FontSize="12"
+                                          Margin="0,8,0,0" />
+
+                                <CheckBox x:Name="ModemReadSmsCheckBox"
+                                          Content="{loc:T modem.readSms}"
+                                          Foreground="{StaticResource Text.Secondary}"
+                                          FontSize="12"
+                                          Margin="0,8,0,0" />
+
+                                <WrapPanel Margin="0,14,0,8">
+                                    <Button ToolTip="{loc:T modem.tip.showSms}" Content="{loc:T modem.showSms}"
+                                            Height="32"
+                                            MinWidth="96"
+                                            Margin="0,0,8,8"
+                                            Style="{StaticResource App.Button.Ghost}"
+                                            Click="ModemShowSmsButton_Click" />
+                                    <Button ToolTip="{loc:T modem.tip.test}" Content="{loc:T modem.test}"
+                                            Height="32"
+                                            MinWidth="96"
+                                            Margin="0,0,8,8"
+                                            Style="{StaticResource App.Button.Ghost}"
+                                            Click="ModemTestButton_Click" />
+                                    <Button ToolTip="{loc:T modem.tip.save}" Content="{loc:T modem.save}"
+                                            Height="32"
+                                            MinWidth="96"
+                                            Margin="0,0,0,8"
+                                            Style="{StaticResource App.Button.Secondary}"
+                                            Click="ModemSaveButton_Click" />
+                                </WrapPanel>
+                                <TextBlock x:Name="ModemStatusText"
+                                           FontSize="11"
+                                           Foreground="{StaticResource Text.Muted}"
+                                           TextWrapping="Wrap" />
                             </StackPanel>
                         </Expander>
                     </StackPanel>

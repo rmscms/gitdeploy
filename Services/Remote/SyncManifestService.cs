@@ -190,7 +190,7 @@ namespace GitDeployPro.Services.Remote
                 return false;
             }
 
-            var active = RemotePathResolver.GetActiveMappings(profile);
+            var active = RemotePathResolver.GetStoredMappings(profile);
             return active.Count == 0;
         }
 
@@ -204,7 +204,8 @@ namespace GitDeployPro.Services.Remote
                 .Select(mapping => new PathMapping
                 {
                     LocalPath = RemotePathResolver.NormalizeLocalMappingPath(mapping.LocalPath),
-                    RemotePath = RemotePathResolver.NormalizeStoredRemoteMapping(mapping.RemotePath, profile.RemotePath)
+                    RemotePath = RemotePathResolver.NormalizeStoredRemoteMapping(mapping.RemotePath, profile.RemotePath),
+                    RemoteIsAbsolute = mapping.RemoteIsAbsolute || RemotePathResolver.MappingRemoteIsAbsolute(mapping.RemotePath, profile.RemotePath)
                 })
                 .ToList();
             configService.AddOrUpdateConnection(profile);
@@ -311,11 +312,12 @@ namespace GitDeployPro.Services.Remote
 
         private static List<PathMapping> CloneMappings(ConnectionProfile profile)
         {
-            return RemotePathResolver.GetActiveMappings(profile)
+            return RemotePathResolver.GetStoredMappings(profile)
                 .Select(mapping => new PathMapping
                 {
                     LocalPath = mapping.LocalPath ?? string.Empty,
-                    RemotePath = mapping.RemotePath ?? string.Empty
+                    RemotePath = mapping.RemotePath ?? string.Empty,
+                    RemoteIsAbsolute = mapping.RemoteIsAbsolute
                 })
                 .ToList();
         }
@@ -342,7 +344,8 @@ namespace GitDeployPro.Services.Remote
                 .Select(mapping => new PathMapping
                 {
                     LocalPath = RemotePathResolver.NormalizeLocalMappingPath(mapping.LocalPath),
-                    RemotePath = RemotePathResolver.NormalizeStoredRemoteMapping(mapping.RemotePath, profile.RemotePath)
+                    RemotePath = RemotePathResolver.NormalizeStoredRemoteMapping(mapping.RemotePath, profile.RemotePath),
+                    RemoteIsAbsolute = mapping.RemoteIsAbsolute || RemotePathResolver.MappingRemoteIsAbsolute(mapping.RemotePath, profile.RemotePath)
                 })
                 .ToList();
         }

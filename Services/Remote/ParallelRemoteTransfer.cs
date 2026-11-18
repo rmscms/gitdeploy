@@ -263,7 +263,21 @@ namespace GitDeployPro.Services.Remote
                             {
                                 if (skipIfExists)
                                 {
-                                    var stat = await service.GetFileStatAsync(job.RemotePath, cancellationToken);
+                                    RemoteFileStat stat;
+                                    try
+                                    {
+                                        stat = await service.GetFileStatAsync(job.RemotePath, cancellationToken);
+                                    }
+                                    catch (OperationCanceledException)
+                                    {
+                                        throw;
+                                    }
+                                    catch
+                                    {
+                                        // Existence check failed (e.g. missing parent folder): upload creates the folders.
+                                        stat = new RemoteFileStat { FullPath = job.RemotePath, Exists = false };
+                                    }
+
                                     if (stat.Exists && !stat.IsDirectory)
                                     {
                                         Interlocked.Increment(ref skipped);

@@ -924,19 +924,34 @@
                                 CornerRadius="0"
                                 Padding="0"
                                 ClipToBounds="True">
-                            <TextBox x:Name="LogTextBox"
-                                     Style="{StaticResource App.LogTextBox}"
-                                     Foreground="{StaticResource Text.Primary}"
-                                     Text="Waiting for deployment...">
-                                <TextBox.ContextMenu>
+                            <RichTextBox x:Name="LogRichBox"
+                                         IsReadOnly="True"
+                                         IsReadOnlyCaretVisible="False"
+                                         Background="Transparent"
+                                         BorderThickness="0"
+                                         Padding="10,6"
+                                         FontFamily="{StaticResource FontFamily.Mono}"
+                                         FontSize="12"
+                                         Foreground="{StaticResource Text.Primary}"
+                                         SelectionBrush="{StaticResource Accent.Primary}"
+                                         VerticalScrollBarVisibility="Auto"
+                                         HorizontalScrollBarVisibility="Auto">
+                                <RichTextBox.Document>
+                                    <FlowDocument PageWidth="4000">
+                                        <Paragraph Margin="0">
+                                            <Run Text="Waiting for deployment..." Foreground="{StaticResource Text.Muted}"/>
+                                        </Paragraph>
+                                    </FlowDocument>
+                                </RichTextBox.Document>
+                                <RichTextBox.ContextMenu>
                                     <ContextMenu>
                                         <MenuItem Header="Copy" Click="LogCopyMenu_Click" InputGestureText="Ctrl+C" />
                                         <MenuItem Header="Select All" Click="LogSelectAllMenu_Click" InputGestureText="Ctrl+A" />
                                         <Separator />
                                         <MenuItem Header="Clear" Click="ClearLogs_Click" />
                                     </ContextMenu>
-                                </TextBox.ContextMenu>
-                            </TextBox>
+                                </RichTextBox.ContextMenu>
+                            </RichTextBox>
                         </Border>
                         <Border x:Name="BottomTerminalPanel"
                                 Grid.Row="1"

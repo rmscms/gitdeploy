@@ -61,22 +61,99 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
-                    <WrapPanel x:Name="UploadOptionsPanel" Grid.Row="0" ItemHeight="28">
-                        <CheckBox x:Name="UseSessionCheck"
-                                  Content="Crash Recovery"
-                                  IsChecked="True"
-                                  Foreground="{StaticResource Text.Primary}"
-                                  FontWeight="SemiBold"
-                                  VerticalAlignment="Center"
-                                  Margin="0,0,12,4"
-                                  ToolTip="{loc:T deploy.tip.crashRecoveryDetail}" />
-                        <CheckBox x:Name="OverwriteCheck"
-                                  Content="Overwrite"
-                                  IsChecked="True"
-                                  Foreground="{StaticResource Text.Muted}"
-                                  VerticalAlignment="Center"
-                                  Margin="0,0,12,4"
-                                  ToolTip="{loc:T deploy.tip.overwriteDetail}" />
+                    <Grid x:Name="UploadOptionsPanel" Grid.Row="0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="8" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Border Grid.Column="0"
+                                Tag="{Binding ElementName=UseSessionCheck}"
+                                Cursor="Hand"
+                                CornerRadius="10"
+                                BorderThickness="1"
+                                Padding="10,8"
+                                ToolTip="{loc:T deploy.tip.crashRecoveryDetail}"
+                                MouseLeftButtonUp="OptionCard_MouseLeftButtonUp">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Background" Value="{StaticResource Surface.Input}" />
+                                    <Setter Property="BorderBrush" Value="{StaticResource Border.Subtle}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsChecked, ElementName=UseSessionCheck}" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource Status.InfoSurface}" />
+                                            <Setter Property="BorderBrush" Value="{StaticResource Status.Info}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <StackPanel>
+                                <DockPanel LastChildFill="True">
+                                    <CheckBox x:Name="UseSessionCheck"
+                                              DockPanel.Dock="Right"
+                                              IsChecked="True"
+                                              VerticalAlignment="Center"
+                                              Margin="6,0,0,0" />
+                                    <Path behaviors:AppIcon.Kind="shield" behaviors:AppIcon.Size="15" Margin="0,0,7,0" VerticalAlignment="Center"
+                                          TextElement.Foreground="{DynamicResource Status.Info}" />
+                                    <TextBlock Text="{loc:T du.opt.crash.title}" FontWeight="Bold" FontSize="12" Foreground="{StaticResource Text.Primary}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                </DockPanel>
+                                <TextBlock Text="{loc:T du.opt.crash.desc}" FontSize="10.5" Foreground="{StaticResource Text.Muted}" TextWrapping="Wrap" Margin="0,4,0,0" />
+                                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                    <TextBlock x:Name="SessionStatusText"
+                                               Text=""
+                                               Foreground="{StaticResource Status.Warning}"
+                                               FontSize="10.5"
+                                               VerticalAlignment="Center" />
+                                    <Button x:Name="DeleteSessionButton"
+                                            Content="{loc:T du.opt.clear}"
+                                            Visibility="Collapsed"
+                                            Style="{StaticResource App.Button.Ghost}"
+                                            Foreground="{StaticResource Status.Error}"
+                                            FontSize="10"
+                                            Height="22"
+                                            Padding="8,0"
+                                            Margin="8,0,0,0"
+                                            VerticalAlignment="Center"
+                                            Click="DeleteSessionButton_Click"
+                                            ToolTip="{loc:T deploy.tip.clearSessionDetail}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Column="2"
+                                Tag="{Binding ElementName=OverwriteCheck}"
+                                Cursor="Hand"
+                                CornerRadius="10"
+                                BorderThickness="1"
+                                Padding="10,8"
+                                ToolTip="{loc:T deploy.tip.overwriteDetail}"
+                                MouseLeftButtonUp="OptionCard_MouseLeftButtonUp">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Background" Value="{StaticResource Surface.Input}" />
+                                    <Setter Property="BorderBrush" Value="{StaticResource Border.Subtle}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsChecked, ElementName=OverwriteCheck}" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource Status.WarningSurface}" />
+                                            <Setter Property="BorderBrush" Value="{StaticResource Status.Warning}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <StackPanel>
+                                <DockPanel LastChildFill="True">
+                                    <CheckBox x:Name="OverwriteCheck"
+                                              DockPanel.Dock="Right"
+                                              IsChecked="True"
+                                              VerticalAlignment="Center"
+                                              Margin="6,0,0,0" />
+                                    <Path behaviors:AppIcon.Kind="refresh" behaviors:AppIcon.Size="15" Margin="0,0,7,0" VerticalAlignment="Center"
+                                          TextElement.Foreground="{DynamicResource Status.Warning}" />
+                                    <TextBlock Text="{loc:T du.opt.overwrite.title}" FontWeight="Bold" FontSize="12" Foreground="{StaticResource Text.Primary}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                </DockPanel>
+                                <TextBlock Text="{loc:T du.opt.overwrite.desc}" FontSize="10.5" Foreground="{StaticResource Text.Muted}" TextWrapping="Wrap" Margin="0,4,0,0" />
+                            </StackPanel>
+                        </Border>
                         <!-- Hidden: toggled from toolbar Auto Refresh chip (keeps existing timer logic). -->
                         <CheckBox x:Name="AutoDiskSyncCheck"
                                   Content="Auto Sync Disk"
@@ -84,25 +161,7 @@
                                   Visibility="Collapsed"
                                   Checked="AutoDiskSyncCheck_Changed"
                                   Unchecked="AutoDiskSyncCheck_Changed" />
-                        <TextBlock x:Name="SessionStatusText"
-                                   Text=""
-                                   Foreground="{StaticResource Status.Warning}"
-                                   FontSize="11"
-                                   VerticalAlignment="Center"
-                                   Margin="0,0,8,4" />
-                        <Button x:Name="DeleteSessionButton"
-                                Content="Clear"
-                                Visibility="Collapsed"
-                                Style="{StaticResource App.Button.Ghost}"
-                                Foreground="{StaticResource Status.Error}"
-                                FontSize="11"
-                                Height="26"
-                                Padding="8,0"
-                                VerticalAlignment="Center"
-                                Margin="0,0,0,4"
-                                Click="DeleteSessionButton_Click"
-                                ToolTip="{loc:T deploy.tip.clearSessionDetail}" />
-                    </WrapPanel>
+                    </Grid>
 
                     <Border x:Name="UploadStatusCard"
                             Grid.Row="1"
@@ -221,24 +280,6 @@
                                 <TextBlock x:Name="RefreshButtonLabel" Text="Refresh" Foreground="{StaticResource Status.Info}" VerticalAlignment="Center" FontWeight="SemiBold" FontSize="11" />
                             </StackPanel>
                         </Button>
-                        <Button x:Name="SelectionToggleButton"
-                                Click="SelectionToggleButton_Click"
-                                Style="{StaticResource App.Button.Ghost}"
-                                Margin="0,0,6,0"
-                                MinWidth="30"
-                                Height="30"
-                                Padding="6,0"
-                                BorderThickness="1"
-                                BorderBrush="{StaticResource Status.Success}"
-                                Background="{StaticResource Status.SuccessSurface}"
-                                Cursor="Hand"
-                                ToolTip="{loc:T deploy.tip.selectAll}">
-                            <StackPanel Orientation="Horizontal">
-                                <Path behaviors:AppIcon.Kind="check-circle" behaviors:AppIcon.Size="15" Margin="0,0,6,0" VerticalAlignment="Center" TextElement.Foreground="{DynamicResource Status.Success}" />
-                                <TextBlock x:Name="SelectionToggleIcon" Text="" Visibility="Collapsed" />
-                                <TextBlock x:Name="SelectionToggleLabel" Text="Select" Foreground="{StaticResource Status.Success}" VerticalAlignment="Center" FontWeight="SemiBold" FontSize="11" />
-                            </StackPanel>
-                        </Button>
                         <Button x:Name="AutoDiskSyncToolbarButton"
                                 Click="AutoDiskSyncToolbarButton_Click"
                                 Style="{StaticResource App.Button.Ghost}"
@@ -324,7 +365,32 @@
                     </Border>
 
                     <Grid Grid.Row="2">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <Border x:Name="RootSelectAllRow"
+                            Grid.Row="0"
+                            Margin="10,6,10,0"
+                            Padding="4,2"
+                            CornerRadius="6"
+                            Background="Transparent"
+                            Cursor="Hand"
+                            ToolTip="{loc:T deploy.tip.selectAll}"
+                            MouseLeftButtonUp="RootSelectAllRow_MouseLeftButtonUp">
+                        <StackPanel Orientation="Horizontal">
+                            <CheckBox x:Name="RootSelectAllCheckBox"
+                                      IsThreeState="True"
+                                      IsChecked="False"
+                                      VerticalAlignment="Center"
+                                      Margin="0,0,6,0"
+                                      Click="RootSelectAllCheckBox_Click" />
+                            <TextBlock Text="📁" Margin="0,0,4,0" FontFamily="Segoe UI Emoji" VerticalAlignment="Center" />
+                            <TextBlock Text="/" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource Text.Primary}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
                     <TreeView x:Name="FileTreeView"
+                              Grid.Row="1"
                               Background="Transparent"
                               BorderThickness="0"
                               Padding="10"
@@ -432,6 +498,7 @@
                 </TreeView>
 
                     <ListBox x:Name="LocalTreeSearchResults"
+                             Grid.Row="1"
                              Visibility="Collapsed"
                              Background="Transparent"
                              BorderThickness="0"

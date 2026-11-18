@@ -14,6 +14,9 @@ namespace GitDeployPro.Services.Remote
         private ContentControl? _restingHost;
         private Window? _overlayWindow;
         private bool _overlayOpen;
+        private Grid? _backdrop;
+        private int _sessionVersion;
+        private const double ModalWidth = 480;
 
         public void Attach(TransferMonitorPanel panel)
         {
@@ -37,6 +40,7 @@ namespace GitDeployPro.Services.Remote
 
             RunOnUi(() =>
             {
+                _sessionVersion++;
                 _panel.SetSession(title);
                 _panel.Visibility = Visibility.Visible;
                 OpenOverlay();
@@ -56,7 +60,23 @@ namespace GitDeployPro.Services.Remote
             RunOnUi(() =>
             {
                 _panel?.Finish(summary);
-                CloseOverlay(restoreVisible: true);
+
+                // Success: let the user see "Done" briefly, then dismiss the modal on its own.
+                // Warnings/failures stay open until the user closes them.
+                if (_overlayOpen && summary.StartsWith("Done", StringComparison.OrdinalIgnoreCase))
+                {
+                    var version = _sessionVersion;
+                    var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1600) };
+                    timer.Tick += (_, _) =>
+                    {
+                        timer.Stop();
+                        if (version == _sessionVersion)
+                        {
+                            Hide();
+                        }
+                    };
+                    timer.Start();
+                }
             });
         }
 
@@ -91,7 +111,12 @@ namespace GitDeployPro.Services.Remote
                 return;
             }
 
-            _overlayWindow.Content = _panel;
+            _panel.Width = ModalWidth;
+            _panel.HorizontalAlignment = System.Windows.HorizontalAlignment.Center;
+            _panel.VerticalAlignment = VerticalAlignment.Center;
+            _panel.Margin = new Thickness(24);
+            _backdrop!.Children.Clear();
+            _backdrop.Children.Add(_panel);
             _overlayOpen = true;
             PositionOverlayWindow();
             if (!_overlayWindow.IsVisible)
@@ -108,9 +133,9 @@ namespace GitDeployPro.Services.Remote
             UnsubscribeOverlayLayout();
             _overlayOpen = false;
 
+            _backdrop?.Children.Clear();
             if (_overlayWindow != null)
             {
-                _overlayWindow.Content = null;
                 if (_overlayWindow.IsVisible)
                 {
                     _overlayWindow.Hide();
@@ -122,6 +147,8 @@ namespace GitDeployPro.Services.Remote
                 return;
             }
 
+            _panel.Width = double.NaN;
+            _panel.Margin = new Thickness(0);
             if (_restingHost != null && _restingHost.Content != _panel)
             {
                 _restingHost.Content = _panel;
@@ -141,6 +168,7 @@ namespace GitDeployPro.Services.Remote
             }
 
             var owner = Window.GetWindow(_placementTarget);
+            _backdrop = new Grid { Background = new SolidColorBrush(System.Windows.Media.Color.FromArgb(0x99, 0x04, 0x08, 0x12)) };
             _overlayWindow = new Window
             {
                 WindowStyle = WindowStyle.None,
@@ -149,10 +177,10 @@ namespace GitDeployPro.Services.Remote
                 ShowInTaskbar = false,
                 ShowActivated = false,
                 ResizeMode = ResizeMode.NoResize,
-                SizeToContent = SizeToContent.WidthAndHeight,
+                SizeToContent = SizeToContent.Manual,
                 Topmost = false,
                 Owner = owner,
-                Content = _panel
+                Content = _backdrop
             };
             _overlayWindow.Closing += OverlayWindow_Closing;
         }
@@ -223,11 +251,7 @@ namespace GitDeployPro.Services.Remote
                 return;
             }
 
-            var width = _panel.ActualWidth > 1 ? _panel.ActualWidth : (_panel.Width > 1 ? _panel.Width : 360);
-            var height = _panel.ActualHeight > 1 ? _panel.ActualHeight : 180;
-            var origin = _placementTarget.PointToScreen(new System.Windows.Point(
-                Math.Max(8, _placementTarget.ActualWidth - width - 12),
-                Math.Max(8, _placementTarget.ActualHeight - height - 12)));
+            var origin = _placementTarget.PointToScreen(new System.Windows.Point(0, 0));
 
             var source = PresentationSource.FromVisual(_placementTarget);
             if (source?.CompositionTarget != null)
@@ -235,6 +259,8 @@ namespace GitDeployPro.Services.Remote
                 origin = source.CompositionTarget.TransformFromDevice.Transform(origin);
             }
 
+            _overlayWindow.Width = _placementTarget.ActualWidth;
+            _overlayWindow.Height = _placementTarget.ActualHeight;
             _overlayWindow.Left = origin.X;
             _overlayWindow.Top = origin.Y;
         }

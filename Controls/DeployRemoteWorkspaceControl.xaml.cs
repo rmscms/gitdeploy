@@ -134,6 +134,7 @@ namespace GitDeployPro.Controls
             ResetUploadFeedback();
             UpdateRemoteBrowserVisualState();
             ConfigurationService.ConnectionsChanged += OnConnectionsChanged;
+            TemporaryMappingService.Changed += (_, _) => Dispatcher.BeginInvoke(new Action(UpdateMappingBanner));
             ThemeService.Instance.ThemeChanged += OnDeployThemeChanged;
             Loaded += DeployRemoteWorkspaceControl_Loaded;
             Unloaded += DeployRemoteWorkspaceControl_Unloaded;
@@ -2624,6 +2625,13 @@ namespace GitDeployPro.Controls
                     IconGlyph = "↔",
                     Execute = _ => _ = OpenPathMappingModalAsync(node)
                 });
+                menuActions.Add(new AppContextMenuAction
+                {
+                    Id = "temp-mapping",
+                    Label = "Temporary mapping…",
+                    IconGlyph = "⏱",
+                    Execute = _ => _ = OpenTemporaryMappingAsync(node)
+                });
             }
 
             menuActions.Add(AppContextMenuAction.Separator("remote-properties-separator"));
@@ -2810,6 +2818,108 @@ namespace GitDeployPro.Controls
                 {
                     AddLog($"Mapping saved, but refresh failed: {ex.Message}");
                 }
+            }
+        }
+
+        /// <summary>
+        /// Session-only mapping: pick a local folder (inside the project) and use this remote folder as its target.
+        /// Not saved anywhere; "End" in the mapping banner removes it.
+        /// </summary>
+        private async Task OpenTemporaryMappingAsync(RemoteTreeNode node)
+        {
+            if (_currentProfile == null)
+            {
+                ModernMessageBox.Show("Connect an FTP/SFTP profile first.", "Temporary mapping", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            if (node == null || !node.IsDirectory)
+            {
+                return;
+            }
+
+            var projectRoot = _configService.LoadGlobalConfig().LastProjectPath;
+            if (string.IsNullOrWhiteSpace(projectRoot) || !Directory.Exists(projectRoot))
+            {
+                ModernMessageBox.Show("Select a project first.", "Temporary mapping", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            string relative;
+            using (var picker = new System.Windows.Forms.FolderBrowserDialog
+            {
+                Description = "Local folder (inside the project) that maps to " + node.FullPath,
+                SelectedPath = projectRoot,
+                ShowNewFolderButton = false
+            })
+            {
+                if (picker.ShowDialog() != System.Windows.Forms.DialogResult.OK)
+                {
+                    return;
+                }
+
+                relative = Path.GetRelativePath(projectRoot, picker.SelectedPath).Replace('\\', '/');
+            }
+
+            if (relative.StartsWith("..", StringComparison.Ordinal) || Path.IsPathRooted(relative))
+            {
+                ModernMessageBox.Show("Pick a folder inside the current project.", "Temporary mapping", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var dialog = new InputDialog("Remote folder for this mapping:", "Temporary mapping", node.FullPath)
+            {
+                Owner = Window.GetWindow(this)
+            };
+            if (WindowOwnerService.ShowDialogOwned(dialog, this) != true)
+            {
+                return;
+            }
+
+            var remote = (dialog.ResponseText ?? string.Empty).Trim();
+            if (remote.Length == 0)
+            {
+                return;
+            }
+
+            var rootBefore = RemotePathResolver.BuildRemoteRoot(_currentProfile);
+            TemporaryMappingService.Start(_currentProfile, relative == "." ? "/" : relative, remote);
+            await ReloadAfterMappingChangeAsync(rootBefore);
+        }
+
+        private async void EndTempMap_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentProfile == null)
+            {
+                TemporaryMappingService.End();
+                return;
+            }
+
+            var rootBefore = RemotePathResolver.BuildRemoteRoot(_currentProfile);
+            TemporaryMappingService.End();
+            await ReloadAfterMappingChangeAsync(rootBefore);
+        }
+
+        private async Task ReloadAfterMappingChangeAsync(string rootBefore)
+        {
+            if (_currentProfile == null || _remoteService == null || !_remoteService.IsConnected)
+            {
+                return;
+            }
+
+            var rootAfter = RemotePathResolver.BuildRemoteRoot(_currentProfile);
+            if (string.Equals(rootBefore.TrimEnd('/'), rootAfter.TrimEnd('/'), StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            try
+            {
+                await LoadRootAsync();
+            }
+            catch (Exception ex)
+            {
+                AddLog($"Mapping changed, but refresh failed: {ex.Message}");
             }
         }
 
@@ -4508,6 +4618,12 @@ namespace GitDeployPro.Controls
             }
 
             var mapping = RemotePathResolver.GetPrimaryMapping(_currentProfile);
+            var isTemp = TemporaryMappingService.GetFor(_currentProfile) != null;
+            if (EndTempMapButton != null)
+            {
+                EndTempMapButton.Visibility = isTemp ? Visibility.Visible : Visibility.Collapsed;
+            }
+
             if (mapping == null)
             {
                 MappingBanner.Visibility = Visibility.Collapsed;
@@ -4523,8 +4639,9 @@ namespace GitDeployPro.Controls
                 ? RemotePathResolver.BuildRemoteRoot(_currentProfile)
                 : remoteLabel;
 
-            MappingBannerText.Text =
-                $"Path mapping is active: local `{localLabel}` → remote `{remoteLabel}` (browsing `{root}`).";
+            MappingBannerText.Text = isTemp
+                ? $"Temporary mapping (not saved): local `{localLabel}` → remote `{remoteLabel}`."
+                : $"Path mapping is active: local `{localLabel}` → remote `{remoteLabel}` (browsing `{root}`).";
             MappingBanner.Visibility = Visibility.Visible;
         }
 

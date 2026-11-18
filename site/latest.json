@@ -1,17 +1,18 @@
 {
-  "version": "2.6.19",
-  "fileName": "GitDeployPro-2.6.19.exe",
-  "downloadUrl": "versions/GitDeployPro-2.6.19.exe",
-  "sha256": "73096B065546B725D25CD584DF47E3C50D0ED3B7B94C7E9393C5615F06085031",
-  "releaseNotes": "Feature: Midnight Blue UI across the whole app — new buttons, tabs, inputs, checkboxes, trees, scrollbars, modals and status badges, plus stroke icons everywhere\nFeature: Every button now has a Persian tooltip that explains what it does\nFeature: Backup Scheduler wizard redesigned — icon step headers, titled sections, Next-runs timeline, clearer warnings and themed inputs\nFeature: Deploy, Direct Upload and Remote/FTP panels restyled (branch chips with ahead/behind counters, file rows with type icons and badges, mapping banner, size column)\nSite: New website with real screenshots of the app\nFix: Theme manager removed — the app now has one fixed, consistent look",
+  "version": "2.7.0",
+  "fileName": "GitDeployPro-2.7.0.exe",
+  "downloadUrl": "versions/GitDeployPro-2.7.0.exe",
+  "sha256": "B3BBF463FAAD5C24233BAC32055AC657FDF366647258822F452D0AB626A2BC0F",
+  "releaseNotes": "Feature: SIM modem data monitor (driver-based, Huawei HiLink first) — dashboard card with usage gauge, remaining GB, daily bars, live speed and days-left forecast\nFeature: Modem alerts at 70/80/90/100% to Telegram and desktop toast, operator usage SMS detection, and one-click Reset after buying a new package\nFeature: Modem SMS manager — inbox/sent with cards, pagination, search, select-all, delete, send SMS; package SMS can be added to the plan size\nFeature: Temporary (session-only) path mapping from the remote tree with an End button — nothing is saved\nFeature: Path mappings can target folders outside the connection root, so many sites on one server work with a single connection\nFeature: Settings sections use horizontal tabs, Modem has its own section, Direct Upload options redesigned with Persian tooltips; select-all moved to the root '/' row\nFix: Direct Upload with Overwrite off now creates new files and folders on FTP instead of failing",
   "changelog": [
-    "Feature: Midnight Blue UI across the whole app — new buttons, tabs, inputs, checkboxes, trees, scrollbars, modals and status badges, plus stroke icons everywhere",
-    "Feature: Every button now has a Persian tooltip that explains what it does",
-    "Feature: Backup Scheduler wizard redesigned — icon step headers, titled sections, Next-runs timeline, clearer warnings and themed inputs",
-    "Feature: Deploy, Direct Upload and Remote/FTP panels restyled (branch chips with ahead/behind counters, file rows with type icons and badges, mapping banner, size column)",
-    "Site: New website with real screenshots of the app",
-    "Fix: Theme manager removed — the app now has one fixed, consistent look"
+    "Feature: SIM modem data monitor (driver-based, Huawei HiLink first) — dashboard card with usage gauge, remaining GB, daily bars, live speed and days-left forecast",
+    "Feature: Modem alerts at 70/80/90/100% to Telegram and desktop toast, operator usage SMS detection, and one-click Reset after buying a new package",
+    "Feature: Modem SMS manager — inbox/sent with cards, pagination, search, select-all, delete, send SMS; package SMS can be added to the plan size",
+    "Feature: Temporary (session-only) path mapping from the remote tree with an End button — nothing is saved",
+    "Feature: Path mappings can target folders outside the connection root, so many sites on one server work with a single connection",
+    "Feature: Settings sections use horizontal tabs, Modem has its own section, Direct Upload options redesigned with Persian tooltips; select-all moved to the root '/' row",
+    "Fix: Direct Upload with Overwrite off now creates new files and folders on FTP instead of failing"
   ],
   "mandatory": false,
-  "publishedUtc": "2026-11-02T08:31:54Z"
+  "publishedUtc": "2026-11-18T08:06:03Z"
 }

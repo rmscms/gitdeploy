@@ -564,10 +564,28 @@ namespace GitDeployPro.Services.Remote
             }
 
             var fileName = Path.GetFileName(remotePath.Replace("\\", "/"));
-            var listing = await _client!.GetListing(
-                RemotePathResolver.EnsureTrailingSlash(parent),
-                FtpListOption.AllFiles | FtpListOption.Size | FtpListOption.Modify,
-                cancellationToken);
+            FtpListItem[] listing;
+            try
+            {
+                listing = await _client!.GetListing(
+                    RemotePathResolver.EnsureTrailingSlash(parent),
+                    FtpListOption.AllFiles | FtpListOption.Size | FtpListOption.Modify,
+                    cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                // Parent folder does not exist yet (new file in a new folder): the file cannot exist either.
+                return new RemoteFileStat
+                {
+                    FullPath = remotePath,
+                    Exists = false
+                };
+            }
+
             var hit = listing.FirstOrDefault(item =>
                 string.Equals(item.Name, fileName, StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(item.FullName.TrimEnd('/'), remotePath.TrimEnd('/'), StringComparison.OrdinalIgnoreCase));

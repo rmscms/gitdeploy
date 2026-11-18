@@ -92,6 +92,13 @@ namespace GitDeployPro.Controls
                 LocalTreeSearchResults.ItemsSource = _searchHits;
             }
 
+            TemporaryMappingService.Changed += (_, _) => Dispatcher.BeginInvoke(new Action(async () =>
+            {
+                if (IsLoaded)
+                {
+                    await LoadProjectFilesAsync();
+                }
+            }));
             Loaded += DirectUploadWorkspaceControl_Loaded;
             Unloaded += DirectUploadWorkspaceControl_Unloaded;
             ThemeService.Instance.ThemeChanged += OnDeployThemeChanged;
@@ -239,12 +246,6 @@ namespace GitDeployPro.Controls
                 RefreshButton.Margin = compact ? new Thickness(0, 0, 4, 0) : new Thickness(0, 0, 6, 0);
             }
 
-            if (SelectionToggleButton != null)
-            {
-                SelectionToggleButton.Padding = compact ? new Thickness(6, 0, 6, 0) : new Thickness(8, 0, 8, 0);
-                SelectionToggleButton.Margin = compact ? new Thickness(0, 0, 4, 0) : new Thickness(0, 0, 6, 0);
-            }
-
             if (AutoDiskSyncToolbarButton != null)
             {
                 AutoDiskSyncToolbarButton.Padding = compact ? new Thickness(6, 0, 6, 0) : new Thickness(8, 0, 8, 0);
@@ -261,17 +262,7 @@ namespace GitDeployPro.Controls
                 }
             }
 
-            if (SelectionToggleLabel != null)
-            {
-                SelectionToggleLabel.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
-                if (SelectionToggleIcon != null)
-                {
-                    SelectionToggleIcon.Margin = compact ? new Thickness(0) : new Thickness(0, 0, 5, 0);
-                }
-            }
-
             RefreshAutoDiskSyncToolbarUi();
-            UpdateSelectionToggleUi(CountSelectedFiles());
 
             if (TreeLegendText != null)
             {
@@ -591,6 +582,17 @@ namespace GitDeployPro.Controls
             {
                 SessionStatusText.Text = "";
                 DeleteSessionButton.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        private void OptionCard_MouseLeftButtonUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            // Clicking the card toggles its checkbox (the checkbox itself already handles its own click).
+            if (sender is FrameworkElement { Tag: System.Windows.Controls.CheckBox box }
+                && !(e.OriginalSource is DependencyObject d && DependencyObjectAncestors.Find<System.Windows.Controls.CheckBox>(d) != null)
+                && !(e.OriginalSource is DependencyObject b && DependencyObjectAncestors.Find<System.Windows.Controls.Button>(b) != null))
+            {
+                box.IsChecked = box.IsChecked != true;
             }
         }
 
@@ -1376,24 +1378,30 @@ namespace GitDeployPro.Controls
             }
         }
 
-        private void SelectionToggleButton_Click(object sender, RoutedEventArgs e)
+        private void RootSelectAllCheckBox_Click(object sender, RoutedEventArgs e)
         {
-            var selected = CountSelectedFiles();
-            if (selected > 0)
-            {
-                foreach (var item in _items)
-                {
-                    item.IsChecked = false;
-                }
-            }
-            else
-            {
-                foreach (var item in _items)
-                {
-                    item.IsChecked = true;
-                }
-            }
+            e.Handled = true;
+            ToggleRootSelectAll();
+        }
 
+        private void RootSelectAllRow_MouseLeftButtonUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (e.OriginalSource is DependencyObject d && DependencyObjectAncestors.Find<System.Windows.Controls.CheckBox>(d) != null)
+            {
+                return;
+            }
+            ToggleRootSelectAll();
+        }
+
+        private void ToggleRootSelectAll()
+        {
+            int total = 0, selected = 0;
+            CountFiles(_items, ref total, ref selected);
+            var check = !(total > 0 && selected >= total);
+            foreach (var item in _items)
+            {
+                item.IsChecked = check;
+            }
             UpdateStats();
         }
 
@@ -2961,7 +2969,10 @@ namespace GitDeployPro.Controls
 
             TotalFilesText.Text = total.ToString();
             SelectedFilesText.Text = selected.ToString();
-            UpdateSelectionToggleUi(selected);
+            if (RootSelectAllCheckBox != null)
+            {
+                RootSelectAllCheckBox.IsChecked = selected <= 0 ? false : (selected >= total ? true : (bool?)null);
+            }
         }
 
         private int CountSelectedFiles()
@@ -2989,48 +3000,6 @@ namespace GitDeployPro.Controls
                 {
                     CountFiles(item.Children, ref total, ref selected);
                 }
-            }
-        }
-
-        private void UpdateSelectionToggleUi(int selectedCount)
-        {
-            if (SelectionToggleButton == null || SelectionToggleIcon == null || SelectionToggleLabel == null)
-            {
-                return;
-            }
-
-            var hasSelection = selectedCount > 0;
-            if (hasSelection)
-            {
-                SelectionToggleIcon.Text = "⬜";
-                SelectionToggleLabel.Text = Loc.T("deploy.clearSelection");
-                SelectionToggleButton.ToolTip = Loc.T("deploy.tip.deselectAll");
-
-                var accent = TryFindResource("Status.Error") as System.Windows.Media.Brush
-                             ?? System.Windows.Media.Brushes.OrangeRed;
-                var surface = TryFindResource("Status.ErrorSurface") as System.Windows.Media.Brush
-                              ?? System.Windows.Media.Brushes.Transparent;
-                SelectionToggleIcon.Foreground = accent;
-                SelectionToggleLabel.Foreground = accent;
-                SelectionToggleButton.Foreground = accent;
-                SelectionToggleButton.BorderBrush = accent;
-                SelectionToggleButton.Background = surface;
-            }
-            else
-            {
-                SelectionToggleIcon.Text = "☑️";
-                SelectionToggleLabel.Text = Loc.T("deploy.selectAllShort");
-                SelectionToggleButton.ToolTip = Loc.T("deploy.tip.selectAll");
-
-                var accent = TryFindResource("Status.Success") as System.Windows.Media.Brush
-                             ?? System.Windows.Media.Brushes.LightGreen;
-                var surface = TryFindResource("Status.SuccessSurface") as System.Windows.Media.Brush
-                              ?? System.Windows.Media.Brushes.Transparent;
-                SelectionToggleIcon.Foreground = accent;
-                SelectionToggleLabel.Foreground = accent;
-                SelectionToggleButton.Foreground = accent;
-                SelectionToggleButton.BorderBrush = accent;
-                SelectionToggleButton.Background = surface;
             }
         }
 
@@ -3804,7 +3773,7 @@ namespace GitDeployPro.Controls
                     }
                 }
 
-                remoteRoot = CombineRemotePaths(remoteRoot, mapping.RemotePath);
+                remoteRoot = RemotePathResolver.ResolveMappingRemote(remoteRoot, mapping);
             }
 
             if (string.IsNullOrEmpty(localRoot) && !string.IsNullOrEmpty(_projectPath))
@@ -4044,7 +4013,7 @@ namespace GitDeployPro.Controls
                         ? "(project root)"
                         : mapping.LocalPath;
                     // Combine profile.RemotePath + mapping.RemotePath (same logic as ResolveRoots)
-                    var combinedRemotePath = CombineRemotePaths(baseRemotePath, mapping.RemotePath);
+                    var combinedRemotePath = RemotePathResolver.ResolveMappingRemote(baseRemotePath, mapping);
                     ConnectionInfoText.Text = $"Active Connection: {profile.Name} · {protocol} · {hostText} · Local '{localLabel}' → Remote '{combinedRemotePath}'";
                 }
                 else

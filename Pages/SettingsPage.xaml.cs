@@ -54,6 +54,7 @@ namespace GitDeployPro.Pages
             _gitService = new GitService();
             LocalizationService.Instance.LanguageChanged += (_, _) => RefreshLanguageUiTexts();
             Unloaded += SettingsPage_Unloaded;
+            BuildSettingsTabs();
             ShowSettingsSection("general");
             HookDirtyTracking();
             LoadSettings();
@@ -153,9 +154,112 @@ namespace GitDeployPro.Pages
             SettingsSearchBox.Focus();
         }
 
+        // ---- Horizontal tabs: each direct Expander of a section becomes one tab ----
+        private sealed class TabState
+        {
+            public Border Bar = null!;
+            public List<Expander> Items = new();
+            public List<System.Windows.Controls.Button> Buttons = new();
+            public int Selected;
+        }
+
+        private readonly Dictionary<StackPanel, TabState> _tabStates = new();
+
+        private static string FirstHeaderTitle(Expander expander)
+        {
+            string? found = null;
+            void Walk(DependencyObject node)
+            {
+                if (found != null)
+                {
+                    return;
+                }
+
+                if (node is System.Windows.Controls.TextBlock tb && !string.IsNullOrWhiteSpace(tb.Text))
+                {
+                    found = tb.Text.Trim();
+                    return;
+                }
+
+                foreach (var child in LogicalTreeHelper.GetChildren(node))
+                {
+                    if (child is DependencyObject d)
+                    {
+                        Walk(d);
+                    }
+                }
+            }
+
+            if (expander.Header is DependencyObject h)
+            {
+                Walk(h);
+            }
+
+            return found ?? expander.Header?.ToString() ?? "…";
+        }
+
+        private void BuildSettingsTabs()
+        {
+            foreach (var panel in AllSettingsPanels())
+            {
+                var expanders = panel.Children.OfType<Expander>().ToList();
+                if (expanders.Count < 2)
+                {
+                    continue;
+                }
+
+                var state = new TabState { Items = expanders };
+                var strip = new WrapPanel { Orientation = System.Windows.Controls.Orientation.Horizontal };
+                for (var i = 0; i < expanders.Count; i++)
+                {
+                    var index = i;
+                    var btn = new System.Windows.Controls.Button
+                    {
+                        Content = FirstHeaderTitle(expanders[i]),
+                        Style = (Style)FindResource("Settings.Tab")
+                    };
+                    btn.Click += (_, _) => SelectSettingsTab(panel, index);
+                    state.Buttons.Add(btn);
+                    strip.Children.Add(btn);
+                }
+
+                state.Bar = new Border
+                {
+                    Child = strip,
+                    BorderThickness = new Thickness(0, 0, 0, 1),
+                    Margin = new Thickness(0, 0, 0, 12)
+                };
+                state.Bar.SetResourceReference(Border.BorderBrushProperty, "Border.Subtle");
+                panel.Children.Insert(0, state.Bar);
+                _tabStates[panel] = state;
+                SelectSettingsTab(panel, 0);
+            }
+        }
+
+        private void SelectSettingsTab(StackPanel panel, int index)
+        {
+            if (!_tabStates.TryGetValue(panel, out var state))
+            {
+                return;
+            }
+
+            state.Selected = Math.Clamp(index, 0, state.Items.Count - 1);
+            for (var i = 0; i < state.Items.Count; i++)
+            {
+                var on = i == state.Selected;
+                state.Items[i].Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+                if (on)
+                {
+                    state.Items[i].IsExpanded = true;
+                }
+
+                state.Buttons[i].Style = (Style)FindResource(on ? "Settings.Tab.Active" : "Settings.Tab");
+            }
+        }
+
         private IEnumerable<StackPanel> AllSettingsPanels()
         {
-            foreach (var p in new[] { SettingsPanelGeneral, SettingsPanelServer, SettingsPanelGit, SettingsPanelTerminal, SettingsPanelTelegram, SettingsPanelAiAgent, SettingsPanelVpn, })
+            foreach (var p in new[] { SettingsPanelGeneral, SettingsPanelServer, SettingsPanelGit, SettingsPanelTerminal, SettingsPanelTelegram, SettingsPanelAiAgent, SettingsPanelVpn, SettingsPanelModem, })
             {
                 if (p != null)
                 {
@@ -185,11 +289,24 @@ namespace GitDeployPro.Pages
             query = (query ?? string.Empty).Trim();
             foreach (var panel in AllSettingsPanels())
             {
+                if (_tabStates.TryGetValue(panel, out var tabState))
+                {
+                    tabState.Bar.Visibility = query.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+                    if (query.Length == 0)
+                    {
+                        SelectSettingsTab(panel, tabState.Selected);
+                    }
+                }
+
                 foreach (var expander in panel.Children.OfType<Expander>())
                 {
                     if (query.Length == 0)
                     {
-                        expander.Visibility = Visibility.Visible;
+                        if (!_tabStates.ContainsKey(panel))
+                        {
+                            expander.Visibility = Visibility.Visible;
+                        }
+
                         continue;
                     }
 
@@ -294,6 +411,11 @@ namespace GitDeployPro.Pages
                 SettingsPanelVpn.Visibility = section == "vpn" ? Visibility.Visible : Visibility.Collapsed;
             }
 
+            if (SettingsPanelModem != null)
+            {
+                SettingsPanelModem.Visibility = section == "modem" ? Visibility.Visible : Visibility.Collapsed;
+            }
+
             SetNavActive(NavGeneralButton, section == "general");
             SetNavActive(NavServerButton, section == "server");
             SetNavActive(NavGitButton, section == "git");
@@ -301,6 +423,7 @@ namespace GitDeployPro.Pages
             SetNavActive(NavTelegramButton, section == "telegram");
             SetNavActive(NavAiAgentButton, section == "ai-agent");
             SetNavActive(NavVpnButton, section == "vpn");
+            SetNavActive(NavModemButton, section == "modem");
 
             if (SettingsSearchBox != null && SettingsSearchBox.Text.Length > 0)
             {
@@ -383,6 +506,7 @@ namespace GitDeployPro.Pages
                 RefreshLanguageUiTexts();
                 LoadTelegramSettings(globalConfig);
                 LoadVpnSettings(globalConfig);
+                LoadModemSettings(globalConfig);
                 if (SshKeyPathTextBox != null)
                 {
                     SshKeyPathTextBox.Text = globalConfig.DefaultSshKeyPath ?? string.Empty;
@@ -3475,6 +3599,110 @@ namespace GitDeployPro.Pages
             if (VpnProfileCombo?.Items.Count == 0)
             {
                 ApplyVpnStatusUi(VpnConnectionState.Idle, Loc.T("vpn.noProfiles"));
+            }
+        }
+
+        private void LoadModemSettings(ConfigurationService.GlobalConfig cfg)
+        {
+            if (ModemDriverCombo == null)
+            {
+                return;
+            }
+
+            ModemDriverCombo.ItemsSource = GitDeployPro.Services.Modem.ModemDriverFactory.All;
+            ModemDriverCombo.SelectedValue = GitDeployPro.Services.Modem.ModemDriverFactory.Create(cfg.ModemDriver).DriverId;
+            ModemEnabledCheckBox.IsChecked = cfg.ModemEnabled;
+            ModemUrlTextBox.Text = string.IsNullOrWhiteSpace(cfg.ModemBaseUrl) ? "http://192.168.8.1" : cfg.ModemBaseUrl;
+            ModemUserTextBox.Text = cfg.ModemUsername ?? string.Empty;
+            ModemPasswordBox.Password = string.Empty;
+            ModemPlanTextBox.Text = cfg.ModemPlanGb > 0
+                ? cfg.ModemPlanGb.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                : string.Empty;
+            ModemPollTextBox.Text = (cfg.ModemPollSeconds > 0 ? cfg.ModemPollSeconds : 60).ToString();
+            ModemThresholdsTextBox.Text = cfg.ModemAlertThresholds ?? string.Empty;
+            ModemAlertTelegramCheckBox.IsChecked = cfg.ModemAlertTelegram;
+            ModemAlertToastCheckBox.IsChecked = cfg.ModemAlertToast;
+            ModemCountUploadCheckBox.IsChecked = cfg.ModemCountUpload;
+            ModemReadSmsCheckBox.IsChecked = cfg.ModemReadSms;
+        }
+
+        private void PersistModemFields(ConfigurationService.GlobalConfig cfg)
+        {
+            cfg.ModemEnabled = ModemEnabledCheckBox?.IsChecked == true;
+            cfg.ModemDriver = ModemDriverCombo?.SelectedValue as string ?? GitDeployPro.Services.Modem.ModemDriverFactory.HuaweiHiLink;
+            cfg.ModemBaseUrl = ModemUrlTextBox?.Text?.Trim() ?? string.Empty;
+            cfg.ModemUsername = ModemUserTextBox?.Text?.Trim() ?? string.Empty;
+            var pw = ModemPasswordBox?.Password ?? string.Empty;
+            if (pw.Length > 0)
+            {
+                cfg.ModemPassword = EncryptionService.Encrypt(pw);
+            }
+
+            cfg.ModemPlanGb = double.TryParse(
+                (ModemPlanTextBox?.Text ?? string.Empty).Trim().Replace(',', '.'),
+                System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out var gb) && gb > 0 ? gb : 0;
+            cfg.ModemPollSeconds = int.TryParse(ModemPollTextBox?.Text?.Trim(), out var poll) && poll > 0
+                ? Math.Clamp(poll, 15, 3600)
+                : 60;
+            cfg.ModemAlertThresholds = ModemThresholdsTextBox?.Text?.Trim() ?? string.Empty;
+            cfg.ModemAlertTelegram = ModemAlertTelegramCheckBox?.IsChecked == true;
+            cfg.ModemAlertToast = ModemAlertToastCheckBox?.IsChecked == true;
+            cfg.ModemCountUpload = ModemCountUploadCheckBox?.IsChecked == true;
+            cfg.ModemReadSms = ModemReadSmsCheckBox?.IsChecked == true;
+        }
+
+        private void ModemSaveButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                _configService.UpdateGlobalConfig(PersistModemFields);
+                GitDeployPro.Services.Modem.ModemUsageMonitorService.Instance.StartFromConfig();
+                ModemStatusText.Text = Loc.T("modem.saved");
+            }
+            catch (Exception ex)
+            {
+                ModemStatusText.Text = ex.Message;
+            }
+        }
+
+        private void ModemShowSmsButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                _configService.UpdateGlobalConfig(PersistModemFields);
+                GitDeployPro.Services.Modem.ModemUsageMonitorService.Instance.StartFromConfig();
+                NavigationService?.Navigate(new ModemSmsPage());
+            }
+            catch (Exception ex)
+            {
+                ModemStatusText.Text = ex.Message;
+            }
+        }
+
+        private async void ModemTestButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                _configService.UpdateGlobalConfig(PersistModemFields);
+                ModemStatusText.Text = Loc.T("modem.testing");
+                var snap = await GitDeployPro.Services.Modem.ModemUsageMonitorService.Instance.PollNowAsync().ConfigureAwait(true);
+                if (!snap.HasData || !string.IsNullOrEmpty(snap.Error))
+                {
+                    ModemStatusText.Text = Loc.T("modem.testFail", snap.Error);
+                    return;
+                }
+
+                var fmt = GitDeployPro.Services.Modem.ModemUsageMonitorService.FormatBytes;
+                ModemStatusText.Text = Loc.T(
+                    "modem.testOk",
+                    fmt(snap.UsedBytes),
+                    snap.PlanBytes > 0 ? fmt(snap.PlanBytes) : "—");
+            }
+            catch (Exception ex)
+            {
+                ModemStatusText.Text = ex.Message;
             }
         }
 

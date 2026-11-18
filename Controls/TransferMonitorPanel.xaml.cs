@@ -24,7 +24,16 @@ namespace GitDeployPro.Controls
 
         public void SetSession(string title)
         {
-            RunOnUi(() => SessionTitle.Text = title);
+            RunOnUi(() =>
+            {
+                SessionTitle.Text = title;
+                HideButton.Content = "Hide";
+                FooterText.Text = "Hide only closes this window. Transfer keeps running.";
+                HeadlineText.Foreground = LogColorizer.Resolve("Status.Info", "#5BB8FF");
+                _log.Clear();
+                LogText.Inlines.Clear();
+                _lastSequence = 0;
+            });
         }
 
         public void Apply(ParallelTransferProgress progress)
@@ -56,9 +65,7 @@ namespace GitDeployPro.Controls
                 if (progress.Sequence > _lastSequence && !string.IsNullOrWhiteSpace(progress.LastLine))
                 {
                     _lastSequence = progress.Sequence;
-                    _log.AppendLine($"[{AppTimeService.LocalNow:HH:mm:ss}] {progress.LastLine}");
-                    LogText.Text = _log.ToString();
-                    LogScroll.ScrollToEnd();
+                    AppendLog(progress.LastLine);
                 }
             });
         }
@@ -68,11 +75,23 @@ namespace GitDeployPro.Controls
             RunOnUi(() =>
             {
                 HeadlineText.Text = summary;
+                HeadlineText.Foreground = LogColorizer.PickBrush(summary);
                 OverallBar.IsIndeterminate = false;
-                _log.AppendLine($"[{AppTimeService.LocalNow:HH:mm:ss}] {summary}");
-                LogText.Text = _log.ToString();
-                LogScroll.ScrollToEnd();
+                HideButton.Content = "Close";
+                AppendLog(summary);
             });
+        }
+
+        private void AppendLog(string line)
+        {
+            var timestamp = AppTimeService.LocalNow.ToString("HH:mm:ss");
+            if (LogText.Inlines.Count > 0)
+            {
+                LogText.Inlines.Add(new System.Windows.Documents.LineBreak());
+            }
+
+            LogText.Inlines.AddRange(LogColorizer.BuildRuns(timestamp, line));
+            LogScroll.ScrollToEnd();
         }
 
         private void HideButton_Click(object sender, RoutedEventArgs e)

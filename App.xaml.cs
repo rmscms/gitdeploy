@@ -51,6 +51,14 @@ namespace GitDeployPro
             {
             }
 
+            try
+            {
+                GitDeployPro.Services.Modem.ModemUsageMonitorService.Instance.StartFromConfig();
+            }
+            catch
+            {
+            }
+
             PerformanceSampler.Instance.Mark("app", "lifecycle", "startup-end");
         }
 
@@ -68,6 +76,14 @@ namespace GitDeployPro
             try
             {
                 VpnKeepAliveService.Instance.Dispose();
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                GitDeployPro.Services.Modem.ModemUsageMonitorService.Instance.Dispose();
             }
             catch
             {

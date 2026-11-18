@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows.Documents;
 using System.Windows;
 using System.Windows.Controls;
 using System.Collections.Generic;
@@ -101,7 +102,7 @@ namespace GitDeployPro.Pages
         {
             InitializeComponent();
             _transferMonitor.Attach(DeployTransferMonitorPanel);
-            _transferMonitor.AttachOverlay(BottomDockShell, DeployTransferMonitorHost);
+            _transferMonitor.AttachOverlay(DeployShellRoot, DeployTransferMonitorHost);
             _isLoaded = false;
             _gitService = new GitService();
             _historyService = new HistoryService();
@@ -1650,7 +1651,7 @@ namespace GitDeployPro.Pages
             }
             else
             {
-                height = Math.Max(BottomDockMinExpandedHeight, GetPreferredTerminalHeight() * 0.7);
+                height = GetPreferredTerminalHeight();
             }
 
             height = ClampBottomDockHeight(height);
@@ -4011,7 +4012,7 @@ namespace GitDeployPro.Pages
                     foreach (var m in mappings)
                     {
                         var localLabel = RemotePathResolver.FormatLocalMappingLabel(m.LocalPath);
-                        var remoteLabel = CombineRemotePaths(defaultRemoteBase, m.RemotePath);
+                        var remoteLabel = RemotePathResolver.ResolveMappingRemote(defaultRemoteBase, m);
                         AddLog($"   • {localLabel} → {remoteLabel}");
                     }
                 }
@@ -4499,7 +4500,7 @@ namespace GitDeployPro.Pages
                 AddLog("[SIMULATION] 🗺️ Multi path mappings:");
                 foreach (var m in mappings)
                 {
-                    AddLog($"   • {RemotePathResolver.FormatLocalMappingLabel(m.LocalPath)} → {CombineRemotePaths(defaultRemoteBase, m.RemotePath)}");
+                    AddLog($"   • {RemotePathResolver.FormatLocalMappingLabel(m.LocalPath)} → {RemotePathResolver.ResolveMappingRemote(defaultRemoteBase, m)}");
                 }
             }
 
@@ -4853,50 +4854,54 @@ namespace GitDeployPro.Pages
             preview.Top = top;
         }
 
+        private bool _logIsPlaceholder = true;
+
         private void AddLog(string message)
         {
-            if (LogTextBox == null) return;
+            if (LogRichBox == null) return;
 
             Dispatcher.Invoke(() =>
             {
+                if (_logIsPlaceholder)
+                {
+                    LogRichBox.Document.Blocks.Clear();
+                    _logIsPlaceholder = false;
+                }
+
                 var timestamp = AppTimeService.LocalNow.ToString("HH:mm:ss");
-                var newLog = $"[{timestamp}] {message}\n";
-
-                if (LogTextBox.Text == "Waiting for deployment...")
-                {
-                    LogTextBox.Text = newLog;
-                }
-                else
-                {
-                    LogTextBox.Text += newLog;
-                }
-
-                LogTextBox.CaretIndex = LogTextBox.Text.Length;
-                LogTextBox.ScrollToEnd();
+                var paragraph = new Paragraph { Margin = new Thickness(0), LineHeight = 18 };
+                paragraph.Inlines.AddRange(LogColorizer.BuildRuns(timestamp, message));
+                LogRichBox.Document.Blocks.Add(paragraph);
+                LogRichBox.ScrollToEnd();
             });
+        }
+
+        private string GetLogPlainText()
+        {
+            return new TextRange(LogRichBox.Document.ContentStart, LogRichBox.Document.ContentEnd).Text;
         }
 
         private void LogCopyMenu_Click(object sender, RoutedEventArgs e)
         {
-            if (LogTextBox == null)
+            if (LogRichBox == null)
             {
                 return;
             }
 
-            if (LogTextBox.SelectionLength > 0)
+            if (!LogRichBox.Selection.IsEmpty)
             {
-                LogTextBox.Copy();
+                LogRichBox.Copy();
             }
-            else if (!string.IsNullOrEmpty(LogTextBox.Text))
+            else if (!_logIsPlaceholder)
             {
-                System.Windows.Clipboard.SetText(LogTextBox.Text);
+                System.Windows.Clipboard.SetText(GetLogPlainText());
             }
         }
 
         private void LogSelectAllMenu_Click(object sender, RoutedEventArgs e)
         {
-            LogTextBox?.SelectAll();
-            LogTextBox?.Focus();
+            LogRichBox?.SelectAll();
+            LogRichBox?.Focus();
         }
 
         private async Task AddDeploymentHistoryRecordAsync(List<FileChange> filesToDeploy)
@@ -4985,9 +4990,10 @@ namespace GitDeployPro.Pages
 
         private void ClearLogs_Click(object sender, RoutedEventArgs e)
         {
-            if (LogTextBox != null)
+            if (LogRichBox != null)
             {
-                LogTextBox.Text = "Waiting for deployment...";
+                LogRichBox.Document.Blocks.Clear();
+                _logIsPlaceholder = false;
                 AddLog("🗑️ Logs cleared");
             }
         }

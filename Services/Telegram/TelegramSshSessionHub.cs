@@ -256,7 +256,8 @@ namespace GitDeployPro.Services.Telegram
                         {
                             buffer.Append(shell.Read());
                             lastData.Restart();
-                            if (buffer.ToString().Contains(DoneMarker, StringComparison.Ordinal))
+                            // The typed echo contains "__GDP_DONE__${PWD}"; only the expanded form (…__GDP_DONE__/path) is the real end.
+                            if (buffer.ToString().Contains(DoneMarker + "/", StringComparison.Ordinal))
                             {
                                 sawMarker = true;
                                 break;

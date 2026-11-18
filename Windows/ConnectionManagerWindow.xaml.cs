@@ -440,7 +440,7 @@ namespace GitDeployPro.Windows
                     RunSshStartupCommand = profile.RunSshStartupCommand,
                     IsFavorite = profile.IsFavorite,
                     PathMappings = profile.PathMappings?
-                        .Select(m => new PathMapping { LocalPath = m.LocalPath, RemotePath = m.RemotePath })
+                        .Select(m => new PathMapping { LocalPath = m.LocalPath, RemotePath = m.RemotePath, RemoteIsAbsolute = m.RemoteIsAbsolute })
                         .ToList() ?? new List<PathMapping>(),
                     DbType = profile.DbType,
                     DbHost = profile.DbHost,
@@ -495,7 +495,8 @@ namespace GitDeployPro.Windows
                 .Select(pm => new PathMapping
                 {
                     LocalPath = pm.LocalPath ?? string.Empty,
-                    RemotePath = pm.RemotePath ?? string.Empty
+                    RemotePath = pm.RemotePath ?? string.Empty,
+                    RemoteIsAbsolute = pm.RemoteIsAbsolute
                 })
                 .ToList();
 
@@ -543,7 +544,8 @@ namespace GitDeployPro.Windows
                     _pathMappings.Add(new PathMapping
                     {
                         LocalPath = RemotePathResolver.FormatLocalMappingLabel(mapping.LocalPath),
-                        RemotePath = string.IsNullOrWhiteSpace(mapping.RemotePath) ? "/" : mapping.RemotePath
+                        RemotePath = string.IsNullOrWhiteSpace(mapping.RemotePath) ? "/" : mapping.RemotePath,
+                        RemoteIsAbsolute = mapping.RemoteIsAbsolute
                     });
                 }
             }
@@ -564,12 +566,15 @@ namespace GitDeployPro.Windows
         private void SaveMappingButton_Click(object sender, RoutedEventArgs e)
         {
             var local = RemotePathResolver.NormalizeLocalMappingPath(LocalMappingTextBox.Text);
-            var remote = RemotePathResolver.NormalizeStoredRemoteMapping(RemoteMappingTextBox.Text, _currentProfile?.RemotePath ?? RootPathBox.Text);
+            var remoteProfileRoot = _currentProfile?.RemotePath ?? RootPathBox.Text;
+            var remote = RemotePathResolver.NormalizeStoredRemoteMapping(RemoteMappingTextBox.Text, remoteProfileRoot);
+            var remoteAbsolute = RemotePathResolver.MappingRemoteIsAbsolute(RemoteMappingTextBox.Text, remoteProfileRoot);
 
             if (PathMappingsList.SelectedItem is PathMapping selected)
             {
                 selected.LocalPath = local;
                 selected.RemotePath = remote;
+                selected.RemoteIsAbsolute = remoteAbsolute;
                 PathMappingsList.Items.Refresh();
             }
             else
@@ -578,11 +583,12 @@ namespace GitDeployPro.Windows
                 if (existing != null)
                 {
                     existing.RemotePath = remote;
+                    existing.RemoteIsAbsolute = remoteAbsolute;
                     PathMappingsList.Items.Refresh();
                 }
                 else
                 {
-                    _pathMappings.Add(new PathMapping { LocalPath = local, RemotePath = remote });
+                    _pathMappings.Add(new PathMapping { LocalPath = local, RemotePath = remote, RemoteIsAbsolute = remoteAbsolute });
                 }
             }
 

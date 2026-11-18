@@ -56,7 +56,8 @@ namespace GitDeployPro.Windows
                 _mappings.Add(new PathMapping
                 {
                     LocalPath = RemotePathResolver.FormatLocalMappingLabel(mapping.LocalPath),
-                    RemotePath = string.IsNullOrWhiteSpace(mapping.RemotePath) ? "/" : mapping.RemotePath.Trim()
+                    RemotePath = string.IsNullOrWhiteSpace(mapping.RemotePath) ? "/" : mapping.RemotePath.Trim(),
+                    RemoteIsAbsolute = mapping.RemoteIsAbsolute
                 });
             }
         }
@@ -81,7 +82,8 @@ namespace GitDeployPro.Windows
                 .Select(m => new PathMapping
                 {
                     LocalPath = m.LocalPath ?? string.Empty,
-                    RemotePath = m.RemotePath ?? string.Empty
+                    RemotePath = m.RemotePath ?? string.Empty,
+                    RemoteIsAbsolute = m.RemoteIsAbsolute
                 })
                 .ToList();
             _configService.AddOrUpdateConnection(_profile);
@@ -92,11 +94,13 @@ namespace GitDeployPro.Windows
         {
             var local = RemotePathResolver.NormalizeLocalMappingPath(LocalPathBox.Text);
             var remote = RemotePathResolver.NormalizeStoredRemoteMapping(RemotePathBox.Text, _profile.RemotePath);
+            var remoteAbsolute = RemotePathResolver.MappingRemoteIsAbsolute(RemotePathBox.Text, _profile.RemotePath);
 
             if (_editing != null)
             {
                 _editing.LocalPath = local;
                 _editing.RemotePath = remote;
+                _editing.RemoteIsAbsolute = remoteAbsolute;
                 MappingsList.Items.Refresh();
             }
             else
@@ -104,7 +108,8 @@ namespace GitDeployPro.Windows
                 _mappings.Add(new PathMapping
                 {
                     LocalPath = local,
-                    RemotePath = remote
+                    RemotePath = remote,
+                    RemoteIsAbsolute = remoteAbsolute
                 });
             }
 
