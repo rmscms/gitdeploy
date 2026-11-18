@@ -53,6 +53,14 @@ namespace GitDeployPro
 
             try
             {
+                GitDeployPro.Services.AgentApi.AgentApiServer.Instance.StartFromConfig();
+            }
+            catch
+            {
+            }
+
+            try
+            {
                 GitDeployPro.Services.Modem.ModemUsageMonitorService.Instance.StartFromConfig();
             }
             catch
@@ -76,6 +84,14 @@ namespace GitDeployPro
             try
             {
                 VpnKeepAliveService.Instance.Dispose();
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                GitDeployPro.Services.AgentApi.AgentApiServer.Instance.Dispose();
             }
             catch
             {

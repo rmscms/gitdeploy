@@ -1,18 +1,16 @@
 {
-  "version": "2.7.0",
-  "fileName": "GitDeployPro-2.7.0.exe",
-  "downloadUrl": "versions/GitDeployPro-2.7.0.exe",
-  "sha256": "B3BBF463FAAD5C24233BAC32055AC657FDF366647258822F452D0AB626A2BC0F",
-  "releaseNotes": "Feature: SIM modem data monitor (driver-based, Huawei HiLink first) — dashboard card with usage gauge, remaining GB, daily bars, live speed and days-left forecast\nFeature: Modem alerts at 70/80/90/100% to Telegram and desktop toast, operator usage SMS detection, and one-click Reset after buying a new package\nFeature: Modem SMS manager — inbox/sent with cards, pagination, search, select-all, delete, send SMS; package SMS can be added to the plan size\nFeature: Temporary (session-only) path mapping from the remote tree with an End button — nothing is saved\nFeature: Path mappings can target folders outside the connection root, so many sites on one server work with a single connection\nFeature: Settings sections use horizontal tabs, Modem has its own section, Direct Upload options redesigned with Persian tooltips; select-all moved to the root '/' row\nFix: Direct Upload with Overwrite off now creates new files and folders on FTP instead of failing",
+  "version": "2.8.0",
+  "fileName": "GitDeployPro-2.8.0.exe",
+  "downloadUrl": "versions/GitDeployPro-2.8.0.exe",
+  "sha256": "C2572D8976A14ED06FB0B32712FD1DAF07FAC1DA52730FB1D36CAD6A9C794462",
+  "releaseNotes": "Feature: Agent API — a local, key-protected API (127.0.0.1) so an AI agent can use GitDeploy like the Telegram bot: list projects, see changes, deploy, upload files and run SSH commands\nFeature: Agent API security — per-key scopes and project allow-list, human approval popup for deploy/upload/terminal, audit log, MCP endpoint for Claude Code, OpenAPI spec and docs\nFeature: Settings → Agent API tab with key creation/revoke and a one-click 'Copy agent prompt' that includes the current port\nFeature: Temporary mapping can hold several named targets (site1, site2 …); at upload time you tick one, several or all, and the same files go to each in turn\nFeature: Deploy with a multi-target temporary mapping asks which single target to use",
   "changelog": [
-    "Feature: SIM modem data monitor (driver-based, Huawei HiLink first) — dashboard card with usage gauge, remaining GB, daily bars, live speed and days-left forecast",
-    "Feature: Modem alerts at 70/80/90/100% to Telegram and desktop toast, operator usage SMS detection, and one-click Reset after buying a new package",
-    "Feature: Modem SMS manager — inbox/sent with cards, pagination, search, select-all, delete, send SMS; package SMS can be added to the plan size",
-    "Feature: Temporary (session-only) path mapping from the remote tree with an End button — nothing is saved",
-    "Feature: Path mappings can target folders outside the connection root, so many sites on one server work with a single connection",
-    "Feature: Settings sections use horizontal tabs, Modem has its own section, Direct Upload options redesigned with Persian tooltips; select-all moved to the root '/' row",
-    "Fix: Direct Upload with Overwrite off now creates new files and folders on FTP instead of failing"
+    "Feature: Agent API — a local, key-protected API (127.0.0.1) so an AI agent can use GitDeploy like the Telegram bot: list projects, see changes, deploy, upload files and run SSH commands",
+    "Feature: Agent API security — per-key scopes and project allow-list, human approval popup for deploy/upload/terminal, audit log, MCP endpoint for Claude Code, OpenAPI spec and docs",
+    "Feature: Settings → Agent API tab with key creation/revoke and a one-click 'Copy agent prompt' that includes the current port",
+    "Feature: Temporary mapping can hold several named targets (site1, site2 …); at upload time you tick one, several or all, and the same files go to each in turn",
+    "Feature: Deploy with a multi-target temporary mapping asks which single target to use"
   ],
   "mandatory": false,
-  "publishedUtc": "2026-11-18T08:06:03Z"
+  "publishedUtc": "2026-11-18T09:49:37Z"
 }

@@ -325,6 +325,16 @@
                                 <TextBlock Grid.Column="1" Text="{loc:T modem.nav}" VerticalAlignment="Center" />
                             </Grid>
                         </Button>
+                        <Button ToolTip="{loc:T ui.tip.SettingsNav}" x:Name="NavAgentButton"
+                                Style="{StaticResource Settings.NavButton}"
+                                Click="SettingsNav_Click"
+                                Tag="agent-api">
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                <Path behaviors:AppIcon.Kind="cpu" behaviors:AppIcon.Size="16" Margin="0,0,10,0" TextElement.Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                <TextBlock Grid.Column="1" Text="{loc:T agent.nav}" VerticalAlignment="Center" />
+                            </Grid>
+                        </Button>
                     </StackPanel>
                 </DockPanel>
             </Border>
@@ -1474,6 +1484,123 @@
                                            FontSize="11"
                                            Foreground="{StaticResource Text.Muted}"
                                            TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Expander>
+                    </StackPanel>
+
+                    <!-- AGENT API -->
+                    <StackPanel x:Name="SettingsPanelAgent" Visibility="Collapsed">
+                        <Expander Style="{StaticResource Settings.Expander}" IsExpanded="True">
+                            <Expander.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <Border Width="30" Height="30" CornerRadius="8" Background="{DynamicResource Accent.Soft}" Margin="0,0,10,0" VerticalAlignment="Center">
+                                        <Path behaviors:AppIcon.Kind="cpu" behaviors:AppIcon.Size="16" TextElement.Foreground="{DynamicResource Accent.Primary}" />
+                                    </Border>
+                                    <StackPanel>
+                                        <TextBlock Text="{loc:T agent.srv.title}" FontWeight="SemiBold" FontSize="13" />
+                                        <TextBlock Text="{loc:T agent.srv.sub}" FontSize="10" Foreground="{StaticResource Text.Muted}" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Expander.Header>
+                            <StackPanel>
+                                <CheckBox x:Name="AgentEnabledCheck" Content="{loc:T agent.enabled}" Foreground="{StaticResource Text.Secondary}" FontSize="12" />
+                                <TextBlock Text="{loc:T agent.enabledHint}" Margin="0,6,0,0" FontSize="11" Foreground="{StaticResource Text.Muted}" TextWrapping="Wrap" />
+                                <TextBlock Text="{loc:T agent.port}" Margin="0,12,0,6" Style="{StaticResource App.MutedTextStyle}" FontSize="11" />
+                                <TextBox x:Name="AgentPortBox" Style="{StaticResource App.InputTextBox}" Text="47821" MaxWidth="160" HorizontalAlignment="Left" />
+                                <WrapPanel Margin="0,14,0,8">
+                                    <Button Content="{loc:T agent.save}" ToolTip="{loc:T agent.tip.save}" Height="32" MinWidth="110" Margin="0,0,8,0" Style="{StaticResource App.Button.Primary}" Click="AgentSaveButton_Click" />
+                                    <Button Content="{loc:T agent.docs}" ToolTip="{loc:T agent.tip.docs}" Height="32" MinWidth="110" Style="{StaticResource App.Button.Ghost}" Click="AgentDocsButton_Click" />
+                                </WrapPanel>
+                                <TextBlock x:Name="AgentStatusText" FontSize="11" Foreground="{StaticResource Text.Muted}" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Expander>
+
+                        <Expander Style="{StaticResource Settings.Expander}" IsExpanded="True">
+                            <Expander.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <Border Width="30" Height="30" CornerRadius="8" Background="{DynamicResource Accent.Soft}" Margin="0,0,10,0" VerticalAlignment="Center">
+                                        <Path behaviors:AppIcon.Kind="shield" behaviors:AppIcon.Size="16" TextElement.Foreground="{DynamicResource Accent.Primary}" />
+                                    </Border>
+                                    <StackPanel>
+                                        <TextBlock Text="{loc:T agent.keys.title}" FontWeight="SemiBold" FontSize="13" />
+                                        <TextBlock Text="{loc:T agent.keys.sub}" FontSize="10" Foreground="{StaticResource Text.Muted}" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Expander.Header>
+                            <StackPanel>
+                                <TextBlock Text="{loc:T agent.keyName}" Margin="0,0,0,6" Style="{StaticResource App.MutedTextStyle}" FontSize="11" />
+                                <TextBox x:Name="AgentKeyNameBox" Style="{StaticResource App.InputTextBox}" mah:TextBoxHelper.Watermark="claude-code" />
+                                <TextBlock Text="{loc:T agent.scopes}" Margin="0,12,0,6" Style="{StaticResource App.MutedTextStyle}" FontSize="11" />
+                                <WrapPanel>
+                                    <CheckBox x:Name="AgentScopeRead" Content="read" IsChecked="True" Margin="0,0,14,0" Foreground="{StaticResource Text.Secondary}" ToolTip="{loc:T agent.tip.scopeRead}" />
+                                    <CheckBox x:Name="AgentScopeDeploy" Content="deploy" Margin="0,0,14,0" Foreground="{StaticResource Text.Secondary}" ToolTip="{loc:T agent.tip.scopeDeploy}" />
+                                    <CheckBox x:Name="AgentScopeUpload" Content="upload" Margin="0,0,14,0" Foreground="{StaticResource Text.Secondary}" ToolTip="{loc:T agent.tip.scopeUpload}" />
+                                    <CheckBox x:Name="AgentScopeTerminal" Content="terminal" Foreground="{StaticResource Text.Secondary}" ToolTip="{loc:T agent.tip.scopeTerminal}" />
+                                </WrapPanel>
+                                <TextBlock Text="{loc:T agent.approval}" Margin="0,12,0,6" Style="{StaticResource App.MutedTextStyle}" FontSize="11" />
+                                <ComboBox x:Name="AgentApprovalCombo" Height="34" SelectedIndex="0">
+                                    <ComboBoxItem Content="ask" Tag="ask" ToolTip="{loc:T agent.tip.approvalAsk}" />
+                                    <ComboBoxItem Content="auto" Tag="auto" ToolTip="{loc:T agent.tip.approvalAuto}" />
+                                </ComboBox>
+                                <TextBlock Text="{loc:T agent.projects}" Margin="0,12,0,6" Style="{StaticResource App.MutedTextStyle}" FontSize="11" />
+                                <TextBox x:Name="AgentProjectsBox" Style="{StaticResource App.InputTextBox}" mah:TextBoxHelper.Watermark="C:\laragon\www\site1;C:\laragon\www\site2" />
+                                <Button Content="{loc:T agent.create}" ToolTip="{loc:T agent.tip.create}" Height="32" MinWidth="130" Margin="0,14,0,8" HorizontalAlignment="Left" Style="{StaticResource App.Button.Primary}" Click="AgentCreateKey_Click" />
+
+                                <Border x:Name="AgentNewKeyPanel" Visibility="Collapsed" Style="{StaticResource App.StatusBadge.Warning}" Padding="12" HorizontalAlignment="Stretch" Margin="0,0,0,10">
+                                    <StackPanel>
+                                        <TextBlock Text="{loc:T agent.newKeyOnce}" Foreground="{StaticResource Status.Warning}" FontWeight="SemiBold" FontSize="12" TextWrapping="Wrap" />
+                                        <TextBox x:Name="AgentNewKeyBox" IsReadOnly="True" Style="{StaticResource App.InputTextBox}" Margin="0,8,0,8" FontFamily="{StaticResource FontFamily.Mono}" />
+                                        <WrapPanel>
+                                            <Button Content="{loc:T agent.copyKey}" Height="30" MinWidth="110" Margin="0,0,8,0" Style="{StaticResource App.Button.Secondary}" Click="AgentCopyKey_Click" />
+                                            <Button Content="{loc:T agent.copyPrompt}" ToolTip="{loc:T agent.tip.copyPrompt}" Height="30" MinWidth="140" Style="{StaticResource App.Button.Primary}" Click="AgentCopyPromptWithKey_Click" />
+                                        </WrapPanel>
+                                    </StackPanel>
+                                </Border>
+
+                                <TextBlock Text="{loc:T agent.existingKeys}" Margin="0,8,0,6" Style="{StaticResource App.SectionTitleTextStyle}" FontSize="12" />
+                                <TextBlock x:Name="AgentNoKeysText" Text="{loc:T agent.noKeys}" Style="{StaticResource App.MutedTextStyle}" Visibility="Collapsed" />
+                                <ItemsControl x:Name="AgentKeysList">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Style="{StaticResource App.PanelStyle}" Padding="10,8" Margin="0,0,0,6">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel>
+                                                        <TextBlock Text="{Binding Name}" FontWeight="Bold" Foreground="{StaticResource Text.Primary}" />
+                                                        <TextBlock Text="{Binding Summary}" Style="{StaticResource App.CaptionTextStyle}" TextWrapping="Wrap" />
+                                                    </StackPanel>
+                                                    <Button Grid.Column="1" Content="{loc:T agent.revoke}" ToolTip="{loc:T agent.tip.revoke}" Tag="{Binding}" Height="28" Padding="10,0"
+                                                            Style="{StaticResource App.Button.Danger}" Click="AgentRevokeKey_Click" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Expander>
+
+                        <Expander Style="{StaticResource Settings.Expander}" IsExpanded="True">
+                            <Expander.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <Border Width="30" Height="30" CornerRadius="8" Background="{DynamicResource Accent.Soft}" Margin="0,0,10,0" VerticalAlignment="Center">
+                                        <Path behaviors:AppIcon.Kind="link" behaviors:AppIcon.Size="16" TextElement.Foreground="{DynamicResource Accent.Primary}" />
+                                    </Border>
+                                    <StackPanel>
+                                        <TextBlock Text="{loc:T agent.connect.title}" FontWeight="SemiBold" FontSize="13" />
+                                        <TextBlock Text="{loc:T agent.connect.sub}" FontSize="10" Foreground="{StaticResource Text.Muted}" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Expander.Header>
+                            <StackPanel>
+                                <TextBlock Text="{loc:T agent.connect.mcp}" Style="{StaticResource App.MutedTextStyle}" FontSize="11" Margin="0,0,0,6" />
+                                <TextBox x:Name="AgentMcpCommandBox" IsReadOnly="True" TextWrapping="Wrap" Style="{StaticResource App.InputTextBox.Multiline}" MinHeight="64" FontFamily="{StaticResource FontFamily.Mono}" FontSize="11" />
+                                <TextBlock Text="{loc:T agent.connect.curl}" Style="{StaticResource App.MutedTextStyle}" FontSize="11" Margin="0,12,0,6" />
+                                <TextBox x:Name="AgentCurlBox" IsReadOnly="True" TextWrapping="Wrap" Style="{StaticResource App.InputTextBox.Multiline}" MinHeight="48" FontFamily="{StaticResource FontFamily.Mono}" FontSize="11" />
+                                <Button Content="{loc:T agent.copyPrompt}" ToolTip="{loc:T agent.tip.copyPrompt}" Height="32" MinWidth="160" Margin="0,12,0,0" HorizontalAlignment="Left" Style="{StaticResource App.Button.Primary}" Click="AgentCopyPrompt_Click" />
+                                <TextBlock Text="{loc:T agent.connect.note}" Margin="0,10,0,0" FontSize="11" Foreground="{StaticResource Text.Muted}" TextWrapping="Wrap" />
                             </StackPanel>
                         </Expander>
                     </StackPanel>

@@ -135,6 +135,7 @@ namespace GitDeployPro.Controls
             UpdateRemoteBrowserVisualState();
             ConfigurationService.ConnectionsChanged += OnConnectionsChanged;
             TemporaryMappingService.Changed += (_, _) => Dispatcher.BeginInvoke(new Action(UpdateMappingBanner));
+            TemporaryMappingService.TargetsChanged += (_, _) => Dispatcher.BeginInvoke(new Action(UpdateMappingBanner));
             ThemeService.Instance.ThemeChanged += OnDeployThemeChanged;
             Loaded += DeployRemoteWorkspaceControl_Loaded;
             Unloaded += DeployRemoteWorkspaceControl_Unloaded;
@@ -2632,6 +2633,16 @@ namespace GitDeployPro.Controls
                     IconGlyph = "⏱",
                     Execute = _ => _ = OpenTemporaryMappingAsync(node)
                 });
+                if (TemporaryMappingService.GetFor(_currentProfile) != null)
+                {
+                    menuActions.Add(new AppContextMenuAction
+                    {
+                        Id = "temp-mapping-add",
+                        Label = Loc.T("tmap.addTarget"),
+                        IconGlyph = "＋",
+                        Execute = _ => AddTemporaryTarget(node)
+                    });
+                }
             }
 
             menuActions.Add(AppContextMenuAction.Separator("remote-properties-separator"));
@@ -2885,6 +2896,30 @@ namespace GitDeployPro.Controls
             var rootBefore = RemotePathResolver.BuildRemoteRoot(_currentProfile);
             TemporaryMappingService.Start(_currentProfile, relative == "." ? "/" : relative, remote);
             await ReloadAfterMappingChangeAsync(rootBefore);
+        }
+
+        /// <summary>Adds this remote folder as another named target of the running temporary mapping.</summary>
+        private void AddTemporaryTarget(RemoteTreeNode node)
+        {
+            if (node == null || !node.IsDirectory || TemporaryMappingService.GetFor(_currentProfile) == null)
+            {
+                return;
+            }
+
+            var defaultName = node.FullPath.TrimEnd('/').Split('/').LastOrDefault() ?? "site";
+            var dialog = new InputDialog(Loc.T("tmap.targetNamePrompt"), Loc.T("tmap.addTarget"), defaultName)
+            {
+                Owner = Window.GetWindow(this)
+            };
+            if (WindowOwnerService.ShowDialogOwned(dialog, this) != true)
+            {
+                return;
+            }
+
+            if (!TemporaryMappingService.AddTarget(node.FullPath, (dialog.ResponseText ?? string.Empty).Trim()))
+            {
+                ModernMessageBox.Show(Loc.T("tmap.targetExists"), Loc.T("tmap.addTarget"), MessageBoxButton.OK, MessageBoxImage.Information);
+            }
         }
 
         private async void EndTempMap_Click(object sender, RoutedEventArgs e)
@@ -4639,7 +4674,10 @@ namespace GitDeployPro.Controls
                 ? RemotePathResolver.BuildRemoteRoot(_currentProfile)
                 : remoteLabel;
 
-            MappingBannerText.Text = isTemp
+            var tempTargets = TemporaryMappingService.Targets;
+            MappingBannerText.Text = isTemp && tempTargets.Count > 1
+                ? Loc.T("tmap.bannerMulti", localLabel, tempTargets.Count, string.Join(", ", tempTargets.Select(t => t.Name)))
+                : isTemp
                 ? $"Temporary mapping (not saved): local `{localLabel}` → remote `{remoteLabel}`."
                 : $"Path mapping is active: local `{localLabel}` → remote `{remoteLabel}` (browsing `{root}`).";
             MappingBanner.Visibility = Visibility.Visible;

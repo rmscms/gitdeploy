@@ -259,7 +259,7 @@ namespace GitDeployPro.Pages
 
         private IEnumerable<StackPanel> AllSettingsPanels()
         {
-            foreach (var p in new[] { SettingsPanelGeneral, SettingsPanelServer, SettingsPanelGit, SettingsPanelTerminal, SettingsPanelTelegram, SettingsPanelAiAgent, SettingsPanelVpn, SettingsPanelModem, })
+            foreach (var p in new[] { SettingsPanelGeneral, SettingsPanelServer, SettingsPanelGit, SettingsPanelTerminal, SettingsPanelTelegram, SettingsPanelAiAgent, SettingsPanelVpn, SettingsPanelModem, SettingsPanelAgent, })
             {
                 if (p != null)
                 {
@@ -416,6 +416,11 @@ namespace GitDeployPro.Pages
                 SettingsPanelModem.Visibility = section == "modem" ? Visibility.Visible : Visibility.Collapsed;
             }
 
+            if (SettingsPanelAgent != null)
+            {
+                SettingsPanelAgent.Visibility = section == "agent-api" ? Visibility.Visible : Visibility.Collapsed;
+            }
+
             SetNavActive(NavGeneralButton, section == "general");
             SetNavActive(NavServerButton, section == "server");
             SetNavActive(NavGitButton, section == "git");
@@ -424,6 +429,7 @@ namespace GitDeployPro.Pages
             SetNavActive(NavAiAgentButton, section == "ai-agent");
             SetNavActive(NavVpnButton, section == "vpn");
             SetNavActive(NavModemButton, section == "modem");
+            SetNavActive(NavAgentButton, section == "agent-api");
 
             if (SettingsSearchBox != null && SettingsSearchBox.Text.Length > 0)
             {
@@ -507,6 +513,7 @@ namespace GitDeployPro.Pages
                 LoadTelegramSettings(globalConfig);
                 LoadVpnSettings(globalConfig);
                 LoadModemSettings(globalConfig);
+                LoadAgentApiSettings(globalConfig);
                 if (SshKeyPathTextBox != null)
                 {
                     SshKeyPathTextBox.Text = globalConfig.DefaultSshKeyPath ?? string.Empty;
@@ -3703,6 +3710,173 @@ namespace GitDeployPro.Pages
             catch (Exception ex)
             {
                 ModemStatusText.Text = ex.Message;
+            }
+        }
+
+        // ---- Agent API ----
+
+        private void LoadAgentApiSettings(ConfigurationService.GlobalConfig cfg)
+        {
+            if (AgentEnabledCheck == null)
+            {
+                return;
+            }
+
+            AgentEnabledCheck.IsChecked = cfg.AgentApiEnabled;
+            AgentPortBox.Text = (cfg.AgentApiPort > 1024 ? cfg.AgentApiPort : GitDeployPro.Services.AgentApi.AgentApiServer.DefaultPort).ToString();
+            RefreshAgentKeys();
+            RefreshAgentStatus();
+        }
+
+        private void RefreshAgentKeys()
+        {
+            var keys = GitDeployPro.Services.AgentApi.AgentApiKeyStore.Instance.List();
+            AgentKeysList.ItemsSource = null;
+            AgentKeysList.ItemsSource = keys;
+            AgentNoKeysText.Visibility = keys.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        private void RefreshAgentStatus()
+        {
+            var server = GitDeployPro.Services.AgentApi.AgentApiServer.Instance;
+            var port = server.IsRunning ? server.Port : (int.TryParse(AgentPortBox.Text, out var p) ? p : GitDeployPro.Services.AgentApi.AgentApiServer.DefaultPort);
+            AgentStatusText.Text = server.IsRunning
+                ? Loc.T("agent.statusOn", port)
+                : string.IsNullOrEmpty(server.LastError) ? Loc.T("agent.statusOff") : Loc.T("agent.statusError", server.LastError);
+
+            AgentMcpCommandBox.Text = $"claude mcp add --transport http gitdeploy http://127.0.0.1:{port}/mcp --header \"Authorization: Bearer YOUR_KEY\"";
+            AgentCurlBox.Text = $"curl -H \"Authorization: Bearer YOUR_KEY\" http://127.0.0.1:{port}/v1/projects";
+        }
+
+        private void AgentSaveButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var port = int.TryParse(AgentPortBox.Text?.Trim(), out var p) && p is > 1024 and < 65535
+                    ? p
+                    : GitDeployPro.Services.AgentApi.AgentApiServer.DefaultPort;
+                AgentPortBox.Text = port.ToString();
+                _configService.UpdateGlobalConfig(c =>
+                {
+                    c.AgentApiEnabled = AgentEnabledCheck.IsChecked == true;
+                    c.AgentApiPort = port;
+                });
+                GitDeployPro.Services.AgentApi.AgentApiServer.Instance.StartFromConfig();
+                RefreshAgentStatus();
+            }
+            catch (Exception ex)
+            {
+                AgentStatusText.Text = ex.Message;
+            }
+        }
+
+        private void AgentDocsButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo("https://github.com/rmscms/gitdeploy/blob/main/docs/AGENT_API.md") { UseShellExecute = true });
+            }
+            catch
+            {
+            }
+        }
+
+        private void AgentCreateKey_Click(object sender, RoutedEventArgs e)
+        {
+            var scopes = new List<string>();
+            if (AgentScopeRead.IsChecked == true) scopes.Add("read");
+            if (AgentScopeDeploy.IsChecked == true) scopes.Add("deploy");
+            if (AgentScopeUpload.IsChecked == true) scopes.Add("upload");
+            if (AgentScopeTerminal.IsChecked == true) scopes.Add("terminal");
+            if (scopes.Count == 0)
+            {
+                AgentStatusText.Text = Loc.T("agent.needScope");
+                return;
+            }
+
+            var approval = (AgentApprovalCombo.SelectedItem as ComboBoxItem)?.Tag as string ?? "ask";
+            var projects = (AgentProjectsBox.Text ?? string.Empty).Split(new[] { ';', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            var key = GitDeployPro.Services.AgentApi.AgentApiKeyStore.Instance.Create(AgentKeyNameBox.Text, scopes, projects, approval);
+            AgentNewKeyBox.Text = key;
+            AgentNewKeyPanel.Visibility = Visibility.Visible;
+            AgentKeyNameBox.Text = string.Empty;
+            RefreshAgentKeys();
+        }
+
+        private int CurrentAgentPort()
+        {
+            var server = GitDeployPro.Services.AgentApi.AgentApiServer.Instance;
+            if (server.IsRunning)
+            {
+                return server.Port;
+            }
+
+            return int.TryParse(AgentPortBox.Text?.Trim(), out var p) && p is > 1024 and < 65535
+                ? p
+                : GitDeployPro.Services.AgentApi.AgentApiServer.DefaultPort;
+        }
+
+        /// <summary>Text to paste to an agent: includes the live port so a changed port never confuses it.</summary>
+        private string BuildAgentPrompt(string key)
+        {
+            var port = CurrentAgentPort();
+            var url = $"http://127.0.0.1:{port}";
+            return string.Join("\n", new[]
+            {
+                "You can control my GitDeploy Pro desktop app through its local Agent API.",
+                "",
+                $"Base URL: {url}",
+                $"Auth header: Authorization: Bearer {key}",
+                $"MCP (preferred): claude mcp add --transport http gitdeploy {url}/mcp --header \"Authorization: Bearer {key}\"",
+                $"REST spec: GET {url}/v1/openapi.json   |   Guide: https://github.com/rmscms/gitdeploy/blob/main/docs/AGENT_API.md",
+                "",
+                "Workflow: list_projects -> get_changes -> deploy (or upload specific paths). deploy/upload/terminal_connect are async jobs: poll get_job until state is done/failed/denied.",
+                "A human may have to approve in the app; if a job is 'denied', stop and tell me - never retry in a loop.",
+                "Terminal: terminal_connect first (wait for the job), then terminal_run one-line commands, then terminal_close.",
+                "If the connection fails the port may have changed - ask me for the current port (GitDeploy -> Settings -> Agent API).",
+            });
+        }
+
+        private void CopyToClipboardSafe(string text)
+        {
+            try
+            {
+                System.Windows.Clipboard.SetText(text);
+                AgentStatusText.Text = Loc.T("agent.copied", CurrentAgentPort());
+            }
+            catch
+            {
+            }
+        }
+
+        private void AgentCopyPrompt_Click(object sender, RoutedEventArgs e) => CopyToClipboardSafe(BuildAgentPrompt("YOUR_KEY"));
+
+        private void AgentCopyPromptWithKey_Click(object sender, RoutedEventArgs e)
+        {
+            var key = (AgentNewKeyBox.Text ?? string.Empty).Trim();
+            CopyToClipboardSafe(BuildAgentPrompt(key.Length > 0 ? key : "YOUR_KEY"));
+        }
+
+        private void AgentCopyKey_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                System.Windows.Clipboard.SetText(AgentNewKeyBox.Text);
+            }
+            catch
+            {
+            }
+        }
+
+        private void AgentRevokeKey_Click(object sender, RoutedEventArgs e)
+        {
+            if ((sender as FrameworkElement)?.Tag is GitDeployPro.Services.AgentApi.AgentApiKey key
+                && System.Windows.MessageBox.Show(Loc.T("agent.confirmRevoke", key.Name), Loc.T("agent.nav"),
+                    MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
+            {
+                GitDeployPro.Services.AgentApi.AgentApiKeyStore.Instance.Revoke(key.Id);
+                AgentNewKeyPanel.Visibility = Visibility.Collapsed;
+                RefreshAgentKeys();
             }
         }
 

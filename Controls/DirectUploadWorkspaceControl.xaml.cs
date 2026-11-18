@@ -3036,7 +3036,53 @@ namespace GitDeployPro.Controls
                 return;
             }
 
+            if (TemporaryMappingService.HasMultipleTargets)
+            {
+                await UploadToTemporaryTargetsAsync(filesToUpload, foldersToCreate);
+                return;
+            }
+
             await UploadSpecificFilesAsync(filesToUpload, foldersToCreate, skipConfirm: false);
+        }
+
+        /// <summary>
+        /// Temporary mapping with several named targets: ask which ones, then send the same selection to each in turn.
+        /// Saved mappings are untouched; the temporary target is only switched in memory.
+        /// </summary>
+        private async Task UploadToTemporaryTargetsAsync(List<FileSystemItem> filesToUpload, List<FileSystemItem> foldersToCreate)
+        {
+            var targets = TemporaryMappingService.Targets;
+            var picker = new GitDeployPro.Windows.TempTargetPickerWindow(targets, TemporaryMappingService.CurrentIndex, multi: true);
+            if (WindowOwnerService.ShowDialogOwned(picker, this) != true || picker.SelectedIndices.Count == 0)
+            {
+                StatusText.Text = "Ready.";
+                return;
+            }
+
+            var chosen = picker.SelectedIndices.ToList();
+            var previous = TemporaryMappingService.CurrentIndex;
+            var crashRecoveryWasOn = UseSessionCheck.IsChecked == true;
+            try
+            {
+                // The crash-recovery log is keyed by relative path, so it would skip the 2nd target as "already sent".
+                UseSessionCheck.IsChecked = false;
+                for (var i = 0; i < chosen.Count; i++)
+                {
+                    var target = targets[chosen[i]];
+                    TemporaryMappingService.SetCurrent(chosen[i], notify: false);
+                    AddUploadLog($"=== Target {i + 1}/{chosen.Count}: {target.Name} → {target.RemotePath} ===");
+                    await UploadSpecificFilesAsync(filesToUpload, foldersToCreate, skipConfirm: i > 0);
+                    if (_isUploading || _cancellationTokenSource?.IsCancellationRequested == true)
+                    {
+                        break; // STOP pressed: do not continue with the remaining targets
+                    }
+                }
+            }
+            finally
+            {
+                UseSessionCheck.IsChecked = crashRecoveryWasOn;
+                TemporaryMappingService.SetCurrent(previous);
+            }
         }
 
         /// <summary>

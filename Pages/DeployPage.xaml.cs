@@ -3747,7 +3747,26 @@ namespace GitDeployPro.Pages
                 return;
             }
 
+            if (TemporaryMappingService.HasMultipleTargets && !PickTemporaryTargetForDeploy())
+            {
+                return;
+            }
+
             await StartDeployProcess(selectedFiles);
+        }
+
+        /// <summary>A temporary mapping with several targets: a deploy goes to exactly one, so ask which.</summary>
+        private bool PickTemporaryTargetForDeploy()
+        {
+            var picker = new GitDeployPro.Windows.TempTargetPickerWindow(
+                TemporaryMappingService.Targets, TemporaryMappingService.CurrentIndex, multi: false);
+            if (WindowOwnerService.ShowDialogOwned(picker, this) != true || picker.SelectedIndices.Count == 0)
+            {
+                return false;
+            }
+
+            TemporaryMappingService.SetCurrent(picker.SelectedIndices[0]);
+            return true;
         }
 
         private async Task<DeployExecutionResult> StartDeployProcess(List<FileChange> filesToDeploy, bool isAutoFlow = false, bool runGitPostSteps = true)

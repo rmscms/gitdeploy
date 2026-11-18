@@ -300,6 +300,11 @@ namespace GitDeployPro.Services
             /// <summary>Modem counter value (bytes) at the last "reset": usage shown = counter − baseline (same cycle only).</summary>
             public long ModemBaselineBytes { get; set; }
 
+            /// <summary>Local agent API (127.0.0.1 only). Off by default; keys are managed in Settings → Agent API.</summary>
+            public bool AgentApiEnabled { get; set; }
+
+            public int AgentApiPort { get; set; } = 47821;
+
             public string ModemBaselineCycle { get; set; } = "";
 
             /// <summary>Date of the newest SMS already processed (ISO 8601).</summary>
